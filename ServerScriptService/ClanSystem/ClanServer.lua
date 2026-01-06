@@ -55,6 +55,11 @@ local GetClanDataEvent = Instance.new("RemoteEvent")
 GetClanDataEvent.Name = "GetClanData"
 GetClanDataEvent.Parent = clanEvents
 
+-- RemoteFunction para obtener lista de clanes
+local GetClansListFunction = Instance.new("RemoteFunction")
+GetClansListFunction.Name = "GetClansList"
+GetClansListFunction.Parent = clanEvents
+
 -- Event handlers
 CreateClanEvent.OnServerEvent:Connect(function(player, clanName, clanLogo)
 local success, clanId, clanData = ClanAPI:CreateClan(clanName, player.UserId, clanLogo)
@@ -144,5 +149,11 @@ GetClanDataEvent:FireClient(player, clanData)
 end
 end)
 
--- Inicializar
-ClanSystem:Init()
+-- Función para obtener lista de clanes
+GetClansListFunction.OnServerInvoke = function(player)
+	-- Aquí iría la lógica para obtener todos los clanes
+	-- Por ahora retornamos una tabla vacía
+	local clansList = {}
+	-- TODO: Implementar obtención de clanes del DataStore
+	return clansList
+end
