@@ -1,12 +1,12 @@
+wait(1) -- Esperar a que el juego cargue completamente
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- Esperar a que ClanClient esté disponible
-local ClanModules = ServerStorage:WaitForChild("ClanModules")
-local ClanClient = require(ClanModules:WaitForChild("ClanClient"))
+local ClanClient = require(ReplicatedStorage:WaitForChild("ClanClient"))
 
 -- Crear ScreenGui principal
 local screenGui = Instance.new("ScreenGui")
