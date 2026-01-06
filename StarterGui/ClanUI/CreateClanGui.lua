@@ -1,5 +1,3 @@
-wait(1) -- Esperar a que el juego cargue completamente
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
