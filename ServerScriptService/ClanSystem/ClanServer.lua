@@ -61,9 +61,8 @@ GetClansListFunction.Name = "GetClansList"
 GetClansListFunction.Parent = clanEvents
 
 -- Event handlers
-CreateClanEvent.OnServerEvent:Connect(function(player, clanName, clanLogo)
-local success, clanId, clanData = ClanAPI:CreateClan(clanName, player.UserId, clanLogo)
-
+CreateClanEvent.OnServerEvent:Connect(function(player, clanName, clanLogo, clanDesc)
+	local success, clanId, clanData = ClanAPI:CreateClan(clanName, player.UserId, clanLogo, clanDesc)
 if success then
 print(player.Name .. " creó el clan: " .. clanName)
 else
@@ -151,9 +150,6 @@ end)
 
 -- Función para obtener lista de clanes
 GetClansListFunction.OnServerInvoke = function(player)
-	-- Aquí iría la lógica para obtener todos los clanes
-	-- Por ahora retornamos una tabla vacía
-	local clansList = {}
-	-- TODO: Implementar obtención de clanes del DataStore
+	local clansList = ClanAPI:GetAllClans()
 	return clansList
 end

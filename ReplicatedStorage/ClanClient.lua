@@ -20,9 +20,8 @@ ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
 
 -- Crear clan
-function ClanClient:CreateClan(clanName, clanLogo)
-CreateClanEvent:FireServer(clanName, clanLogo or "rbxassetid://0")
-wait(0.5)
+function ClanClient:CreateClan(clanName, clanLogo, clanDesc)
+	CreateClanEvent:FireServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
 self:RefreshClanData()
 end
 
@@ -94,4 +93,21 @@ function ClanClient:RefreshClanData()
 GetClanDataEvent:FireServer(self.currentClanId)
 end
 
-return ClanClient
+-- Obtener lista de todos los clanes
+function ClanClient:GetClansList()
+	local GetClansListFunc = clanEvents:FindFirstChild("GetClansList")
+	if GetClansListFunc then
+		local success, clans = pcall(function()
+			return GetClansListFunc:InvokeServer()
+		end)
+		
+		if success then
+			return clans or {}
+		else
+			warn("Error obteniendo lista de clanes:", clans)
+			return {}
+		end
+	end
+	return {}
+end
+

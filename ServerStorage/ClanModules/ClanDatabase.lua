@@ -6,19 +6,18 @@ local clanStore = DataStoreService:GetDataStore("ClansData")
 local playerClanStore = DataStoreService:GetDataStore("PlayerClans")
 
 -- Crear un nuevo clan
-function ClanDatabase:CreateClan(clanName, ownerId, clanLogo)
-local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
+function ClanDatabase:CreateClan(clanName, ownerId, clanLogo, clanDesc)
+	local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
 
-local clanData = {
-clanId = clanId,
-clanName = clanName,
-clanLogo = clanLogo or "rbxassetid://0",
-owner = ownerId,
-colideres = {},
-lideres = {},
-miembros = {ownerId},
-descripcion = "",
-nivel = 1,
+	local clanData = {
+		clanId = clanId,
+		clanName = clanName,
+		clanLogo = clanLogo or "rbxassetid://0",
+		owner = ownerId,
+		colideres = {},
+		lideres = {},
+		miembros = {ownerId},
+		descripcion = clanDesc or "Sin descripción",
 fechaCreacion = os.time(),
 miembros_data = {
 [ownerId] = {
@@ -240,4 +239,53 @@ return false, err
 end
 end
 
-return ClanDatabase
+-- Obtener lista de todos los clanes
+function ClanDatabase:GetAllClans()
+	local allClans = {}
+	
+	-- Usar ListKeysAsync para obtener todas las keys del datastore
+	local success, result = pcall(function()
+		local pages = clanStore:ListKeysAsync()
+		
+		while true do
+			local keys = pages:GetCurrentPage()
+			
+			for _, key in ipairs(keys) do
+				if key.KeyName:match("^clan:") then
+					local clanData = self:GetClan(key.KeyName:gsub("^clan:", ""))
+					if clanData then
+						-- Contar miembros
+						local memberCount = 0
+						for _ in pairs(clanData.miembros_data or {}) do
+							memberCount = memberCount + 1
+						end
+						
+						table.insert(allClans, {
+							clanId = clanData.clanId,
+							clanName = clanData.clanName,
+							clanLogo = clanData.clanLogo,
+							descripcion = clanData.descripcion or "Sin descripción",
+							nivel = clanData.nivel or 1,
+							miembros_count = memberCount,
+							fechaCreacion = clanData.fechaCreacion
+						})
+					end
+				end
+			end
+			
+			if pages.IsFinished then
+				break
+			end
+			
+			pages:AdvanceToNextPageAsync()
+		end
+	end)
+	
+	if success then
+		return allClans
+	else
+		warn("Error obteniendo lista de clanes:", result)
+		return {}
+	end
+end
+

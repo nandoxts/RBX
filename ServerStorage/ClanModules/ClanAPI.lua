@@ -4,17 +4,16 @@ local ClanPermissions = require(script.Parent:FindFirstChild("ClanPermissions") 
 local ClanAPI = {}
 
 -- Crear un nuevo clan
-function ClanAPI:CreateClan(clanName, ownerId, clanLogo)
-if not clanName or clanName == "" then
-return false, "El nombre del clan es requerido"
-end
+function ClanAPI:CreateClan(clanName, ownerId, clanLogo, clanDesc)
+	if not clanName or clanName == "" then
+		return false, "El nombre del clan es requerido"
+	end
 
-if not ownerId or ownerId <= 0 then
-return false, "El ID del dueño es inválido"
-end
+	if not ownerId or ownerId <= 0 then
+		return false, "El ID del dueño es inválido"
+	end
 
-local success, clanId, clanData = ClanDatabase:CreateClan(clanName, ownerId, clanLogo)
-
+	local success, clanId, clanData = ClanDatabase:CreateClan(clanName, ownerId, clanLogo, clanDesc)
 if success then
 return true, clanId, clanData
 else
@@ -266,4 +265,8 @@ fechaCreacion = clanData.fechaCreacion
 }
 end
 
-return ClanAPI
+-- Obtener todos los clanes
+function ClanAPI:GetAllClans()
+	return ClanDatabase:GetAllClans()
+end
+
