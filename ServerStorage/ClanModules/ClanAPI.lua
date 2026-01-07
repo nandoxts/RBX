@@ -270,3 +270,48 @@ function ClanAPI:GetAllClans()
 	return ClanDatabase:GetAllClans()
 end
 
+-- Unirse a un clan
+function ClanAPI:JoinClan(clanId, playerId)
+	local clanData = ClanDatabase:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+	
+	-- Verificar si el jugador ya es miembro
+	if clanData.miembros_data[playerId] then
+		return false, "Ya eres miembro de este clan"
+	end
+	
+	-- Verificar si el jugador está en otro clan
+	local playerClanId = ClanDatabase:GetPlayerClan(playerId)
+	if playerClanId then
+		return false, "Ya perteneces a otro clan. Sal de tu clan actual primero"
+	end
+	
+	-- Agregar miembro como "miembro"
+	local success, updatedClan = ClanDatabase:AddMember(clanId, playerId, "miembro")
+	
+	if success then
+		return true, "Te has unido al clan correctamente"
+	else
+		return false, updatedClan
+	end
+end
+
+-- Disolver clan como administrador (sin restricciones)
+function ClanAPI:DissolveClansAsAdmin(clanId)
+	local clanData = ClanDatabase:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+
+	local success, err = ClanDatabase:DissolveClan(clanId)
+
+	if success then
+		return true, "Clan disuelto por administrador"
+	else
+		return false, err
+	end
+end
+
+return ClanAPI

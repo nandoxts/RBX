@@ -1,18 +1,15 @@
---[[ Music Dashboard - Professional Edition v3
+--[[ Music Dashboard - Professional Edition v4
      • Sistema completo de música con múltiples admins
      • Tabs: Queue / Library / Add
      • Control de volumen PERSONAL (no global)
      • Reproductor en tiempo real con progreso
      • Layout optimizado y responsive
      
-     CORRECCIONES APLICADAS v3:
-     1. FIX DEFINITIVO: Usa _G.MusicDashboardIcon para prevenir duplicación del botón
-     2. Input del Queue ahora usa R.Add (AddToQueue) en lugar de R.AddToCategory
-     3. Volumen personal por usuario (client-side, persiste con Attributes)
-     4. Editor numérico: Click en "80%" → TextBox editable
-     5. Límite de 19 caracteres en Audio IDs
-     6. Feedback visual completo (loading, success, error) en Quick Add
-     7. FIX: UIPadding en queueScroll para que el borde del avatar no se corte
+     CORRECCIONES APLICADAS v4:
+     1. FIX: Bug de navegación - Ahora resetea el estado de Library al cambiar de tab
+     2. FIX: Posiciones consistentes en djsScroll y songsScroll
+     3. FIX: Se resetea selectedDJ al salir de Library
+     4. Todas las correcciones anteriores de v3 incluidas
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -70,6 +67,12 @@ local PANEL_W_PX = 980
 local PANEL_H_PX = 620
 
 -- ════════════════════════════════════════════════════════════════
+-- POSICIONES CONSTANTES (para evitar inconsistencias)
+-- ════════════════════════════════════════════════════════════════
+local DJS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 8)
+local SONGS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 56)
+
+-- ════════════════════════════════════════════════════════════════
 -- STATE
 -- ════════════════════════════════════════════════════════════════
 local musicLibrary, playQueue, currentSong = {}, {}, nil
@@ -103,33 +106,25 @@ local function isValidAudioId(text)
 	if not text or text == "" then return false end
 	if not text:match("^%d+$") then return false end
 	local len = #text
-	return (len >= 6 and len <= 19)  -- Permitir hasta 19 dígitos para IDs futuros
+	return (len >= 6 and len <= 19)
 end
 
 local function getRemote(name)
 	local MusicRemotes = ReplicatedStorage:WaitForChild("MusicRemotes", 10)
 	if not MusicRemotes then warn("[MusicDashboard] Remote folder missing"); return end
 
-	-- Mapping de remotes a sus subcarpetas
 	local remoteMap = {
-		-- MusicPlayback
 		NextSong = "MusicPlayback",
 		PlaySong = "MusicPlayback",
 		PauseSong = "MusicPlayback",
 		StopSong = "MusicPlayback",
 		UpdatePlayback = "MusicPlayback",
-
-		-- MusicQueue
 		AddToQueue = "MusicQueue",
 		RemoveFromQueue = "MusicQueue",
 		ClearQueue = "MusicQueue",
 		MoveInQueue = "MusicQueue",
 		UpdateQueue = "MusicQueue",
-
-		-- UI
 		UpdateUI = "UI",
-
-		-- MusicLibrary
 		GetDJs = "MusicLibrary",
 		GetSongsByDJ = "MusicLibrary",
 		AddSongToDJ = "MusicLibrary",
@@ -138,7 +133,7 @@ local function getRemote(name)
 		RenameDJ = "MusicLibrary"
 	}
 
-	local subfolder = remoteMap[name] or "MusicLibrary"  -- Default a MusicLibrary
+	local subfolder = remoteMap[name] or "MusicLibrary"
 	local folder = MusicRemotes:FindFirstChild(subfolder)
 	if not folder then
 		warn("[MusicDashboard] Subfolder missing:", subfolder)
@@ -180,7 +175,7 @@ local screenGui = script.Parent :: ScreenGui
 screenGui.IgnoreGuiInset = true
 
 -- ════════════════════════════════════════════════════════════════
--- TOPBAR MUSIC BUTTON - FIX DEFINITIVO PARA DUPLICACIÓN
+-- TOPBAR MUSIC BUTTON
 -- ════════════════════════════════════════════════════════════════
 local musicIcon = nil
 task.wait(2)
@@ -197,7 +192,6 @@ if _G.HDAdminMain then
 end
 
 if Icon then
-	-- FIX DEFINITIVO: Destruir icono anterior si existe en _G
 	if _G.MusicDashboardIcon then
 		pcall(function()
 			_G.MusicDashboardIcon:destroy()
@@ -205,7 +199,6 @@ if Icon then
 		_G.MusicDashboardIcon = nil
 	end
 
-	-- Crear nuevo icono
 	musicIcon = Icon.new()
 		:setLabel("MUSIC")
 		:setOrder(1)
@@ -217,7 +210,6 @@ if Icon then
 		end)
 		:setEnabled(true)
 
-	-- Guardar referencia en _G para prevenir duplicación
 	_G.MusicDashboardIcon = musicIcon
 end
 
@@ -263,16 +255,16 @@ rounded(panel, R_PANEL)
 stroked(panel, 0.25)
 
 -- ════════════════════════════════════════════════════════════════
--- HEADER MEJORADO
+-- HEADER
 -- ════════════════════════════════════════════════════════════════
 local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 126) -- +16px de espacio extra
+header.Size = UDim2.new(1, 0, 0, 126)
 header.BackgroundColor3 = THEME.head
 header.BorderSizePixel = 0
 header.ZIndex = 102
 header.Parent = panel
-rounded(header, 18) -- Aplicar esquinas ovaladas solo arriba
--- Gradiente sutil
+rounded(header, 18)
+
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 24, 28)),
@@ -281,7 +273,6 @@ gradient.Color = ColorSequence.new{
 gradient.Rotation = 90
 gradient.Parent = header
 
--- Titulo y estado
 local titleFrame = Instance.new("Frame")
 titleFrame.Size = UDim2.new(1, -80, 0, 40)
 titleFrame.Position = UDim2.new(0, 20, 0, 12)
@@ -299,8 +290,6 @@ title.TextSize = 18
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = titleFrame
 
-
--- Boton cerrar mejorado
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 36, 0, 36)
 closeBtn.Position = UDim2.new(1, -50, 0, 12)
@@ -314,11 +303,11 @@ rounded(closeBtn, 8)
 stroked(closeBtn, 0.4)
 
 -- ════════════════════════════════════════════════════════════════
--- NOW PLAYING BAR (Reproductor en tiempo real)
+-- NOW PLAYING BAR
 -- ════════════════════════════════════════════════════════════════
 local nowPlayingBar = Instance.new("Frame")
 nowPlayingBar.Size = UDim2.new(1, -40, 0, 50)
-nowPlayingBar.Position = UDim2.new(0, 20, 0, 56) -- se mantiene igual, pero ahora hay más espacio debajo
+nowPlayingBar.Position = UDim2.new(0, 20, 0, 56)
 nowPlayingBar.BackgroundColor3 = THEME.card
 nowPlayingBar.BorderSizePixel = 0
 nowPlayingBar.Parent = header
@@ -332,7 +321,6 @@ npPadding.PaddingTop = UDim.new(0, 8)
 npPadding.PaddingBottom = UDim.new(0, 8)
 npPadding.Parent = nowPlayingBar
 
--- Información de la canción
 local songInfo = Instance.new("Frame")
 songInfo.Size = UDim2.new(0.5, 0, 0, 18)
 songInfo.BackgroundTransparency = 1
@@ -349,11 +337,10 @@ songTitle.TextXAlignment = Enum.TextXAlignment.Left
 songTitle.TextTruncate = Enum.TextTruncate.AtEnd
 songTitle.Parent = songInfo
 
--- Barra de progreso
 local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(1, 0, 0, 10) -- más gruesa
+progressBar.Size = UDim2.new(1, 0, 0, 10)
 progressBar.Position = UDim2.new(0, 0, 0, 26)
-progressBar.BackgroundColor3 = Color3.fromRGB(28, 28, 32) -- más contraste
+progressBar.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
 progressBar.BorderSizePixel = 0
 progressBar.Parent = nowPlayingBar
 rounded(progressBar, 2)
@@ -365,11 +352,9 @@ progressFill.BorderSizePixel = 0
 progressFill.Parent = progressBar
 rounded(progressFill, 5)
 
--- Tiempos
 local timeLabels = Instance.new("Frame")
 timeLabels.Size = UDim2.new(1, 0, 0, 16)
-timeLabels.Position = UDim2.new(0, 0, 1, -12)
-timeLabels.Position = UDim2.new(0, 0, 0, 44) -- debajo de la barra
+timeLabels.Position = UDim2.new(0, 0, 0, 44)
 timeLabels.BackgroundTransparency = 1
 timeLabels.Parent = nowPlayingBar
 
@@ -395,12 +380,12 @@ totalTimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 totalTimeLabel.Parent = timeLabels
 
 -- ════════════════════════════════════════════════════════════════
--- ADMIN CONTROLS (Sin control de volumen - ahora es personal)
+-- ADMIN CONTROLS
 -- ════════════════════════════════════════════════════════════════
 if isAdmin then
 	local ctrl = Instance.new("Frame")
 	ctrl.Size = UDim2.new(0, 120, 0, 28)
-	ctrl.Position = UDim2.new(1, -200, 0, 14)  -- Ajustado
+	ctrl.Position = UDim2.new(1, -200, 0, 14)
 	ctrl.BackgroundTransparency = 1
 	ctrl.Parent = header
 
@@ -422,7 +407,6 @@ if isAdmin then
 		rounded(b, 6)
 		stroked(b, 0.2)
 
-		-- Hover effect
 		b.MouseEnter:Connect(function()
 			TweenService:Create(b, TweenInfo.new(0.15), {
 				BackgroundColor3 = Color3.fromRGB(
@@ -441,7 +425,6 @@ if isAdmin then
 		return b
 	end
 
-	-- Solo SKIP y CLEAR
 	local skipB = mini("SKIP", THEME.accent)
 	local clearB = mini("CLEAR", Color3.fromRGB(161, 124, 72))
 
@@ -450,19 +433,17 @@ if isAdmin then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- PERSONAL VOLUME CONTROL - VERSION SIMPLIFICADA
+-- PERSONAL VOLUME CONTROL
 -- ════════════════════════════════════════════════════════════════
-
 local volFrame = Instance.new("Frame")
-volFrame.Size = UDim2.new(0, 140, 0, 28)  --  Más alto (28px como el botón)
-volFrame.Position = UDim2.new(1, isAdmin and -338 or -220, 0, 14)   -- Ajustado
+volFrame.Size = UDim2.new(0, 140, 0, 28)
+volFrame.Position = UDim2.new(1, isAdmin and -338 or -220, 0, 14)
 volFrame.BackgroundTransparency = 1
 volFrame.ZIndex = 102
 volFrame.Parent = header
 
---  BARRA DE VOLUMEN - Altura del botón (38px)
 local volSliderBg = Instance.new("Frame")
-volSliderBg.Size = UDim2.new(0, 85, 0, 26)  --  28px de alto (antes era 6px)
+volSliderBg.Size = UDim2.new(0, 85, 0, 26)
 volSliderBg.Position = UDim2.new(0, 0, 0, 0)
 volSliderBg.BackgroundColor3 = THEME.head
 volSliderBg.BorderSizePixel = 0
@@ -473,15 +454,14 @@ stroked(volSliderBg, 0.6)
 
 local volSliderFill = Instance.new("Frame")
 volSliderFill.Size = UDim2.new(0.8, 0, 1, 0)
-volSliderFill.BackgroundColor3 = THEME.accent  --  Siempre accent
+volSliderFill.BackgroundColor3 = THEME.accent
 volSliderFill.BorderSizePixel = 0
 volSliderFill.ZIndex = 103
 volSliderFill.Parent = volSliderBg
 rounded(volSliderFill, 8)
 
--- Label que se convierte en TextBox al hacer click
 local volLabel = Instance.new("TextButton")
-volLabel.Size = UDim2.new(0, 42, 0, 26)  --  28px de alto
+volLabel.Size = UDim2.new(0, 42, 0, 26)
 volLabel.Position = UDim2.new(0, 90, 0, 0)
 volLabel.BackgroundColor3 = THEME.card
 volLabel.Text = "80%"
@@ -495,7 +475,6 @@ volLabel.Parent = volFrame
 rounded(volLabel, 8)
 stroked(volLabel, 0.3)
 
--- TextBox oculto para edición
 local volInput = Instance.new("TextBox")
 volInput.Size = volLabel.Size
 volInput.Position = volLabel.Position
@@ -513,7 +492,6 @@ volInput.Parent = volFrame
 rounded(volInput, 8)
 stroked(volInput, 0.4)
 
---  Cargar volumen guardado (simular localStorage con Attributes)
 local savedVolume = player:GetAttribute("MusicVolume") or 0.8
 local currentVolume = savedVolume
 local dragging = false
@@ -528,7 +506,6 @@ local function updateVolume(volume)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 
-	-- Aplicar volumen LOCAL al Sound del Workspace
 	local sound = workspace:FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") then
 		sound.Volume = currentVolume
@@ -537,10 +514,8 @@ local function updateVolume(volume)
 	saveVolume(currentVolume)
 end
 
--- Inicializar volumen
 updateVolume(currentVolume)
 
--- Slider drag
 volSliderBg.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = true
@@ -562,7 +537,6 @@ volSliderBg.InputChanged:Connect(function(input)
 	end
 end)
 
--- Click en label → Mostrar input editable
 volLabel.MouseButton1Click:Connect(function()
 	volLabel.Visible = false
 	volInput.Visible = true
@@ -570,52 +544,37 @@ volLabel.MouseButton1Click:Connect(function()
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 end)
 
--- Validación en tiempo real: Solo números 1-100
 volInput:GetPropertyChangedSignal("Text"):Connect(function()
-	-- Filtrar solo números
 	local text = volInput.Text:gsub("[^%d]", "")
-
-	-- Limitar a 3 dígitos
 	if #text > 3 then
 		text = string.sub(text, 1, 3)
 	end
-
-	-- Si el valor es mayor a 100, limitarlo
 	local value = tonumber(text)
 	if value and value > 100 then
 		text = "100"
 	end
-
 	volInput.Text = text
 end)
 
--- Enter o perder foco → Aplicar valor
 local function applyInputValue()
 	local value = tonumber(volInput.Text)
-
-	-- Si está vacío o es 0, usar 1 como mínimo
 	if not value or value < 1 then
 		value = 1
 	end
-
-	-- Clamp entre 1-100
 	value = math.clamp(value, 1, 100)
 	updateVolume(value / 100)
-
 	volInput.Visible = false
 	volLabel.Visible = true
 end
 
 volInput.FocusLost:Connect(applyInputValue)
 
--- Enter key para aplicar
 UserInputService.InputBegan:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Return and volInput.Visible then
 		applyInputValue()
 	end
 end)
 
--- Hover effect en label
 volLabel.MouseEnter:Connect(function()
 	TweenService:Create(volLabel, TweenInfo.new(0.15), {
 		BackgroundColor3 = THEME.hover
@@ -628,7 +587,6 @@ volLabel.MouseLeave:Connect(function()
 	}):Play()
 end)
 
--- Aplicar volumen cuando cambia la canción
 RunService.Heartbeat:Connect(function()
 	local sound = workspace:FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") and sound.Volume ~= currentVolume then
@@ -675,7 +633,6 @@ local tQueue = createTab("QUEUE")
 local tLibrary = createTab("LIBRARY")
 local tAdd = isAdmin and createTab("ADD") or nil
 
--- Underline
 local underline = Instance.new("Frame")
 underline.Size = UDim2.new(0, 80, 0, 3)
 underline.Position = UDim2.new(0, 20, 0, header.Size.Y.Offset + 33)
@@ -707,8 +664,6 @@ pageLayout.EasingDirection = Enum.EasingDirection.Out
 pageLayout.TweenTime = 0.25
 pageLayout.Padding = UDim.new(0, 0)
 pageLayout.Parent = holder
-
--- Desactivar el cambio de página por scroll y swipe
 pageLayout.ScrollWheelInputEnabled = false
 pageLayout.TouchInputEnabled = false
 
@@ -721,9 +676,6 @@ queuePage.Size = UDim2.new(1, 0, 1, 0)
 queuePage.BackgroundTransparency = 1
 queuePage.LayoutOrder = 1
 queuePage.Parent = holder
-
--- Quick Add (solo para admins) - CORREGIDO: Ahora usa R.Add en lugar de R.AddToCategory
-local quickAddBtn, quickInput, qiStroke
 
 local quickAddFrame = Instance.new("Frame")
 quickAddFrame.Size = UDim2.new(1, -24, 0, 36)
@@ -748,7 +700,6 @@ quickInput.TextXAlignment = Enum.TextXAlignment.Left
 quickInput.ClearTextOnFocus = false
 quickInput.Parent = quickAddFrame
 
---  Limitar a 19 caracteres
 quickInput:GetPropertyChangedSignal("Text"):Connect(function()
 	if #quickInput.Text > 19 then
 		quickInput.Text = string.sub(quickInput.Text, 1, 19)
@@ -768,9 +719,8 @@ quickAddBtn.Parent = quickAddFrame
 rounded(quickAddBtn, 6)
 
 quickAddBtn.MouseButton1Click:Connect(function()
-	local aid = quickInput.Text:gsub("%s+", "") -- Eliminar espacios
+	local aid = quickInput.Text:gsub("%s+", "")
 
-	-- Validar ID antes de enviar
 	if not isValidAudioId(aid) then
 		qiStroke.Color = THEME.danger
 		quickInput.Text = ""
@@ -788,13 +738,10 @@ quickAddBtn.MouseButton1Click:Connect(function()
 		return
 	end
 
-	--  Mostrar estado "loading" con animación
 	quickAddBtn.Text = "..."
 	quickAddBtn.BackgroundColor3 = THEME.info
 	qiStroke.Color = THEME.info
 
-	-- Animación de "pensando"
-	local dotCount = 3
 	local loadingLoop = true
 	task.spawn(function()
 		while loadingLoop and quickAddBtn.Text == "..." do
@@ -806,13 +753,10 @@ quickAddBtn.MouseButton1Click:Connect(function()
 		end
 	end)
 
-	-- Enviar al servidor
 	if R.Add then
 		R.Add:FireServer(tonumber(aid))
-		-- No limpiar el texto aquí, se limpiará cuando llegue la respuesta
 	end
 
-	-- Timeout de seguridad (si no hay respuesta en 5 segundos)
 	task.delay(5, function()
 		if quickAddBtn.Text:match("%.") then
 			loadingLoop = false
@@ -832,13 +776,11 @@ quickAddBtn.MouseButton1Click:Connect(function()
 	end)
 end)
 
-
 local queueScroll = Instance.new("ScrollingFrame")
--- Calcular offsets según si el Quick Add está visible (no depender directamente de isAdmin)
 local topOffset = 10
 local bottomInset = -12
 if quickAddFrame and quickAddFrame.Parent and quickAddFrame.Visible then
-	topOffset = 10 + quickAddFrame.Size.Y.Offset + 4 -- 8px de margen extra
+	topOffset = 10 + quickAddFrame.Size.Y.Offset + 4
 	bottomInset = -(quickAddFrame.Size.Y.Offset + 4)
 end
 queueScroll.Size = UDim2.new(1, -24, 1, bottomInset)
@@ -851,7 +793,6 @@ queueScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 queueScroll.ClipsDescendants = true
 queueScroll.Parent = queuePage
 
--- FIX: Padding para que el UIStroke del avatar no se corte
 local queueScrollPadding = Instance.new("UIPadding")
 queueScrollPadding.PaddingLeft = UDim.new(0, 4)
 queueScrollPadding.PaddingRight = UDim.new(0, 4)
@@ -869,14 +810,12 @@ queueList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local function drawQueue()
-	-- Limpiar hijos (excepto UIListLayout y UIPadding)
 	for _, child in pairs(queueScroll:GetChildren()) do
 		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
 			child:Destroy()
 		end
 	end
 
-	-- Cola vacía
 	if #playQueue == 0 then
 		local empty = Instance.new("TextLabel")
 		empty.Size = UDim2.new(1, 0, 0, 60)
@@ -894,7 +833,6 @@ local function drawQueue()
 		local isActive = currentSong and song.id == currentSong.id
 		local userId = song.userId or song.requestedByUserId
 
-		-- CARD --------------------------------------------------------
 		local card = Instance.new("Frame")
 		card.Size = UDim2.new(1, 0, 0, 54)
 		card.BackgroundColor3 = isActive and THEME.accent or THEME.card
@@ -902,10 +840,8 @@ local function drawQueue()
 		card.Parent = queueScroll
 		rounded(card, 8)
 
-		-- EFECTO ANIMADO PARA CARD ACTIVA
 		local cardStroke = stroked(card, isActive and 0.6 or 0.3)
 		if isActive then
-			-- Crear efecto de brillo animado (shimmer)
 			local glowStroke = Instance.new("UIStroke")
 			glowStroke.Color = Color3.fromRGB(120, 140, 255)
 			glowStroke.Thickness = 2.5
@@ -913,7 +849,6 @@ local function drawQueue()
 			glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			glowStroke.Parent = card
 
-			-- Animación de pulso más visible
 			task.spawn(function()
 				while card.Parent and isActive do
 					TweenService:Create(glowStroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -929,7 +864,6 @@ local function drawQueue()
 				end
 			end)
 
-			-- Gradiente animado horizontal (shimmer de izquierda a derecha)
 			local gradient = Instance.new("UIGradient")
 			gradient.Color = ColorSequence.new{
 				ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
@@ -943,7 +877,6 @@ local function drawQueue()
 			gradient.Offset = Vector2.new(-1, 0)
 			gradient.Parent = card
 
-			-- Animación horizontal continua (shimmer effect)
 			task.spawn(function()
 				while card.Parent and isActive do
 					TweenService:Create(gradient, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {
@@ -956,7 +889,6 @@ local function drawQueue()
 			end)
 		end
 
-		-- AVATAR -------------------------------------------------------
 		local avatarOffset = 4
 		local contentLeft = avatarOffset
 		if userId then
@@ -968,14 +900,13 @@ local function drawQueue()
 			avatar.ImageTransparency = 0
 			avatar.Parent = card
 			rounded(avatar, 22)
-			-- Borde dinámico: accent si está activo, gris si no
+
 			local border = Instance.new("UIStroke")
 			border.Color = isActive and THEME.accent or Color3.fromRGB(100, 100, 110)
 			border.Thickness = isActive and 2 or 1.5
 			border.Transparency = 0
 			border.Parent = avatar
 
-			-- thumbnail Roblox
 			task.spawn(function()
 				local success, thumb, isReady = pcall(function()
 					return game.Players:GetUserThumbnailAsync(
@@ -986,22 +917,16 @@ local function drawQueue()
 				end)
 				if success and isReady then
 					avatar.Image = thumb
-				else
-					warn("No se pudo obtener thumbnail del usuario:", userId)
 				end
 			end)
 			contentLeft = avatarOffset + 44 + 8
-		else
-			contentLeft = avatarOffset
 		end
 
-		-- PADDING ------------------------------------------------------
 		local padding = Instance.new("UIPadding")
 		padding.PaddingLeft = UDim.new(0, avatarOffset)
 		padding.PaddingRight = UDim.new(0, 12)
 		padding.Parent = card
 
-		-- NOMBRE + "ADDED BY" EN LA MISMA LÍNEA -------------------
 		local nameFrame = Instance.new("Frame")
 		nameFrame.Size = UDim2.new(1, -140, 0, 18)
 		nameFrame.Position = UDim2.new(0, contentLeft, 0, 8)
@@ -1022,7 +947,6 @@ local function drawQueue()
 		nameText.ZIndex = 2
 		nameText.Parent = nameFrame
 
-		-- ARTISTA ------------------------------------------------------
 		local artist = Instance.new("TextLabel")
 		artist.Size = UDim2.new(1, -140, 0, 14)
 		artist.Position = UDim2.new(0, contentLeft, 0, 28)
@@ -1036,7 +960,6 @@ local function drawQueue()
 		artist.ZIndex = 2
 		artist.Parent = card
 
-		-- BOTÓN REMOVE -------------------------------------------------
 		if isAdmin then
 			local removeBtn = Instance.new("TextButton")
 			removeBtn.Size = UDim2.new(0, 70, 0, 30)
@@ -1058,8 +981,6 @@ local function drawQueue()
 	end
 end
 
-
-
 -- ════════════════════════════════════════════════════════════════
 -- LIBRARY PAGE
 -- ════════════════════════════════════════════════════════════════
@@ -1070,10 +991,10 @@ libraryPage.BackgroundTransparency = 1
 libraryPage.LayoutOrder = 2
 libraryPage.Parent = holder
 
--- DJs Grid with Covers
+-- DJs Grid
 local djsScroll = Instance.new("ScrollingFrame")
-djsScroll.Size = UDim2.new(1, -24, 1, -50)
-djsScroll.Position = UDim2.new(0, 12, 0, 48)
+djsScroll.Size = UDim2.new(1, -24, 1, -16)
+djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
 djsScroll.BackgroundTransparency = 1
 djsScroll.BorderSizePixel = 0
 djsScroll.ScrollBarThickness = 6
@@ -1082,7 +1003,7 @@ djsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 djsScroll.Parent = libraryPage
 
 local djsLayout = Instance.new("UIGridLayout")
-djsLayout.CellSize = UDim2.new(0, 200, 0, 200) -- Tarjetas cuadradas 200x200px
+djsLayout.CellSize = UDim2.new(0, 200, 0, 200)
 djsLayout.CellPadding = UDim2.new(0, 12, 0, 12)
 djsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 djsLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -1094,16 +1015,16 @@ djsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	djsScroll.CanvasSize = UDim2.new(0, 0, 0, djsLayout.AbsoluteContentSize.Y + 24)
 end)
 
--- Songs scroll (show songs from selected DJ)
+-- Songs scroll
 local songsScroll = Instance.new("ScrollingFrame")
-songsScroll.Size = UDim2.new(1, -24, 1, -70)
-songsScroll.Position = UDim2.new(0, 12, 0, 60)
+songsScroll.Size = UDim2.new(1, -24, 1, -64)
+songsScroll.Position = SONGS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
 songsScroll.BackgroundTransparency = 1
-djsScroll.BorderSizePixel = 0
+songsScroll.BorderSizePixel = 0
 songsScroll.ScrollBarThickness = 6
 songsScroll.ScrollBarImageColor3 = THEME.stroke
 songsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-songsScroll.Visible = false -- Hidden until a DJ is selected
+songsScroll.Visible = false
 songsScroll.Parent = libraryPage
 
 local songsList = Instance.new("UIListLayout")
@@ -1115,7 +1036,7 @@ songsList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	songsScroll.CanvasSize = UDim2.new(0, 0, 0, songsList.AbsoluteContentSize.Y + 12)
 end)
 
--- Back button to go back to DJs list (shown when viewing songs)
+-- Back button
 local backBtn = Instance.new("TextButton")
 backBtn.Size = UDim2.new(0, 80, 0, 36)
 backBtn.Position = UDim2.new(0, 12, 0, 12)
@@ -1131,10 +1052,29 @@ backBtn.Parent = libraryPage
 rounded(backBtn, 8)
 stroked(backBtn, 0.2)
 
+-- ════════════════════════════════════════════════════════════════
+-- FIX: FUNCIÓN PARA RESETEAR EL ESTADO DE LIBRARY
+-- ════════════════════════════════════════════════════════════════
+local function resetLibraryState()
+	selectedDJ = nil
+	
+	-- Cancelar cualquier tween en progreso
+	-- Resetear posiciones a sus valores por defecto SIN animación
+	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
+	djsScroll.Visible = true
+	djsScroll.CanvasPosition = Vector2.new(0, 0)
+	
+	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
+	songsScroll.Visible = false
+	songsScroll.CanvasPosition = Vector2.new(0, 0)
+	
+	backBtn.Visible = false
+end
+
 backBtn.MouseButton1Click:Connect(function()
 	selectedDJ = nil
 	
-	-- Animaciones suaves para cambiar de vista
+	-- Animación de salida para songs
 	TweenService:Create(songsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 		Position = UDim2.new(0, 12, 0, 150)
 	}):Play()
@@ -1142,14 +1082,16 @@ backBtn.MouseButton1Click:Connect(function()
 	task.wait(0.1)
 	
 	songsScroll.Visible = false
-	songsScroll.Position = UDim2.new(0, 12, 0, 100)
+	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
 	
 	djsScroll.Visible = true
+	djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
 	backBtn.Visible = false
 	
 	-- Animación de entrada para DJs
+	djsScroll.Position = UDim2.new(0, 12, 0, 0)
 	TweenService:Create(djsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-		Position = UDim2.new(0, 12, 0, 12)
+		Position = DJS_SCROLL_DEFAULT_POS
 	}):Play()
 end)
 
@@ -1166,14 +1108,12 @@ backBtn.MouseLeave:Connect(function()
 end)
 
 local function drawDJs()
-	-- Limpiar hijos excepto layout
 	for _, child in pairs(djsScroll:GetChildren()) do
 		if not child:IsA("UIGridLayout") then 
 			child:Destroy() 
 		end
 	end
 
-	-- Si no hay DJs, mostrar mensaje
 	if #allDJs == 0 then
 		local empty = Instance.new("TextLabel")
 		empty.Size = UDim2.new(1, 0, 1, 0)
@@ -1186,12 +1126,9 @@ local function drawDJs()
 		return
 	end
 
-	-- Crear tarjeta para cada DJ
 	for _, dj in ipairs(allDJs) do
-		-- Card container (solo imagen cuadrada) - sin tamaño fijo, respeta el UIGridLayout
 		local card = Instance.new("Frame")
-		card.Size = UDim2.new(1, 0, 1, 0) -- Usa el tamaño del UIGridLayout (responsivo ancho, 220px alto)
-		card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		card.Size = UDim2.new(1, 0, 1, 0)
 		card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 		card.BorderSizePixel = 0
 		card.ZIndex = 50
@@ -1199,7 +1136,6 @@ local function drawDJs()
 		rounded(card, 16)
 		stroked(card, 0.4)
 
-		-- Cover Image (ocupa todo el espacio)
 		local cover = Instance.new("ImageLabel")
 		cover.Size = UDim2.new(1, 0, 1, 0)
 		cover.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -1210,7 +1146,6 @@ local function drawDJs()
 		cover.Parent = card
 		rounded(cover, 16)
 
-		-- Overlay oscuro (visible solo en hover)
 		local overlay = Instance.new("Frame")
 		overlay.Size = UDim2.new(1, 0, 1, 0)
 		overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -1220,7 +1155,6 @@ local function drawDJs()
 		overlay.Parent = card
 		rounded(overlay, 16)
 
-		-- Info container (visible solo en hover)
 		local infoContainer = Instance.new("Frame")
 		infoContainer.Size = UDim2.new(1, -24, 0, 60)
 		infoContainer.Position = UDim2.new(0, 12, 1, -72)
@@ -1228,7 +1162,6 @@ local function drawDJs()
 		infoContainer.ZIndex = 53
 		infoContainer.Parent = overlay
 
-		-- DJ Name en overlay
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Size = UDim2.new(1, 0, 0, 30)
 		nameLabel.BackgroundTransparency = 1
@@ -1242,7 +1175,6 @@ local function drawDJs()
 		nameLabel.ZIndex = 54
 		nameLabel.Parent = infoContainer
 
-		-- Song Count en overlay
 		local countLabel = Instance.new("TextLabel")
 		countLabel.Size = UDim2.new(1, 0, 0, 20)
 		countLabel.Position = UDim2.new(0, 0, 0, 30)
@@ -1255,7 +1187,6 @@ local function drawDJs()
 		countLabel.ZIndex = 54
 		countLabel.Parent = infoContainer
 
-		-- Click button
 		local clickBtn = Instance.new("TextButton")
 		clickBtn.Size = UDim2.new(1, 0, 1, 0)
 		clickBtn.BackgroundTransparency = 1
@@ -1274,15 +1205,15 @@ local function drawDJs()
 			task.wait(0.15)
 			
 			djsScroll.Visible = false
-			djsScroll.Position = UDim2.new(0, 12, 0, 12)
+			djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE para reset
 			
 			songsScroll.Visible = true
 			backBtn.Visible = true
 			
 			-- Animación de entrada para Songs
-			songsScroll.Position = UDim2.new(0, 12, 0, 70)
+			songsScroll.Position = UDim2.new(0, 12, 0, 100)
 			TweenService:Create(songsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-				Position = UDim2.new(0, 12, 0, 60)
+				Position = SONGS_SCROLL_DEFAULT_POS
 			}):Play()
 			
 			if R.GetSongsByDJ then
@@ -1290,34 +1221,25 @@ local function drawDJs()
 			end
 		end)
 
-		-- Hover effects - mostrar overlay con info
 		clickBtn.MouseEnter:Connect(function()
-			-- Oscurecer imagen
 			TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				BackgroundTransparency = 0.3
 			}):Play()
-			
-			-- Mostrar texto
 			TweenService:Create(nameLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				TextTransparency = 0
 			}):Play()
-			
 			TweenService:Create(countLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				TextTransparency = 0
 			}):Play()
 		end)
 
 		clickBtn.MouseLeave:Connect(function()
-			-- Ocultar overlay
 			TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				BackgroundTransparency = 1
 			}):Play()
-			
-			-- Ocultar texto
 			TweenService:Create(nameLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				TextTransparency = 1
 			}):Play()
-			
 			TweenService:Create(countLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				TextTransparency = 1
 			}):Play()
@@ -1325,11 +1247,7 @@ local function drawDJs()
 	end
 end
 
--- ════════════════════════════════════════════════════════════════
--- DRAW SONGS
--- ════════════════════════════════════════════════════════════════
 local function drawSongs(songs)
-	-- Limpiar TODOS los hijos excepto el UIListLayout
 	for _, child in pairs(songsScroll:GetChildren()) do
 		if not child:IsA("UIListLayout") then 
 			child:Destroy() 
@@ -1349,7 +1267,6 @@ local function drawSongs(songs)
 	end
 
 	for _, song in ipairs(songs) do
-		-- Verificar si está en cola
 		local isInQueue = false
 		for _, queueSong in ipairs(playQueue) do
 			if queueSong.id == song.id then
@@ -1366,7 +1283,6 @@ local function drawSongs(songs)
 		rounded(card, 8)
 		stroked(card, 0.3)
 
-		-- NUEVO: Guardar el ID de la canción en el card
 		card.Name = "SongCard_" .. song.id
 		card:SetAttribute("SongID", song.id)
 
@@ -1407,11 +1323,8 @@ local function drawSongs(songs)
 		addBtn.BorderSizePixel = 0
 		addBtn.Parent = card
 		rounded(addBtn, 6)
-
-		--  NUEVO: Darle un nombre único al botón para encontrarlo fácilmente
 		addBtn.Name = "QueueButton"
 
-		-- Configurar estado inicial del botón
 		if isInQueue then
 			addBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
 			addBtn.Text = "EN COLA"
@@ -1439,7 +1352,6 @@ local function drawSongs(songs)
 			end)
 		end
 
-		-- Botón DELETE (admin)
 		if isAdmin then
 			local delBtn = Instance.new("TextButton")
 			delBtn.Size = UDim2.new(0, 70, 0, 30)
@@ -1472,7 +1384,6 @@ local function drawSongs(songs)
 	end
 end
 
-
 local function updateLibraryButtonStates()
 	if currentPage ~= "Library" then return end
 	if not songsScroll then return end
@@ -1498,7 +1409,6 @@ local function updateLibraryButtonStates()
 					TweenService:Create(addBtn, TweenInfo.new(0.2), {
 						BackgroundColor3 = Color3.fromRGB(100, 100, 110)
 					}):Play()
-
 					addBtn.Text = "EN COLA"
 					addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
 					addBtn.AutoButtonColor = false
@@ -1508,15 +1418,9 @@ local function updateLibraryButtonStates()
 					TweenService:Create(addBtn, TweenInfo.new(0.2), {
 						BackgroundColor3 = THEME.success
 					}):Play()
-
 					addBtn.Text = "QUEUE"
 					addBtn.TextColor3 = Color3.new(1, 1, 1)
 					addBtn.AutoButtonColor = true
-
-					local stroke = addBtn:FindFirstChild("InQueueStroke")
-					if stroke then
-						stroke:Destroy()
-					end
 				end
 			end
 		end
@@ -1840,7 +1744,7 @@ local function updateProgressBar()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- NAVIGATION
+-- NAVIGATION - FIX PRINCIPAL
 -- ════════════════════════════════════════════════════════════════
 local function moveUnderline(btn)
 	if not btn then return end
@@ -1858,7 +1762,18 @@ local function moveUnderline(btn)
 end
 
 function showPage(name)
+	local previousPage = currentPage
 	currentPage = name
+	
+	-- ════════════════════════════════════════════════════════════════
+	-- FIX: RESETEAR ESTADO DE LIBRARY AL SALIR DE ELLA
+	-- ════════════════════════════════════════════════════════════════
+	if previousPage == "Library" and name ~= "Library" then
+		-- Estábamos en Library y vamos a otra página
+		-- Resetear el estado completamente (sin animaciones)
+		resetLibraryState()
+	end
+	
 	if queuePage then queuePage.Visible = false end
 	if libraryPage then libraryPage.Visible = false end
 	if addPage then addPage.Visible = false end
@@ -1869,23 +1784,24 @@ function showPage(name)
 		pageLayout:JumpTo(pageFrame)
 	end
 
-	if name == "Queue" then drawQueue() end
+	if name == "Queue" then 
+		drawQueue() 
+	end
+	
 	if name == "Library" then
-		selectedDJ = nil
-		djsScroll.Visible = true
-		djsScroll.CanvasPosition = Vector2.new(0, 0)  -- Resetear scroll al inicio
-		songsScroll.Visible = false
-		backBtn.Visible = false
+		-- Asegurar que el estado esté limpio al entrar
+		resetLibraryState()
+		
 		if #allDJs > 0 then
 			drawDJs()
 		else
-			-- No dibujar hasta que lleguen los DJs del servidor
 			for _, child in pairs(djsScroll:GetChildren()) do
 				if not child:IsA("UIGridLayout") then 
 					child:Destroy() 
 				end
 			end
 		end
+		
 		if R.GetDJs then
 			R.GetDJs:FireServer()
 		end
@@ -2015,7 +1931,6 @@ end)
 -- ════════════════════════════════════════════════════════════════
 -- REMOTE UPDATES
 -- ════════════════════════════════════════════════════════════════
-
 if R.Update then
 	R.Update.OnClientEvent:Connect(function(data)
 		musicLibrary = data.library or musicLibrary

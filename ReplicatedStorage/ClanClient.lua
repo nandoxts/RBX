@@ -49,7 +49,12 @@ ClanClient.currentClanId = nil
 
 -- Crear clan
 function ClanClient:CreateClan(clanName, clanLogo, clanDesc)
-	CreateClanEvent:FireServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+	local event = clanEvents:FindFirstChild("CreateClan")
+	if event then
+		event:FireServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+	else
+		warn("[Clan] No se encontró evento CreateClan")
+	end
 	self:RefreshClanData()
 end
 
@@ -59,7 +64,10 @@ function ClanClient:InvitePlayer(targetUserId)
 		print("No estás en un clan")
 		return
 	end
-	InvitePlayerEvent:FireServer(self.currentClanId, targetUserId)
+	local event = clanEvents:FindFirstChild("InvitePlayer")
+	if event then
+		event:FireServer(self.currentClanId, targetUserId)
+	end
 end
 
 -- Expulsar jugador
@@ -68,7 +76,10 @@ function ClanClient:KickPlayer(targetUserId)
 		print("No estás en un clan")
 		return
 	end
-	KickPlayerEvent:FireServer(self.currentClanId, targetUserId)
+	local event = clanEvents:FindFirstChild("KickPlayer")
+	if event then
+		event:FireServer(self.currentClanId, targetUserId)
+	end
 end
 
 -- Cambiar rol
@@ -77,7 +88,10 @@ function ClanClient:ChangePlayerRole(targetUserId, newRole)
 		print("No estás en un clan")
 		return
 	end
-	ChangeRoleEvent:FireServer(self.currentClanId, targetUserId, newRole)
+	local event = clanEvents:FindFirstChild("ChangeRole")
+	if event then
+		event:FireServer(self.currentClanId, targetUserId, newRole)
+	end
 end
 
 -- Cambiar nombre del clan
@@ -86,7 +100,10 @@ function ClanClient:ChangeClanName(newName)
 		print("No estás en un clan")
 		return
 	end
-	ChangeClanNameEvent:FireServer(self.currentClanId, newName)
+	local event = clanEvents:FindFirstChild("ChangeClanName")
+	if event then
+		event:FireServer(self.currentClanId, newName)
+	end
 end
 
 -- Cambiar descripción
@@ -95,7 +112,10 @@ function ClanClient:ChangeClanDescription(newDesc)
 		print("No estás en un clan")
 		return
 	end
-	ChangeClanDescEvent:FireServer(self.currentClanId, newDesc)
+	local event = clanEvents:FindFirstChild("ChangeClanDescription")
+	if event then
+		event:FireServer(self.currentClanId, newDesc)
+	end
 end
 
 -- Cambiar logo
@@ -104,7 +124,10 @@ function ClanClient:ChangeClanLogo(newLogoId)
 		print("No estás en un clan")
 		return
 	end
-	ChangeClanLogoEvent:FireServer(self.currentClanId, newLogoId)
+	local event = clanEvents:FindFirstChild("ChangeClanLogo")
+	if event then
+		event:FireServer(self.currentClanId, newLogoId)
+	end
 end
 
 -- Disolver clan
@@ -113,12 +136,26 @@ function ClanClient:DissolveClan()
 		print("No estás en un clan")
 		return
 	end
-	DissolveEvent:FireServer(self.currentClanId)
+	local event = clanEvents:FindFirstChild("DissolveClan")
+	if event then
+		event:FireServer(self.currentClanId)
+	end
 end
 
 -- Obtener datos del clan
 function ClanClient:RefreshClanData()
 	GetClanDataEvent:FireServer(self.currentClanId)
+end
+
+-- Unirse a un clan
+function ClanClient:JoinClan(clanId)
+	local event = clanEvents:FindFirstChild("JoinClan")
+	if event then
+		event:FireServer(clanId)
+		self:RefreshClanData()
+	else
+		warn("[Clan] No se encontró evento JoinClan")
+	end
 end
 
 -- Obtener lista de todos los clanes
@@ -137,6 +174,34 @@ function ClanClient:GetClansList()
 		end
 	end
 	return {}
+end
+
+-- Obtener el clan actual del jugador
+function ClanClient:GetPlayerClan()
+	local GetPlayerClanFunc = clanEvents:FindFirstChild("GetPlayerClan")
+	if GetPlayerClanFunc then
+		local success, clanData = pcall(function()
+			return GetPlayerClanFunc:InvokeServer()
+		end)
+		
+		if success then
+			return clanData
+		else
+			warn("Error obteniendo clan del jugador:", clanData)
+			return nil
+		end
+	end
+	return nil
+end
+
+-- Disolver clan como admin
+function ClanClient:AdminDissolveClan(clanId)
+	local event = clanEvents:FindFirstChild("AdminDissolveClan")
+	if event then
+		event:FireServer(clanId)
+	else
+		warn("[Clan] No se encontró evento AdminDissolveClan")
+	end
 end
 
 return ClanClient

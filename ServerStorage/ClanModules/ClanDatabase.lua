@@ -247,15 +247,12 @@ function ClanDatabase:GetAllClans()
 	-- Usar ListKeysAsync para obtener todas las keys del datastore
 	local success, result = pcall(function()
 		local pages = clanStore:ListKeysAsync()
-		print("🔍 [ClanDatabase] Obteniendo lista de clanes...")
 
 		while true do
 			local keys = pages:GetCurrentPage()
-			print("  - Página con " .. #keys .. " keys encontradas")
 
 			for _, key in ipairs(keys) do
 				if key.KeyName:match("^clan:") then
-					print("  ✓ Encontrado clan: " .. key.KeyName)
 					local clanData = self:GetClan(key.KeyName:gsub("^clan:", ""))
 					if clanData then
 						-- Contar miembros
@@ -273,7 +270,6 @@ function ClanDatabase:GetAllClans()
 							miembros_count = memberCount,
 							fechaCreacion = clanData.fechaCreacion
 						})
-						print("    → Clan cargado: " .. clanData.clanName)
 					end
 				end
 			end
@@ -287,7 +283,6 @@ function ClanDatabase:GetAllClans()
 	end)
 
 	if success then
-		print("✅ [ClanDatabase] Se encontraron " .. #allClans .. " clanes en total")
 		return allClans
 	else
 		warn("❌ [ClanDatabase] Error obteniendo lista de clanes:", result)

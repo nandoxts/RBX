@@ -29,6 +29,23 @@ local R_PANEL, R_CTRL = 12, 8
 local ENABLE_BLUR, BLUR_SIZE = true, 14
 
 -- ════════════════════════════════════════════════════════════════
+-- ADMIN CONFIG
+-- ════════════════════════════════════════════════════════════════
+local ADMIN_IDS = {
+	8387751399,  -- nandoxts (Owner)
+	9375636407,  -- Admin2
+}
+
+local function isAdminUser(userId)
+	for _, adminId in ipairs(ADMIN_IDS) do
+		if userId == adminId then return true end
+	end
+	return false
+end
+
+local isAdmin = isAdminUser(player.UserId)
+
+-- ════════════════════════════════════════════════════════════════
 -- STATE
 -- ════════════════════════════════════════════════════════════════
 local currentPage = "Disponibles"
@@ -629,7 +646,6 @@ local function createClanEntry(clanData)
 
 	-- Click event
 	joinBtn.MouseButton1Click:Connect(function()
-		print("Intentando unirse al clan:", clanData.clanId)
 		ClanClient:JoinClan(clanData.clanId)
 	end)
 
@@ -679,7 +695,6 @@ local function loadClansFromServer()
 	end
 
 	local clans = ClanClient:GetClansList()
-	print("📊 Clanes obtenidos:", clans and #clans or 0)
 
 	if clans and #clans > 0 then
 		for _, clanData in ipairs(clans) do
@@ -722,6 +737,187 @@ listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 tabPages["Disponibles"] = pageDisponibles
+
+-- Función para cargar el clan del jugador
+local function loadPlayerClan()
+	-- Limpiar contenedor completamente
+	for _, child in ipairs(noClanContainer:GetChildren()) do
+		child:Destroy()
+	end
+	
+	local clanData = ClanClient:GetPlayerClan()
+	
+	if clanData then
+		-- Crear un ScrollingFrame para mostrar el clan
+		local clanScroll = Instance.new("ScrollingFrame")
+		clanScroll.Size = UDim2.new(1, -40, 1, -40)
+		clanScroll.Position = UDim2.new(0, 20, 0, 20)
+		clanScroll.BackgroundTransparency = 1
+		clanScroll.BorderSizePixel = 0
+		clanScroll.ScrollBarThickness = 5
+		clanScroll.ScrollBarImageColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
+		clanScroll.CanvasSize = UDim2.new(0, 0, 0, 300)
+		clanScroll.ZIndex = 13
+		clanScroll.Parent = noClanContainer
+		
+		-- Crear la estructura del clan dentro del scroll
+		local clanCard = Instance.new("Frame")
+		clanCard.Name = "ClanCard_" .. clanData.clanId
+		clanCard.Size = UDim2.new(1, 0, 0, 280)
+		clanCard.BackgroundColor3 = THEME.card or Color3.fromRGB(40, 40, 50)
+		clanCard.BorderSizePixel = 0
+		clanCard.ZIndex = 14
+		clanCard.Parent = clanScroll
+		rounded(clanCard, 12)
+		stroked(clanCard, 0.4)
+		
+		-- Logo del clan
+		local logoContainer = Instance.new("Frame")
+		logoContainer.Size = UDim2.new(0, 100, 0, 100)
+		logoContainer.Position = UDim2.new(0.5, -50, 0, 15)
+		logoContainer.BackgroundColor3 = THEME.surface or Color3.fromRGB(50, 50, 60)
+		logoContainer.BorderSizePixel = 0
+		logoContainer.ZIndex = 15
+		logoContainer.Parent = clanCard
+		rounded(logoContainer, 10)
+		stroked(logoContainer, 0.4)
+		
+		local logo = Instance.new("ImageLabel")
+		logo.Size = UDim2.new(1, -10, 1, -10)
+		logo.Position = UDim2.new(0, 5, 0, 5)
+		logo.BackgroundTransparency = 1
+		logo.Image = clanData.clanLogo or ""
+		logo.ScaleType = Enum.ScaleType.Fit
+		logo.ZIndex = 16
+		logo.Parent = logoContainer
+		
+		if clanData.clanLogo == "" or clanData.clanLogo == "rbxassetid://0" then
+			logo.Visible = false
+			local logoText = Instance.new("TextLabel")
+			logoText.Size = UDim2.fromScale(1, 1)
+			logoText.BackgroundTransparency = 1
+			logoText.Text = "⚔️"
+			logoText.TextSize = 40
+			logoText.ZIndex = 16
+			logoText.Parent = logoContainer
+		end
+		
+		-- Nombre del clan
+		local clanName = Instance.new("TextLabel")
+		clanName.Size = UDim2.new(1, -30, 0, 24)
+		clanName.Position = UDim2.new(0, 15, 0, 130)
+		clanName.BackgroundTransparency = 1
+		clanName.Text = clanData.clanName or "Clan"
+		clanName.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+		clanName.TextSize = 18
+		clanName.Font = Enum.Font.GothamBold
+		clanName.TextXAlignment = Enum.TextXAlignment.Center
+		clanName.ZIndex = 14
+		clanName.Parent = clanCard
+		
+		-- Descripción
+		local desc = Instance.new("TextLabel")
+		desc.Size = UDim2.new(1, -30, 0, 50)
+		desc.Position = UDim2.new(0, 15, 0, 160)
+		desc.BackgroundTransparency = 1
+		desc.Text = clanData.descripcion or "Sin descripción"
+		desc.TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
+		desc.TextSize = 12
+		desc.Font = Enum.Font.Gotham
+		desc.TextWrapped = true
+		desc.TextXAlignment = Enum.TextXAlignment.Center
+		desc.ZIndex = 14
+		desc.Parent = clanCard
+		
+		-- Stats
+		local statsFrame = Instance.new("Frame")
+		statsFrame.Size = UDim2.new(1, -30, 0, 25)
+		statsFrame.Position = UDim2.new(0, 15, 0, 220)
+		statsFrame.BackgroundTransparency = 1
+		statsFrame.ZIndex = 14
+		statsFrame.Parent = clanCard
+		
+		local memberCount = Instance.new("TextLabel")
+		memberCount.Size = UDim2.new(0.33, 0, 1, 0)
+		memberCount.BackgroundTransparency = 1
+		memberCount.Text = "👥 " .. ((clanData.miembros and #clanData.miembros) or 1) .. " Miembros"
+		memberCount.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+		memberCount.TextSize = 11
+		memberCount.Font = Enum.Font.Gotham
+		memberCount.ZIndex = 14
+		memberCount.Parent = statsFrame
+		
+		local levelLabel = Instance.new("TextLabel")
+		levelLabel.Size = UDim2.new(0.33, 0, 1, 0)
+		levelLabel.Position = UDim2.new(0.33, 0, 0, 0)
+		levelLabel.BackgroundTransparency = 1
+		levelLabel.Text = "⭐ Nivel " .. (clanData.nivel or 1)
+		levelLabel.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+		levelLabel.TextSize = 11
+		levelLabel.Font = Enum.Font.Gotham
+		levelLabel.ZIndex = 14
+		levelLabel.Parent = statsFrame
+		
+		local ownerLabel = Instance.new("TextLabel")
+		ownerLabel.Size = UDim2.new(0.33, 0, 1, 0)
+		ownerLabel.Position = UDim2.new(0.66, 0, 0, 0)
+		ownerLabel.BackgroundTransparency = 1
+		ownerLabel.Text = "👑 Owner"
+		ownerLabel.TextColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
+		ownerLabel.TextSize = 11
+		ownerLabel.Font = Enum.Font.Gotham
+		ownerLabel.ZIndex = 14
+		ownerLabel.Parent = statsFrame
+		
+	else
+		print("📋 [TuClan] El jugador no pertenece a ningún clan")
+		
+		-- Mostrar el mensaje original "No tienes clan"
+		local noClanCard = Instance.new("Frame")
+		noClanCard.Size = UDim2.new(0, 350, 0, 200)
+		noClanCard.Position = UDim2.new(0.5, -175, 0.5, -100)
+		noClanCard.BackgroundColor3 = THEME.card or Color3.fromRGB(40, 40, 50)
+		noClanCard.BorderSizePixel = 0
+		noClanCard.ZIndex = 13
+		noClanCard.Parent = noClanContainer
+		rounded(noClanCard, 12)
+		stroked(noClanCard, 0.4)
+		
+		local noClanIcon = Instance.new("TextLabel")
+		noClanIcon.Size = UDim2.new(0, 70, 0, 70)
+		noClanIcon.Position = UDim2.new(0.5, -35, 0, 25)
+		noClanIcon.BackgroundColor3 = THEME.surface or Color3.fromRGB(50, 50, 60)
+		noClanIcon.BorderSizePixel = 0
+		noClanIcon.Text = "🛡️"
+		noClanIcon.TextSize = 35
+		noClanIcon.ZIndex = 14
+		noClanIcon.Parent = noClanCard
+		rounded(noClanIcon, 35)
+		
+		local noClanText = Instance.new("TextLabel")
+		noClanText.Size = UDim2.new(1, -30, 0, 24)
+		noClanText.Position = UDim2.new(0, 15, 0, 110)
+		noClanText.BackgroundTransparency = 1
+		noClanText.Text = "No perteneces a ningún clan"
+		noClanText.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+		noClanText.TextSize = 16
+		noClanText.Font = Enum.Font.GothamBold
+		noClanText.ZIndex = 14
+		noClanText.Parent = noClanCard
+		
+		local noClanHint = Instance.new("TextLabel")
+		noClanHint.Size = UDim2.new(1, -30, 0, 40)
+		noClanHint.Position = UDim2.new(0, 15, 0, 138)
+		noClanHint.BackgroundTransparency = 1
+		noClanHint.Text = "Únete a un clan existente en 'Disponibles'\no crea tu propio clan en 'Crear'"
+		noClanHint.TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
+		noClanHint.TextSize = 12
+		noClanHint.Font = Enum.Font.Gotham
+		noClanHint.TextWrapped = true
+		noClanHint.ZIndex = 14
+		noClanHint.Parent = noClanCard
+	end
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- PAGE: CREAR
@@ -968,6 +1164,11 @@ local function switchTab(tabName)
 			TweenService:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
 				Position = UDim2.new(0, 0, 0, 0)
 			}):Play()
+			
+			-- Si es la tab de "Tu Clan", cargar el clan del jugador
+			if tabName == "TuClan" then
+				task.spawn(loadPlayerClan)
+			end
 		else
 			page.Visible = false
 		end
@@ -1074,7 +1275,6 @@ btnCrear.MouseButton1Click:Connect(function()
 	btnCrear.Text = "⏳ Creando..."
 	btnCrear.AutoButtonColor = false
 
-	print("Creando clan:", clanName)
 	local success = ClanClient:CreateClan(clanName, clanLogo, clanDesc)
 
 	-- Reset
@@ -1097,6 +1297,209 @@ if clanIcon then
 	clanIcon:bindEvent("deselected", function()
 		closeUI()
 	end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- ADMIN CLAN PANEL
+-- ════════════════════════════════════════════════════════════════
+if isAdmin then
+	local adminPanelOpen = false
+	local adminIcon = Icon.new()
+	adminIcon
+		:setImage("rbxasset://textures/Cursor.png")
+		:setLabel("Admin Clanes")
+		:bindEvent("selected", function()
+			adminPanelOpen = true
+			showAdminPanel()
+		end)
+		:bindEvent("deselected", function()
+			adminPanelOpen = false
+			hideAdminPanel()
+		end)
+	
+	local adminPanel = nil
+	
+	function showAdminPanel()
+		if adminPanel then
+			adminPanel.Visible = true
+			return
+		end
+		
+		-- Crear panel
+		adminPanel = Instance.new("Frame")
+		adminPanel.Name = "AdminClanPanel"
+		adminPanel.Size = UDim2.new(0, 500, 0, 600)
+		adminPanel.Position = UDim2.new(1, -520, 0.5, -300)
+		adminPanel.BackgroundColor3 = THEME.elevated or Color3.fromRGB(30, 30, 38)
+		adminPanel.BorderSizePixel = 0
+		adminPanel.Parent = playerGui
+		rounded(adminPanel, 12)
+		stroked(adminPanel, 0.3)
+		
+		-- Header
+		local header = Instance.new("Frame")
+		header.Size = UDim2.new(1, 0, 0, 50)
+		header.BackgroundColor3 = THEME.card or Color3.fromRGB(40, 40, 50)
+		header.BorderSizePixel = 0
+		header.Parent = adminPanel
+		rounded(header, 12)
+		
+		local title = Instance.new("TextLabel")
+		title.Size = UDim2.new(1, -20, 1, 0)
+		title.Position = UDim2.new(0, 10, 0, 0)
+		title.BackgroundTransparency = 1
+		title.Text = "🔨 Panel de Administrador"
+		title.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+		title.TextSize = 14
+		title.Font = Enum.Font.GothamBold
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		title.Parent = header
+		
+		-- ScrollingFrame para clanes
+		local clansScroll = Instance.new("ScrollingFrame")
+		clansScroll.Size = UDim2.new(1, -20, 1, -70)
+		clansScroll.Position = UDim2.new(0, 10, 0, 60)
+		clansScroll.BackgroundTransparency = 1
+		clansScroll.BorderSizePixel = 0
+		clansScroll.ScrollBarThickness = 5
+		clansScroll.ScrollBarImageColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
+		clansScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+		clansScroll.Parent = adminPanel
+		
+		local listLayout = Instance.new("UIListLayout")
+		listLayout.Padding = UDim.new(0, 8)
+		listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		listLayout.Parent = clansScroll
+		
+		-- Cargar clanes
+		local clans = ClanClient:GetClansList()
+		if clans and #clans > 0 then
+			for _, clanData in ipairs(clans) do
+				local entry = Instance.new("Frame")
+				entry.Size = UDim2.new(1, 0, 0, 60)
+				entry.BackgroundColor3 = THEME.surface or Color3.fromRGB(50, 50, 60)
+				entry.BorderSizePixel = 0
+				entry.Parent = clansScroll
+				rounded(entry, 8)
+				stroked(entry, 0.4)
+				
+				-- Nombre clan
+				local clanNameLabel = Instance.new("TextLabel")
+				clanNameLabel.Size = UDim2.new(1, -80, 0, 20)
+				clanNameLabel.Position = UDim2.new(0, 10, 0, 5)
+				clanNameLabel.BackgroundTransparency = 1
+				clanNameLabel.Text = clanData.clanName or "Sin nombre"
+				clanNameLabel.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+				clanNameLabel.TextSize = 12
+				clanNameLabel.Font = Enum.Font.GothamBold
+				clanNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+				clanNameLabel.Parent = entry
+				
+				-- Info
+				local infoLabel = Instance.new("TextLabel")
+				infoLabel.Size = UDim2.new(1, -80, 0, 15)
+				infoLabel.Position = UDim2.new(0, 10, 0, 25)
+				infoLabel.BackgroundTransparency = 1
+				infoLabel.Text = "ID: " .. (clanData.clanId or "?") .. " | Miembros: " .. (clanData.miembros_count or 0)
+				infoLabel.TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
+				infoLabel.TextSize = 10
+				infoLabel.Font = Enum.Font.Gotham
+				infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+				infoLabel.Parent = entry
+				
+				-- Botón eliminar
+				local deleteBtn = Instance.new("TextButton")
+				deleteBtn.Size = UDim2.new(0, 70, 0, 40)
+				deleteBtn.Position = UDim2.new(1, -80, 0.5, -20)
+				deleteBtn.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+				deleteBtn.BorderSizePixel = 0
+				deleteBtn.Text = "🗑️ Eliminar"
+				deleteBtn.TextColor3 = Color3.new(1, 1, 1)
+				deleteBtn.TextSize = 10
+				deleteBtn.Font = Enum.Font.GothamBold
+				deleteBtn.Parent = entry
+				rounded(deleteBtn, 6)
+				
+				deleteBtn.MouseButton1Click:Connect(function()
+					-- Confirmación
+					local confirm = Instance.new("Frame")
+					confirm.Size = UDim2.new(1, 0, 1, 0)
+					confirm.BackgroundColor3 = Color3.new(0, 0, 0)
+					confirm.BackgroundTransparency = 0.5
+					confirm.BorderSizePixel = 0
+					confirm.Parent = playerGui
+					
+					local modal = Instance.new("Frame")
+					modal.Size = UDim2.new(0, 300, 0, 150)
+					modal.Position = UDim2.new(0.5, -150, 0.5, -75)
+					modal.BackgroundColor3 = THEME.card or Color3.fromRGB(40, 40, 50)
+					modal.BorderSizePixel = 0
+					modal.Parent = confirm
+					rounded(modal, 10)
+					stroked(modal, 0.4)
+					
+					local text = Instance.new("TextLabel")
+					text.Size = UDim2.new(1, -20, 0, 40)
+					text.Position = UDim2.new(0, 10, 0, 15)
+					text.BackgroundTransparency = 1
+					text.Text = "¿Eliminar clan\n" .. clanData.clanName .. "?"
+					text.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+					text.TextSize = 12
+					text.Font = Enum.Font.Gotham
+					text.TextWrapped = true
+					text.Parent = modal
+					
+					local btnConfirm = Instance.new("TextButton")
+					btnConfirm.Size = UDim2.new(0, 60, 0, 35)
+					btnConfirm.Position = UDim2.new(0, 15, 1, -45)
+					btnConfirm.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+					btnConfirm.BorderSizePixel = 0
+					btnConfirm.Text = "Sí"
+					btnConfirm.TextColor3 = Color3.new(1, 1, 1)
+					btnConfirm.Font = Enum.Font.GothamBold
+					btnConfirm.Parent = modal
+					rounded(btnConfirm, 6)
+					
+					local btnCancel = Instance.new("TextButton")
+					btnCancel.Size = UDim2.new(0, 60, 0, 35)
+					btnCancel.Position = UDim2.new(1, -75, 1, -45)
+					btnCancel.BackgroundColor3 = THEME.btnSecondary or Color3.fromRGB(45, 45, 55)
+					btnCancel.BorderSizePixel = 0
+					btnCancel.Text = "No"
+					btnCancel.TextColor3 = THEME.text or Color3.new(1, 1, 1)
+					btnCancel.Font = Enum.Font.GothamBold
+					btnCancel.Parent = modal
+					rounded(btnCancel, 6)
+					
+					btnConfirm.MouseButton1Click:Connect(function()
+						ClanClient:AdminDissolveClan(clanData.clanId)
+						confirm:Destroy()
+						-- Recargar panel
+						if adminPanel then
+							adminPanel:Destroy()
+							adminPanel = nil
+							task.wait(0.5)
+							showAdminPanel()
+						end
+					end)
+					
+					btnCancel.MouseButton1Click:Connect(function()
+						confirm:Destroy()
+					end)
+				end)
+			end
+		end
+		
+		listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			clansScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+		end)
+	end
+	
+	function hideAdminPanel()
+		if adminPanel then
+			adminPanel.Visible = false
+		end
+	end
 end
 
 -- Test: Abrir automáticamente para debug (comentar en producción)

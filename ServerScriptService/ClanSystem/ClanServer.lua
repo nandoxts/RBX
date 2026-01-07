@@ -1,9 +1,17 @@
 local ClanAPI = require(game:GetService("ServerStorage"):WaitForChild("ClanModules"):WaitForChild("ClanAPI"))
 
--- Script principal que gestiona el sistema de clanes
--- Este script debería ser puesto en ServerScriptService
+-- Admin IDs
+local ADMIN_IDS = {
+	8387751399,  -- nandoxts (Owner)
+	9375636407,  -- Admin2
+}
 
-print("Sistema de Clanes cargado correctamente")
+local function isAdminUser(userId)
+	for _, adminId in ipairs(ADMIN_IDS) do
+		if userId == adminId then return true end
+	end
+	return false
+end
 
 -- Asegurarse de que ClanEvents no exista ya
 local existingEvents = game.ReplicatedStorage:FindFirstChild("ClanEvents")
@@ -13,11 +21,6 @@ end
 
 -- Variables globales
 local ClanSystem = {}
-
--- Funciones de inicialización
-function ClanSystem:Init()
-	print("Iniciando sistema de clanes...")
-end
 
 -- Crear RemoteEvents para comunicación cliente-servidor
 local clanEvents = Instance.new("Folder")
@@ -61,18 +64,31 @@ local GetClanDataEvent = Instance.new("RemoteEvent")
 GetClanDataEvent.Name = "GetClanData"
 GetClanDataEvent.Parent = clanEvents
 
+local JoinClanEvent = Instance.new("RemoteEvent")
+JoinClanEvent.Name = "JoinClan"
+JoinClanEvent.Parent = clanEvents
+
 -- RemoteFunction para obtener lista de clanes
 local GetClansListFunction = Instance.new("RemoteFunction")
 GetClansListFunction.Name = "GetClansList"
 GetClansListFunction.Parent = clanEvents
 
+-- RemoteFunction para obtener el clan del jugador
+local GetPlayerClanFunction = Instance.new("RemoteFunction")
+GetPlayerClanFunction.Name = "GetPlayerClan"
+GetPlayerClanFunction.Parent = clanEvents
+
+local AdminDissolveClanEvent = Instance.new("RemoteEvent")
+AdminDissolveClanEvent.Name = "AdminDissolveClan"
+AdminDissolveClanEvent.Parent = clanEvents
+
 -- Event handlers
 CreateClanEvent.OnServerEvent:Connect(function(player, clanName, clanLogo, clanDesc)
 	local success, clanId, clanData = ClanAPI:CreateClan(clanName, player.UserId, clanLogo, clanDesc)
 	if success then
-		print(player.Name .. " creó el clan: " .. clanName)
+		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " (" .. player.Name .. ")")
 	else
-		print("Error creando clan: " .. tostring(clanId))
+		warn("❌ [Clan] Error al crear clan: " .. tostring(clanId))
 	end
 end)
 
@@ -146,6 +162,21 @@ DissolveEvent.OnServerEvent:Connect(function(player, clanId)
 	end
 end)
 
+AdminDissolveClanEvent.OnServerEvent:Connect(function(player, clanId)
+	-- Verificar si es admin
+	if not isAdminUser(player.UserId) then
+		warn("⚠️ [Admin] Intento no autorizado de eliminar clan por: " .. player.Name)
+		return
+	end
+	
+	local success, msg = ClanAPI:DissolveClansAsAdmin(clanId)
+	if success then
+		print("✅ [Admin] Clan disuelto por administrador: " .. player.Name)
+	else
+		warn("❌ [Admin] Error al disolver clan: " .. tostring(msg))
+	end
+end)
+
 GetClanDataEvent.OnServerEvent:Connect(function(player, clanId)
 	local clanData = ClanAPI:GetClanData(clanId)
 
@@ -156,23 +187,32 @@ GetClanDataEvent.OnServerEvent:Connect(function(player, clanId)
 	end
 end)
 
+JoinClanEvent.OnServerEvent:Connect(function(player, clanId)
+	local success, msg = ClanAPI:JoinClan(clanId, player.UserId)
+	if success then
+		print("✅ [Clan] " .. player.Name .. " se unió a un clan")
+	else
+		warn("❌ [Clan] Error al unirse: " .. tostring(msg))
+	end
+end)
+
 -- Función para obtener lista de clanes
 GetClansListFunction.OnServerInvoke = function(player)
-	local clansList = ClanAPI:GetAllClans()
-	print("🔍 [GetClansList] Se solicitó lista de clanes. Total encontrados: " .. (clansList and #clansList or 0))
-	if clansList and #clansList > 0 then
-		for i, clan in ipairs(clansList) do
-			print("  " .. i .. ". " .. clan.clanName .. " (ID: " .. clan.clanId .. ")")
-		end
-	end
-	return clansList
+	return ClanAPI:GetAllClans()
 end
 
--- Debug: Verificar que todo está conectado
-print("✅ Sistema de Clanes inicializado correctamente")
-print("   - ClanAPI cargado")
-print("   - Carpeta ClanEvents creada")
-print("   - Todos los RemoteEvents registrados")
-print("   - RemoteFunction GetClansList lista")
+-- Función para obtener el clan del jugador
+GetPlayerClanFunction.OnServerInvoke = function(player)
+	local clanId = ClanAPI:GetPlayerClan(player.UserId)
+	if clanId then
+		return ClanAPI:GetClanData(clanId)
+	else
+		return nil
+	end
+end
 
-return ClanSystem
+-- Sistema inicializado
+print("✅ [Sistema] Clan System inicializado")
+
+-- Retornar tabla vacía para satisfacer require() de HD Admin
+return {}
