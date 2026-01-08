@@ -49,13 +49,17 @@ ClanClient.currentClanId = nil
 
 -- Crear clan
 function ClanClient:CreateClan(clanName, clanLogo, clanDesc)
-	local event = clanEvents:FindFirstChild("CreateClan")
-	if event then
-		event:FireServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+	local func = clanEvents:FindFirstChild("CreateClan")
+	if func then
+		local success, clanId, msg = func:InvokeServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+		if success then
+			self:RefreshClanData()
+		end
+		return success, clanId, msg
 	else
-		warn("[Clan] No se encontró evento CreateClan")
+		warn("[Clan] No se encontró función CreateClan")
+		return false, nil, "Función no disponible"
 	end
-	self:RefreshClanData()
 end
 
 -- Invitar jugador
@@ -149,12 +153,16 @@ end
 
 -- Unirse a un clan
 function ClanClient:JoinClan(clanId)
-	local event = clanEvents:FindFirstChild("JoinClan")
-	if event then
-		event:FireServer(clanId)
-		self:RefreshClanData()
+	local func = clanEvents:FindFirstChild("JoinClan")
+	if func then
+		local success, msg = func:InvokeServer(clanId)
+		if success then
+			self:RefreshClanData()
+		end
+		return success, msg
 	else
-		warn("[Clan] No se encontró evento JoinClan")
+		warn("[Clan] No se encontró función JoinClan")
+		return false, "Función no disponible"
 	end
 end
 
@@ -196,11 +204,13 @@ end
 
 -- Disolver clan como admin
 function ClanClient:AdminDissolveClan(clanId)
-	local event = clanEvents:FindFirstChild("AdminDissolveClan")
-	if event then
-		event:FireServer(clanId)
+	local func = clanEvents:FindFirstChild("AdminDissolveClan")
+	if func then
+		local success, msg = func:InvokeServer(clanId)
+		return success, msg
 	else
-		warn("[Clan] No se encontró evento AdminDissolveClan")
+		warn("[Clan] No se encontró función AdminDissolveClan")
+		return false, "Función no disponible"
 	end
 end
 
