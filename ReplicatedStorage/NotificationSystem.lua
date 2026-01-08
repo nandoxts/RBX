@@ -29,55 +29,48 @@ MAX_NOTIFICATIONS = 5
 }
 
 -- ════════════════════════════════════════════════════════════════
--- TIPOS DE NOTIFICACIONES
+-- TIPOS DE NOTIFICACIONES - Diseño Moderno y Profesional
 -- ════════════════════════════════════════════════════════════════
--- Puedes usar texto (emoji) o AssetID de imagen
--- Para imagen: iconImage = "rbxassetid://TUNUMEROID"
 local NOTIFICATION_TYPES = {
 	success = {
-		icon = "✓",
-		iconImage = nil,
-		color = THEME.success,
-		bgColor = THEME.successMuted,
-		borderColor = THEME.success,
-		sound = "rbxassetid://6026984224",
-		gradient = true
+		icon = "✅",
+		color = Color3.fromRGB(16, 185, 129),        -- Verde moderno esmeralda
+		bgColor = Color3.fromRGB(6, 78, 59),         -- Fondo oscuro profesional
+		borderColor = Color3.fromRGB(16, 185, 129),
+		glowColor = Color3.fromRGB(16, 185, 129),
+		sound = "rbxassetid://6026984224"
 	},
 	error = {
-		icon = "✕",
-		iconImage = nil,
-		color = THEME.warn,
-		bgColor = THEME.warnMuted,
-		borderColor = THEME.warn,
-		sound = "rbxassetid://6026984224",
-		gradient = true
+		icon = "❌",
+		color = Color3.fromRGB(239, 68, 68),         -- Rojo moderno suave
+		bgColor = Color3.fromRGB(87, 13, 13),        -- Fondo oscuro elegante
+		borderColor = Color3.fromRGB(239, 68, 68),
+		glowColor = Color3.fromRGB(239, 68, 68),
+		sound = "rbxassetid://6026984224"
 	},
 	warning = {
-		icon = "⚠",
-		iconImage = nil,
-		color = Color3.fromRGB(255, 193, 7),
-		bgColor = Color3.fromRGB(60, 50, 30),
-		borderColor = Color3.fromRGB(255, 193, 7),
-		sound = "rbxassetid://6026984224",
-		gradient = true
+		icon = "⚠️",
+		color = Color3.fromRGB(251, 191, 36),        -- Amarillo ámbar profesional
+		bgColor = Color3.fromRGB(78, 63, 14),        -- Fondo oscuro cálido
+		borderColor = Color3.fromRGB(251, 191, 36),
+		glowColor = Color3.fromRGB(251, 191, 36),
+		sound = "rbxassetid://6026984224"
 	},
 	info = {
-		icon = "ℹ",
-		iconImage = nil,
-		color = THEME.info,
-		bgColor = THEME.infoMuted,
-		borderColor = THEME.info,
-		sound = "rbxassetid://6026984224",
-		gradient = true
+		icon = "ℹ️",
+		color = Color3.fromRGB(59, 130, 246),        -- Azul moderno claro
+		bgColor = Color3.fromRGB(17, 44, 83),        -- Fondo oscuro profundo
+		borderColor = Color3.fromRGB(59, 130, 246),
+		glowColor = Color3.fromRGB(59, 130, 246),
+		sound = "rbxassetid://6026984224"
 	},
 	clan = {
-		icon = "⚔",
-		iconImage = nil,
-		color = THEME.accent,
-		bgColor = THEME.accentMuted,
-		borderColor = THEME.accent,
-		sound = "rbxassetid://6026984224",
-		gradient = true
+		icon = "⚔️",
+		color = Color3.fromRGB(168, 85, 247),        -- Púrpura moderno vibrante
+		bgColor = Color3.fromRGB(66, 33, 99),        -- Fondo oscuro místico
+		borderColor = Color3.fromRGB(168, 85, 247),
+		glowColor = Color3.fromRGB(168, 85, 247),
+		sound = "rbxassetid://6026984224"
 	}
 }
 -- ════════════════════════════════════════════════════════════════
@@ -232,221 +225,213 @@ end
 	local notification = Instance.new("Frame")
 	notification.Name = notifId
 	notification.Size = UDim2.new(0, CONFIG.NOTIFICATION_WIDTH, 0, CONFIG.NOTIFICATION_HEIGHT)
-	notification.Position = finalPosition  -- Aparece directamente en su posición final
-	notification.BackgroundColor3 = THEME.panel
-	notification.BackgroundTransparency = 1  -- Comienza transparente para fade-in
+	notification.Position = finalPosition
+	notification.BackgroundColor3 = Color3.fromRGB(20, 24, 32)  -- Fondo oscuro moderno
+	notification.BackgroundTransparency = 0.15  -- Glassmorphism sutil
 	notification.BorderSizePixel = 0
 	notification.ZIndex = 100
-	notification.ClipsDescendants = false
+	notification.ClipsDescendants = true  -- IMPORTANTE: Evita que la barra salga
 	notification.AnchorPoint = Vector2.new(0, 0)
 	notification.Parent = screenGui
 
-rounded(notification, 10)
-stroked(notification, typeConfig.borderColor, 2)	
-	-- Gradiente sutil en el fondo
-	if typeConfig.gradient then
-		local bgGradient = Instance.new("UIGradient")
-		bgGradient.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, THEME.panel),
-			ColorSequenceKeypoint.new(1, Color3.new(
-				THEME.panel.R * 0.9,
-				THEME.panel.G * 0.9,
-				THEME.panel.B * 0.9
-			))
-		}
-		bgGradient.Rotation = 90
-		bgGradient.Transparency = NumberSequence.new(0)
-		bgGradient.Parent = notification
-	end
--- Sombra
-local shadow = Instance.new("ImageLabel")
-shadow.Name = "Shadow"
-shadow.BackgroundTransparency = 1
-shadow.Position = UDim2.new(0.5, 0, 0.5, 4)
-shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-shadow.Size = UDim2.new(1, 30, 1, 30)
-shadow.ZIndex = 99
-shadow.Image = "rbxassetid://6015897843"
-shadow.ImageColor3 = Color3.new(0, 0, 0)
-shadow.ImageTransparency = 0.4
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(49, 49, 450, 450)
-shadow.Parent = notification
-
--- Barra de progreso (izquierda)
-local progressBar = Instance.new("Frame")
-progressBar.Name = "ProgressBar"
-progressBar.Size = UDim2.new(0, 4, 1, 0)
-progressBar.Position = UDim2.new(0, 0, 0, 0)
-progressBar.BackgroundColor3 = typeConfig.color
-progressBar.BorderSizePixel = 0
-progressBar.ZIndex = 101
-progressBar.Parent = notification
-
-local progressCorner = Instance.new("UICorner")
-progressCorner.CornerRadius = UDim.new(0, 10)
-progressCorner.Parent = progressBar
-
--- Icono
-local iconContainer = Instance.new("Frame")
-iconContainer.Size = UDim2.new(0, 40, 0, 40)
-iconContainer.Position = UDim2.new(0, 15, 0.5, -20)
-iconContainer.BackgroundColor3 = typeConfig.bgColor
-iconContainer.BorderSizePixel = 0
-iconContainer.ZIndex = 101
-iconContainer.Parent = notification
-rounded(iconContainer, 8)
-
-	-- Gradiente en el icono si está habilitado
-	if typeConfig.gradient then
-		local iconGradient = Instance.new("UIGradient")
-		iconGradient.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, typeConfig.bgColor),
-			ColorSequenceKeypoint.new(1, Color3.new(
-				typeConfig.bgColor.R * 0.7,
-				typeConfig.bgColor.G * 0.7,
-				typeConfig.bgColor.B * 0.7
-			))
-		}
-		iconGradient.Rotation = 45
-		iconGradient.Parent = iconContainer
-	end
+	rounded(notification, 12)
+	stroked(notification, typeConfig.borderColor, 1.5)
 	
-	-- Usar imagen o texto según configuración
-	if typeConfig.iconImage and typeConfig.iconImage ~= "" then
-		-- Icono personalizado (imagen)
-		local iconImage = Instance.new("ImageLabel")
-		iconImage.Size = UDim2.new(0.7, 0, 0.7, 0)
-		iconImage.Position = UDim2.new(0.15, 0, 0.15, 0)
-		iconImage.BackgroundTransparency = 1
-		iconImage.Image = typeConfig.iconImage
-		iconImage.ImageColor3 = typeConfig.color
-		iconImage.ScaleType = Enum.ScaleType.Fit
-		iconImage.ZIndex = 102
-		iconImage.Parent = iconContainer
-	else
-		-- Icono de texto (emoji)
-		local icon = Instance.new("TextLabel")
-		icon.Size = UDim2.new(1, 0, 1, 0)
-		icon.BackgroundTransparency = 1
-		icon.Text = typeConfig.icon
-		icon.TextColor3 = typeConfig.color
-		icon.TextSize = 24
-		icon.Font = Enum.Font.GothamBold
-		icon.TextXAlignment = Enum.TextXAlignment.Center
-		icon.TextYAlignment = Enum.TextYAlignment.Center
-		icon.ZIndex = 102
-		icon.Parent = iconContainer
+	-- Gradiente moderno diagonal
+	local bgGradient = Instance.new("UIGradient")
+	bgGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 30, 40)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 18, 25))
+	}
+	bgGradient.Rotation = 135
+	bgGradient.Parent = notification
+
+	-- Sombra profesional
+	local shadow = Instance.new("ImageLabel")
+	shadow.Name = "Shadow"
+	shadow.BackgroundTransparency = 1
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.Size = UDim2.new(1, 40, 1, 40)
+	shadow.ZIndex = 99
+	shadow.Image = "rbxassetid://6015897843"
+	shadow.ImageColor3 = Color3.new(0, 0, 0)
+	shadow.ImageTransparency = 0.3
+	shadow.ScaleType = Enum.ScaleType.Slice
+	shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+	shadow.Parent = notification
+
+	-- Barra de progreso inferior (sin contenedor adicional - método limpio)
+	local progressBar = Instance.new("Frame")
+	progressBar.Name = "ProgressBar"
+	progressBar.Size = UDim2.new(1, 0, 0, 3)
+	progressBar.Position = UDim2.new(0, 0, 1, -3)
+	progressBar.BackgroundColor3 = typeConfig.color
+	progressBar.BorderSizePixel = 0
+	progressBar.ZIndex = 101
+	progressBar.Parent = notification
+	
+	-- Gradiente horizontal para efecto moderno
+	local progressGlow = Instance.new("UIGradient")
+	progressGlow.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, typeConfig.color),
+		ColorSequenceKeypoint.new(0.5, Color3.new(
+			math.min(typeConfig.color.R * 1.2, 1),
+			math.min(typeConfig.color.G * 1.2, 1),
+			math.min(typeConfig.color.B * 1.2, 1)
+		)),
+		ColorSequenceKeypoint.new(1, typeConfig.color)
+	}
+	progressGlow.Rotation = 0
+	progressGlow.Parent = progressBar
+	
+	-- Icono con efecto glow moderno
+	local iconContainer = Instance.new("Frame")
+	iconContainer.Size = UDim2.new(0, 48, 0, 48)
+	iconContainer.Position = UDim2.new(0, 14, 0.5, -24)
+	iconContainer.BackgroundColor3 = typeConfig.bgColor
+	iconContainer.BackgroundTransparency = 0.2
+	iconContainer.BorderSizePixel = 0
+	iconContainer.ZIndex = 101
+	iconContainer.Parent = notification
+	rounded(iconContainer, 10)
+	
+	-- Borde sutil del icono
+	stroked(iconContainer, typeConfig.borderColor, 1)
+
+	-- Gradiente moderno en el icono
+	local iconGradient = Instance.new("UIGradient")
+	iconGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.new(
+			typeConfig.bgColor.R * 1.2,
+			typeConfig.bgColor.G * 1.2,
+			typeConfig.bgColor.B * 1.2
+		)),
+		ColorSequenceKeypoint.new(1, typeConfig.bgColor)
+	}
+	iconGradient.Rotation = 135
+	iconGradient.Parent = iconContainer
+	
+	-- Emoji/Icono de texto (más grande y profesional)
+	local icon = Instance.new("TextLabel")
+	icon.Size = UDim2.new(1, 0, 1, 0)
+	icon.BackgroundTransparency = 1
+	icon.Text = typeConfig.icon
+	icon.TextColor3 = typeConfig.color
+	icon.TextSize = 28
+	icon.Font = Enum.Font.GothamBold
+	icon.TextXAlignment = Enum.TextXAlignment.Center
+	icon.TextYAlignment = Enum.TextYAlignment.Center
+	icon.ZIndex = 102
+	icon.Parent = iconContainer
+
+	-- Contenedor de texto
+	local textContainer = Instance.new("Frame")
+	textContainer.Size = UDim2.new(1, -120, 1, -10)
+	textContainer.Position = UDim2.new(0, 72, 0, 8)
+	textContainer.BackgroundTransparency = 1
+	textContainer.ZIndex = 101
+	textContainer.Parent = notification
+
+	-- Título moderno
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Size = UDim2.new(1, 0, 0, 22)
+	titleLabel.Position = UDim2.new(0, 0, 0, 8)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = title
+	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	titleLabel.TextSize = 15
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	titleLabel.ZIndex = 102
+	titleLabel.Parent = textContainer
+
+	-- Mensaje con mejor contraste
+	local messageLabel = Instance.new("TextLabel")
+	messageLabel.Size = UDim2.new(1, 0, 0, 40)
+	messageLabel.Position = UDim2.new(0, 0, 0, 32)
+	messageLabel.BackgroundTransparency = 1
+	messageLabel.Text = message
+	messageLabel.TextColor3 = Color3.fromRGB(180, 185, 195)
+	messageLabel.TextSize = 13
+	messageLabel.Font = Enum.Font.Gotham
+	messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+	messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+	messageLabel.TextWrapped = true
+	messageLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	messageLabel.ZIndex = 102
+	messageLabel.Parent = textContainer
+	-- Botón cerrar moderno
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Size = UDim2.new(0, 36, 0, 36)
+	closeBtn.Position = UDim2.new(1, -44, 0.5, -18)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+	closeBtn.BackgroundTransparency = 0.5
+	closeBtn.BorderSizePixel = 0
+	closeBtn.Text = "×"  -- Símbolo × más elegante
+	closeBtn.TextColor3 = Color3.fromRGB(160, 165, 175)
+	closeBtn.TextSize = 22
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.ZIndex = 103
+	closeBtn.AutoButtonColor = false
+	closeBtn.Parent = notification
+	rounded(closeBtn, 8)
+
+	-- Hover effect moderno
+	closeBtn.MouseEnter:Connect(function()
+		TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+			BackgroundColor3 = Color3.fromRGB(220, 38, 38),
+			BackgroundTransparency = 0
+		}):Play()
+		TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+			TextColor3 = Color3.new(1, 1, 1)
+		}):Play()
+	end)
+
+	closeBtn.MouseLeave:Connect(function()
+		TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+			BackgroundColor3 = Color3.fromRGB(40, 45, 55),
+			BackgroundTransparency = 0.5
+		}):Play()
+		TweenService:Create(closeBtn, TweenInfo.new(0.2), {
+			TextColor3 = Color3.fromRGB(160, 165, 175)
+		}):Play()
+	end)
+
+	closeBtn.MouseButton1Click:Connect(function()
+		removeNotification(notification)
+	end)
+
+	-- Hacer clickeable toda la notificación si hay onClick
+	if onClick then
+		local clickButton = Instance.new("TextButton")
+		clickButton.Size = UDim2.new(1, -50, 1, 0)
+		clickButton.Position = UDim2.new(0, 0, 0, 0)
+		clickButton.BackgroundTransparency = 1
+		clickButton.Text = ""
+		clickButton.ZIndex = 100
+		clickButton.AutoButtonColor = false
+		clickButton.Parent = notification
+
+		clickButton.MouseButton1Click:Connect(function()
+			onClick()
+			removeNotification(notification)
+		end)
+
+		-- Hover effect moderno
+		clickButton.MouseEnter:Connect(function()
+			TweenService:Create(notification, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(30, 36, 48)
+			}):Play()
+		end)
+
+		clickButton.MouseLeave:Connect(function()
+			TweenService:Create(notification, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+			}):Play()
+		end)
 	end
-
--- Contenedor de texto
-local textContainer = Instance.new("Frame")
-textContainer.Size = UDim2.new(1, -120, 1, -16)
-textContainer.Position = UDim2.new(0, 65, 0, 8)
-textContainer.BackgroundTransparency = 1
-textContainer.ZIndex = 101
-textContainer.Parent = notification
-
--- Título
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 20)
-titleLabel.Position = UDim2.new(0, 0, 0, 10)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = title
-titleLabel.TextColor3 = THEME.text
-titleLabel.TextSize = 14
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
-titleLabel.ZIndex = 102
-titleLabel.Parent = textContainer
-
--- Mensaje
-local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1, 0, 0, 36)
-messageLabel.Position = UDim2.new(0, 0, 0, 32)
-messageLabel.BackgroundTransparency = 1
-messageLabel.Text = message
-messageLabel.TextColor3 = THEME.muted
-messageLabel.TextSize = 12
-messageLabel.Font = Enum.Font.Gotham
-messageLabel.TextXAlignment = Enum.TextXAlignment.Left
-messageLabel.TextYAlignment = Enum.TextYAlignment.Top
-messageLabel.TextWrapped = true
-messageLabel.TextTruncate = Enum.TextTruncate.AtEnd
-messageLabel.ZIndex = 102
-messageLabel.Parent = textContainer
-
--- Botón cerrar
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 32, 0, 32)
-closeBtn.Position = UDim2.new(1, -42, 0, 8)
-closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-closeBtn.BackgroundTransparency = 0.3
-closeBtn.BorderSizePixel = 0
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-closeBtn.TextSize = 18
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.ZIndex = 103
-closeBtn.AutoButtonColor = false
-closeBtn.Parent = notification
-rounded(closeBtn, 6)
-
--- Hover effect para close button
-closeBtn.MouseEnter:Connect(function()
-TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-BackgroundColor3 = THEME.btnDanger,
-BackgroundTransparency = 0
-}):Play()
-TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-TextColor3 = Color3.new(1, 1, 1)
-}):Play()
-end)
-
-closeBtn.MouseLeave:Connect(function()
-TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-BackgroundColor3 = THEME.surface,
-BackgroundTransparency = 0.5
-}):Play()
-TweenService:Create(closeBtn, TweenInfo.new(0.2), {
-TextColor3 = THEME.muted
-}):Play()
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-removeNotification(notification)
-end)
-
--- Hacer clickeable toda la notificación si hay onClick
-if onClick then
-local clickButton = Instance.new("TextButton")
-clickButton.Size = UDim2.new(1, -50, 1, 0)
-clickButton.Position = UDim2.new(0, 0, 0, 0)
-clickButton.BackgroundTransparency = 1
-clickButton.Text = ""
-clickButton.ZIndex = 100
-clickButton.AutoButtonColor = false
-clickButton.Parent = notification
-
-clickButton.MouseButton1Click:Connect(function()
-onClick()
-removeNotification(notification)
-end)
-
--- Hover effect
-clickButton.MouseEnter:Connect(function()
-TweenService:Create(notification, TweenInfo.new(0.2), {
-BackgroundColor3 = THEME.card
-}):Play()
-end)
-
-clickButton.MouseLeave:Connect(function()
-TweenService:Create(notification, TweenInfo.new(0.2), {
-BackgroundColor3 = THEME.panel
-}):Play()
-end)
-end
 	
 	-- Reproducir sonido si está configurado
 	if typeConfig.sound and typeConfig.sound ~= "" then
@@ -502,25 +487,25 @@ end
 	-- Reposicionar todas las demás notificaciones (excepto la nueva)
 	repositionNotifications(true)
 
--- Auto-cerrar después de la duración
-if duration > 0 then
-task.delay(duration, function()
-if notification and notification.Parent then
-removeNotification(notification)
-end
-end)
+	-- Auto-cerrar después de la duración
+	if duration > 0 then
+		task.delay(duration, function()
+			if notification and notification.Parent then
+				removeNotification(notification)
+			end
+		end)
 
--- Animar la barra de progreso
-task.spawn(function()
-local startTime = tick()
-while notification and notification.Parent and (tick() - startTime) < duration do
-local progress = (tick() - startTime) / duration
-progressBar.Size = UDim2.new(0, 4, 1 - progress, 0)
-progressBar.Position = UDim2.new(0, 0, progress, 0)
-task.wait(0.03)
-end
-end)
-end
+		-- Animar la barra de progreso (reducción limpia)
+		task.spawn(function()
+			local startTime = tick()
+			while notification and notification.Parent and (tick() - startTime) < duration do
+				local progress = (tick() - startTime) / duration
+				-- La barra se reduce de izquierda a derecha usando AnchorPoint
+				progressBar.Size = UDim2.new(1 - progress, 0, 0, 3)
+				task.wait(0.03)
+			end
+		end)
+	end
 
 return notification
 end

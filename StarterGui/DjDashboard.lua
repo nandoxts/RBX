@@ -60,11 +60,11 @@ local ENABLE_BLUR, BLUR_SIZE = true, 14
 -- ════════════════════════════════════════════════════════════════
 -- CONFIG
 -- ════════════════════════════════════════════════════════════════
-local USE_PIXEL_SIZE = false
+local USE_PIXEL_SIZE = true
 local PANEL_W_SCALE = 0.40
 local PANEL_H_SCALE = 0.86
-local PANEL_W_PX = 980
-local PANEL_H_PX = 620
+local PANEL_W_PX = THEME.panelWidth or 980
+local PANEL_H_PX = THEME.panelHeight or 620 
 
 -- ════════════════════════════════════════════════════════════════
 -- POSICIONES CONSTANTES (para evitar inconsistencias)

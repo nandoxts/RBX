@@ -68,6 +68,12 @@ local THEME = {
 	-- ══════════════════════════════════════════════════════════════
 	overlayAlpha = 0.6,   -- Para fondos semi-transparentes
 	hoverAlpha   = 0.08,  -- Para efectos hover sutiles
+
+	-- ══════════════════════════════════════════════════════════════
+	-- TAMAÑOS DE PANEL - Consistencia entre dashboards
+	-- ══════════════════════════════════════════════════════════════
+	panelWidth  = 550,    -- Ancho principal de dashboards
+	panelHeight = 650,    -- Alto principal de dashboards
 }
 
 return THEME

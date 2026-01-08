@@ -77,7 +77,10 @@ local function stroked(inst, alpha, color)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- ROOT GUI
+-- CONFIG
+-- ════════════════════════════════════════════════════════════════
+local PANEL_W_PX = THEME.panelWidth or 980
+local PANEL_H_PX = THEME.panelHeight or 620
 -- ════════════════════════════════════════════════════════════════
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ClanSystemGui"
@@ -120,8 +123,21 @@ if Icon then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- BLUR
+-- OVERLAY + BLUR
 -- ════════════════════════════════════════════════════════════════
+local overlay = Instance.new("TextButton")
+overlay.Name = "Overlay"
+overlay.BackgroundColor3 = THEME.bg
+overlay.AutoButtonColor = false
+overlay.BorderSizePixel = 0
+overlay.Size = UDim2.fromScale(1, 1)
+overlay.Position = UDim2.fromScale(0, 0)
+overlay.BackgroundTransparency = 1
+overlay.Visible = false
+overlay.ZIndex = 95
+overlay.Text = ""
+overlay.Parent = screenGui
+
 local blur = nil
 if ENABLE_BLUR then
 	blur = Instance.new("BlurEffect")
@@ -141,13 +157,17 @@ panel.BackgroundColor3 = THEME.panel or Color3.fromRGB(18, 18, 22)
 panel.BorderSizePixel = 0
 panel.Visible = false
 panel.ZIndex = 100
-panel.Size = UDim2.new(0, 750, 0, 550)
+panel.Size = UDim2.new(0, PANEL_W_PX, 0, PANEL_H_PX)
 panel.Parent = screenGui
 rounded(panel, R_PANEL)
 stroked(panel, 0.7)
 
+local tabButtons = {}
+local tabPages = {}
+
 -- ════════════════════════════════════════════════════════════════
--- HEADER
+-- ════════════════════════════════════════════════════════════════
+-- HEADER COMPLETO (incluye título, botón y separador)
 -- ════════════════════════════════════════════════════════════════
 local header = Instance.new("Frame")
 header.Name = "Header"
@@ -156,172 +176,131 @@ header.BackgroundColor3 = THEME.head or Color3.fromRGB(22, 22, 28)
 header.BorderSizePixel = 0
 header.ZIndex = 101
 header.Parent = panel
+rounded(header, 12)
 
--- Solo esquinas superiores redondeadas
-local headerCornerTop = Instance.new("Frame")
-headerCornerTop.Name = "HeaderTop"
-headerCornerTop.Size = UDim2.new(1, 0, 0, 30)
-headerCornerTop.Position = UDim2.new(0, 0, 0, 0)
-headerCornerTop.BackgroundColor3 = header.BackgroundColor3
-headerCornerTop.BorderSizePixel = 0
-headerCornerTop.ZIndex = 101
-headerCornerTop.Parent = header
-rounded(headerCornerTop, R_PANEL)
+-- Gradiente moderno en el header
+local headerGradient = Instance.new("UIGradient")
+headerGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 35)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 24))
+}
+headerGradient.Rotation = 90
+headerGradient.Parent = header
 
-local headerBottom = Instance.new("Frame")
-headerBottom.Name = "HeaderBottom"
-headerBottom.Size = UDim2.new(1, 0, 0, 35)
-headerBottom.Position = UDim2.new(0, 0, 0, 25)
-headerBottom.BackgroundColor3 = header.BackgroundColor3
-headerBottom.BorderSizePixel = 0
-headerBottom.ZIndex = 101
-headerBottom.Parent = header
-
--- Linea separadora sutil
-local headerLine = Instance.new("Frame")
-headerLine.Size = UDim2.new(1, -40, 0, 1)
-headerLine.Position = UDim2.new(0, 20, 1, -1)
-headerLine.BackgroundColor3 = THEME.stroke or Color3.fromRGB(40, 40, 50)
-headerLine.BackgroundTransparency = 0.5
-headerLine.BorderSizePixel = 0
-headerLine.ZIndex = 102
-headerLine.Parent = header
-
--- Titulo
+-- Título
 local title = Instance.new("TextLabel")
 title.Name = "Title"
 title.BackgroundTransparency = 1
-title.Size = UDim2.new(1, -100, 1, 0)
+title.Size = UDim2.new(1, -100, 0, 60)
 title.Position = UDim2.new(0, 20, 0, 0)
 title.Text = "CLANES"
 title.TextColor3 = THEME.text or Color3.new(1, 1, 1)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 20
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextYAlignment = Enum.TextYAlignment.Center
 title.ZIndex = 102
 title.Parent = header
 
--- Boton cerrar
+-- Botón cerrar
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseButton"
-closeBtn.Size = UDim2.new(0, 32, 0, 32)
-closeBtn.Position = UDim2.new(1, -46, 0.5, -16)
+closeBtn.Size = UDim2.new(0, 36, 0, 36)
+closeBtn.Position = UDim2.new(1, -50, 0.5, -18)
 closeBtn.BackgroundColor3 = THEME.card or Color3.fromRGB(35, 35, 45)
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = ""
+closeBtn.Text = "×"
+closeBtn.TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
+closeBtn.TextSize = 22
+closeBtn.Font = Enum.Font.GothamBold
 closeBtn.ZIndex = 103
 closeBtn.AutoButtonColor = false
 closeBtn.Parent = header
 rounded(closeBtn, 8)
+stroked(closeBtn, 0.4)
 
--- X icon con frames
-local closeX1 = Instance.new("Frame")
-closeX1.Size = UDim2.new(0, 14, 0, 2)
-closeX1.Position = UDim2.new(0.5, -7, 0.5, -1)
-closeX1.Rotation = 45
-closeX1.BackgroundColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
-closeX1.BorderSizePixel = 0
-closeX1.ZIndex = 104
-closeX1.Parent = closeBtn
-rounded(closeX1, 1)
-
-local closeX2 = Instance.new("Frame")
-closeX2.Size = UDim2.new(0, 14, 0, 2)
-closeX2.Position = UDim2.new(0.5, -7, 0.5, -1)
-closeX2.Rotation = -45
-closeX2.BackgroundColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
-closeX2.BorderSizePixel = 0
-closeX2.ZIndex = 104
-closeX2.Parent = closeBtn
-rounded(closeX2, 1)
-
+-- Hover effects para closeBtn
 closeBtn.MouseEnter:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 60, 60)}):Play()
-	TweenService:Create(closeX1, TweenInfo.new(0.15), {BackgroundColor3 = Color3.new(1, 1, 1)}):Play()
-	TweenService:Create(closeX2, TweenInfo.new(0.15), {BackgroundColor3 = Color3.new(1, 1, 1)}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+		BackgroundColor3 = Color3.fromRGB(180, 60, 60),
+		BackgroundTransparency = 0
+	}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+		TextColor3 = Color3.new(1, 1, 1)
+	}):Play()
 end)
 
 closeBtn.MouseLeave:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.card or Color3.fromRGB(35, 35, 45)}):Play()
-	TweenService:Create(closeX1, TweenInfo.new(0.15), {BackgroundColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)}):Play()
-	TweenService:Create(closeX2, TweenInfo.new(0.15), {BackgroundColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+		BackgroundColor3 = THEME.card or Color3.fromRGB(35, 35, 45),
+		BackgroundTransparency = 0
+	}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
+		TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
+	}):Play()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- TABS NAVIGATION
+-- TABS NAVIGATION (Parte de la sección superior)
 -- ════════════════════════════════════════════════════════════════
 local tabNav = Instance.new("Frame")
 tabNav.Name = "TabNavigation"
-tabNav.Size = UDim2.new(1, -40, 0, 38)
-tabNav.Position = UDim2.new(0, 20, 0, 72)
-tabNav.BackgroundColor3 = THEME.card or Color3.fromRGB(28, 28, 35)
+tabNav.Size = UDim2.new(1, 0, 0, 36)
+tabNav.Position = UDim2.new(0, 0, 0, 60)
+tabNav.BackgroundColor3 = THEME.panel or Color3.fromRGB(18, 18, 22)
 tabNav.BorderSizePixel = 0
 tabNav.ZIndex = 101
 tabNav.Parent = panel
-rounded(tabNav, 8)
 
-local tabPadding = Instance.new("UIPadding")
-tabPadding.PaddingLeft = UDim.new(0, 4)
-tabPadding.PaddingRight = UDim.new(0, 4)
-tabPadding.PaddingTop = UDim.new(0, 4)
-tabPadding.PaddingBottom = UDim.new(0, 4)
-tabPadding.Parent = tabNav
+local navList = Instance.new("UIListLayout")
+navList.FillDirection = Enum.FillDirection.Horizontal
+navList.Padding = UDim.new(0, 12)
+navList.Parent = tabNav
 
-local tabButtons = {}
-local tabPages = {}
+local navPadding = Instance.new("UIPadding")
+navPadding.PaddingLeft = UDim.new(0, 20)
+navPadding.PaddingTop = UDim.new(0, 6)
+navPadding.Parent = tabNav
 
-local totalTabs = isAdmin and 4 or 3
-
-local function createTabButton(text, index, total)
+local function createTab(text)
 	local btn = Instance.new("TextButton")
-	btn.Name = text
-	btn.Size = UDim2.new(1/total, -3, 1, 0)
-	btn.Position = UDim2.new((index - 1) / total, 1.5, 0, 0)
-	btn.BackgroundColor3 = THEME.btnSecondary or Color3.fromRGB(38, 38, 48)
-	btn.BorderSizePixel = 0
+	btn.Size = UDim2.new(0, 80, 0, 24)
+	btn.BackgroundTransparency = 1
 	btn.Text = text
-	btn.TextColor3 = THEME.muted or Color3.fromRGB(120, 120, 130)
-	btn.TextSize = 12
-	btn.Font = Enum.Font.GothamMedium
-	btn.ZIndex = 102
+	btn.TextColor3 = THEME.muted or Color3.fromRGB(100, 100, 110)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 13
+	btn.BorderSizePixel = 0
 	btn.AutoButtonColor = false
 	btn.Parent = tabNav
-	rounded(btn, 6)
-
-	btn.MouseEnter:Connect(function()
-		if btn.BackgroundColor3 ~= (THEME.accent or Color3.fromRGB(138, 99, 210)) then
-			TweenService:Create(btn, TweenInfo.new(0.15), {
-				BackgroundColor3 = Color3.fromRGB(48, 48, 60)
-			}):Play()
-		end
-	end)
-
-	btn.MouseLeave:Connect(function()
-		if btn.BackgroundColor3 ~= (THEME.accent or Color3.fromRGB(138, 99, 210)) then
-			TweenService:Create(btn, TweenInfo.new(0.15), {
-				BackgroundColor3 = THEME.btnSecondary or Color3.fromRGB(38, 38, 48)
-			}):Play()
-		end
-	end)
-
 	return btn
 end
 
-tabButtons["TuClan"] = createTabButton("Tu Clan", 1, totalTabs)
-tabButtons["Disponibles"] = createTabButton("Disponibles", 2, totalTabs)
-tabButtons["Crear"] = createTabButton("Crear", 3, totalTabs)
+tabButtons["TuClan"] = createTab("TU CLAN")
+tabButtons["Disponibles"] = createTab("DISPONIBLES")
+tabButtons["Crear"] = createTab("CREAR")
 
 if isAdmin then
-	tabButtons["Admin"] = createTabButton("Admin", 4, totalTabs)
+	tabButtons["Admin"] = createTab("ADMIN")
 end
+
+-- Underline indicator
+local underline = Instance.new("Frame")
+underline.Size = UDim2.new(0, 80, 0, 3)
+underline.Position = UDim2.new(0, 20, 0, 60 + 33)
+underline.BackgroundColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
+underline.BorderSizePixel = 0
+underline.ZIndex = 102
+underline.Parent = panel
+rounded(underline, 2)
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT AREA
 -- ════════════════════════════════════════════════════════════════
 local contentArea = Instance.new("Frame")
 contentArea.Name = "ContentArea"
-contentArea.Size = UDim2.new(1, -40, 1, -135)
-contentArea.Position = UDim2.new(0, 20, 0, 120)
+contentArea.Size = UDim2.new(1, -40, 1, -125)
+contentArea.Position = UDim2.new(0, 20, 0, 106)
 contentArea.BackgroundColor3 = THEME.elevated or Color3.fromRGB(24, 24, 30)
 contentArea.BorderSizePixel = 0
 contentArea.ClipsDescendants = true
@@ -329,6 +308,19 @@ contentArea.ZIndex = 101
 contentArea.Parent = panel
 rounded(contentArea, 10)
 stroked(contentArea, 0.6)
+
+-- Agregar UIPageLayout para navegación CON animación
+local pageLayout = Instance.new("UIPageLayout")
+pageLayout.FillDirection = Enum.FillDirection.Horizontal
+pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+pageLayout.EasingStyle = Enum.EasingStyle.Quad
+pageLayout.EasingDirection = Enum.EasingDirection.Out
+pageLayout.TweenTime = 0.25
+pageLayout.Padding = UDim.new(0, 0)
+pageLayout.ScrollWheelInputEnabled = false
+pageLayout.TouchInputEnabled = false
+pageLayout.Parent = contentArea
 
 -- ════════════════════════════════════════════════════════════════
 -- PAGE: TU CLAN
@@ -338,6 +330,7 @@ pageTuClan.Name = "TuClan"
 pageTuClan.Size = UDim2.fromScale(1, 1)
 pageTuClan.BackgroundTransparency = 1
 pageTuClan.Visible = false
+pageTuClan.LayoutOrder = 1
 pageTuClan.ZIndex = 102
 pageTuClan.Parent = contentArea
 
@@ -409,6 +402,7 @@ pageDisponibles.Name = "Disponibles"
 pageDisponibles.Size = UDim2.fromScale(1, 1)
 pageDisponibles.BackgroundTransparency = 1
 pageDisponibles.Visible = true
+pageDisponibles.LayoutOrder = 2
 pageDisponibles.ZIndex = 102
 pageDisponibles.Parent = contentArea
 
@@ -1040,6 +1034,7 @@ pageCrear.Name = "Crear"
 pageCrear.Size = UDim2.fromScale(1, 1)
 pageCrear.BackgroundTransparency = 1
 pageCrear.Visible = false
+pageCrear.LayoutOrder = 3
 pageCrear.ZIndex = 102
 pageCrear.Parent = contentArea
 
@@ -1481,33 +1476,37 @@ local function switchTab(tabName)
 	for name, btn in pairs(tabButtons) do
 		if name == tabName then
 			TweenService:Create(btn, TweenInfo.new(0.2), {
-				BackgroundColor3 = THEME.accent or Color3.fromRGB(138, 99, 210),
-				TextColor3 = Color3.new(1, 1, 1)
+				TextColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
 			}):Play()
 		else
 			TweenService:Create(btn, TweenInfo.new(0.2), {
-				BackgroundColor3 = THEME.btnSecondary or Color3.fromRGB(38, 38, 48),
-				TextColor3 = THEME.muted or Color3.fromRGB(120, 120, 130)
+				TextColor3 = THEME.muted or Color3.fromRGB(100, 100, 110)
 			}):Play()
 		end
 	end
 
-	for name, page in pairs(tabPages) do
-		if name == tabName then
-			page.Visible = true
-			page.Position = UDim2.new(0.02, 0, 0, 0)
-			TweenService:Create(page, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-				Position = UDim2.new(0, 0, 0, 0)
-			}):Play()
+	-- Animar el underline
+	local newX = 20
+	if tabName == "TuClan" then newX = 20
+	elseif tabName == "Disponibles" then newX = 20 + 80 + 12
+	elseif tabName == "Crear" then newX = 20 + (80 + 12) * 2
+	elseif tabName == "Admin" and isAdmin then newX = 20 + (80 + 12) * 3
+	end
 
-			if tabName == "TuClan" then
-				task.spawn(loadPlayerClan)
-			elseif tabName == "Admin" and isAdmin then
-				task.spawn(loadAdminClans)
-			end
-		else
-			page.Visible = false
-		end
+	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0, newX, 0, 60 + 33)
+	}):Play()
+
+	local pageFrame = contentArea:FindFirstChild(tabName)
+	if pageFrame then
+		pageFrame.Visible = true
+		pageLayout:JumpTo(pageFrame)
+	end
+
+	if tabName == "TuClan" then
+		task.spawn(loadPlayerClan)
+	elseif tabName == "Admin" and isAdmin then
+		task.spawn(loadAdminClans)
 	end
 end
 
@@ -1523,21 +1522,17 @@ end
 local function openUI()
 	if uiOpen then return end
 	uiOpen = true
-
 	panel.Visible = true
+	overlay.Visible = true
 
+	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45}):Play()
 	if blur then
 		blur.Enabled = true
-		TweenService:Create(blur, TweenInfo.new(0.3), {Size = BLUR_SIZE}):Play()
+		TweenService:Create(blur, TweenInfo.new(0.22), {Size = BLUR_SIZE}):Play()
 	end
 
-	panel.Position = UDim2.new(0.5, 0, 0.6, 0)
-	panel.Size = UDim2.new(0, 700, 0, 500)
-
-	TweenService:Create(panel, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0, 750, 0, 550)
-	}):Play()
+	panel.Position = UDim2.fromScale(0.5, 1.1)
+	TweenService:Create(panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 0.5)}):Play()
 
 	task.spawn(loadClansFromServer)
 	switchTab("Disponibles")
@@ -1547,27 +1542,33 @@ local function closeUI()
 	if not uiOpen then return end
 	uiOpen = false
 
-	if blur then
-		TweenService:Create(blur, TweenInfo.new(0.25), {Size = 0}):Play()
-		task.delay(0.25, function()
-			blur.Enabled = false
-		end)
-	end
+	TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 1.1)}):Play()
+	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
 
-	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-		Position = UDim2.new(0.5, 0, 0.6, 0),
-		Size = UDim2.new(0, 700, 0, 500)
-	}):Play()
-
-	task.delay(0.25, function()
+	task.delay(0.22, function()
+		overlay.Visible = false
 		panel.Visible = false
 	end)
+
+	if blur then
+		TweenService:Create(blur, TweenInfo.new(0.22), {Size = 0}):Play()
+		task.delay(0.22, function()
+			if blur then blur.Enabled = false end
+		end)
+	end
 end
 
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
 -- ════════════════════════════════════════════════════════════════
 closeBtn.MouseButton1Click:Connect(function()
+	closeUI()
+	if clanIcon then
+		clanIcon:deselect()
+	end
+end)
+
+overlay.MouseButton1Click:Connect(function()
 	closeUI()
 	if clanIcon then
 		clanIcon:deselect()
