@@ -36,7 +36,7 @@ MAX_NOTIFICATIONS = 5
 local NOTIFICATION_TYPES = {
 	success = {
 		icon = "✓",
-		iconImage = "rbxassetid://3926305904", -- Checkmark circular moderno (✓)
+		iconImage = nil,
 		color = THEME.success,
 		bgColor = THEME.successMuted,
 		borderColor = THEME.success,
@@ -45,7 +45,7 @@ local NOTIFICATION_TYPES = {
 	},
 	error = {
 		icon = "✕",
-		iconImage = "rbxassetid://3926305904", -- X circular moderno para errores
+		iconImage = nil,
 		color = THEME.warn,
 		bgColor = THEME.warnMuted,
 		borderColor = THEME.warn,
@@ -54,7 +54,7 @@ local NOTIFICATION_TYPES = {
 	},
 	warning = {
 		icon = "⚠",
-		iconImage = "rbxassetid://3926307971", -- Triángulo de advertencia moderno
+		iconImage = nil,
 		color = Color3.fromRGB(255, 193, 7),
 		bgColor = Color3.fromRGB(60, 50, 30),
 		borderColor = Color3.fromRGB(255, 193, 7),
@@ -63,7 +63,7 @@ local NOTIFICATION_TYPES = {
 	},
 	info = {
 		icon = "ℹ",
-		iconImage = "rbxassetid://3926305904", -- Info circular moderno (i)
+		iconImage = nil,
 		color = THEME.info,
 		bgColor = THEME.infoMuted,
 		borderColor = THEME.info,
@@ -72,7 +72,7 @@ local NOTIFICATION_TYPES = {
 	},
 	clan = {
 		icon = "⚔",
-		iconImage = "rbxassetid://3926305904", -- Escudo/estrella moderno para clan
+		iconImage = nil,
 		color = THEME.accent,
 		bgColor = THEME.accentMuted,
 		borderColor = THEME.accent,
@@ -103,7 +103,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- REPOSICIONAR NOTIFICACIONES
 -- ════════════════════════════════════════════════════════════════
-local function repositionNotifications()
+local function repositionNotifications(skipFirst)
 	local yOffset = 20  -- Comienza desde arriba
 
 	for i = 1, #NotificationSystem.activeNotifications do
@@ -111,9 +111,14 @@ local function repositionNotifications()
 		if notif and notif.Parent then
 			local targetPos = UDim2.new(0.5, -CONFIG.NOTIFICATION_WIDTH / 2, 0, yOffset)
 
-			TweenService:Create(notif, TweenInfo.new(CONFIG.ANIMATION_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-				Position = targetPos
-			}):Play()
+			-- Si es la primera notificación y skipFirst es true, no la animes (ya está en su posición)
+			if not (skipFirst and i == #NotificationSystem.activeNotifications) then
+				TweenService:Create(notif, TweenInfo.new(CONFIG.ANIMATION_TIME * 0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Position = targetPos
+				}):Play()
+			else
+				notif.Position = targetPos
+			end
 
 			yOffset = yOffset + CONFIG.NOTIFICATION_HEIGHT + CONFIG.SPACING
 		end
@@ -121,12 +126,24 @@ local function repositionNotifications()
 end
 
 -- ════════════════════════════════════════════════════════════════
+-- CALCULAR POSICIÓN PARA NUEVA NOTIFICACIÓN
+-- ════════════════════════════════════════════════════════════════
+local function calculateNewNotificationPosition()
+	local yOffset = 20
+	for i = 1, #NotificationSystem.activeNotifications do
+		yOffset = yOffset + CONFIG.NOTIFICATION_HEIGHT + CONFIG.SPACING
+	end
+	return UDim2.new(0.5, -CONFIG.NOTIFICATION_WIDTH / 2, 0, yOffset)
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- REMOVER NOTIFICACIÓN
 -- ════════════════════════════════════════════════════════════════
 local function removeNotification(notification)
--- Animación de salida
+	-- Animación de salida: se desliza hacia la derecha y se desvanece
+	local currentPos = notification.Position
 	local tweenOut = TweenService:Create(notification, TweenInfo.new(CONFIG.ANIMATION_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-		Position = UDim2.new(0.5, -CONFIG.NOTIFICATION_WIDTH / 2, 0, -CONFIG.NOTIFICATION_HEIGHT - 20),  -- Sale hacia arriba
+		Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset + 500, currentPos.Y.Scale, currentPos.Y.Offset),
 		BackgroundTransparency = 1
 	})
 
@@ -208,12 +225,16 @@ screenGui.DisplayOrder = 100
 screenGui.Parent = playerGui
 end
 
+	-- Calcular posición final para la nueva notificación
+	local finalPosition = calculateNewNotificationPosition()
+
 	-- Crear frame de notificación
 	local notification = Instance.new("Frame")
 	notification.Name = notifId
 	notification.Size = UDim2.new(0, CONFIG.NOTIFICATION_WIDTH, 0, CONFIG.NOTIFICATION_HEIGHT)
-	notification.Position = UDim2.new(0.5, -CONFIG.NOTIFICATION_WIDTH / 2, 0, -CONFIG.NOTIFICATION_HEIGHT)  -- Arriba fuera de pantalla
+	notification.Position = finalPosition  -- Aparece directamente en su posición final
 	notification.BackgroundColor3 = THEME.panel
+	notification.BackgroundTransparency = 1  -- Comienza transparente para fade-in
 	notification.BorderSizePixel = 0
 	notification.ZIndex = 100
 	notification.ClipsDescendants = false
@@ -310,8 +331,10 @@ rounded(iconContainer, 8)
 		icon.BackgroundTransparency = 1
 		icon.Text = typeConfig.icon
 		icon.TextColor3 = typeConfig.color
-		icon.TextSize = 20
+		icon.TextSize = 24
 		icon.Font = Enum.Font.GothamBold
+		icon.TextXAlignment = Enum.TextXAlignment.Center
+		icon.TextYAlignment = Enum.TextYAlignment.Center
 		icon.ZIndex = 102
 		icon.Parent = iconContainer
 	end
@@ -356,14 +379,14 @@ messageLabel.Parent = textContainer
 
 -- Botón cerrar
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -40, 0, 8)
-closeBtn.BackgroundColor3 = THEME.surface
-closeBtn.BackgroundTransparency = 0.5
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -42, 0, 8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+closeBtn.BackgroundTransparency = 0.3
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = THEME.muted
-closeBtn.TextSize = 14
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.ZIndex = 103
 closeBtn.AutoButtonColor = false
@@ -439,16 +462,45 @@ end
 	end
 	table.insert(NotificationSystem.activeNotifications, notification)
 
-	-- Animación de entrada (viene desde arriba)
-	local targetPos = UDim2.new(0.5, -CONFIG.NOTIFICATION_WIDTH / 2, 0, 20)
-
-	local tweenIn = TweenService:Create(notification, TweenInfo.new(CONFIG.ANIMATION_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Position = targetPos
+	-- Animación de entrada: fade-in con un pequeño efecto de escala
+	notification.Size = UDim2.new(0, CONFIG.NOTIFICATION_WIDTH * 0.95, 0, CONFIG.NOTIFICATION_HEIGHT * 0.95)
+	
+	local tweenIn = TweenService:Create(notification, TweenInfo.new(CONFIG.ANIMATION_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 0,
+		Size = UDim2.new(0, CONFIG.NOTIFICATION_WIDTH, 0, CONFIG.NOTIFICATION_HEIGHT)
 	})
 	tweenIn:Play()
+	
+	-- Animar también la transparencia de todos los elementos hijos
+	for _, child in ipairs(notification:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") then
+			child.TextTransparency = 1
+			TweenService:Create(child, TweenInfo.new(CONFIG.ANIMATION_TIME), {
+				TextTransparency = 0
+			}):Play()
+		elseif child:IsA("ImageLabel") and child.Name ~= "Shadow" then
+			child.ImageTransparency = 1
+			TweenService:Create(child, TweenInfo.new(CONFIG.ANIMATION_TIME), {
+				ImageTransparency = 0
+			}):Play()
+		elseif child:IsA("Frame") and child.Name ~= "Shadow" then
+			if child.BackgroundTransparency < 1 then
+				local originalTransparency = child.BackgroundTransparency
+				child.BackgroundTransparency = 1
+				TweenService:Create(child, TweenInfo.new(CONFIG.ANIMATION_TIME), {
+					BackgroundTransparency = originalTransparency
+				}):Play()
+			end
+		elseif child:IsA("UIStroke") then
+			child.Transparency = 1
+			TweenService:Create(child, TweenInfo.new(CONFIG.ANIMATION_TIME), {
+				Transparency = 0
+			}):Play()
+		end
+	end
 
--- Reposicionar todas las notificaciones
-repositionNotifications()
+	-- Reposicionar todas las demás notificaciones (excepto la nueva)
+	repositionNotifications(true)
 
 -- Auto-cerrar después de la duración
 if duration > 0 then

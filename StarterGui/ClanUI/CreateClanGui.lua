@@ -256,7 +256,7 @@ closeBtn.Size = UDim2.new(0, 40, 0, 40)
 closeBtn.Position = UDim2.new(1, -55, 0.5, -20)
 closeBtn.BackgroundColor3 = THEME.btnDanger or Color3.fromRGB(200, 80, 80)
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = "✕"
+closeBtn.Text = "X"
 closeBtn.TextColor3 = Color3.new(1, 1, 1)
 closeBtn.TextSize = 16
 closeBtn.Font = Enum.Font.GothamBold
@@ -654,7 +654,6 @@ local function createClanEntry(clanData)
 	-- Click event
 	joinBtn.MouseButton1Click:Connect(function()
 		print("Intentando unirse al clan:", clanData.clanId)
-		Notify:Info("Procesando...", "Uniéndote al clan " .. clanData.clanName, 2)
 		
 		local success, msg = ClanClient:JoinClan(clanData.clanId)
 		
@@ -673,28 +672,19 @@ end
 local function createNoClansMessage()
 	local container = Instance.new("Frame")
 	container.Name = "NoClansMessage"
-	container.Size = UDim2.new(1, 0, 0, 200)
+	container.Size = UDim2.new(1, 0, 0, 150)
 	container.BackgroundTransparency = 1
 	container.ZIndex = 14
 	container.Parent = clansScroll
 
-	local icon = Instance.new("TextLabel")
-	icon.Size = UDim2.new(1, 0, 0, 60)
-	icon.Position = UDim2.new(0, 0, 0, 20)
-	icon.BackgroundTransparency = 1
-	icon.Text = "📭"
-	icon.TextSize = 45
-	icon.ZIndex = 15
-	icon.Parent = container
-
 	local text = Instance.new("TextLabel")
 	text.Size = UDim2.new(1, -40, 0, 50)
-	text.Position = UDim2.new(0, 20, 0, 90)
+	text.Position = UDim2.new(0, 20, 0, 50)
 	text.BackgroundTransparency = 1
-	text.Text = "No hay clanes disponibles\n¡Sé el primero en crear uno!"
+	text.Text = "Clanes no disponibles"
 	text.TextColor3 = THEME.muted or Color3.fromRGB(140, 140, 150)
-	text.TextSize = 14
-	text.Font = Enum.Font.Gotham
+	text.TextSize = 16
+	text.Font = Enum.Font.GothamBold
 	text.TextWrapped = true
 	text.ZIndex = 15
 	text.Parent = container
@@ -768,29 +758,6 @@ local function loadClansFromServer()
 			end
 		else
 			createNoClansMessage()
-			
-			-- Crear un ejemplo visual
-			task.wait(0.1)
-			local exampleLabel = Instance.new("TextLabel")
-			exampleLabel.Size = UDim2.new(1, -20, 0, 25)
-			exampleLabel.Position = UDim2.new(0, 10, 0, 0)
-			exampleLabel.BackgroundTransparency = 1
-			exampleLabel.Text = "— Ejemplo de clan —"
-			exampleLabel.TextColor3 = THEME.accent or Color3.fromRGB(138, 99, 210)
-			exampleLabel.TextSize = 11
-			exampleLabel.Font = Enum.Font.GothamBold
-			exampleLabel.ZIndex = 14
-			exampleLabel.LayoutOrder = 100
-			exampleLabel.Parent = clansScroll
-
-			createClanEntry({
-				clanId = "DEMO",
-				clanName = "Clan de Ejemplo",
-				clanLogo = "",
-				descripcion = "Este es un ejemplo de cómo se verá tu clan una vez creado. ¡Únete o crea el tuyo propio!",
-				nivel = 1,
-				miembros_count = 3
-			})
 		end
 
 		-- Actualizar canvas size

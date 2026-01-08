@@ -394,6 +394,58 @@ GetPlayerClanFunction.OnServerInvoke = function(player)
 	return nil
 end
 
+-- ============================================
+-- INICIALIZACIÓN: CREAR CLANES POR DEFECTO
+-- ============================================
+task.spawn(function()
+	task.wait(2)  -- Esperar a que DataStore esté listo
+	
+	local allClans = ClanSystem:GetAllClans()
+	
+	if #allClans == 0 then
+		print("📦 [Clanes] No hay clanes. Creando clanes por defecto...")
+		
+		local defaultClans = {
+			{
+				name = "Los Legendarios",
+				logo = "rbxassetid://0",
+				desc = "Clan de élite para los mejores jugadores"
+			},
+			{
+				name = "Guerreros del Sol",
+				logo = "rbxassetid://0", 
+				desc = "Unidos bajo el poder del sol"
+			},
+			{
+				name = "Sombras Nocturnas",
+				logo = "rbxassetid://0",
+				desc = "Maestros de la oscuridad y el sigilo"
+			}
+		}
+		
+		local defaultOwnerId = 9375636407  -- ISASI0220
+		
+		for _, clanInfo in ipairs(defaultClans) do
+			local success, clanId = ClanSystem:CreateClan(
+				clanInfo.name,
+				defaultOwnerId,
+				clanInfo.logo,
+				clanInfo.desc
+			)
+			
+			if success then
+				print("✅ [Clanes] Clan creado:", clanInfo.name, "ID:", clanId)
+			else
+				warn("❌ [Clanes] Error creando clan:", clanInfo.name, clanId)
+			end
+		end
+		
+		print("🎉 [Clanes] Clanes por defecto creados exitosamente")
+	else
+		print("✅ [Clanes] Base de datos ya tiene", #allClans, "clanes")
+	end
+end)
+
 print("✅ [Sistema] Clan System inicializado (Simplificado)")
 
 return {}
