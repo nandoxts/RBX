@@ -32,11 +32,12 @@ local function GetOrCreateFunction(name)
 	return func
 end
 
-local CreateClanEvent = GetOrCreateEvent("CreateClan")
+local CreateClanFunction = GetOrCreateFunction("CreateClan")
 local InvitePlayerEvent = GetOrCreateEvent("InvitePlayer")
 local KickPlayerEvent = GetOrCreateEvent("KickPlayer")
 local ChangeRoleEvent = GetOrCreateEvent("ChangeRole")
 local ChangeClanNameEvent = GetOrCreateEvent("ChangeClanName")
+local ChangeClanTagEvent = GetOrCreateEvent("ChangeClanTag")
 local ChangeClanDescEvent = GetOrCreateEvent("ChangeClanDescription")
 local ChangeClanLogoEvent = GetOrCreateEvent("ChangeClanLogo")
 local DissolveEvent = GetOrCreateEvent("DissolveClan")
@@ -48,12 +49,15 @@ ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
 
 -- Crear clan
-function ClanClient:CreateClan(clanName, clanLogo, clanDesc)
+function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc)
 	local func = clanEvents:FindFirstChild("CreateClan")
 	if func then
-		local success, clanId, msg = func:InvokeServer(clanName, clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+		local success, clanId, msg = func:InvokeServer(clanName, clanTag or "TAG", clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
 		if success then
-			self:RefreshClanData()
+			-- Actualizar el ID del clan recién creado
+			self.currentClanId = clanId
+			-- Obtener los datos completos del clan
+			self:GetPlayerClan()
 		end
 		return success, clanId, msg
 	else
@@ -110,6 +114,18 @@ function ClanClient:ChangeClanName(newName)
 	end
 end
 
+-- Cambiar TAG del clan
+function ClanClient:ChangeClanTag(newTag)
+	if not self.currentClanId then
+		print("No estás en un clan")
+		return
+	end
+	local event = clanEvents:FindFirstChild("ChangeClanTag")
+	if event then
+		event:FireServer(self.currentClanId, newTag)
+	end
+end
+
 -- Cambiar descripción
 function ClanClient:ChangeClanDescription(newDesc)
 	if not self.currentClanId then
@@ -157,7 +173,9 @@ function ClanClient:JoinClan(clanId)
 	if func then
 		local success, msg = func:InvokeServer(clanId)
 		if success then
-			self:RefreshClanData()
+			-- Actualizar el estado del cliente
+			self.currentClanId = clanId
+			self:GetPlayerClan()
 		end
 		return success, msg
 	else
@@ -192,13 +210,23 @@ function ClanClient:GetPlayerClan()
 			return GetPlayerClanFunc:InvokeServer()
 		end)
 		
-		if success then
+		if success and clanData then
+			-- Actualizar el estado del cliente
+			self.currentClan = clanData
+			self.currentClanId = clanData.clanId
 			return clanData
 		else
-			warn("Error obteniendo clan del jugador:", clanData)
+			-- El jugador no está en ningún clan
+			self.currentClan = nil
+			self.currentClanId = nil
+			if not success then
+				warn("Error obteniendo clan del jugador:", clanData)
+			end
 			return nil
 		end
 	end
+	self.currentClan = nil
+	self.currentClanId = nil
 	return nil
 end
 

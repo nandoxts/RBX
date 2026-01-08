@@ -6,12 +6,13 @@ local clanStore = DataStoreService:GetDataStore("ClansData")
 local playerClanStore = DataStoreService:GetDataStore("PlayerClans")
 
 -- Crear clan
-function ClanData:CreateClan(clanName, ownerId, clanLogo, clanDesc)
+function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
 
 local clanData = {
 clanId = clanId,
 clanName = clanName,
+clanTag = clanTag or "TAG",
 clanLogo = clanLogo or "rbxassetid://0",
 owner = ownerId,
 colideres = {},
@@ -21,7 +22,7 @@ descripcion = clanDesc or "Sin descripción",
 nivel = 1,
 fechaCreacion = os.time(),
 miembros_data = {
-[ownerId] = {
+[tostring(ownerId)] = {
 nombre = game:GetService("Players"):GetNameFromUserIdAsync(ownerId),
 rol = "owner",
 fechaUnion = os.time()
@@ -42,6 +43,28 @@ function ClanData:GetClan(clanId)
 local success, data = pcall(function()
 return clanStore:GetAsync("clan:" .. clanId)
 end)
+
+if success and data and data.miembros_data then
+-- Migración automática: Convertir keys numéricas a strings
+local newMiembrosData = {}
+local needsMigration = false
+
+for userId, memberData in pairs(data.miembros_data) do
+local userIdStr = tostring(userId)
+newMiembrosData[userIdStr] = memberData
+if type(userId) == "number" then
+needsMigration = true
+end
+end
+
+if needsMigration then
+data.miembros_data = newMiembrosData
+pcall(function()
+clanStore:SetAsync("clan:" .. clanId, data)
+end)
+end
+end
+
 return (success and data) or nil
 end
 
@@ -81,7 +104,7 @@ end
 end
 
 table.insert(clanData.miembros, userId)
-clanData.miembros_data[userId] = {
+clanData.miembros_data[tostring(userId)] = {
 nombre = game:GetService("Players"):GetNameFromUserIdAsync(userId),
 rol = rol or "miembro",
 fechaUnion = os.time()
@@ -108,7 +131,7 @@ break
 end
 end
 
-clanData.miembros_data[userId] = nil
+clanData.miembros_data[tostring(userId)] = nil
 
 for i, id in pairs(clanData.colideres) do
 if id == userId then
@@ -135,11 +158,11 @@ end
 -- Cambiar rol
 function ClanData:ChangeRole(clanId, userId, newRole)
 local clanData = self:GetClan(clanId)
-if not clanData or not clanData.miembros_data[userId] then
+if not clanData or not clanData.miembros_data[tostring(userId)] then
 return false, "Miembro no encontrado"
 end
 
-local oldRole = clanData.miembros_data[userId].rol
+local oldRole = clanData.miembros_data[tostring(userId)].rol
 
 -- Remover de listas antiguas
 if oldRole == "colider" then
@@ -159,7 +182,7 @@ elseif newRole == "lider" then
 table.insert(clanData.lideres, userId)
 end
 
-clanData.miembros_data[userId].rol = newRole
+clanData.miembros_data[tostring(userId)].rol = newRole
 
 local success, err = pcall(function()
 clanStore:SetAsync("clan:" .. clanId, clanData)

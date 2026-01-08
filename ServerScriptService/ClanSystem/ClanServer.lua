@@ -74,12 +74,16 @@ end
 -- ============================================
 local ClanSystem = {}
 
-function ClanSystem:CreateClan(clanName, ownerId, clanLogo, clanDesc)
+function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	if not clanName or clanName == "" then
 		return false, "El nombre del clan es requerido"
 	end
 	
-	return ClanData:CreateClan(clanName, ownerId, clanLogo, clanDesc)
+	if not clanTag or clanTag == "" or #clanTag < 3 or #clanTag > 5 then
+		return false, "El TAG del clan debe tener entre 3 y 5 caracteres"
+	end
+	
+	return ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 end
 
 function ClanSystem:GetClanData(clanId)
@@ -119,7 +123,7 @@ function ClanSystem:InvitePlayer(clanId, inviterId, targetUserId)
 		return false, "Clan no encontrado"
 	end
 	
-	local inviterData = clanData.miembros_data[inviterId]
+	local inviterData = clanData.miembros_data[tostring(inviterId)]
 	if not inviterData then
 		return false, "No eres miembro del clan"
 	end
@@ -142,8 +146,8 @@ function ClanSystem:KickPlayer(clanId, kickerId, targetUserId)
 		return false, "No puedes expulsarte a ti mismo"
 	end
 	
-	local kickerData = clanData.miembros_data[kickerId]
-	local targetData = clanData.miembros_data[targetUserId]
+	local kickerData = clanData.miembros_data[tostring(kickerId)]
+	local targetData = clanData.miembros_data[tostring(targetUserId)]
 	
 	if not kickerData then
 		return false, "No eres miembro del clan"
@@ -167,8 +171,8 @@ function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
 		return false, "Clan no encontrado"
 	end
 	
-	local requesterData = clanData.miembros_data[requesterId]
-	local targetData = clanData.miembros_data[targetUserId]
+	local requesterData = clanData.miembros_data[tostring(requesterId)]
+	local targetData = clanData.miembros_data[tostring(targetUserId)]
 	
 	if not requesterData then
 		return false, "No eres miembro del clan"
@@ -197,7 +201,7 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 		return false, "Clan no encontrado"
 	end
 	
-	local requesterData = clanData.miembros_data[requesterId]
+	local requesterData = clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_nombre") then
 		return false, "No tienes permiso"
 	end
@@ -206,13 +210,33 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 	return success, success and "Nombre actualizado" or result
 end
 
+function ClanSystem:ChangeTag(clanId, requesterId, newTag)
+	if not newTag or newTag == "" or #newTag < 3 or #newTag > 5 then
+		return false, "El TAG debe tener entre 3 y 5 caracteres"
+	end
+	
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+	
+	-- Convertir requesterId a string para comparar
+	local requesterData = clanData.miembros_data[tostring(requesterId)]
+	if not requesterData or requesterData.rol ~= "owner" then
+		return false, "Solo el owner puede cambiar el TAG"
+	end
+	
+	local success, result = ClanData:UpdateClan(clanId, {clanTag = newTag})
+	return success, success and "TAG actualizado" or result
+end
+
 function ClanSystem:ChangeDescription(clanId, requesterId, newDesc)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
 	
-	local requesterData = clanData.miembros_data[requesterId]
+	local requesterData = clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_descripcion") then
 		return false, "No tienes permiso"
 	end
@@ -231,7 +255,7 @@ function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
 		return false, "Clan no encontrado"
 	end
 	
-	local requesterData = clanData.miembros_data[requesterId]
+	local requesterData = clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_logo") then
 		return false, "No tienes permiso"
 	end
@@ -287,6 +311,9 @@ ChangeRoleEvent.Name = "ChangeRole"
 local ChangeClanNameEvent = Instance.new("RemoteEvent", clanEvents)
 ChangeClanNameEvent.Name = "ChangeClanName"
 
+local ChangeClanTagEvent = Instance.new("RemoteEvent", clanEvents)
+ChangeClanTagEvent.Name = "ChangeClanTag"
+
 local ChangeClanDescEvent = Instance.new("RemoteEvent", clanEvents)
 ChangeClanDescEvent.Name = "ChangeClanDescription"
 
@@ -314,10 +341,10 @@ GetPlayerClanFunction.Name = "GetPlayerClan"
 -- ============================================
 -- MANEJADORES DE EVENTOS
 -- ============================================
-CreateClanEvent.OnServerInvoke = function(player, clanName, clanLogo, clanDesc)
-	local success, clanId = ClanSystem:CreateClan(clanName, player.UserId, clanLogo, clanDesc)
+CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, clanDesc)
+	local success, clanId = ClanSystem:CreateClan(clanName, player.UserId, clanTag, clanLogo, clanDesc)
 	if success then
-		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " (" .. player.Name .. ")")
+		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " [" .. clanTag .. "] (" .. player.Name .. ")")
 		return true, clanId, "Clan creado exitosamente"
 	else
 		warn("❌ [Clan] Error al crear clan: " .. tostring(clanId))
@@ -343,6 +370,11 @@ end)
 ChangeClanNameEvent.OnServerEvent:Connect(function(player, clanId, newName)
 	local success, msg = ClanSystem:ChangeName(clanId, player.UserId, newName)
 	print(success and ("✅ Nombre actualizado: " .. newName) or ("❌ " .. msg))
+end)
+
+ChangeClanTagEvent.OnServerEvent:Connect(function(player, clanId, newTag)
+	local success, msg = ClanSystem:ChangeTag(clanId, player.UserId, newTag)
+	print(success and ("✅ TAG actualizado: " .. newTag) or ("❌ " .. msg))
 end)
 
 ChangeClanDescEvent.OnServerEvent:Connect(function(player, clanId, newDesc)
@@ -408,44 +440,48 @@ task.spawn(function()
 		local defaultClans = {
 			{
 				name = "Los Legendarios",
+				tag = "LEG",
 				logo = "rbxassetid://0",
 				desc = "Clan de élite para los mejores jugadores"
 			},
 			{
 				name = "Guerreros del Sol",
+				tag = "SOL",
 				logo = "rbxassetid://0", 
 				desc = "Unidos bajo el poder del sol"
 			},
 			{
 				name = "Sombras Nocturnas",
+				tag = "SHD",
 				logo = "rbxassetid://0",
 				desc = "Maestros de la oscuridad y el sigilo"
 			}
 		}
 		
-		local defaultOwnerId = 9375636407  -- ISASI0220
+		local defaultOwnerId = 9375636407
 		
 		for _, clanInfo in ipairs(defaultClans) do
 			local success, clanId = ClanSystem:CreateClan(
 				clanInfo.name,
 				defaultOwnerId,
+				clanInfo.tag,
 				clanInfo.logo,
 				clanInfo.desc
 			)
 			
 			if success then
-				print("✅ [Clanes] Clan creado:", clanInfo.name, "ID:", clanId)
+				print("✅ [Clanes] Clan creado:", clanInfo.name .. " [" .. clanInfo.tag .. "]")
 			else
-				warn("❌ [Clanes] Error creando clan:", clanInfo.name, clanId)
+				warn("❌ [Clanes] Error:", clanId)
 			end
 		end
 		
-		print("🎉 [Clanes] Clanes por defecto creados exitosamente")
+		print("🎉 [Clanes] Clanes por defecto creados")
 	else
-		print("✅ [Clanes] Base de datos ya tiene", #allClans, "clanes")
+		print("✅ [Clanes] Base de datos:", #allClans, "clanes")
 	end
 end)
 
-print("✅ [Sistema] Clan System inicializado (Simplificado)")
+print("✅ [Clan System] Inicializado correctamente")
 
 return {}

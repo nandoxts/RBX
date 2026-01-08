@@ -6,21 +6,13 @@
 ]]
 
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Cargar ThemeConfig
+local ThemeConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
 local ConfirmationModal = {}
 ConfirmationModal.__index = ConfirmationModal
-
--- ════════════════════════════════════════════════════════════════
--- THEME (puede ser pasado como parámetro o usar el default)
--- ════════════════════════════════════════════════════════════════
-local DEFAULT_THEME = {
-	panel    = Color3.fromRGB(18, 18, 22),
-	head     = Color3.fromRGB(20, 23, 31),
-	text     = Color3.fromRGB(224, 226, 231),
-	muted    = Color3.fromRGB(150, 156, 172),
-	danger   = Color3.fromRGB(239, 68, 68),
-	stroke   = Color3.fromRGB(52, 58, 74)
-}
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -34,7 +26,7 @@ end
 
 local function stroked(inst, alpha, color)
 	local s = Instance.new("UIStroke")
-	s.Color = color or DEFAULT_THEME.stroke
+	s.Color = color or ThemeConfig.stroke
 	s.Thickness = 1
 	s.Transparency = alpha or 0.5
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -50,7 +42,7 @@ function ConfirmationModal.new(config)
 
 	-- Configuración
 	self.screenGui = config.screenGui or error("ScreenGui is required")
-	self.theme = config.theme or DEFAULT_THEME
+	self.theme = config.theme or ThemeConfig
 	self.title = config.Title or config.title or "Confirm Action"
 	self.message = config.Message or config.message or "Are you sure?"
 	self.confirmText = config.ConfirmText or config.confirmText or "Confirm"
