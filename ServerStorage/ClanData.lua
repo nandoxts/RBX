@@ -4,13 +4,51 @@ local ClanData = {}
 -- DataStores
 local clanStore = DataStoreService:GetDataStore("ClansData")
 local playerClanStore = DataStoreService:GetDataStore("PlayerClans")
+local auditStore = DataStoreService:GetDataStore("AdminAudit")
+local clanCooldownStore = DataStoreService:GetDataStore("ClanCooldowns")
 
 -- Base de datos en memoria (como DjDashboard)
 local clansDatabase = {}
 local clanDataUpdatedEvent = Instance.new("BindableEvent")
 
+-- Tracking de cooldowns en memoria (más rápido que DataStore)
+local playerCooldowns = {}
+
 -- Crear clan
 function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
+	-- Validar nombre único
+	local nameExists = false
+	for _, clan in pairs(clansDatabase) do
+		if clan.clanName:lower() == clanName:lower() then
+			nameExists = true
+			break
+		end
+	end
+	
+	if nameExists then
+		return false, nil, "Ya existe un clan con ese nombre"
+	end
+	
+	-- Validar TAG único
+	local tagExists = false
+	for _, clan in pairs(clansDatabase) do
+		if clan.clanTag:upper() == clanTag:upper() then
+			tagExists = true
+			break
+		end
+	end
+	
+	if tagExists then
+		return false, nil, "Ya existe un clan con ese TAG"
+	end
+	
+	-- Validar cooldown del jugador
+	local cooldownTime = playerCooldowns[tostring(ownerId)]
+	if cooldownTime and (os.time() - cooldownTime) < 300 then -- 5 minutos = 300 segundos
+		local remainingSeconds = 300 - (os.time() - cooldownTime)
+		return false, nil, "Debes esperar " .. math.ceil(remainingSeconds) .. " segundos antes de crear otro clan"
+	end
+	
 	local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
 
 	local clanData = {
@@ -51,6 +89,8 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 			miembros_count = 1,
 			fechaCreacion = os.time()
 		}
+		-- Registrar cooldown
+		playerCooldowns[tostring(ownerId)] = os.time()
 		clanDataUpdatedEvent:Fire()
 	end
 
@@ -248,6 +288,51 @@ function ClanData:DissolveClan(clanId)
 	end
 
 	return success, err
+end
+
+-- Registrar auditoría (para acciones de admin)
+function ClanData:LogAdminAction(adminId, adminName, action, clanId, clanName, details)
+	local logEntry = {
+		timestamp = os.time(),
+		adminId = adminId,
+		adminName = adminName,
+		action = action, -- "delete_clan", "ban_player", "reset_clan", etc
+		clanId = clanId,
+		clanName = clanName,
+		details = details or {} -- info adicional
+	}
+	
+	pcall(function()
+		local existingLog = auditStore:GetAsync("admin_audit") or {}
+		table.insert(existingLog, logEntry)
+		
+		-- Mantener solo los últimos 1000 registros
+		if #existingLog > 1000 then
+			table.remove(existingLog, 1)
+		end
+		
+		auditStore:SetAsync("admin_audit", existingLog)
+	end)
+	
+	return true
+end
+
+-- Obtener log de auditoría
+function ClanData:GetAuditLog(limit)
+	limit = limit or 50
+	local success, log = pcall(function()
+		return auditStore:GetAsync("admin_audit") or {}
+	end)
+	
+	if not success then return {} end
+	
+	-- Retornar últimos N registros en orden inverso (más recientes primero)
+	local result = {}
+	for i = math.max(1, #log - limit + 1), #log do
+		table.insert(result, 1, log[i])
+	end
+	
+	return result
 end
 
 -- Cargar todos los clanes desde DataStore (solo al inicializar)

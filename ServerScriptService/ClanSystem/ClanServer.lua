@@ -47,6 +47,33 @@ local JERARQUIA = {
 }
 
 -- ============================================
+-- RATE LIMITING & SPAM PROTECTION
+-- ============================================
+local rateLimitConfig = {
+	GetClansList = 1, -- 1 segundo entre requests
+	CreateClan = 2, -- 2 segundos entre requests
+	JoinClan = 1, -- 1 segundo entre requests
+	AdminDissolveClan = 3, -- 3 segundos entre requests
+	InvitePlayer = 1 -- 1 segundo entre requests
+}
+
+local playerRequestLimits = {} -- { userId = { funcName = lastTime } }
+
+local function checkRateLimit(userId, funcName)
+	local userLimits = playerRequestLimits[tostring(userId)] or {}
+	local lastTime = userLimits[funcName] or 0
+	local now = os.time()
+	
+	if (now - lastTime) < (rateLimitConfig[funcName] or 1) then
+		return false, "Espera un momento antes de hacer esa acción nuevamente"
+	end
+	
+	playerRequestLimits[tostring(userId)] = userLimits
+	userLimits[funcName] = now
+	return true, nil
+end
+
+-- ============================================
 -- FUNCIONES AUXILIARES
 -- ============================================
 local function isAdmin(userId)
@@ -75,6 +102,12 @@ end
 local ClanSystem = {}
 
 function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
+	-- Rate limiting
+	local allowed, errMsg = checkRateLimit(ownerId, "CreateClan")
+	if not allowed then
+		return false, errMsg
+	end
+	
 	if not clanName or clanName == "" then
 		return false, "El nombre del clan es requerido"
 	end
@@ -94,7 +127,12 @@ function ClanSystem:GetPlayerClan(userId)
 	return ClanData:GetPlayerClan(userId)
 end
 
-function ClanSystem:GetAllClans()
+function ClanSystem:GetAllClans(userId)
+	-- Rate limiting
+	local allowed, errMsg = checkRateLimit(userId, "GetClansList")
+	if not allowed then
+		return nil, errMsg
+	end
 	return ClanData:GetAllClans()
 end
 
@@ -278,7 +316,29 @@ function ClanSystem:DissolveClan(clanId, requesterId)
 	return success, success and "Clan disuelto" or err
 end
 
-function ClanSystem:AdminDissolveClan(clanId)
+function ClanSystem:AdminDissolveClan(adminId, clanId)
+	-- Rate limiting
+	local allowed, errMsg = checkRateLimit(adminId, "AdminDissolveClan")
+	if not allowed then
+		return false, errMsg
+	end
+	
+	-- Obtener data del clan antes de eliminarlo (para auditoría)
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+	
+	-- Obtener nombre del admin
+	local adminName = game:GetService("Players"):GetNameFromUserIdAsync(adminId)
+	
+	-- Registrar en auditoría
+	ClanData:LogAdminAction(adminId, adminName, "delete_clan", clanId, clanData.clanName, {
+		timestamp = os.time(),
+		memberCount = #clanData.miembros,
+		ownerUserId = clanData.owner
+	})
+	
 	local success, err = ClanData:DissolveClan(clanId)
 	return success, success and "Clan disuelto por admin" or err
 end
@@ -295,6 +355,10 @@ function ClanSystem:LeaveClan(clanId, requesterId)
 	
 	local success, err = ClanData:RemoveMember(clanId, requesterId)
 	return success, success and "Has abandonado el clan" or err
+end
+
+function ClanSystem:AdminGetAuditLog(limit)
+	return ClanData:GetAuditLog(limit or 50)
 end
 
 -- ============================================
@@ -432,7 +496,7 @@ AdminDissolveClanEvent.OnServerInvoke = function(player, clanId)
 		return false, "No autorizado"
 	end
 	
-	local success, msg = ClanSystem:AdminDissolveClan(clanId)
+	local success, msg = ClanSystem:AdminDissolveClan(player.UserId, clanId)
 	print(success and ("✅ [Admin] Clan disuelto por: " .. player.Name) or ("❌ " .. msg))
 	return success, msg
 end

@@ -661,9 +661,11 @@ loadPlayerClan = function()
 		levelLabel.Parent = statsFrame
 
 		local playerRole = "Miembro"
+		local playerRoleLower = "miembro" -- para comparaciones
 		if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
 			local pData = clanData.miembros_data[tostring(player.UserId)]
 			playerRole = pData.rol and (pData.rol:sub(1,1):upper() .. pData.rol:sub(2)) or "Miembro"
+			playerRoleLower = pData.rol or "miembro"
 		end
 
 		local roleLabel = Instance.new("TextLabel")
@@ -757,39 +759,76 @@ loadPlayerClan = function()
 			})
 		end)
 
-		-- Botón salir
-		local btnLeave = Instance.new("TextButton")
-		btnLeave.Size = UDim2.new(1, -20, 0, 28)
-		btnLeave.Position = UDim2.new(0, 10, 0, 248)
-		btnLeave.BackgroundColor3 = THEME.danger or Color3.fromRGB(200, 60, 60)
-		btnLeave.Text = "SALIR DEL CLAN"
-		btnLeave.TextColor3 = Color3.new(1, 1, 1)
-		btnLeave.TextSize = 12
-		btnLeave.Font = Enum.Font.GothamBold
-		btnLeave.AutoButtonColor = false
-		btnLeave.ZIndex = 105
-		btnLeave.Parent = clanCard
-		rounded(btnLeave, 6)
+		-- Botón salir/disolver (solo para owner)
+		-- Solo mostrar botón si es owner
+		if playerRoleLower == "owner" then
+			local btnDissolve = Instance.new("TextButton")
+			btnDissolve.Size = UDim2.new(1, -20, 0, 28)
+			btnDissolve.Position = UDim2.new(0, 10, 0, 248)
+			btnDissolve.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+			btnDissolve.Text = "DISOLVER CLAN"
+			btnDissolve.TextColor3 = Color3.new(1, 1, 1)
+			btnDissolve.TextSize = 12
+			btnDissolve.Font = Enum.Font.GothamBold
+			btnDissolve.AutoButtonColor = false
+			btnDissolve.ZIndex = 105
+			btnDissolve.Parent = clanCard
+			rounded(btnDissolve, 6)
 
-		btnLeave.MouseButton1Click:Connect(function()
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Salir del Clan",
-				message = "¿Estás seguro? Esta acción no se puede deshacer.",
-				confirmText = "Salir",
-				cancelText = "Cancelar",
-				onConfirm = function()
-					local success, msg = ClanClient:LeaveClan()
-					if success then
-						Notify:Success("Abandonado", "Has salido del clan", 4)
-						task.wait(1)
-						loadPlayerClan()
-					else
-						Notify:Error("Error", msg or "No se pudo salir", 3)
+			btnDissolve.MouseButton1Click:Connect(function()
+				ConfirmationModal.new({
+					screenGui = screenGui,
+					title = "Disolver Clan",
+					message = "¿Disolver \"" .. clanData.clanName .. "\"?\n\nEsta acción es IRREVERSIBLE y todos los miembros serán removidos.",
+					confirmText = "Disolver",
+					cancelText = "Cancelar",
+					onConfirm = function()
+						local success, msg = ClanClient:DissolveClan()
+						if success then
+							Notify:Success("Clan Disuelto", "El clan ha sido eliminado", 4)
+							task.wait(1)
+							loadPlayerClan()
+						else
+							Notify:Error("Error", msg or "No se pudo disolver", 3)
+						end
 					end
-				end
-			})
-		end)
+				})
+			end)
+		else
+			-- Para miembros no-owner: botón de salir
+			local btnLeave = Instance.new("TextButton")
+			btnLeave.Size = UDim2.new(1, -20, 0, 28)
+			btnLeave.Position = UDim2.new(0, 10, 0, 248)
+			btnLeave.BackgroundColor3 = THEME.danger or Color3.fromRGB(200, 60, 60)
+			btnLeave.Text = "SALIR DEL CLAN"
+			btnLeave.TextColor3 = Color3.new(1, 1, 1)
+			btnLeave.TextSize = 12
+			btnLeave.Font = Enum.Font.GothamBold
+			btnLeave.AutoButtonColor = false
+			btnLeave.ZIndex = 105
+			btnLeave.Parent = clanCard
+			rounded(btnLeave, 6)
+
+			btnLeave.MouseButton1Click:Connect(function()
+				ConfirmationModal.new({
+					screenGui = screenGui,
+					title = "Salir del Clan",
+					message = "¿Estás seguro? Esta acción no se puede deshacer.",
+					confirmText = "Salir",
+					cancelText = "Cancelar",
+					onConfirm = function()
+						local success, msg = ClanClient:LeaveClan()
+						if success then
+							Notify:Success("Abandonado", "Has salido del clan", 4)
+							task.wait(1)
+							loadPlayerClan()
+						else
+							Notify:Error("Error", msg or "No se pudo salir", 3)
+						end
+					end
+				})
+			end)
+		end
 
 		-- Miembros
 		local membersCard = Instance.new("Frame")
