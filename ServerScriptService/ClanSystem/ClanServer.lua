@@ -79,8 +79,8 @@ function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 		return false, "El nombre del clan es requerido"
 	end
 	
-	if not clanTag or clanTag == "" or #clanTag < 3 or #clanTag > 5 then
-		return false, "El TAG del clan debe tener entre 3 y 5 caracteres"
+	if not clanTag or clanTag == "" or #clanTag < 2 or #clanTag > 5 then
+		return false, "El TAG del clan debe tener entre 2 y 5 caracteres"
 	end
 	
 	return ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
@@ -211,8 +211,8 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 end
 
 function ClanSystem:ChangeTag(clanId, requesterId, newTag)
-	if not newTag or newTag == "" or #newTag < 3 or #newTag > 5 then
-		return false, "El TAG debe tener entre 3 y 5 caracteres"
+	if not newTag or newTag == "" or #newTag < 2 or #newTag > 5 then
+		return false, "El TAG debe tener entre 2 y 5 caracteres"
 	end
 	
 	local clanData = ClanData:GetClan(clanId)
@@ -440,19 +440,19 @@ task.spawn(function()
 		local defaultClans = {
 			{
 				name = "Los Legendarios",
-				tag = "LEG",
+				tag = "LG",
 				logo = "rbxassetid://0",
 				desc = "Clan de élite para los mejores jugadores"
 			},
 			{
 				name = "Guerreros del Sol",
-				tag = "SOL",
+				tag = "GS",
 				logo = "rbxassetid://0", 
 				desc = "Unidos bajo el poder del sol"
 			},
 			{
 				name = "Sombras Nocturnas",
-				tag = "SHD",
+				tag = "SN",
 				logo = "rbxassetid://0",
 				desc = "Maestros de la oscuridad y el sigilo"
 			}

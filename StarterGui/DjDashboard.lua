@@ -27,6 +27,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 -- MODULES
 -- ════════════════════════════════════════════════════════════════
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("ConfirmationModal"))
+local ModalManager = require(ReplicatedStorage:WaitForChild("ModalManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- ADMIN CONFIG
@@ -77,7 +78,7 @@ local SONGS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 56)
 -- ════════════════════════════════════════════════════════════════
 local musicLibrary, playQueue, currentSong = {}, {}, nil
 local allDJs, selectedDJ = {}, nil
-local uiOpen, currentPage = false, "Queue"
+local currentPage = "Queue"
 local currentSoundObject = nil
 local progressConnection = nil
 local quickAddBtn, quickInput, qiStroke = nil, nil, nil
@@ -214,45 +215,32 @@ if Icon then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- OVERLAY + BLUR
+-- MODAL MANAGER - Panel centralizado
 -- ════════════════════════════════════════════════════════════════
-local overlay = Instance.new("TextButton")
-overlay.Name = "Overlay"
-overlay.BackgroundColor3 = THEME.bg
-overlay.AutoButtonColor = false
-overlay.BorderSizePixel = 0
-overlay.Size = UDim2.fromScale(1, 1)
-overlay.Position = UDim2.fromScale(0, 0)
-overlay.BackgroundTransparency = 1
-overlay.Visible = false
-overlay.ZIndex = 95
-overlay.Text = ""
-overlay.Parent = screenGui
+local modal = ModalManager.new({
+	screenGui = screenGui,
+	panelName = "MusicDashboard",
+	panelWidth = PANEL_W_PX,
+	panelHeight = PANEL_H_PX,
+	cornerRadius = R_PANEL,
+	enableBlur = ENABLE_BLUR,
+	blurSize = BLUR_SIZE,
+	onOpen = function()
+		if musicIcon then
+			musicIcon:setLabel("CLOSE")
+			musicIcon:select()
+		end
+	end,
+	onClose = function()
+		if musicIcon then
+			musicIcon:setLabel("MUSIC")
+			musicIcon:deselect()
+		end
+	end
+})
 
-local blur = nil
-if ENABLE_BLUR then
-	blur = Instance.new("BlurEffect")
-	blur.Size = 0
-	blur.Enabled = false
-	blur.Parent = Lighting
-end
-
--- ════════════════════════════════════════════════════════════════
--- PANEL
--- ════════════════════════════════════════════════════════════════
-local panel = Instance.new("Frame")
-panel.Name = "MusicDashboard"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.new(0.5, 0, 1, 40)
-panel.BackgroundColor3 = THEME.panel
-panel.BorderSizePixel = 0
-panel.Visible = false
-panel.ZIndex = 100
+local panel = modal:getPanel()
 panel.ClipsDescendants = true
-panel.Parent = screenGui
-panel.Size = USE_PIXEL_SIZE and UDim2.fromOffset(PANEL_W_PX, PANEL_H_PX) or UDim2.new(PANEL_W_SCALE, 0, PANEL_H_SCALE, 0)
-rounded(panel, R_PANEL)
-stroked(panel, 0.25)
 
 -- ════════════════════════════════════════════════════════════════
 -- HEADER
@@ -1829,25 +1817,8 @@ end)
 -- UI OPEN/CLOSE
 -- ════════════════════════════════════════════════════════════════
 function openUI(openToLibrary)
-	if uiOpen then return end
-	uiOpen = true
-	panel.Visible = true
-	overlay.Visible = true
-
-	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45}):Play()
-	if blur then
-		blur.Enabled = true
-		TweenService:Create(blur, TweenInfo.new(0.22), {Size = BLUR_SIZE}):Play()
-	end
-
-	panel.Position = UDim2.fromScale(0.5, 1.1)
-	TweenService:Create(panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 0.5)}):Play()
-
-	if musicIcon then
-		musicIcon:setLabel("CLOSE")
-		musicIcon:select()
-	end
-
+	if modal:isModalOpen() then return end
+	
 	if openToLibrary then
 		showPage("Library")
 		moveUnderline(tLibrary)
@@ -1855,7 +1826,9 @@ function openUI(openToLibrary)
 		showPage("Queue")
 		moveUnderline(tQueue)
 	end
-
+	
+	modal:open()
+	
 	if progressConnection then
 		progressConnection:Disconnect()
 	end
@@ -1863,53 +1836,23 @@ function openUI(openToLibrary)
 end
 
 function closeUI()
-	if not uiOpen then return end
-	uiOpen = false
-
-	TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 1.1)}):Play()
-	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
-
-	task.delay(0.22, function()
-		overlay.Visible = false
-		panel.Visible = false
-	end)
-
-	if blur then
-		TweenService:Create(blur, TweenInfo.new(0.22), {Size = 0}):Play()
-		task.delay(0.22, function()
-			if blur then blur.Enabled = false end
-		end)
-	end
-
-	if musicIcon then
-		musicIcon:setLabel("MUSIC")
-		musicIcon:deselect()
-	end
-
+	if not modal:isModalOpen() then return end
+	
 	if progressConnection then
 		progressConnection:Disconnect()
 		progressConnection = nil
 	end
+	
+	modal:close()
 end
 
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
 -- ════════════════════════════════════════════════════════════════
-overlay.MouseButton1Click:Connect(function()
-	local mousePos = UserInputService:GetMouseLocation()
-	local panelPos = panel.AbsolutePosition
-	local panelSize = panel.AbsoluteSize
-
-	if mousePos.X < panelPos.X or mousePos.X > panelPos.X + panelSize.X or
-		mousePos.Y < panelPos.Y or mousePos.Y > panelPos.Y + panelSize.Y then
-		closeUI()
-	end
-end)
-
 closeBtn.MouseButton1Click:Connect(closeUI)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == Enum.KeyCode.Escape and uiOpen then
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.Escape and modal:isModalOpen() then
 		closeUI()
 	end
 end)

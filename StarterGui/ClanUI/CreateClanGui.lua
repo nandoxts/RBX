@@ -21,6 +21,7 @@ local ClanClient = require(ReplicatedStorage:WaitForChild("ClanClient"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("ConfirmationModal"))
+local ModalManager = require(ReplicatedStorage:WaitForChild("ModalManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- CONFIG
@@ -54,7 +55,8 @@ local isAdmin = isAdminUser(player.UserId)
 -- STATE
 -- ════════════════════════════════════════════════════════════════
 local currentPage = "Disponibles"
-local uiOpen = false
+local availableClans = {}
+local playerClanData = nil
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -81,6 +83,9 @@ end
 -- ════════════════════════════════════════════════════════════════
 local PANEL_W_PX = THEME.panelWidth or 980
 local PANEL_H_PX = THEME.panelHeight or 620
+
+-- ════════════════════════════════════════════════════════════════
+-- ROOT GUI
 -- ════════════════════════════════════════════════════════════════
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ClanSystemGui"
@@ -123,44 +128,29 @@ if Icon then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- OVERLAY + BLUR
+-- MODAL MANAGER - Panel centralizado
 -- ════════════════════════════════════════════════════════════════
-local overlay = Instance.new("TextButton")
-overlay.Name = "Overlay"
-overlay.BackgroundColor3 = THEME.bg
-overlay.AutoButtonColor = false
-overlay.BorderSizePixel = 0
-overlay.Size = UDim2.fromScale(1, 1)
-overlay.Position = UDim2.fromScale(0, 0)
-overlay.BackgroundTransparency = 1
-overlay.Visible = false
-overlay.ZIndex = 95
-overlay.Text = ""
-overlay.Parent = screenGui
+local modal = ModalManager.new({
+	screenGui = screenGui,
+	panelName = "ClanPanel",
+	panelWidth = PANEL_W_PX,
+	panelHeight = PANEL_H_PX,
+	cornerRadius = R_PANEL,
+	enableBlur = ENABLE_BLUR,
+	blurSize = BLUR_SIZE,
+	onOpen = function()
+		if clanIcon then
+			clanIcon:select()
+		end
+	end,
+	onClose = function()
+		if clanIcon then
+			clanIcon:deselect()
+		end
+	end
+})
 
-local blur = nil
-if ENABLE_BLUR then
-	blur = Instance.new("BlurEffect")
-	blur.Size = 0
-	blur.Enabled = false
-	blur.Parent = Lighting
-end
-
--- ════════════════════════════════════════════════════════════════
--- PANEL PRINCIPAL
--- ════════════════════════════════════════════════════════════════
-local panel = Instance.new("Frame")
-panel.Name = "ClanPanel"
-panel.AnchorPoint = Vector2.new(0.5, 0.5)
-panel.Position = UDim2.new(0.5, 0, 1.5, 0)
-panel.BackgroundColor3 = THEME.panel or Color3.fromRGB(18, 18, 22)
-panel.BorderSizePixel = 0
-panel.Visible = false
-panel.ZIndex = 100
-panel.Size = UDim2.new(0, PANEL_W_PX, 0, PANEL_H_PX)
-panel.Parent = screenGui
-rounded(panel, R_PANEL)
-stroked(panel, 0.7)
+local panel = modal:getPanel()
 
 local tabButtons = {}
 local tabPages = {}
@@ -680,6 +670,25 @@ local function createNoClansMessage()
 	return container
 end
 
+local function renderAvailableClans()
+	for _, child in ipairs(clansScroll:GetChildren()) do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+
+	if availableClans and #availableClans > 0 then
+		for _, clanData in ipairs(availableClans) do
+			createClanEntry(clanData)
+		end
+	else
+		createNoClansMessage()
+	end
+
+	task.wait()
+	clansScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+end
+
 local function loadClansFromServer()
 	for _, child in ipairs(clansScroll:GetChildren()) do
 		if not child:IsA("UIListLayout") then
@@ -740,8 +749,10 @@ local function loadClansFromServer()
 			loadingContainer:Destroy()
 		end
 
-		if clans and #clans > 0 then
-			for _, clanData in ipairs(clans) do
+		availableClans = clans or {}
+
+		if availableClans and #availableClans > 0 then
+			for _, clanData in ipairs(availableClans) do
 				createClanEntry(clanData)
 			end
 		else
@@ -953,7 +964,7 @@ local function loadPlayerClan()
 			ConfirmationModal.new({
 				screenGui = screenGui,
 				title = "Cambiar TAG del Clan",
-				message = "Ingresa el nuevo TAG (3-5 caracteres):",
+				message = "Ingresa el nuevo TAG (2-5 caracteres):",
 				inputText = true,
 				inputPlaceholder = "Ej: XYZ",
 				inputDefault = clanData.clanTag or "TAG",
@@ -961,13 +972,13 @@ local function loadPlayerClan()
 				cancelText = "Cancelar",
 				onConfirm = function(inputValue)
 					local newTag = inputValue and inputValue:upper() or ""
-					if newTag and #newTag >= 3 and #newTag <= 5 then
+					if newTag and #newTag >= 2 and #newTag <= 5 then
 						ClanClient:ChangeClanTag(newTag)
 						Notify:Success("TAG Actualizado", "El TAG ha sido cambiado a: [" .. newTag .. "]", 4)
 						task.wait(1)
 						loadPlayerClan()
 					else
-						Notify:Warning("TAG invalido", "El TAG debe tener entre 3 y 5 caracteres", 3)
+						Notify:Warning("TAG invalido", "El TAG debe tener entre 2 y 5 caracteres", 3)
 					end
 				end
 			})
@@ -1136,7 +1147,7 @@ local labelTag = Instance.new("TextLabel")
 labelTag.Size = UDim2.new(1, 0, 0, 14)
 labelTag.Position = UDim2.new(0, 0, 0, 124)
 labelTag.BackgroundTransparency = 1
-labelTag.Text = "TAG DEL CLAN (3-5 caracteres)"
+labelTag.Text = "TAG DEL CLAN (2-5 caracteres)"
 labelTag.TextColor3 = THEME.text or Color3.new(1, 1, 1)
 labelTag.TextSize = 10
 labelTag.Font = Enum.Font.GothamBold
@@ -1520,42 +1531,13 @@ end
 -- OPEN/CLOSE
 -- ════════════════════════════════════════════════════════════════
 local function openUI()
-	if uiOpen then return end
-	uiOpen = true
-	panel.Visible = true
-	overlay.Visible = true
-
-	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45}):Play()
-	if blur then
-		blur.Enabled = true
-		TweenService:Create(blur, TweenInfo.new(0.22), {Size = BLUR_SIZE}):Play()
-	end
-
-	panel.Position = UDim2.fromScale(0.5, 1.1)
-	TweenService:Create(panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 0.5)}):Play()
-
-	task.spawn(loadClansFromServer)
+	modal:open()
+	renderAvailableClans()
 	switchTab("Disponibles")
 end
 
 local function closeUI()
-	if not uiOpen then return end
-	uiOpen = false
-
-	TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = UDim2.fromScale(0.5, 1.1)}):Play()
-	TweenService:Create(overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
-
-	task.delay(0.22, function()
-		overlay.Visible = false
-		panel.Visible = false
-	end)
-
-	if blur then
-		TweenService:Create(blur, TweenInfo.new(0.22), {Size = 0}):Play()
-		task.delay(0.22, function()
-			if blur then blur.Enabled = false end
-		end)
-	end
+	modal:close()
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1563,16 +1545,6 @@ end
 -- ════════════════════════════════════════════════════════════════
 closeBtn.MouseButton1Click:Connect(function()
 	closeUI()
-	if clanIcon then
-		clanIcon:deselect()
-	end
-end)
-
-overlay.MouseButton1Click:Connect(function()
-	closeUI()
-	if clanIcon then
-		clanIcon:deselect()
-	end
 end)
 
 btnCrear.MouseButton1Click:Connect(function()
@@ -1590,8 +1562,8 @@ btnCrear.MouseButton1Click:Connect(function()
 		return
 	end
 
-	if clanTag == "" or #clanTag < 3 or #clanTag > 5 then
-		Notify:Warning("TAG invalido", "El TAG debe tener entre 3 y 5 caracteres", 3)
+	if clanTag == "" or #clanTag < 2 or #clanTag > 5 then
+		Notify:Warning("TAG invalido", "El TAG debe tener entre 2 y 5 caracteres", 3)
 		local originalColor = inputTag.BackgroundColor3
 		TweenService:Create(inputTag, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(160, 50, 50)}):Play()
 		task.wait(0.2)
@@ -1630,8 +1602,11 @@ if clanIcon then
 	end)
 end
 
--- Inicializar el estado del clan del jugador
+-- ════════════════════════════════════════════════════════════════
+-- INITIALIZATION - Cargar datos al inicio
+-- ════════════════════════════════════════════════════════════════
 task.spawn(function()
+	loadClansFromServer()
 	ClanClient:GetPlayerClan()
 end)
 
