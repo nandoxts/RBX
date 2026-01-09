@@ -28,6 +28,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 -- ════════════════════════════════════════════════════════════════
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("ConfirmationModal"))
 local ModalManager = require(ReplicatedStorage:WaitForChild("ModalManager"))
+local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
 
 -- ════════════════════════════════════════════════════════════════
 -- ADMIN CONFIG
@@ -710,6 +711,7 @@ quickAddBtn.MouseButton1Click:Connect(function()
 	local aid = quickInput.Text:gsub("%s+", "")
 
 	if not isValidAudioId(aid) then
+		Notify:Warning("Audio ID Inválido", "Ingresa un ID válido (6-19 dígitos)", 3)
 		qiStroke.Color = THEME.danger
 		quickInput.Text = ""
 		quickInput.PlaceholderText = "Invalid Audio ID (6-19 digits)"
@@ -1893,12 +1895,14 @@ if R.Update then
 			local isBlocked = data.error == "Canción ya en cola"
 
 			if isBlocked then
+				Notify:Info("Canción Bloqueada", "Esta canción ya está en la cola", 3)
 				qiStroke.Color = Color3.fromRGB(255, 150, 0)
 				quickInput.Text = ""
 				quickInput.PlaceholderText = data.error
 				quickAddBtn.Text = "BLOCKED"
 				quickAddBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
 			else
+				Notify:Error("Error al Agregar", data.error, 3)
 				qiStroke.Color = THEME.danger
 				quickInput.Text = ""
 				quickInput.PlaceholderText = data.error
@@ -1916,6 +1920,7 @@ if R.Update then
 			end)
 
 		elseif quickAddBtn and quickAddBtn.Text == "..." then
+			Notify:Success("Canción Agregada", "La canción ha sido añadida a la cola", 3)
 			quickInput.Text = ""
 			qiStroke.Color = THEME.success
 			quickAddBtn.Text = "ADDED"
