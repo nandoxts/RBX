@@ -1336,6 +1336,7 @@ local function drawSongs(songs)
 			addBtn.MouseButton1Click:Connect(function()
 				if R.Add then 
 					R.Add:FireServer(song.id)
+					Notify:Success("Canción Agregada", "\"" .. song.name .. "\" fue añadida a la cola", 3)
 					addBtn.BackgroundColor3 = THEME.info
 					addBtn.Text = "..."
 				end

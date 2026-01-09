@@ -81,9 +81,17 @@ function ModalManager:_createOverlay()
 	self.overlay.Text = ""
 	self.overlay.Parent = self.screenGui
 	
-	-- Click en overlay cierra el modal
+	-- Click en overlay cierra el modal solo si es fuera del panel
 	self.overlay.MouseButton1Click:Connect(function()
-		self:close()
+		local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+		local panelPos = self.panel.AbsolutePosition
+		local panelSize = self.panel.AbsoluteSize
+		
+		-- Verificar si el click fue fuera del panel
+		if mousePos.X < panelPos.X or mousePos.X > panelPos.X + panelSize.X or
+			mousePos.Y < panelPos.Y or mousePos.Y > panelPos.Y + panelSize.Y then
+			self:close()
+		end
 	end)
 end
 

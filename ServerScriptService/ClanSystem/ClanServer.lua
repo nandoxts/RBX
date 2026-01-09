@@ -283,6 +283,20 @@ function ClanSystem:AdminDissolveClan(clanId)
 	return success, success and "Clan disuelto por admin" or err
 end
 
+function ClanSystem:LeaveClan(clanId, requesterId)
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+	
+	if clanData.owner == requesterId then
+		return false, "El owner no puede abandonar el clan. Disuelve el clan si deseas"
+	end
+	
+	local success, err = ClanData:RemoveMember(clanId, requesterId)
+	return success, success and "Has abandonado el clan" or err
+end
+
 -- ============================================
 -- CONFIGURACIÓN DE EVENTOS
 -- ============================================
@@ -299,32 +313,32 @@ clanEvents.Parent = game:GetService("ReplicatedStorage")
 local CreateClanEvent = Instance.new("RemoteFunction", clanEvents)
 CreateClanEvent.Name = "CreateClan"
 
-local InvitePlayerEvent = Instance.new("RemoteEvent", clanEvents)
+local InvitePlayerEvent = Instance.new("RemoteFunction", clanEvents)
 InvitePlayerEvent.Name = "InvitePlayer"
 
-local KickPlayerEvent = Instance.new("RemoteEvent", clanEvents)
+local KickPlayerEvent = Instance.new("RemoteFunction", clanEvents)
 KickPlayerEvent.Name = "KickPlayer"
 
-local ChangeRoleEvent = Instance.new("RemoteEvent", clanEvents)
+local ChangeRoleEvent = Instance.new("RemoteFunction", clanEvents)
 ChangeRoleEvent.Name = "ChangeRole"
 
-local ChangeClanNameEvent = Instance.new("RemoteEvent", clanEvents)
+local ChangeClanNameEvent = Instance.new("RemoteFunction", clanEvents)
 ChangeClanNameEvent.Name = "ChangeClanName"
 
-local ChangeClanTagEvent = Instance.new("RemoteEvent", clanEvents)
+local ChangeClanTagEvent = Instance.new("RemoteFunction", clanEvents)
 ChangeClanTagEvent.Name = "ChangeClanTag"
 
-local ChangeClanDescEvent = Instance.new("RemoteEvent", clanEvents)
+local ChangeClanDescEvent = Instance.new("RemoteFunction", clanEvents)
 ChangeClanDescEvent.Name = "ChangeClanDescription"
 
-local ChangeClanLogoEvent = Instance.new("RemoteEvent", clanEvents)
+local ChangeClanLogoEvent = Instance.new("RemoteFunction", clanEvents)
 ChangeClanLogoEvent.Name = "ChangeClanLogo"
 
-local DissolveEvent = Instance.new("RemoteEvent", clanEvents)
+local DissolveEvent = Instance.new("RemoteFunction", clanEvents)
 DissolveEvent.Name = "DissolveClan"
 
-local GetClanDataEvent = Instance.new("RemoteEvent", clanEvents)
-GetClanDataEvent.Name = "GetClanData"
+local LeaveClanEvent = Instance.new("RemoteFunction", clanEvents)
+LeaveClanEvent.Name = "LeaveClan"
 
 local JoinClanEvent = Instance.new("RemoteFunction", clanEvents)
 JoinClanEvent.Name = "JoinClan"
@@ -332,8 +346,20 @@ JoinClanEvent.Name = "JoinClan"
 local AdminDissolveClanEvent = Instance.new("RemoteFunction", clanEvents)
 AdminDissolveClanEvent.Name = "AdminDissolveClan"
 
+local GetClanDataEvent = Instance.new("RemoteEvent", clanEvents)
+GetClanDataEvent.Name = "GetClanData"
+
+local ClansUpdatedEvent = Instance.new("RemoteEvent", clanEvents)
+ClansUpdatedEvent.Name = "ClansUpdated"
+
 local GetClansListFunction = Instance.new("RemoteFunction", clanEvents)
 GetClansListFunction.Name = "GetClansList"
+
+-- Conectar evento de actualización para notificar a clientes
+ClanData:OnClanDataUpdated():Connect(function()
+	local allClans = ClanData:GetAllClans()
+	ClansUpdatedEvent:FireAllClients(allClans)
+end)
 
 local GetPlayerClanFunction = Instance.new("RemoteFunction", clanEvents)
 GetPlayerClanFunction.Name = "GetPlayerClan"
@@ -352,45 +378,53 @@ CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, c
 	end
 end
 
-InvitePlayerEvent.OnServerEvent:Connect(function(player, clanId, targetPlayerId)
+InvitePlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
 	local success, msg = ClanSystem:InvitePlayer(clanId, player.UserId, targetPlayerId)
 	print(success and ("✅ " .. player.Name .. " invitó a un jugador") or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-KickPlayerEvent.OnServerEvent:Connect(function(player, clanId, targetPlayerId)
+KickPlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
 	local success, msg = ClanSystem:KickPlayer(clanId, player.UserId, targetPlayerId)
 	print(success and ("✅ " .. player.Name .. " expulsó a un jugador") or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-ChangeRoleEvent.OnServerEvent:Connect(function(player, clanId, targetPlayerId, newRole)
+ChangeRoleEvent.OnServerInvoke = function(player, clanId, targetPlayerId, newRole)
 	local success, msg = ClanSystem:ChangeRole(clanId, player.UserId, targetPlayerId, newRole)
 	print(success and ("✅ Rol cambiado") or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-ChangeClanNameEvent.OnServerEvent:Connect(function(player, clanId, newName)
+ChangeClanNameEvent.OnServerInvoke = function(player, clanId, newName)
 	local success, msg = ClanSystem:ChangeName(clanId, player.UserId, newName)
 	print(success and ("✅ Nombre actualizado: " .. newName) or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-ChangeClanTagEvent.OnServerEvent:Connect(function(player, clanId, newTag)
+ChangeClanTagEvent.OnServerInvoke = function(player, clanId, newTag)
 	local success, msg = ClanSystem:ChangeTag(clanId, player.UserId, newTag)
 	print(success and ("✅ TAG actualizado: " .. newTag) or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-ChangeClanDescEvent.OnServerEvent:Connect(function(player, clanId, newDesc)
+ChangeClanDescEvent.OnServerInvoke = function(player, clanId, newDesc)
 	local success, msg = ClanSystem:ChangeDescription(clanId, player.UserId, newDesc)
 	print(success and "✅ Descripción actualizada" or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-ChangeClanLogoEvent.OnServerEvent:Connect(function(player, clanId, newLogoId)
+ChangeClanLogoEvent.OnServerInvoke = function(player, clanId, newLogoId)
 	local success, msg = ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
 	print(success and "✅ Logo actualizado" or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
-DissolveEvent.OnServerEvent:Connect(function(player, clanId)
+DissolveEvent.OnServerInvoke = function(player, clanId)
 	local success, msg = ClanSystem:DissolveClan(clanId, player.UserId)
 	print(success and ("✅ Clan disuelto por: " .. player.Name) or ("❌ " .. msg))
-end)
+	return success, msg
+end
 
 AdminDissolveClanEvent.OnServerInvoke = function(player, clanId)
 	if not isAdmin(player.UserId) then
@@ -414,8 +448,15 @@ JoinClanEvent.OnServerInvoke = function(player, clanId)
 	return success, msg
 end
 
+LeaveClanEvent.OnServerInvoke = function(player, clanId)
+	local success, msg = ClanSystem:LeaveClan(clanId, player.UserId)
+	print(success and ("✅ " .. player.Name .. " salió del clan") or ("❌ " .. msg))
+	return success, msg
+end
+
 GetClansListFunction.OnServerInvoke = function(player)
-	return ClanSystem:GetAllClans()
+	local allClans = ClanSystem:GetAllClans()
+	return allClans
 end
 
 GetPlayerClanFunction.OnServerInvoke = function(player)
@@ -427,60 +468,13 @@ GetPlayerClanFunction.OnServerInvoke = function(player)
 end
 
 -- ============================================
--- INICIALIZACIÓN: CREAR CLANES POR DEFECTO
+-- INICIALIZACIÓN (como DjDashboard)
 -- ============================================
-task.spawn(function()
-	task.wait(2)  -- Esperar a que DataStore esté listo
-	
-	local allClans = ClanSystem:GetAllClans()
-	
-	if #allClans == 0 then
-		print("📦 [Clanes] No hay clanes. Creando clanes por defecto...")
-		
-		local defaultClans = {
-			{
-				name = "Los Legendarios",
-				tag = "LG",
-				logo = "rbxassetid://0",
-				desc = "Clan de élite para los mejores jugadores"
-			},
-			{
-				name = "Guerreros del Sol",
-				tag = "GS",
-				logo = "rbxassetid://0", 
-				desc = "Unidos bajo el poder del sol"
-			},
-			{
-				name = "Sombras Nocturnas",
-				tag = "SN",
-				logo = "rbxassetid://0",
-				desc = "Maestros de la oscuridad y el sigilo"
-			}
-		}
-		
-		local defaultOwnerId = 9375636407
-		
-		for _, clanInfo in ipairs(defaultClans) do
-			local success, clanId = ClanSystem:CreateClan(
-				clanInfo.name,
-				defaultOwnerId,
-				clanInfo.tag,
-				clanInfo.logo,
-				clanInfo.desc
-			)
-			
-			if success then
-				print("✅ [Clanes] Clan creado:", clanInfo.name .. " [" .. clanInfo.tag .. "]")
-			else
-				warn("❌ [Clanes] Error:", clanId)
-			end
-		end
-		
-		print("🎉 [Clanes] Clanes por defecto creados")
-	else
-		print("✅ [Clanes] Base de datos:", #allClans, "clanes")
-	end
-end)
+ClanData:LoadAllClans()
+task.wait(0.5)
+-- Notificar a todos los clientes conectados
+local allClans = ClanData:GetAllClans()
+ClansUpdatedEvent:FireAllClients(allClans)
 
 print("✅ [Clan System] Inicializado correctamente")
 

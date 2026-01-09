@@ -5,37 +5,56 @@ local ClanData = {}
 local clanStore = DataStoreService:GetDataStore("ClansData")
 local playerClanStore = DataStoreService:GetDataStore("PlayerClans")
 
+-- Base de datos en memoria (como DjDashboard)
+local clansDatabase = {}
+local clanDataUpdatedEvent = Instance.new("BindableEvent")
+
 -- Crear clan
 function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
-local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
+	local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
 
-local clanData = {
-clanId = clanId,
-clanName = clanName,
-clanTag = clanTag or "TAG",
-clanLogo = clanLogo or "rbxassetid://0",
-owner = ownerId,
-colideres = {},
-lideres = {},
-miembros = {ownerId},
-descripcion = clanDesc or "Sin descripción",
-nivel = 1,
-fechaCreacion = os.time(),
-miembros_data = {
-[tostring(ownerId)] = {
-nombre = game:GetService("Players"):GetNameFromUserIdAsync(ownerId),
-rol = "owner",
-fechaUnion = os.time()
-}
-}
-}
+	local clanData = {
+		clanId = clanId,
+		clanName = clanName,
+		clanTag = clanTag or "TAG",
+		clanLogo = clanLogo or "rbxassetid://0",
+		owner = ownerId,
+		colideres = {},
+		lideres = {},
+		miembros = {ownerId},
+		descripcion = clanDesc or "Sin descripción",
+		nivel = 1,
+		fechaCreacion = os.time(),
+		miembros_data = {
+			[tostring(ownerId)] = {
+				nombre = game:GetService("Players"):GetNameFromUserIdAsync(ownerId),
+				rol = "owner",
+				fechaUnion = os.time()
+			}
+		}
+	}
 
-local success, err = pcall(function()
-clanStore:SetAsync("clan:" .. clanId, clanData)
-playerClanStore:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner"})
-end)
+	local success, err = pcall(function()
+		clanStore:SetAsync("clan:" .. clanId, clanData)
+		playerClanStore:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner"})
+	end)
 
-return success, (success and clanId) or err, (success and clanData) or nil
+	-- Actualizar base de datos en memoria
+	if success then
+		clansDatabase[clanId] = {
+			clanId = clanId,
+			clanName = clanName,
+			clanTag = clanTag or "TAG",
+			clanLogo = clanLogo or "rbxassetid://0",
+			descripcion = clanDesc or "Sin descripción",
+			nivel = 1,
+			miembros_count = 1,
+			fechaCreacion = os.time()
+		}
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, (success and clanId) or err, (success and clanData) or nil
 end
 
 -- Obtener clan
@@ -78,18 +97,30 @@ end
 
 -- Actualizar clan
 function ClanData:UpdateClan(clanId, updates)
-local clanData = self:GetClan(clanId)
-if not clanData then return false, "Clan no encontrado" end
+	local clanData = self:GetClan(clanId)
+	if not clanData then return false, "Clan no encontrado" end
 
-for k, v in pairs(updates) do
-clanData[k] = v
-end
+	for k, v in pairs(updates) do
+		clanData[k] = v
+	end
 
-local success, err = pcall(function()
-clanStore:SetAsync("clan:" .. clanId, clanData)
-end)
+	local success, err = pcall(function()
+		clanStore:SetAsync("clan:" .. clanId, clanData)
+	end)
 
-return success, (success and clanData) or err
+	-- Actualizar base de datos en memoria
+	if success then
+		if clansDatabase[clanId] then
+			for k, v in pairs(updates) do
+				if k ~= "miembros_data" and k ~= "miembros" and k ~= "colideres" and k ~= "lideres" then
+					clansDatabase[clanId][k] = v
+				end
+			end
+		end
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, (success and clanData) or err
 end
 
 -- Agregar miembro
@@ -194,68 +225,95 @@ end
 
 -- Disolver clan
 function ClanData:DissolveClan(clanId)
-local clanData = self:GetClan(clanId)
-if not clanData then return false, "Clan no encontrado" end
+	local clanData = self:GetClan(clanId)
+	if not clanData then return false, "Clan no encontrado" end
 
--- Remover todos los jugadores
-if clanData.miembros_data then
-for userId, _ in pairs(clanData.miembros_data) do
-pcall(function()
-playerClanStore:RemoveAsync("player:" .. tostring(userId))
-end)
+	-- Remover todos los jugadores
+	if clanData.miembros_data then
+		for userId, _ in pairs(clanData.miembros_data) do
+			pcall(function()
+				playerClanStore:RemoveAsync("player:" .. tostring(userId))
+			end)
+		end
+	end
+
+	local success, err = pcall(function()
+		clanStore:RemoveAsync("clan:" .. clanId)
+	end)
+
+	-- Remover de base de datos en memoria
+	if success then
+		clansDatabase[clanId] = nil
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, err
 end
+
+-- Cargar todos los clanes desde DataStore (solo al inicializar)
+function ClanData:LoadAllClans()
+	local success = pcall(function()
+		local pages = clanStore:ListKeysAsync()
+		
+		while true do
+			local keys = pages:GetCurrentPage()
+			
+			for _, key in ipairs(keys) do
+				if key.KeyName:match("^clan:") then
+					local clanSuccess, clanData = pcall(function()
+						return clanStore:GetAsync(key.KeyName)
+					end)
+					
+					if clanSuccess and clanData then
+						local memberCount = 0
+						if clanData.miembros_data then
+							for _ in pairs(clanData.miembros_data) do
+								memberCount = memberCount + 1
+							end
+						end
+						
+						clansDatabase[clanData.clanId] = {
+							clanId = clanData.clanId,
+							clanName = clanData.clanName,
+							clanTag = clanData.clanTag or "TAG",
+							clanLogo = clanData.clanLogo,
+							descripcion = clanData.descripcion or "Sin descripción",
+							nivel = clanData.nivel or 1,
+							miembros_count = memberCount,
+							fechaCreacion = clanData.fechaCreacion
+						}
+					else
+						-- Eliminar clan corrupto
+						pcall(function()
+							clanStore:RemoveAsync(key.KeyName)
+						end)
+					end
+				end
+			end
+			
+			if pages.IsFinished then 
+				break 
+			end
+			
+			pages:AdvanceToNextPageAsync()
+		end
+	end)
+	
+	return success
 end
 
-local success, err = pcall(function()
-clanStore:RemoveAsync("clan:" .. clanId)
-end)
-
-return success, err
-end
-
--- Obtener todos los clanes
+-- Obtener todos los clanes (directo desde memoria)
 function ClanData:GetAllClans()
-local allClans = {}
-
-local success, result = pcall(function()
-local pages = clanStore:ListKeysAsync()
-
-while true do
-local keys = pages:GetCurrentPage()
-
-for _, key in ipairs(keys) do
-if key.KeyName:match("^clan:") then
-local clanSuccess, clanData = pcall(function()
-return clanStore:GetAsync(key.KeyName)
-end)
-
-if clanSuccess and clanData then
-local memberCount = 0
-if clanData.miembros_data then
-for _ in pairs(clanData.miembros_data) do
-memberCount = memberCount + 1
-end
+	local allClans = {}
+	for _, clanData in pairs(clansDatabase) do
+		table.insert(allClans, clanData)
+	end
+	return allClans
 end
 
-table.insert(allClans, {
-clanId = clanData.clanId,
-clanName = clanData.clanName,
-clanLogo = clanData.clanLogo,
-descripcion = clanData.descripcion or "Sin descripción",
-nivel = clanData.nivel or 1,
-miembros_count = memberCount,
-fechaCreacion = clanData.fechaCreacion
-})
-end
-end
-end
-
-if pages.IsFinished then break end
-pages:AdvanceToNextPageAsync()
-end
-end)
-
-return success and allClans or {}
+-- Obtener evento de actualización (como DjDashboard)
+function ClanData:OnClanDataUpdated()
+	return clanDataUpdatedEvent.Event
 end
 
 return ClanData
