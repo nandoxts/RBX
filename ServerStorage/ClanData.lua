@@ -11,17 +11,33 @@ local clanCooldownStore = DataStoreService:GetDataStore("ClanCooldowns")
 local clansDatabase = {}
 local clanDataUpdatedEvent = Instance.new("BindableEvent")
 
--- Tracking de cooldowns en memoria (más rápido que DataStore)
-local playerCooldowns = {}
-
 -- Crear clan
 function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
+	-- Validaciones básicas primero
+	if not clanName or clanName == "" then
+		return false, nil, "El nombre del clan es requerido"
+	end
+	
+	if not clanTag or clanTag == "" then
+		return false, nil, "El TAG del clan es requerido"
+	end
+	
+	if not ownerId or ownerId == 0 then
+		return false, nil, "Datos del jugador inválidos"
+	end
+	
+	-- Convertir a minúsculas para comparación segura
+	local clanNameLower = tostring(clanName):lower()
+	local clanTagUpper = tostring(clanTag):upper()
+	
 	-- Validar nombre único
 	local nameExists = false
-	for _, clan in pairs(clansDatabase) do
-		if clan.clanName:lower() == clanName:lower() then
-			nameExists = true
-			break
+	for clanId, clan in pairs(clansDatabase) do
+		if clan and clan.clanName then
+			if tostring(clan.clanName):lower() == clanNameLower then
+				nameExists = true
+				break
+			end
 		end
 	end
 	
@@ -31,22 +47,17 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	
 	-- Validar TAG único
 	local tagExists = false
-	for _, clan in pairs(clansDatabase) do
-		if clan.clanTag:upper() == clanTag:upper() then
-			tagExists = true
-			break
+	for clanId, clan in pairs(clansDatabase) do
+		if clan and clan.clanTag then
+			if tostring(clan.clanTag):upper() == clanTagUpper then
+				tagExists = true
+				break
+			end
 		end
 	end
 	
 	if tagExists then
 		return false, nil, "Ya existe un clan con ese TAG"
-	end
-	
-	-- Validar cooldown del jugador
-	local cooldownTime = playerCooldowns[tostring(ownerId)]
-	if cooldownTime and (os.time() - cooldownTime) < 300 then -- 5 minutos = 300 segundos
-		local remainingSeconds = 300 - (os.time() - cooldownTime)
-		return false, nil, "Debes esperar " .. math.ceil(remainingSeconds) .. " segundos antes de crear otro clan"
 	end
 	
 	local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
@@ -89,12 +100,12 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 			miembros_count = 1,
 			fechaCreacion = os.time()
 		}
-		-- Registrar cooldown
-		playerCooldowns[tostring(ownerId)] = os.time()
 		clanDataUpdatedEvent:Fire()
+		return true, clanId, clanData
+	else
+		-- Si hay error en DataStore, devolver el error específico
+		return false, nil, (err and tostring(err)) or "Error al guardar el clan en la base de datos"
 	end
-
-	return success, (success and clanId) or err, (success and clanData) or nil
 end
 
 -- Obtener clan

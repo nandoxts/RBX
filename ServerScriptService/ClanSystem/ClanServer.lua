@@ -51,9 +51,9 @@ local JERARQUIA = {
 -- ============================================
 local rateLimitConfig = {
 	GetClansList = 1, -- 1 segundo entre requests
-	CreateClan = 2, -- 2 segundos entre requests
+	CreateClan = 10, -- 10 segundos entre creaciones
 	JoinClan = 1, -- 1 segundo entre requests
-	AdminDissolveClan = 3, -- 3 segundos entre requests
+	AdminDissolveClan = 10, -- 10 segundos entre disoluciones
 	InvitePlayer = 1 -- 1 segundo entre requests
 }
 
@@ -63,9 +63,13 @@ local function checkRateLimit(userId, funcName)
 	local userLimits = playerRequestLimits[tostring(userId)] or {}
 	local lastTime = userLimits[funcName] or 0
 	local now = os.time()
+	local interval = rateLimitConfig[funcName] or 1
 	
-	if (now - lastTime) < (rateLimitConfig[funcName] or 1) then
-		return false, "Espera un momento antes de hacer esa acción nuevamente"
+	if interval == 0 then return true, nil end
+	
+	if (now - lastTime) < interval then
+		local remainingTime = interval - (now - lastTime)
+		return false, "Espera " .. remainingTime .. " segundos antes de hacer esa acción"
 	end
 	
 	playerRequestLimits[tostring(userId)] = userLimits
@@ -105,15 +109,15 @@ function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	-- Rate limiting
 	local allowed, errMsg = checkRateLimit(ownerId, "CreateClan")
 	if not allowed then
-		return false, errMsg
+		return false, nil, errMsg
 	end
 	
 	if not clanName or clanName == "" then
-		return false, "El nombre del clan es requerido"
+		return false, nil, "El nombre del clan es requerido"
 	end
 	
 	if not clanTag or clanTag == "" or #clanTag < 2 or #clanTag > 5 then
-		return false, "El TAG del clan debe tener entre 2 y 5 caracteres"
+		return false, nil, "El TAG del clan debe tener entre 2 y 5 caracteres"
 	end
 	
 	return ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
@@ -431,14 +435,22 @@ GetPlayerClanFunction.Name = "GetPlayerClan"
 -- ============================================
 -- MANEJADORES DE EVENTOS
 -- ============================================
-CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, clanDesc)
-	local success, clanId = ClanSystem:CreateClan(clanName, player.UserId, clanTag, clanLogo, clanDesc)
+CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, clanDesc, customOwnerId)
+	-- Usar customOwnerId si se proporciona y el jugador es admin, sino usar player.UserId
+	local ownerId = player.UserId
+	if customOwnerId and isAdmin(player.UserId) then
+		ownerId = customOwnerId
+		print("🔧 [Admin] " .. player.Name .. " está creando clan para UserId: " .. ownerId)
+	end
+	
+	local success, clanId, result = ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	if success then
-		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " [" .. clanTag .. "] (" .. player.Name .. ")")
+		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " [" .. clanTag .. "] (Owner: " .. ownerId .. ")")
 		return true, clanId, "Clan creado exitosamente"
 	else
-		warn("❌ [Clan] Error al crear clan: " .. tostring(clanId))
-		return false, nil, clanId
+		local errorMsg = tostring(result or "Error desconocido")
+		warn("❌ [Clan] Error al crear clan (" .. player.Name .. "): " .. errorMsg)
+		return false, nil, errorMsg
 	end
 end
 

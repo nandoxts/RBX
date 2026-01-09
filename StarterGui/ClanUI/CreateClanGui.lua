@@ -377,12 +377,12 @@ createScroll.Position = UDim2.new(0, 10, 0, 10)
 createScroll.BackgroundTransparency = 1
 createScroll.ScrollBarThickness = 4
 createScroll.ScrollBarImageColor3 = THEME.accent
-createScroll.CanvasSize = UDim2.new(0, 0, 0, 440)
+createScroll.CanvasSize = UDim2.new(0, 0, 0, 506)
 createScroll.ZIndex = 103
 createScroll.Parent = pageCrear
 
 local createCard = Instance.new("Frame")
-createCard.Size = UDim2.new(1, 0, 0, 420)
+createCard.Size = UDim2.new(1, 0, 0, 486)
 createCard.BackgroundColor3 = THEME.card
 createCard.BorderSizePixel = 0
 createCard.ZIndex = 104
@@ -454,6 +454,7 @@ local inputNombre = createInputField("NOMBRE DEL CLAN", "Ej: Guardianes del Fueg
 local inputTag = createInputField("TAG DEL CLAN (2-5 caracteres)", "Ej: FGT", 106, createCard)
 local inputDesc = createInputField("DESCRIPCIÓN", "Describe tu clan...", 172, createCard, true)
 local inputLogo = createInputField("LOGO (Asset ID - Opcional)", "rbxassetid://123456789", 258, createCard)
+local inputOwnerId = createInputField("ID DEL OWNER (Opcional - Solo Admin)", "Ej: 123456789", 324, createCard)
 
 inputTag:GetPropertyChangedSignal("Text"):Connect(function()
 	inputTag.Text = string.upper(inputTag.Text)
@@ -461,7 +462,7 @@ end)
 
 local btnCrear = Instance.new("TextButton")
 btnCrear.Size = UDim2.new(1, 0, 0, 40)
-btnCrear.Position = UDim2.new(0, 0, 0, 348)
+btnCrear.Position = UDim2.new(0, 0, 0, 414)
 btnCrear.BackgroundColor3 = THEME.accent
 btnCrear.Text = "CREAR CLAN"
 btnCrear.TextColor3 = Color3.new(1, 1, 1)
@@ -564,12 +565,12 @@ loadPlayerClan = function()
 		rounded(clanCard, 12)
 		stroked(clanCard, 0.6)
 
-		-- Logo
+		-- Logo de fondo (con desenfoque visual)
 		local logoContainer = Instance.new("Frame")
-		logoContainer.Size = UDim2.new(0, 70, 0, 70)
-		logoContainer.Position = UDim2.new(0.5, -35, 0, 18)
-		logoContainer.BackgroundColor3 = THEME.surface
-		logoContainer.ZIndex = 105
+		logoContainer.Size = UDim2.new(1, 0, 1, 0)
+		logoContainer.Position = UDim2.new(0, 0, 0, 0)
+		logoContainer.BackgroundTransparency = 1
+		logoContainer.ZIndex = 103
 		logoContainer.Parent = clanCard
 		rounded(logoContainer, 12)
 
@@ -577,19 +578,51 @@ loadPlayerClan = function()
 		logo.Size = UDim2.new(1, 0, 1, 0)
 		logo.BackgroundTransparency = 1
 		logo.Image = clanData.clanLogo or ""
-		logo.ScaleType = Enum.ScaleType.Fit
-		logo.ZIndex = 106
+		logo.ScaleType = Enum.ScaleType.Crop
+		logo.ImageTransparency = 0.3
+		logo.ZIndex = 103
 		logo.Parent = logoContainer
+		rounded(logo, 12)
+
+		-- Desvanecimiento con gradiente
+		local fadeGradient = Instance.new("UIGradient")
+		fadeGradient.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
+			ColorSequenceKeypoint.new(0.5, Color3.new(0.2, 0.2, 0.2)),
+			ColorSequenceKeypoint.new(1, Color3.new(0.15, 0.15, 0.17))
+		}
+		fadeGradient.Rotation = 45
+		fadeGradient.Parent = logo
+
+		-- Overlay oscuro fuerte (efecto blur visual)
+		local blurOverlay = Instance.new("Frame")
+		blurOverlay.Size = UDim2.new(1, 0, 1, 0)
+		blurOverlay.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+		blurOverlay.BackgroundTransparency = 0.6
+		blurOverlay.ZIndex = 103
+		blurOverlay.Parent = logoContainer
+		rounded(blurOverlay, 12)
+
+		-- Logo frontal (70x70 centrado)
+		local logoFront = Instance.new("Frame")
+		logoFront.Size = UDim2.new(0, 70, 0, 70)
+		logoFront.Position = UDim2.new(0.5, -35, 0, 18)
+		logoFront.BackgroundTransparency = 1
+		logoFront.ZIndex = 105
+		logoFront.Parent = clanCard
+		rounded(logoFront, 12)
+
+		local logoImage = Instance.new("ImageLabel")
+		logoImage.Size = UDim2.new(1, 0, 1, 0)
+		logoImage.BackgroundTransparency = 1
+		logoImage.Image = clanData.clanLogo or ""
+		logoImage.ScaleType = Enum.ScaleType.Fit
+		logoImage.ZIndex = 106
+		logoImage.Parent = logoFront
+		rounded(logoImage, 10)
 
 		if not clanData.clanLogo or clanData.clanLogo == "" or clanData.clanLogo == "rbxassetid://0" then
-			logo.Visible = false
-			local defaultIcon = Instance.new("Frame")
-			defaultIcon.Size = UDim2.new(0, 26, 0, 26)
-			defaultIcon.Position = UDim2.new(0.5, -13, 0.5, -13)
-			defaultIcon.BackgroundColor3 = THEME.accent
-			defaultIcon.ZIndex = 106
-			defaultIcon.Parent = logoContainer
-			rounded(defaultIcon, 8)
+			logoImage.Visible = false
 		end
 
 		-- Nombre y Tag
@@ -695,7 +728,7 @@ loadPlayerClan = function()
 		btnEditName.TextSize = 10
 		btnEditName.Font = Enum.Font.GothamMedium
 		btnEditName.AutoButtonColor = false
-		btnEditName.ZIndex = 105
+		btnEditName.ZIndex = 104
 		btnEditName.Parent = editFrame
 		rounded(btnEditName, 6)
 
@@ -708,7 +741,7 @@ loadPlayerClan = function()
 		btnEditTag.TextSize = 10
 		btnEditTag.Font = Enum.Font.GothamMedium
 		btnEditTag.AutoButtonColor = false
-		btnEditTag.ZIndex = 105
+		btnEditTag.ZIndex = 104
 		btnEditTag.Parent = editFrame
 		rounded(btnEditTag, 6)
 
@@ -771,7 +804,7 @@ loadPlayerClan = function()
 			btnDissolve.TextSize = 12
 			btnDissolve.Font = Enum.Font.GothamBold
 			btnDissolve.AutoButtonColor = false
-			btnDissolve.ZIndex = 105
+			btnDissolve.ZIndex = 104
 			btnDissolve.Parent = clanCard
 			rounded(btnDissolve, 6)
 
@@ -805,7 +838,7 @@ loadPlayerClan = function()
 			btnLeave.TextSize = 12
 			btnLeave.Font = Enum.Font.GothamBold
 			btnLeave.AutoButtonColor = false
-			btnLeave.ZIndex = 105
+			btnLeave.ZIndex = 104
 			btnLeave.Parent = clanCard
 			rounded(btnLeave, 6)
 
@@ -835,7 +868,7 @@ loadPlayerClan = function()
 		membersCard.Size = UDim2.new(1, 0, 0, 130)
 		membersCard.Position = UDim2.new(0, 0, 0, 310)
 		membersCard.BackgroundColor3 = THEME.card
-		membersCard.ZIndex = 104
+		membersCard.ZIndex = 105
 		membersCard.Parent = clanScroll
 		rounded(membersCard, 12)
 		stroked(membersCard, 0.6)
@@ -976,11 +1009,12 @@ createClanEntry = function(clanData)
 	rounded(entry, 10)
 	stroked(entry, 0.6)
 
+
 	-- Logo
 	local logoContainer = Instance.new("Frame")
 	logoContainer.Size = UDim2.new(0, 60, 0, 60)
 	logoContainer.Position = UDim2.new(0, 12, 0.5, -30)
-	logoContainer.BackgroundColor3 = THEME.surface
+	logoContainer.BackgroundTransparency = 1
 	logoContainer.ZIndex = 105
 	logoContainer.Parent = entry
 	rounded(logoContainer, 10)
@@ -992,13 +1026,15 @@ createClanEntry = function(clanData)
 	logo.ScaleType = Enum.ScaleType.Fit
 	logo.ZIndex = 106
 	logo.Parent = logoContainer
+	rounded(logo, 8)
 
 	if not clanData.clanLogo or clanData.clanLogo == "" or clanData.clanLogo == "rbxassetid://0" then
 		logo.Visible = false
+		-- Icono predeterminado sin fondo
 		local defaultIcon = Instance.new("Frame")
 		defaultIcon.Size = UDim2.new(0, 22, 0, 22)
 		defaultIcon.Position = UDim2.new(0.5, -11, 0.5, -11)
-		defaultIcon.BackgroundColor3 = THEME.accent
+		defaultIcon.BackgroundColor3 = THEME.muted
 		defaultIcon.ZIndex = 106
 		defaultIcon.Parent = logoContainer
 		rounded(defaultIcon, 6)
@@ -1059,20 +1095,34 @@ createClanEntry = function(clanData)
 	joinBtn.Parent = entry
 	rounded(joinBtn, 6)
 
-	hoverEffect(joinBtn, THEME.accent, brighten(THEME.accent, 1.15))
+	-- Verificar si el jugador ya está en este clan
+	local playerClan = ClanClient:GetPlayerClan()
+	local isInThisClan = playerClan and playerClan.clanId == clanData.clanId
+	
+	if isInThisClan then
+		-- Ya está en este clan
+		joinBtn.Text = "UNIDO"
+		joinBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
+		joinBtn.Active = false
+		-- No agregar hover effect ni click event
+	else
+		-- No está en este clan
+		hoverEffect(joinBtn, THEME.accent, brighten(THEME.accent, 1.15))
+		
+		joinBtn.MouseButton1Click:Connect(function()
+			local success, msg = ClanClient:JoinClan(clanData.clanId)
+			if success then
+				Notify:Success("Unido al clan", msg or ("Te has unido a " .. clanData.clanName), 5)
+				task.delay(0.3, function()
+					switchTab("TuClan")
+				end)
+			else
+				Notify:Error("Error", msg or "No se pudo unir al clan", 5)
+			end
+		end)
+	end
+	
 	hoverEffect(entry, THEME.card, Color3.fromRGB(40, 40, 50))
-
-	joinBtn.MouseButton1Click:Connect(function()
-		local success, msg = ClanClient:JoinClan(clanData.clanId)
-		if success then
-			Notify:Success("Unido al clan", msg or ("Te has unido a " .. clanData.clanName), 5)
-			task.delay(0.3, function()
-				switchTab("TuClan")
-			end)
-		else
-			Notify:Error("Error", msg or "No se pudo unir al clan", 5)
-		end
-	end)
 
 	return entry
 end
@@ -1240,12 +1290,12 @@ loadAdminClans = function()
 				confirmText = "Eliminar",
 				cancelText = "Cancelar",
 				onConfirm = function()
-					local success = ClanClient:AdminDissolveClan(clanData.clanId)
+					local success, msg = ClanClient:AdminDissolveClan(clanData.clanId)
 					if success then
-						Notify:Success("Eliminado", "El clan ha sido eliminado", 4)
+						Notify:Success("Eliminado", msg or "El clan ha sido eliminado", 4)
 						-- No llamar loadAdminClans() aquí, el listener lo hará
 					else
-						Notify:Error("Error", "No se pudo eliminar", 4)
+						Notify:Error("Error", msg or "No se pudo eliminar", 4)
 					end
 				end
 			})
@@ -1295,6 +1345,10 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function openUI()
 	modal:open()
+	-- Inicializar ClanClient en background
+	task.spawn(function()
+		ClanClient:Initialize()
+	end)
 	switchTab("Disponibles")
 end
 
@@ -1312,6 +1366,7 @@ btnCrear.MouseButton1Click:Connect(function()
 	local clanTag = inputTag.Text:upper()
 	local clanDesc = inputDesc.Text ~= "" and inputDesc.Text or "Sin descripción"
 	local clanLogo = inputLogo.Text ~= "" and inputLogo.Text or ""
+	local customOwnerId = inputOwnerId.Text ~= "" and tonumber(inputOwnerId.Text) or nil
 
 	if #clanName < 3 then
 		Notify:Warning("Nombre inválido", "Mínimo 3 caracteres", 3)
@@ -1323,18 +1378,25 @@ btnCrear.MouseButton1Click:Connect(function()
 		return
 	end
 
+	-- Validar ID del owner si se proporcionó
+	if customOwnerId and customOwnerId <= 0 then
+		Notify:Warning("ID inválido", "El ID del owner debe ser un número válido", 3)
+		return
+	end
+
 	btnCrear.Text = "Creando..."
 
-	local success, clanId, msg = ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc)
+	local success, clanId, msg = ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwnerId)
 
 	if success then
-		Notify:Success("Clan Creado", msg or ("Tu clan '" .. clanName .. "' ha sido creado"), 5)
+		Notify:Success("Clan Creado", msg or ("Clan '" .. clanName .. "' creado exitosamente"), 5)
 		inputNombre.Text = ""
 		inputTag.Text = ""
 		inputDesc.Text = ""
 		inputLogo.Text = ""
+		inputOwnerId.Text = ""
 		task.wait(0.5)
-		switchTab("TuClan") -- Ir a Tu Clan para ver el clan creado
+		switchTab("TuClan")
 	else
 		Notify:Error("Error", msg or "No se pudo crear el clan", 5)
 	end

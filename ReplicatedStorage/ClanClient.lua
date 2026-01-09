@@ -1,16 +1,18 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Obtener player y playerGui de forma segura (lazy loading)
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local playerGui
 
 -- ════════════════════════════════════════════════════════════════
 -- THROTTLING & SPAM PROTECTION
 -- ════════════════════════════════════════════════════════════════
 local throttleConfig = {
 	GetClansList = 1, -- 1 segundo
-	CreateClan = 2, -- 2 segundos
+	CreateClan = 0, -- 0 segundos (sin límite)
 	JoinClan = 1, -- 1 segundo
-	AdminDissolveClan = 3, -- 3 segundos
+	AdminDissolveClan = 0, -- 0 segundos (sin límite)
 	InvitePlayer = 1 -- 1 segundo
 }
 
@@ -30,12 +32,31 @@ local function checkThrottle(funcName)
 	return true, nil
 end
 
--- Esperar a que ClanEvents exista (creado por el servidor)
-local clanEvents = ReplicatedStorage:WaitForChild("ClanEvents")
+-- ════════════════════════════════════════════════════════════════
+-- LAZY INITIALIZATION (para evitar dependencias circulares)
+-- ════════════════════════════════════════════════════════════════
+local clanEvents = nil
+local CreateClanFunction = nil
+local InvitePlayerFunction = nil
+local KickPlayerFunction = nil
+local ChangeRoleFunction = nil
+local ChangeClanNameFunction = nil
+local ChangeClanTagFunction = nil
+local ChangeClanDescFunction = nil
+local ChangeClanLogoFunction = nil
+local DissolveFunction = nil
+local GetClansListFunction = nil
+local LeaveClanFunction = nil
+local GetPlayerClanFunction = nil
+local JoinClanEvent = nil
+local AdminDissolveFunction = nil
+local GetClanDataEvent = nil
+local ClansUpdatedEvent = nil
+local initialized = false
 
 -- SOLO OBTENER REFERENCIAS A LAS REMOTEFUNCTIONS CREADAS POR EL SERVIDOR
--- NO CREARLAS AQUÍ
 local function WaitForFunction(name, timeout)
+	if not clanEvents then return nil end
 	timeout = timeout or 30
 	local startTime = tick()
 	while tick() - startTime < timeout do
@@ -49,48 +70,78 @@ local function WaitForFunction(name, timeout)
 	return nil
 end
 
--- Obtener referencias (esperar al servidor)
-local CreateClanFunction = WaitForFunction("CreateClan")
-local InvitePlayerFunction = WaitForFunction("InvitePlayer")
-local KickPlayerFunction = WaitForFunction("KickPlayer")
-local ChangeRoleFunction = WaitForFunction("ChangeRole")
-local ChangeClanNameFunction = WaitForFunction("ChangeClanName")
-local ChangeClanTagFunction = WaitForFunction("ChangeClanTag")
-local ChangeClanDescFunction = WaitForFunction("ChangeClanDescription")
-local ChangeClanLogoFunction = WaitForFunction("ChangeClanLogo")
-local DissolveFunction = WaitForFunction("DissolveClan")
-local GetClansListFunction = WaitForFunction("GetClansList")
-local LeaveClanFunction = WaitForFunction("LeaveClan")
-local GetPlayerClanFunction = WaitForFunction("GetPlayerClan")
-local JoinClanEvent = WaitForFunction("JoinClan")
-local AdminDissolveFunction = WaitForFunction("AdminDissolveClan")
+-- Función de inicialización
+local function EnsureInitialized()
+	if initialized then return end
+	
+	-- Esperar a que ClanEvents exista (máximo 10 segundos)
+	clanEvents = ReplicatedStorage:WaitForChild("ClanEvents", 10)
+	if not clanEvents then
+		warn("[ClanClient] ❌ No se pudo obtener ClanEvents después de 10 segundos")
+		return
+	end
+	
+	-- Obtener referencias (esperar al servidor)
+	CreateClanFunction = WaitForFunction("CreateClan")
+	InvitePlayerFunction = WaitForFunction("InvitePlayer")
+	KickPlayerFunction = WaitForFunction("KickPlayer")
+	ChangeRoleFunction = WaitForFunction("ChangeRole")
+	ChangeClanNameFunction = WaitForFunction("ChangeClanName")
+	ChangeClanTagFunction = WaitForFunction("ChangeClanTag")
+	ChangeClanDescFunction = WaitForFunction("ChangeClanDescription")
+	ChangeClanLogoFunction = WaitForFunction("ChangeClanLogo")
+	DissolveFunction = WaitForFunction("DissolveClan")
+	GetClansListFunction = WaitForFunction("GetClansList")
+	LeaveClanFunction = WaitForFunction("LeaveClan")
+	GetPlayerClanFunction = WaitForFunction("GetPlayerClan")
+	JoinClanEvent = WaitForFunction("JoinClan")
+	AdminDissolveFunction = WaitForFunction("AdminDissolveClan")
+	
+	-- Esperar por GetClanDataEvent (RemoteEvent) - máximo 10 segundos
+	GetClanDataEvent = clanEvents:WaitForChild("GetClanData", 10)
+	ClansUpdatedEvent = clanEvents:WaitForChild("ClansUpdated", 10)
+	
+	initialized = true
+	print("✅ [ClanClient] Inicialización completada")
+end
 
--- Esperar por GetClanDataEvent (RemoteEvent)
-local GetClanDataEvent = clanEvents:WaitForChild("GetClanData", 30)
-local ClansUpdatedEvent = clanEvents:WaitForChild("ClansUpdated", 30)
+
 
 local ClanClient = {}
 ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
 ClanClient.onClansUpdated = nil -- Callback para UI
 
+-- ════════════════════════════════════════════════════════════════
+-- INICIALIZACIÓN PÚBLICA
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:Initialize()
+	EnsureInitialized()
+end
+
 -- Crear clan
-function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc)
+function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwnerId)
 	-- Throttling
 	local allowed, errMsg = checkThrottle("CreateClan")
 	if not allowed then
 		return false, nil, errMsg
 	end
 	
+	-- Usar customOwnerId si se proporciona, sino usar el UserId del jugador local
+	local ownerId = customOwnerId or player.UserId
+	
 	if CreateClanFunction then
-		local success, clanId, msg = CreateClanFunction:InvokeServer(clanName, clanTag or "TAG", clanLogo or "rbxassetid://0", clanDesc or "Sin descripción")
+		local success, clanId, msg = CreateClanFunction:InvokeServer(clanName, clanTag or "TAG", clanLogo or "rbxassetid://0", clanDesc or "Sin descripción", ownerId)
 		if success then
 			-- Actualizar el ID del clan recién creado
 			self.currentClanId = clanId
 			-- Obtener los datos completos del clan
 			self:GetPlayerClan()
+			return true, clanId, msg or "Clan creado exitosamente"
+		else
+			-- Retornar el mensaje de error específico
+			return false, nil, msg or "No se pudo crear el clan"
 		end
-		return success, clanId, msg
 	else
 		warn("[Clan] No se encontró función CreateClan")
 		return false, nil, "Función no disponible"
@@ -258,6 +309,7 @@ end
 
 -- Obtener lista de todos los clanes (directo desde servidor, sin caché)
 function ClanClient:GetClansList()
+	EnsureInitialized()
 	-- Throttling
 	local allowed, errMsg = checkThrottle("GetClansList")
 	if not allowed then
@@ -285,6 +337,7 @@ end
 
 -- Obtener el clan actual del jugador
 function ClanClient:GetPlayerClan()
+	EnsureInitialized()
 	if GetPlayerClanFunction then
 		local success, clanData = pcall(function()
 			return GetPlayerClanFunction:InvokeServer()
@@ -328,13 +381,16 @@ function ClanClient:AdminDissolveClan(clanId)
 end
 
 -- Listener para actualizaciones en tiempo real (como DjDashboard)
-if ClansUpdatedEvent then
-	ClansUpdatedEvent.OnClientEvent:Connect(function(clans)
-		-- Notificar a la UI si hay callback registrado
-		if ClanClient.onClansUpdated then
-			ClanClient.onClansUpdated(clans)
-		end
-	end)
-end
+task.spawn(function()
+	EnsureInitialized()
+	if ClansUpdatedEvent then
+		ClansUpdatedEvent.OnClientEvent:Connect(function(clans)
+			-- Notificar a la UI si hay callback registrado
+			if ClanClient.onClansUpdated then
+				ClanClient.onClansUpdated(clans)
+			end
+		end)
+	end
+end)
 
 return ClanClient
