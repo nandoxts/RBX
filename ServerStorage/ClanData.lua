@@ -9,6 +9,7 @@ local clanCooldownStore = DataStoreService:GetDataStore("ClanCooldowns")
 
 -- Base de datos en memoria (como DjDashboard)
 local clansDatabase = {}
+local playerClansCache = {} -- Caché en memoria para clanes de jugadores {userId -> {clanId, rol}}
 local clanDataUpdatedEvent = Instance.new("BindableEvent")
 
 -- Crear clan

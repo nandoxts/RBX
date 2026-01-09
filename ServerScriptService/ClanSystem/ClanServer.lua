@@ -131,12 +131,8 @@ function ClanSystem:GetPlayerClan(userId)
 	return ClanData:GetPlayerClan(userId)
 end
 
-function ClanSystem:GetAllClans(userId)
-	-- Rate limiting
-	local allowed, errMsg = checkRateLimit(userId, "GetClansList")
-	if not allowed then
-		return nil, errMsg
-	end
+function ClanSystem:GetAllClans()
+	-- Sin rate limiting - devuelve datos frescos siempre
 	return ClanData:GetAllClans()
 end
 
@@ -531,7 +527,17 @@ LeaveClanEvent.OnServerInvoke = function(player, clanId)
 end
 
 GetClansListFunction.OnServerInvoke = function(player)
-	local allClans = ClanSystem:GetAllClans()
+	-- Obtener clanes frescos sin caché
+	local allClans = ClanData:GetAllClans()
+	
+	-- Agregar flag isPlayerMember a cada clan (datos frescos del servidor)
+	local playerClan = ClanData:GetPlayerClan(player.UserId)
+	local playerClanId = playerClan and playerClan.clanId or nil
+	
+	for _, clanData in ipairs(allClans) do
+		clanData.isPlayerMember = (clanData.clanId == playerClanId)
+	end
+	
 	return allClans
 end
 

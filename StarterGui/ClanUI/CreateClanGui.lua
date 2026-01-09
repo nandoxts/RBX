@@ -1095,12 +1095,11 @@ createClanEntry = function(clanData)
 	joinBtn.Parent = entry
 	rounded(joinBtn, 6)
 
-	-- Verificar si el jugador ya está en este clan
-	local playerClan = ClanClient:GetPlayerClan()
-	local isInThisClan = playerClan and playerClan.clanId == clanData.clanId
+	-- Usar datos del servidor (isPlayerMember viene del backend)
+	local isPlayerMember = clanData.isPlayerMember or false
 	
-	if isInThisClan then
-		-- Ya está en este clan
+	if isPlayerMember then
+		-- Ya está en este clan (datos del servidor)
 		joinBtn.Text = "UNIDO"
 		joinBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
 		joinBtn.Active = false
