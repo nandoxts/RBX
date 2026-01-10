@@ -1,8 +1,8 @@
 --[[
-    ConfirmationModal.luau
-    Sistema de modales de confirmación reutilizable
-    Autor: nandoxts
-    Fecha: 2025-10-11
+	ConfirmationModal.luau
+	Sistema de modales de confirmación reutilizable
+	Autor: nandoxts
+	Fecha: 2025-10-11
 ]]
 
 local TweenService = game:GetService("TweenService")

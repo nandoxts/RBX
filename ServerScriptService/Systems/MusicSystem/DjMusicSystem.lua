@@ -25,12 +25,12 @@ local Players = game:GetService("Players")
 -- CONFIGURACIÓN (desde módulo centralizado)
 -- ════════════════════════════════════════════════════════════════
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
-local AdminConfig = require(game.ServerStorage.CentralAdminConfig) -- Mantener por compatibilidad
+local AdminConfig = require(game.ServerStorage:WaitForChild("Config"):WaitForChild("CentralAdminConfig"))
 
 -- ════════════════════════════════════════════════════════════════
 -- DATABASE
 -- ════════════════════════════════════════════════════════════════
-local MusicDB = require(ServerStorage:WaitForChild("MusicDatabase"))
+local MusicDB = require(ServerStorage:WaitForChild("Systems"):WaitForChild("MusicSystem"):WaitForChild("MusicDatabase"))
 
 -- DataStore configurable desde MusicSystemConfig
 local musicStore = MusicConfig.DATABASE.UseDataStore and DataStoreService:GetDataStore(MusicConfig.DATABASE.MusicLibraryStoreName) or nil

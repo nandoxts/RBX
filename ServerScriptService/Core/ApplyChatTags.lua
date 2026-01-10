@@ -8,7 +8,7 @@ local ServerStorage = game:GetService("ServerStorage")
 -- Cargar CentralAdminConfig
 local CentralAdmin
 local success, err = pcall(function()
-	CentralAdmin = require(ServerStorage:WaitForChild("CentralAdminConfig", 5))
+	CentralAdmin = require(ServerStorage:WaitForChild("Config"):WaitForChild("CentralAdminConfig", 5))
 end)
 
 if not success or not CentralAdmin then

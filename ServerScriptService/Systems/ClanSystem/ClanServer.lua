@@ -2,7 +2,7 @@
 -- CLAN SERVER - Sistema Consolidado de Clanes
 -- ============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ClanData = require(game:GetService("ServerStorage"):WaitForChild("ClanData"))
+local ClanData = require(game:GetService("ServerStorage"):WaitForChild("Systems"):WaitForChild("ClanSystem"):WaitForChild("ClanData"))
 local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
 
 -- ============================================

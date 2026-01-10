@@ -177,44 +177,18 @@ local function setupHoverEffect(button, config)
 	-- Cuando el mouse entra
 	button.MouseEnter:Connect(function()
 		isHovered = true
-
 		if config.onEnter then
 			config.onEnter()
-		end
-
-		for object, properties in pairs(config.enterEffects or {}) do
-			tween(object, properties, config.duration or CONFIG.ANIM_FAST)
 		end
 	end)
 
 	-- Cuando el mouse sale
 	button.MouseLeave:Connect(function()
 		isHovered = false
-
 		if config.onLeave then
 			config.onLeave()
 		end
-
-		for object, properties in pairs(config.leaveEffects or {}) do
-			tween(object, properties, config.duration or CONFIG.ANIM_FAST)
-		end
 	end)
-
-	-- Efecto de presionar (opcional)
-	if config.pressEffects then
-		button.MouseButton1Down:Connect(function()
-			for object, properties in pairs(config.pressEffects) do
-				tween(object, properties, 0.08, Enum.EasingStyle.Quad)
-			end
-		end)
-
-		button.MouseButton1Up:Connect(function()
-			local targetEffects = isHovered and config.enterEffects or config.leaveEffects
-			for object, properties in pairs(targetEffects or {}) do
-				tween(object, properties, CONFIG.ANIM_FAST, Enum.EasingStyle.Back)
-			end
-		end)
-	end
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -536,44 +510,7 @@ local function createModernButton(parent, text, isPrimary, layoutOrder)
 
 		onLeave = function()
 			shine.Position = UDim2.new(-0.4, 0, -0.5, 0)
-		end,
-
-		enterEffects = {
-			[button] = {
-				BackgroundColor3 = hoverBackgroundColor,
-				Size = UDim2.new(1.02, 0, 1.05, 0),
-				Position = UDim2.new(-0.01, 0, -0.025, 0)
-			},
-			[buttonStroke] = {
-				Transparency = 0,
-				Color = THEME.accent
-			},
-			[hoverIndicator] = {
-				Size = UDim2.new(0.6, 0, 0, 2)
-			}
-		},
-
-		leaveEffects = {
-			[button] = {
-				BackgroundColor3 = backgroundColor,
-				Size = UDim2.new(1, 0, 1, 0),
-				Position = UDim2.new(0, 0, 0, 0)
-			},
-			[buttonStroke] = {
-				Transparency = isPrimary and 0.3 or 0.5,
-				Color = isPrimary and THEME.accent or THEME.stroke
-			},
-			[hoverIndicator] = {
-				Size = UDim2.new(0, 0, 0, 2)
-			}
-		},
-
-		pressEffects = {
-			[button] = {
-				Size = UDim2.new(0.97, 0, 0.92, 0),
-				Position = UDim2.new(0.015, 0, 0.04, 0)
-			}
-		}
+		end
 	})
 
 	-- Efecto ripple al hacer click
@@ -664,8 +601,12 @@ local function showDynamicSection(viewType, items, targetName)
 	addCorner(backButton, 6)
 
 	setupHoverEffect(backButton, {
-		enterEffects = { [backButton] = { BackgroundColor3 = THEME.btnPrimaryHover } },
-		leaveEffects = { [backButton] = { BackgroundColor3 = THEME.btnPrimary } }
+		onEnter = function()
+			backButton.BackgroundColor3 = THEME.btnPrimaryHover
+		end,
+		onLeave = function()
+			backButton.BackgroundColor3 = THEME.btnPrimary
+		end
 	})
 
 	backButton.MouseButton1Click:Connect(switchToButtonsView)
@@ -816,12 +757,14 @@ local function showDynamicSection(viewType, items, targetName)
 			})
 
 			setupHoverEffect(clickButton, {
-				enterEffects = {
-					[circleStroke] = { Color = Color3.fromRGB(88, 101, 242), Thickness = 2.5 }
-				},
-				leaveEffects = {
-					[circleStroke] = { Color = Color3.fromRGB(50, 50, 60), Thickness = 1.5 }
-				}
+				onEnter = function()
+					circleStroke.Color = Color3.fromRGB(88, 101, 242)
+					circleStroke.Thickness = 2.5
+				end,
+				onLeave = function()
+					circleStroke.Color = Color3.fromRGB(50, 50, 60)
+					circleStroke.Thickness = 1.5
+				end
 			})
 
 			clickButton.MouseButton1Click:Connect(function()

@@ -44,7 +44,7 @@ ModalManager.__index = ModalManager
 
 function ModalManager.new(config)
 	local self = setmetatable({}, ModalManager)
-	
+
 	-- Configuración
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
@@ -55,15 +55,15 @@ function ModalManager.new(config)
 	self.blurSize = config.blurSize or 14
 	self.onOpen = config.onOpen
 	self.onClose = config.onClose
-	
+
 	-- Estado
 	self.isOpen = false
-	
+
 	-- Crear componentes
 	self:_createOverlay()
 	self:_createBlur()
 	self:_createPanel()
-	
+
 	return self
 end
 
@@ -80,13 +80,13 @@ function ModalManager:_createOverlay()
 	self.overlay.ZIndex = 95
 	self.overlay.Text = ""
 	self.overlay.Parent = self.screenGui
-	
+
 	-- Click en overlay cierra el modal solo si es fuera del panel
 	self.overlay.MouseButton1Click:Connect(function()
 		local mousePos = game:GetService("UserInputService"):GetMouseLocation()
 		local panelPos = self.panel.AbsolutePosition
 		local panelSize = self.panel.AbsoluteSize
-		
+
 		-- Verificar si el click fue fuera del panel
 		if mousePos.X < panelPos.X or mousePos.X > panelPos.X + panelSize.X or
 			mousePos.Y < panelPos.Y or mousePos.Y > panelPos.Y + panelSize.Y then
@@ -97,7 +97,7 @@ end
 
 function ModalManager:_createBlur()
 	if not self.enableBlur then return end
-	
+
 	self.blur = Instance.new("BlurEffect")
 	self.blur.Size = 0
 	self.blur.Enabled = false
@@ -122,25 +122,25 @@ end
 function ModalManager:open()
 	if self.isOpen then return end
 	self.isOpen = true
-	
+
 	self.panel.Visible = true
 	self.overlay.Visible = true
-	
+
 	-- Animar overlay
 	TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45}):Play()
-	
+
 	-- Animar blur
 	if self.blur then
 		self.blur.Enabled = true
 		TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = self.blurSize}):Play()
 	end
-	
+
 	-- Animar panel
 	self.panel.Position = UDim2.fromScale(0.5, 1.1)
 	TweenService:Create(self.panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 0.5)
 	}):Play()
-	
+
 	-- Callback
 	if self.onOpen then
 		self.onOpen()
@@ -150,21 +150,21 @@ end
 function ModalManager:close()
 	if not self.isOpen then return end
 	self.isOpen = false
-	
+
 	-- Animar panel
 	TweenService:Create(self.panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 1.1)
 	}):Play()
-	
+
 	-- Animar overlay
 	TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
-	
+
 	-- Ocultar después de la animación
 	task.delay(0.22, function()
 		self.overlay.Visible = false
 		self.panel.Visible = false
 	end)
-	
+
 	-- Animar blur
 	if self.blur then
 		TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = 0}):Play()
@@ -174,7 +174,7 @@ function ModalManager:close()
 			end
 		end)
 	end
-	
+
 	-- Callback
 	if self.onClose then
 		self.onClose()

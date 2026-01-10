@@ -5,7 +5,7 @@
 -- ════════════════════════════════════════════════════════════════
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
+local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
 -- Esperar un poco para que todo cargue
 task.wait(2)

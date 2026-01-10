@@ -7,7 +7,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
-local THEME = require(script.Parent:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
 local NotificationSystem = {}
 NotificationSystem.activeNotifications = {}

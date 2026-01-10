@@ -26,9 +26,9 @@ local MarketplaceService = game:GetService("MarketplaceService")
 -- ════════════════════════════════════════════════════════════════
 -- MODULES
 -- ════════════════════════════════════════════════════════════════
-local ConfirmationModal = require(ReplicatedStorage:WaitForChild("ConfirmationModal"))
-local ModalManager = require(ReplicatedStorage:WaitForChild("ModalManager"))
-local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
+local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
+local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
+local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
 -- ════════════════════════════════════════════════════════════════
 -- ADMIN CONFIG
@@ -173,7 +173,7 @@ local R = {
 -- ════════════════════════════════════════════════════════════════
 -- ROOT GUI
 -- ════════════════════════════════════════════════════════════════
-local screenGui = script.Parent :: ScreenGui
+local screenGui = script.Parent
 screenGui.IgnoreGuiInset = true
 
 -- ════════════════════════════════════════════════════════════════
@@ -1047,37 +1047,37 @@ stroked(backBtn, 0.2)
 -- ════════════════════════════════════════════════════════════════
 local function resetLibraryState()
 	selectedDJ = nil
-	
+
 	-- Cancelar cualquier tween en progreso
 	-- Resetear posiciones a sus valores por defecto SIN animación
 	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
 	djsScroll.Visible = true
 	djsScroll.CanvasPosition = Vector2.new(0, 0)
-	
+
 	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
 	songsScroll.Visible = false
 	songsScroll.CanvasPosition = Vector2.new(0, 0)
-	
+
 	backBtn.Visible = false
 end
 
 backBtn.MouseButton1Click:Connect(function()
 	selectedDJ = nil
-	
+
 	-- Animación de salida para songs
 	TweenService:Create(songsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 		Position = UDim2.new(0, 12, 0, 150)
 	}):Play()
-	
+
 	task.wait(0.1)
-	
+
 	songsScroll.Visible = false
 	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
-	
+
 	djsScroll.Visible = true
 	djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
 	backBtn.Visible = false
-	
+
 	-- Animación de entrada para DJs
 	djsScroll.Position = UDim2.new(0, 12, 0, 0)
 	TweenService:Create(djsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
@@ -1186,26 +1186,26 @@ local function drawDJs()
 
 		clickBtn.MouseButton1Click:Connect(function()
 			selectedDJ = dj.name
-			
+
 			-- Animación de salida para DJs
 			TweenService:Create(djsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				Position = UDim2.new(0, 12, 0, -50)
 			}):Play()
-			
+
 			task.wait(0.15)
-			
+
 			djsScroll.Visible = false
 			djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE para reset
-			
+
 			songsScroll.Visible = true
 			backBtn.Visible = true
-			
+
 			-- Animación de entrada para Songs
 			songsScroll.Position = UDim2.new(0, 12, 0, 100)
 			TweenService:Create(songsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
 				Position = SONGS_SCROLL_DEFAULT_POS
 			}):Play()
-			
+
 			if R.GetSongsByDJ then
 				R.GetSongsByDJ:FireServer(dj.name)
 			end
@@ -1371,49 +1371,6 @@ local function drawSongs(songs)
 					end
 				})
 			end)
-		end
-	end
-end
-
-local function updateLibraryButtonStates()
-	if currentPage ~= "Library" then return end
-	if not songsScroll then return end
-
-	for _, card in pairs(songsScroll:GetChildren()) do
-		if card:IsA("Frame") and card.Name:match("^SongCard_") then
-			local songId = card:GetAttribute("SongID")
-			if not songId then continue end
-
-			local addBtn = card:FindFirstChild("QueueButton")
-			if not addBtn or not addBtn:IsA("TextButton") then continue end
-
-			local isInQueue = false
-			for _, queueSong in ipairs(playQueue) do
-				if queueSong.id == songId then
-					isInQueue = true
-					break
-				end
-			end
-
-			if isInQueue then
-				if addBtn.Text ~= "EN COLA" then
-					TweenService:Create(addBtn, TweenInfo.new(0.2), {
-						BackgroundColor3 = Color3.fromRGB(100, 100, 110)
-					}):Play()
-					addBtn.Text = "EN COLA"
-					addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-					addBtn.AutoButtonColor = false
-				end
-			else
-				if addBtn.Text ~= "QUEUE" then
-					TweenService:Create(addBtn, TweenInfo.new(0.2), {
-						BackgroundColor3 = THEME.success
-					}):Play()
-					addBtn.Text = "QUEUE"
-					addBtn.TextColor3 = Color3.new(1, 1, 1)
-					addBtn.AutoButtonColor = true
-				end
-			end
 		end
 	end
 end
@@ -1710,7 +1667,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function updateProgressBar()
 	if not currentSoundObject then
-		currentSoundObject = Workspace:FindFirstChild("QueueSound")
+		currentSoundObject = workspace:FindFirstChild("QueueSound")
 	end
 
 	if not currentSoundObject or not currentSoundObject:IsA("Sound") or not currentSoundObject.Parent then
@@ -1755,7 +1712,7 @@ end
 function showPage(name)
 	local previousPage = currentPage
 	currentPage = name
-	
+
 	-- ════════════════════════════════════════════════════════════════
 	-- FIX: RESETEAR ESTADO DE LIBRARY AL SALIR DE ELLA
 	-- ════════════════════════════════════════════════════════════════
@@ -1764,7 +1721,7 @@ function showPage(name)
 		-- Resetear el estado completamente (sin animaciones)
 		resetLibraryState()
 	end
-	
+
 	if queuePage then queuePage.Visible = false end
 	if libraryPage then libraryPage.Visible = false end
 	if addPage then addPage.Visible = false end
@@ -1778,11 +1735,11 @@ function showPage(name)
 	if name == "Queue" then 
 		drawQueue() 
 	end
-	
+
 	if name == "Library" then
 		-- Asegurar que el estado esté limpio al entrar
 		resetLibraryState()
-		
+
 		if #allDJs > 0 then
 			drawDJs()
 		else
@@ -1792,7 +1749,7 @@ function showPage(name)
 				end
 			end
 		end
-		
+
 		if R.GetDJs then
 			R.GetDJs:FireServer()
 		end
@@ -1821,7 +1778,7 @@ end)
 -- ════════════════════════════════════════════════════════════════
 function openUI(openToLibrary)
 	if modal:isModalOpen() then return end
-	
+
 	if openToLibrary then
 		showPage("Library")
 		moveUnderline(tLibrary)
@@ -1829,9 +1786,9 @@ function openUI(openToLibrary)
 		showPage("Queue")
 		moveUnderline(tQueue)
 	end
-	
+
 	modal:open()
-	
+
 	if progressConnection then
 		progressConnection:Disconnect()
 	end
@@ -1840,12 +1797,12 @@ end
 
 function closeUI()
 	if not modal:isModalOpen() then return end
-	
+
 	if progressConnection then
 		progressConnection:Disconnect()
 		progressConnection = nil
 	end
-	
+
 	modal:close()
 end
 
