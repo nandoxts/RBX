@@ -22,18 +22,18 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 
 -- ════════════════════════════════════════════════════════════════
--- ADMIN CONFIG
+-- CONFIGURACIÓN (desde módulo centralizado)
 -- ════════════════════════════════════════════════════════════════
-local AdminConfig = require(game.ServerStorage.CentralAdminConfig)
+local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
+local AdminConfig = require(game.ServerStorage.CentralAdminConfig) -- Mantener por compatibilidad
 
 -- ════════════════════════════════════════════════════════════════
 -- DATABASE
 -- ════════════════════════════════════════════════════════════════
 local MusicDB = require(ServerStorage:WaitForChild("MusicDatabase"))
 
--- Nueva DataStore limpia (versión 3.0 del sistema de DJs)
-local musicStore = DataStoreService:GetDataStore("MusicLibrary_ULTRA")
--- local queueStore = DataStoreService:GetDataStore("MusicQueue_v3") -- No se usa, la cola está en memoria
+-- DataStore configurable desde MusicSystemConfig
+local musicStore = MusicConfig.DATABASE.UseDataStore and DataStoreService:GetDataStore(MusicConfig.DATABASE.MusicLibraryStoreName) or nil
 
 local musicDatabase = {}
 local playQueue = {}
@@ -42,14 +42,14 @@ local isPlaying = false
 local isPaused = false
 
 -- ════════════════════════════════════════════════════════════════
--- ADMIN FUNCTIONS
+-- ADMIN FUNCTIONS (usando MusicConfig)
 -- ════════════════════════════════════════════════════════════════
 local function isAdmin(player)
-	return AdminConfig:isAdmin(player.UserId)
+	return MusicConfig:IsAdmin(player.UserId)
 end
 
-local function hasPermission(player, permission)
-	return AdminConfig:hasPermission(player.UserId, permission)
+local function hasPermission(player, action)
+	return MusicConfig:HasPermission(player.UserId, action)
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -103,8 +103,8 @@ if soundObject then soundObject:Destroy() end
 soundObject = Instance.new("Sound")
 soundObject.Name = "QueueSound"
 soundObject.Parent = Workspace
-soundObject.Volume = 0.8
-soundObject.Looped = false
+soundObject.Volume = MusicConfig:GetDefaultVolume()
+soundObject.Looped = MusicConfig.PLAYBACK.LoopQueue
 
 -- Get RemoteEvents
 local R = {
@@ -136,6 +136,11 @@ local R = {
 -- 🆕 FUNCIÓN PARA VERIFICAR DUPLICADOS EN LA COLA
 -- ════════════════════════════════════════════════════════════════
 local function isAudioInQueue(audioId)
+	-- Verificar si se permiten duplicados
+	if MusicConfig.LIMITS.AllowDuplicatesInQueue then
+		return false, nil
+	end
+	
 	for _, song in ipairs(playQueue) do
 		if song.id == audioId then
 			return true, song
@@ -148,11 +153,16 @@ end
 -- DATABASE FUNCTIONS
 -- ════════════════════════════════════════════════════════════════
 local function saveLibraryToDataStore()
+	if not MusicConfig.DATABASE.UseDataStore then
+		print("⚠️ [LIBRARY_SAVE] DataStore deshabilitado - no se guardará")
+		return
+	end
+	
 	pcall(function()
 		local dataToSave = {
 			djs = musicDatabase,
 			metadata = {
-				version = "3.0",
+				version = MusicConfig.SYSTEM.Version,
 				lastUpdated = os.date("%Y-%m-%d %H:%M:%S"),
 				totalSongs = 0
 			}
@@ -183,6 +193,7 @@ local function loadLibraryFromDataStore()
 	else
 		musicDatabase = {}
 
+		-- Intentar cargar desde MusicDatabase.lua
 		if MusicDB and MusicDB.djs then
 			for djName, djData in pairs(MusicDB.djs) do
 				musicDatabase[djName] = {
@@ -205,6 +216,16 @@ local function loadLibraryFromDataStore()
 					end
 				end
 				print("[LIBRARY_LOAD] DJ:", djName, "| Songs loaded:", #musicDatabase[djName].songs)
+			end
+		else
+			-- Usar DJs predeterminados desde MusicConfig
+			for _, djData in ipairs(MusicConfig:GetDefaultDJs()) do
+				musicDatabase[djData.name] = {
+					cover = djData.cover,
+					userId = djData.userId,
+					songs = djData.songs
+				}
+				print("[LIBRARY_LOAD] DJ (Config):", djData.name, "| Songs:", #djData.songs)
 			end
 		end
 
@@ -237,10 +258,16 @@ local function addSongToDJ(audioId, songName, artistName, djName, adminName)
 		print("[DJ_CREATE] New DJ added:", djName, "| Timestamp:", os.date("%H:%M:%S"))
 	end
 
+	-- Verificar límite de canciones por DJ
+	if musicDatabase[djName] and #musicDatabase[djName].songs >= MusicConfig.LIMITS.MaxSongsPerDJ then
+		warn("[VALIDATION_ERROR] DJ song limit reached | DJ:", djName, "| Limit:", MusicConfig.LIMITS.MaxSongsPerDJ, "| Action: SKIP")
+		return false, "DJ ha alcanzado el límite de " .. MusicConfig.LIMITS.MaxSongsPerDJ .. " canciones"
+	end
+
 	local existingSong = findSongInLibrary(audioId)
 	if existingSong then
 		print("[WARNING] Song already exists | Audio ID:", audioId, "| DJ:", existingSong.djName)
-		return false
+		return false, "Canción ya existe"
 	end
 
 	local newSong = {
@@ -258,7 +285,7 @@ local function addSongToDJ(audioId, songName, artistName, djName, adminName)
 	saveLibraryToDataStore()
 
 	print("[SONG_ADD] Admin:", adminName, "| Song:", songName, "| DJ:", djName, "| Audio ID:", audioId)
-	return true
+	return true, "Canción agregada exitosamente"
 end
 
 local function removeSongFromLibrary(audioId, adminName)
@@ -562,7 +589,7 @@ end
 
 -- PLAY / PAUSE
 R.Play.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "play") then 
+	if not MusicConfig:HasPermission(player.UserId, "PlaySong") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: PLAY | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -575,7 +602,7 @@ R.Play.OnServerEvent:Connect(function(player)
 end)
 
 R.Pause.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "pause") then 
+	if not MusicConfig:HasPermission(player.UserId, "PauseSong") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: PAUSE | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -584,7 +611,7 @@ end)
 
 -- NEXT SONG
 R.Next.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "next") then 
+	if not MusicConfig:HasPermission(player.UserId, "NextSong") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: NEXT | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -592,8 +619,8 @@ R.Next.OnServerEvent:Connect(function(player)
 end)
 
 -- STOP
-R.Stop.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "stop") then 
+R.Stop.OnServerEvent:Connect(function(player)  
+	if not MusicConfig:HasPermission(player.UserId, "StopSong") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: STOP | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -622,6 +649,23 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 				currentSong = getCurrentSong(),
 				djs = djs,
 				error = "Invalid Audio ID (6-19 digits)"
+			})
+		end
+		return
+	end
+
+	-- Validar contra blacklist usando MusicConfig
+	local valid, validationError = MusicConfig:ValidateAudioId(id)
+	if not valid then
+		warn("[VALIDATION_ERROR] Blacklisted Audio ID | Audio ID:", id, "| Reason:", validationError, "| Action: SKIP")
+		if R.Update then
+			local djs, stats = getAllDJs()
+			R.Update:FireClient(player, {
+				library = musicDatabase,
+				queue = playQueue,
+				currentSong = getCurrentSong(),
+				djs = djs,
+				error = "Audio bloqueado: " .. validationError
 			})
 		end
 		return
@@ -679,6 +723,22 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		return
 	end
 
+	-- Verificar límite de cola
+	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
+		warn("[VALIDATION_ERROR] Queue full | Limit:", MusicConfig.LIMITS.MaxQueueSize, "| Action: SKIP")
+		if R.Update then
+			local djs, stats = getAllDJs()
+			R.Update:FireClient(player, {
+				library = musicDatabase,
+				queue = playQueue,
+				currentSong = getCurrentSong(),
+				djs = djs,
+				error = "Cola llena (máximo " .. MusicConfig.LIMITS.MaxQueueSize .. " canciones)"
+			})
+		end
+		return
+	end
+
 	-- AGREGAR A LA COLA
 	local songInfo = {
 		id = id,
@@ -706,7 +766,7 @@ end)
 
 -- REMOVE FROM QUEUE
 R.RemoveFromQueue.OnServerEvent:Connect(function(player, index)
-	if not hasPermission(player, "remove") then 
+	if not MusicConfig:HasPermission(player.UserId, "RemoveFromQueue") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -715,7 +775,7 @@ end)
 
 -- CLEAR QUEUE
 R.ClearQueue.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "clear") then 
+	if not MusicConfig:HasPermission(player.UserId, "ClearQueue") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: CLEAR_QUEUE | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -751,7 +811,7 @@ end)
 
 -- ADD SONG TO DJ (para agregar a la biblioteca)
 R.AddSongToDJ.OnServerEvent:Connect(function(player, audioId, songName, artistName, djName)
-	if not hasPermission(player, "add") then 
+	if not MusicConfig:HasPermission(player.UserId, "AddToLibrary") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: ADD_LIBRARY | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -762,18 +822,18 @@ R.AddSongToDJ.OnServerEvent:Connect(function(player, audioId, songName, artistNa
 		return
 	end
 
-	local success = addSongToDJ(id, songName or "Sin título", artistName or "Desconocido", djName or "Uncategorized", player.Name)
+	local success, message = addSongToDJ(id, songName or "Sin título", artistName or "Desconocido", djName or "Uncategorized", player.Name)
 	if success then
 		updateLibrary()
 		R.AddSongToDJ:FireClient(player, {success = true, message = "Canción agregada a " .. djName})
 	else
-		R.AddSongToDJ:FireClient(player, {success = false, message = "La canción ya existe"})
+		R.AddSongToDJ:FireClient(player, {success = false, message = message or "La canción ya existe"})
 	end
 end)
 
 -- REMOVE FROM LIBRARY
 R.RemoveSongFromLibrary.OnServerEvent:Connect(function(player, audioId)
-	if not hasPermission(player, "add") then
+	if not MusicConfig:HasPermission(player.UserId, "RemoveFromLibrary") then
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE_LIBRARY | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -811,7 +871,7 @@ end)
 
 -- REMOVE DJ
 R.RemoveDJ.OnServerEvent:Connect(function(player, djName)
-	if not hasPermission(player, "add") then
+	if not MusicConfig:HasPermission(player.UserId, "RemoveDJ") then
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE_DJ | Reason: Insufficient permissions | Action: SKIP")
 		return
 	end
@@ -843,7 +903,7 @@ end)
 
 -- RENAME DJ
 R.RenameDJ.OnServerEvent:Connect(function(player, oldName, newName)
-	if not hasPermission(player, "add") then
+	if not MusicConfig:HasPermission(player.UserId, "RenameDJ") then
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: RENAME_DJ | Reason: Insufficient permissions | Action: SKIP")
 		return
 	end

@@ -1,11 +1,14 @@
 local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
+
 local ClanData = {}
 
--- DataStores
-local clanStore = DataStoreService:GetDataStore("ClansData")
-local playerClanStore = DataStoreService:GetDataStore("PlayerClans")
-local auditStore = DataStoreService:GetDataStore("AdminAudit")
-local clanCooldownStore = DataStoreService:GetDataStore("ClanCooldowns")
+-- DataStores (configurables)
+local clanStore = Config.DATABASE.UseDataStore and DataStoreService:GetDataStore(Config.DATABASE.ClanStoreName) or nil
+local playerClanStore = Config.DATABASE.UseDataStore and DataStoreService:GetDataStore(Config.DATABASE.PlayerClanStoreName) or nil
+local auditStore = Config.DATABASE.UseDataStore and DataStoreService:GetDataStore(Config.DATABASE.AuditStoreName) or nil
+local clanCooldownStore = Config.DATABASE.UseDataStore and DataStoreService:GetDataStore(Config.DATABASE.CooldownStoreName) or nil
 
 -- Base de datos en memoria (como DjDashboard)
 local clansDatabase = {}
@@ -14,13 +17,15 @@ local clanDataUpdatedEvent = Instance.new("BindableEvent")
 
 -- Crear clan
 function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
-	-- Validaciones básicas primero
-	if not clanName or clanName == "" then
-		return false, nil, "El nombre del clan es requerido"
+	-- Validar con Config
+	local validName, nameError = Config:ValidateClanName(clanName)
+	if not validName then
+		return false, nil, nameError
 	end
 	
-	if not clanTag or clanTag == "" then
-		return false, nil, "El TAG del clan es requerido"
+	local validTag, tagError = Config:ValidateTag(clanTag)
+	if not validTag then
+		return false, nil, tagError
 	end
 	
 	if not ownerId or ownerId == 0 then
@@ -84,10 +89,16 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 		}
 	}
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-		playerClanStore:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner"})
-	end)
+	local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+			playerClanStore:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner"})
+		end)
+	else
+		-- Actualizar caché en memoria
+		playerClansCache[tostring(ownerId)] = {clanId = clanId, rol = "owner"}
+	end
 
 	-- Actualizar base de datos en memoria
 	if success then
@@ -111,9 +122,16 @@ end
 
 -- Obtener clan
 function ClanData:GetClan(clanId)
-local success, data = pcall(function()
-return clanStore:GetAsync("clan:" .. clanId)
-end)
+	if not Config.DATABASE.UseDataStore then
+		-- Solo memoria: No podemos obtener datos completos, solo lo que está en clansDatabase
+		-- Esto es una limitación del modo sin DataStore
+		warn("[ClanData] GetClan sin DataStore tiene limitaciones - solo devuelve datos básicos")
+		return clansDatabase[clanId]
+	end
+	
+	local success, data = pcall(function()
+		return clanStore:GetAsync("clan:" .. clanId)
+	end)
 
 if success and data and data.miembros_data then
 -- Migración automática: Convertir keys numéricas a strings
@@ -141,10 +159,14 @@ end
 
 -- Obtener clan del jugador
 function ClanData:GetPlayerClan(userId)
-local success, data = pcall(function()
-return playerClanStore:GetAsync("player:" .. userId)
-end)
-return (success and data) or nil
+	if not Config.DATABASE.UseDataStore then
+		return playerClansCache[tostring(userId)]
+	end
+	
+	local success, data = pcall(function()
+		return playerClanStore:GetAsync("player:" .. userId)
+	end)
+	return (success and data) or nil
 end
 
 -- Actualizar clan
@@ -156,9 +178,12 @@ function ClanData:UpdateClan(clanId, updates)
 		clanData[k] = v
 	end
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+		end)
+	end
 
 	-- Actualizar base de datos en memoria
 	if success then
@@ -193,12 +218,17 @@ rol = rol or "miembro",
 fechaUnion = os.time()
 }
 
-local success, err = pcall(function()
-clanStore:SetAsync("clan:" .. clanId, clanData)
-playerClanStore:SetAsync("player:" .. tostring(userId), {clanId = clanId, rol = rol or "miembro"})
-end)
-
-return success, (success and clanData) or err
+local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+			playerClanStore:SetAsync("player:" .. tostring(userId), {clanId = clanId, rol = rol or "miembro"})
+		end)
+	else
+		playerClansCache[tostring(userId)] = {clanId = clanId, rol = rol or "miembro"}
+	end
+	
+	return success, (success and clanData) or err
 end
 
 -- Remover miembro
@@ -230,12 +260,17 @@ break
 end
 end
 
-local success, err = pcall(function()
-clanStore:SetAsync("clan:" .. clanId, clanData)
-playerClanStore:RemoveAsync("player:" .. tostring(userId))
-end)
-
-return success, (success and clanData) or err
+local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+			playerClanStore:RemoveAsync("player:" .. tostring(userId))
+		end)
+	else
+		playerClansCache[tostring(userId)] = nil
+	end
+	
+	return success, (success and clanData) or err
 end
 
 -- Cambiar rol
@@ -267,12 +302,17 @@ end
 
 clanData.miembros_data[tostring(userId)].rol = newRole
 
-local success, err = pcall(function()
-clanStore:SetAsync("clan:" .. clanId, clanData)
-playerClanStore:SetAsync("player:" .. tostring(userId), {clanId = clanId, rol = newRole})
-end)
-
-return success, (success and clanData) or err
+local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+			playerClanStore:SetAsync("player:" .. tostring(userId), {clanId = clanId, rol = newRole})
+		end)
+	else
+		playerClansCache[tostring(userId)] = {clanId = clanId, rol = newRole}
+	end
+	
+	return success, (success and clanData) or err
 end
 
 -- Disolver clan
@@ -283,15 +323,22 @@ function ClanData:DissolveClan(clanId)
 	-- Remover todos los jugadores
 	if clanData.miembros_data then
 		for userId, _ in pairs(clanData.miembros_data) do
-			pcall(function()
-				playerClanStore:RemoveAsync("player:" .. tostring(userId))
-			end)
+			if Config.DATABASE.UseDataStore then
+				pcall(function()
+					playerClanStore:RemoveAsync("player:" .. tostring(userId))
+				end)
+			else
+				playerClansCache[tostring(userId)] = nil
+			end
 		end
 	end
 
-	local success, err = pcall(function()
-		clanStore:RemoveAsync("clan:" .. clanId)
-	end)
+	local success, err = true, nil
+	if Config.DATABASE.UseDataStore then
+		success, err = pcall(function()
+			clanStore:RemoveAsync("clan:" .. clanId)
+		end)
+	end
 
 	-- Remover de base de datos en memoria
 	if success then
@@ -304,6 +351,10 @@ end
 
 -- Registrar auditoría (para acciones de admin)
 function ClanData:LogAdminAction(adminId, adminName, action, clanId, clanName, details)
+	if not Config.ADMINS.LogAdminActions then
+		return true -- Logging deshabilitado
+	end
+	
 	local logEntry = {
 		timestamp = os.time(),
 		adminId = adminId,
@@ -313,6 +364,13 @@ function ClanData:LogAdminAction(adminId, adminName, action, clanId, clanName, d
 		clanName = clanName,
 		details = details or {} -- info adicional
 	}
+	
+	if not Config.DATABASE.UseDataStore then
+		-- Solo imprimir en consola si no hay DataStore
+		print(string.format("[ADMIN AUDIT] %s (%d) - %s - Clan: %s (%s)", 
+			adminName, adminId, action, clanName, clanId))
+		return true
+	end
 	
 	pcall(function()
 		local existingLog = auditStore:GetAsync("admin_audit") or {}
@@ -331,6 +389,10 @@ end
 
 -- Obtener log de auditoría
 function ClanData:GetAuditLog(limit)
+	if not Config.DATABASE.UseDataStore then
+		return {} -- Sin DataStore, no hay logs persistentes
+	end
+	
 	limit = limit or 50
 	local success, log = pcall(function()
 		return auditStore:GetAsync("admin_audit") or {}
@@ -349,6 +411,11 @@ end
 
 -- Cargar todos los clanes desde DataStore (solo al inicializar)
 function ClanData:LoadAllClans()
+	if not Config.DATABASE.UseDataStore then
+		print("⚠️ [ClanData] DataStore deshabilitado - usando solo memoria")
+		return true -- Éxito en modo memoria
+	end
+	
 	local success = pcall(function()
 		local pages = clanStore:ListKeysAsync()
 		

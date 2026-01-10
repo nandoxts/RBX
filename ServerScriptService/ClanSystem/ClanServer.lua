@@ -1,69 +1,27 @@
 -- ============================================
 -- CLAN SERVER - Sistema Consolidado de Clanes
 -- ============================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClanData = require(game:GetService("ServerStorage"):WaitForChild("ClanData"))
+local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
 
 -- ============================================
--- CONFIGURACIÓN
+-- CONFIGURACIÓN (desde módulo)
 -- ============================================
-local ADMIN_IDS = {
-	8387751399,  -- nandoxts (Owner)
-	9375636407,  -- Admin2
-}
-
--- Sistema de permisos integrado
-local PERMISOS = {
-	owner = {
-		invitar = true,
-		expulsar = true,
-		cambiar_lideres = true,
-		cambiar_colideres = true,
-		cambiar_descripcion = true,
-		cambiar_nombre = true,
-		cambiar_logo = true,
-		disolver_clan = true,
-	},
-	colider = {
-		invitar = true,
-		expulsar = true,
-		cambiar_lideres = true,
-		cambiar_descripcion = true,
-		cambiar_nombre = true,
-		cambiar_logo = true
-	},
-	lider = {
-		invitar = true,
-		expulsar = true,
-		cambiar_descripcion = true
-	},
-	miembro = {}
-}
-
-local JERARQUIA = {
-	owner = 4,
-	colider = 3,
-	lider = 2,
-	miembro = 1
-}
+local ADMIN_IDS = Config.ADMINS.AdminUserIds
+local PERMISOS = Config.ROLES.Permissions
+local JERARQUIA = Config.ROLES.Hierarchy
 
 -- ============================================
--- RATE LIMITING & SPAM PROTECTION
+-- RATE LIMITING & SPAM PROTECTION (desde config)
 -- ============================================
-local rateLimitConfig = {
-	GetClansList = 1, -- 1 segundo entre requests
-	CreateClan = 10, -- 10 segundos entre creaciones
-	JoinClan = 1, -- 1 segundo entre requests
-	AdminDissolveClan = 10, -- 10 segundos entre disoluciones
-	InvitePlayer = 1 -- 1 segundo entre requests
-}
-
 local playerRequestLimits = {} -- { userId = { funcName = lastTime } }
 
 local function checkRateLimit(userId, funcName)
 	local userLimits = playerRequestLimits[tostring(userId)] or {}
 	local lastTime = userLimits[funcName] or 0
 	local now = os.time()
-	local interval = rateLimitConfig[funcName] or 1
+	local interval = Config:GetRateLimit(funcName) or 1
 	
 	if interval == 0 then return true, nil end
 	
@@ -81,22 +39,19 @@ end
 -- FUNCIONES AUXILIARES
 -- ============================================
 local function isAdmin(userId)
-	for _, adminId in ipairs(ADMIN_IDS) do
-		if userId == adminId then return true end
-	end
-	return false
+	return Config:IsAdmin(userId)
 end
 
 local function hasPermission(rol, permiso)
-	return PERMISOS[rol] and PERMISOS[rol][permiso] or false
+	return Config:HasPermission(rol, permiso)
 end
 
 local function canActOn(userRole, targetRole, action)
 	if userRole == "owner" then return true end
 	if not hasPermission(userRole, action) then return false end
 	
-	local userLevel = JERARQUIA[userRole] or 0
-	local targetLevel = JERARQUIA[targetRole] or 0
+	local userLevel = Config:GetRoleLevel(userRole)
+	local targetLevel = Config:GetRoleLevel(targetRole)
 	return userLevel > targetLevel
 end
 
@@ -112,14 +67,7 @@ function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 		return false, nil, errMsg
 	end
 	
-	if not clanName or clanName == "" then
-		return false, nil, "El nombre del clan es requerido"
-	end
-	
-	if not clanTag or clanTag == "" or #clanTag < 2 or #clanTag > 5 then
-		return false, nil, "El TAG del clan debe tener entre 2 y 5 caracteres"
-	end
-	
+	-- Validar con Config (ya no necesitamos validar aquí, ClanData lo hace)
 	return ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 end
 

@@ -1,57 +1,25 @@
 -- ModuleScript en ServerStorage > MusicDatabase
 -- Sistema basado en DJs
+-- NOTA: Este módulo se mantiene por compatibilidad
+-- La configuración principal ahora está en ReplicatedStorage/Config/MusicSystemConfig
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
+
 local MusicDatabase = {}
 
 -- Estructura de DJs con sus canciones y portadas
-MusicDatabase.djs = {
-	["DJ Alex"] = {
-		cover = "rbxassetid://0", -- Reemplazar con ID de imagen real
-		userId = 123456789,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false}, -- Template
-		}
-	},
+-- Ahora se obtiene desde MusicConfig.DEFAULT_DJS
+MusicDatabase.djs = {}
 
-	["DJ Studio"] = {
-		cover = "rbxassetid://0",
-		userId = 987654321,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false},
-		}
-	},
-
-	["DJ Vibes"] = {
-		cover = "rbxassetid://0",
-		userId = 111222333,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false},
-		}
-	},
-
-	["DJ Beats"] = {
-		cover = "rbxassetid://0",
-		userId = 444555666,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false},
-		}
-	},
-
-	["DJ Chill"] = {
-		cover = "rbxassetid://0",
-		userId = 777888999,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false},
-		}
-	},
-
-	["DJ Energy"] = {
-		cover = "rbxassetid://0",
-		userId = 101112131,
-		songs = {
-			{id = 0, name = "", artist = "", duration = 0, verified = false},
-		}
+-- Cargar DJs desde configuración
+for _, djData in ipairs(MusicConfig:GetDefaultDJs()) do
+	MusicDatabase.djs[djData.name] = {
+		cover = djData.cover,
+		userId = djData.userId,
+		songs = djData.songs
 	}
-}
+end
 
 -- Metadatos del sistema
 MusicDatabase.metadata = {
