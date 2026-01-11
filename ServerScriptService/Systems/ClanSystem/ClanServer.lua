@@ -70,15 +70,31 @@ local function updatePlayerClanAttributes(userId)
 			player:SetAttribute("ClanTag", clanData.clanTag or "")
 			player:SetAttribute("ClanName", clanData.clanName or "")
 			player:SetAttribute("ClanId", clanData.clanId or "")
+			player:SetAttribute("ClanEmoji", clanData.clanEmoji or "")
+			-- Guardar color como string "r,g,b" para fácil parseo en overhead
+			if clanData.clanColor and typeof(clanData.clanColor) == "table" then
+				local r,g,b = tonumber(clanData.clanColor[1]), tonumber(clanData.clanColor[2]), tonumber(clanData.clanColor[3])
+				if r and g and b then
+					player:SetAttribute("ClanColor", string.format("%d,%d,%d", r, g, b))
+				else
+					player:SetAttribute("ClanColor", "")
+				end
+			else
+				player:SetAttribute("ClanColor", "")
+			end
 		else
 			player:SetAttribute("ClanTag", nil)
 			player:SetAttribute("ClanName", nil)
 			player:SetAttribute("ClanId", nil)
+			player:SetAttribute("ClanEmoji", nil)
+			player:SetAttribute("ClanColor", nil)
 		end
 	else
 		player:SetAttribute("ClanTag", nil)
 		player:SetAttribute("ClanName", nil)
 		player:SetAttribute("ClanId", nil)
+		player:SetAttribute("ClanEmoji", nil)
+		player:SetAttribute("ClanColor", nil)
 	end
 end
 

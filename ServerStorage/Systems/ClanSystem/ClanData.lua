@@ -16,7 +16,7 @@ local playerClansCache = {} -- Caché en memoria para clanes de jugadores {userI
 local clanDataUpdatedEvent = Instance.new("BindableEvent")
 
 -- Crear clan
-function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
+function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc, clanEmoji, clanColor)
 	-- Validar con Config
 	local validName, nameError = Config:ValidateClanName(clanName)
 	if not validName then
@@ -68,11 +68,20 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	
 	local clanId = tostring(game:GetService("HttpService"):GenerateGUID(false)):sub(1, 12)
 
+	-- Capturar nombre del dueño si está conectado, sino usar userId como fallback
+	local ownerName = tostring(ownerId)
+	local player = game:GetService("Players"):GetPlayerByUserId(ownerId)
+	if player then
+		ownerName = player.Name
+	end
+
 	local clanData = {
 		clanId = clanId,
 		clanName = clanName,
 		clanTag = clanTag or "TAG",
 		clanLogo = clanLogo or "rbxassetid://0",
+		clanEmoji = clanEmoji or "",
+		clanColor = clanColor, -- tabla {r,g,b} o nil
 		owner = ownerId,
 		colideres = {},
 		lideres = {},
@@ -82,14 +91,16 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 		fechaCreacion = os.time(),
 		miembros_data = {
 			[tostring(ownerId)] = {
-				nombre = game:GetService("Players"):GetNameFromUserIdAsync(ownerId),
+				nombre = ownerName,
 				rol = "owner",
 				fechaUnion = os.time()
 			}
 		}
 	}
 
-	local success, err = true, nil
+	local success = true
+	local err = nil
+	
 	if Config.DATABASE.UseDataStore then
 		success, err = pcall(function()
 			clanStore:SetAsync("clan:" .. clanId, clanData)
@@ -107,6 +118,8 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 			clanName = clanName,
 			clanTag = clanTag or "TAG",
 			clanLogo = clanLogo or "rbxassetid://0",
+			clanEmoji = clanEmoji or "",
+			clanColor = clanColor,
 			descripcion = clanDesc or "Sin descripción",
 			nivel = 1,
 			miembros_count = 1,
@@ -212,13 +225,21 @@ end
 end
 
 table.insert(clanData.miembros, userId)
-clanData.miembros_data[tostring(userId)] = {
-nombre = game:GetService("Players"):GetNameFromUserIdAsync(userId),
-rol = rol or "miembro",
-fechaUnion = os.time()
-}
+	-- Capturar nombre del miembro si está conectado, sino usar userId como fallback
+	local memberName = tostring(userId)
+	local memberPlayer = game:GetService("Players"):GetPlayerByUserId(userId)
+	if memberPlayer then
+		memberName = memberPlayer.Name
+	end
+	clanData.miembros_data[tostring(userId)] = {
+		nombre = memberName,
+		rol = rol or "miembro",
+		fechaUnion = os.time()
+	}
 
-local success, err = true, nil
+	local success = true
+	local err = nil
+
 	if Config.DATABASE.UseDataStore then
 		success, err = pcall(function()
 			clanStore:SetAsync("clan:" .. clanId, clanData)
@@ -260,7 +281,9 @@ break
 end
 end
 
-local success, err = true, nil
+local success = true
+	local err = nil
+
 	if Config.DATABASE.UseDataStore then
 		success, err = pcall(function()
 			clanStore:SetAsync("clan:" .. clanId, clanData)
@@ -302,7 +325,9 @@ end
 
 clanData.miembros_data[tostring(userId)].rol = newRole
 
-local success, err = true, nil
+local success = true
+	local err = nil
+
 	if Config.DATABASE.UseDataStore then
 		success, err = pcall(function()
 			clanStore:SetAsync("clan:" .. clanId, clanData)
@@ -333,7 +358,9 @@ function ClanData:DissolveClan(clanId)
 		end
 	end
 
-	local success, err = true, nil
+	local success = true
+	local err = nil
+
 	if Config.DATABASE.UseDataStore then
 		success, err = pcall(function()
 			clanStore:RemoveAsync("clan:" .. clanId)
@@ -441,6 +468,8 @@ function ClanData:LoadAllClans()
 							clanName = clanData.clanName,
 							clanTag = clanData.clanTag or "TAG",
 							clanLogo = clanData.clanLogo,
+							clanEmoji = clanData.clanEmoji or "",
+							clanColor = clanData.clanColor,
 							descripcion = clanData.descripcion or "Sin descripción",
 							nivel = clanData.nivel or 1,
 							miembros_count = memberCount,
@@ -497,7 +526,9 @@ function ClanData:CreateDefaultClans()
 				defaultClan.ownerId,
 				defaultClan.clanTag,
 				defaultClan.clanLogo or "rbxassetid://0",
-				defaultClan.descripcion or "Clan oficial"
+				defaultClan.descripcion or "Clan oficial",
+				defaultClan.clanEmoji,
+				defaultClan.clanColor
 			)
 			
 			if success then

@@ -286,14 +286,31 @@ function OverheadManager:configureOverhead(overhead, player)
 		end
 
 		if clanTagLabel then 
-			-- Obtener clan tag del atributo del jugador
+			-- Obtener atributos del clan
 			local clanTag = player:GetAttribute("ClanTag")
-			
+			local clanEmoji = player:GetAttribute("ClanEmoji")
+			local clanColorStr = player:GetAttribute("ClanColor") -- "r,g,b"
+
+			-- Texto con emoji opcional
 			if clanTag and clanTag ~= "" then
-				clanTagLabel.Text = "[" .. clanTag .. "]"
+				local prefix = (clanEmoji and clanEmoji ~= "") and (clanEmoji .. " ") or ""
+				clanTagLabel.Text = prefix .. "[" .. clanTag .. "]"
 			else
 				clanTagLabel.Text = ""
 			end
+
+			-- Color del clan (si se configuró)
+			local function parseColor(str)
+				if typeof(str) == "string" and str ~= "" then
+					local r,g,b = str:match("^(%d+),(%d+),(%d+)$")
+					if r and g and b then
+						return Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b))
+					end
+				end
+				return nil
+			end
+			local clanColor = parseColor(clanColorStr)
+			clanTagLabel.TextColor3 = clanColor or Color3.fromRGB(255,255,255)
 		else
 			warn("[Overhead] No se encontró elemento ClanTag en nameFrame para " .. player.Name)
 		end
@@ -476,22 +493,28 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 	
 	-- Listener para actualizar el overhead cuando cambie el tag del clan
-	player:GetAttributeChangedSignal("ClanTag"):Connect(function()
+	local function refreshClanTag()
 		if not player.Character then return end
-		
 		local components = getOverheadComponents(player.Character)
 		if not components or not components.nameFrame then return end
-		
 		local clanTagLabel = components.nameFrame:FindFirstChild("ClanTag")
 		if not clanTagLabel then return end
-		
 		local clanTag = player:GetAttribute("ClanTag")
-		if clanTag and clanTag ~= "" then
-			clanTagLabel.Text = "[" .. clanTag .. "]"
+		local clanEmoji = player:GetAttribute("ClanEmoji")
+		local colorStr = player:GetAttribute("ClanColor")
+		local prefix = (clanEmoji and clanEmoji ~= "") and (clanEmoji .. " ") or ""
+		clanTagLabel.Text = (clanTag and clanTag ~= "") and (prefix .. "[" .. clanTag .. "]") or ""
+		local r,g,b = (colorStr or ""):match("^(%d+),(%d+),(%d+)$")
+		if r and g and b then
+			clanTagLabel.TextColor3 = Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b))
 		else
-			clanTagLabel.Text = ""
+			clanTagLabel.TextColor3 = Color3.fromRGB(255,255,255)
 		end
-	end)
+	end
+
+	player:GetAttributeChangedSignal("ClanTag"):Connect(refreshClanTag)
+	player:GetAttributeChangedSignal("ClanEmoji"):Connect(refreshClanTag)
+	player:GetAttributeChangedSignal("ClanColor"):Connect(refreshClanTag)
 
 	setupPlayerChat(player)
 

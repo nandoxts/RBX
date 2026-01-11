@@ -114,7 +114,9 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		ownerId = 10179455284, -- Tu UserId
 		clanTag = "XYZ",
 		clanLogo = "rbxassetid://0",
-		descripcion = "Clan oficial de fundadores"
+		descripcion = "Clan oficial de fundadores",
+		clanEmoji = "🔥", -- Emoji que se mostrará junto al TAG
+		clanColor = {0, 170, 255}, -- Color RGB del clan (R,G,B)
 	},
 	-- Puedes agregar más clans aquí
 	-- {
