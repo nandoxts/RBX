@@ -1439,4 +1439,3 @@ task.spawn(function()
 	ClanClient:GetPlayerClan()
 end)
 
-print("✅ Clan System v2 - Cargado correctamente")
