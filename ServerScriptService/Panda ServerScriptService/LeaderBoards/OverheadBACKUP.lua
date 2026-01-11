@@ -205,7 +205,7 @@ local function updatePlayerNameColor(player)
 	local color = Colors.colors[colorName] or Colors.defaultSelectedColor
 
 	local displayName = components.nameFrame:FindFirstChild("DisplayName")
-	local clanTagLabel = components.nameFrame:FindFirstChild("ClanTag")
+	local username = components.nameFrame:FindFirstChild("Username")
 
 	if displayName and typeof(color) == "Color3" then
 		displayName.TextColor3 = color
@@ -215,7 +215,7 @@ local function updatePlayerNameColor(player)
 		end
 	end
 
-	if clanTagLabel then clanTagLabel.TextColor3 = Color3.fromRGB(255,255,255) end
+	if username then username.TextColor3 = color end
 end
 
 --------------------------------------------------------------------------------------------------------
@@ -277,7 +277,7 @@ function OverheadManager:configureOverhead(overhead, player)
 
 	if nameFrame then
 		local displayName = nameFrame:FindFirstChild("DisplayName")
-		local clanTagLabel = nameFrame:FindFirstChild("ClanTag")
+		local username = nameFrame:FindFirstChild("Username")
 
 		local streak = getSavedStreak(player)
 
@@ -285,18 +285,7 @@ function OverheadManager:configureOverhead(overhead, player)
 			displayName.Text = player.DisplayName .. " 🔥" .. tostring(streak)
 		end
 
-		if clanTagLabel then 
-			-- Obtener clan tag del atributo del jugador
-			local clanTag = player:GetAttribute("ClanTag")
-			
-			if clanTag and clanTag ~= "" then
-				clanTagLabel.Text = "[" .. clanTag .. "]"
-			else
-				clanTagLabel.Text = ""
-			end
-		else
-			warn("[Overhead] No se encontró elemento ClanTag en nameFrame para " .. player.Name)
-		end
+		if username then username.Text = "@" .. player.Name end
 	end
 
 	self:setupRole(roleFrame, player)
@@ -473,24 +462,6 @@ end
 Players.PlayerAdded:Connect(function(player)
 	player:GetAttributeChangedSignal("SelectedColor"):Connect(function()
 		updatePlayerNameColor(player)
-	end)
-	
-	-- Listener para actualizar el overhead cuando cambie el tag del clan
-	player:GetAttributeChangedSignal("ClanTag"):Connect(function()
-		if not player.Character then return end
-		
-		local components = getOverheadComponents(player.Character)
-		if not components or not components.nameFrame then return end
-		
-		local clanTagLabel = components.nameFrame:FindFirstChild("ClanTag")
-		if not clanTagLabel then return end
-		
-		local clanTag = player:GetAttribute("ClanTag")
-		if clanTag and clanTag ~= "" then
-			clanTagLabel.Text = "[" .. clanTag .. "]"
-		else
-			clanTagLabel.Text = ""
-		end
 	end)
 
 	setupPlayerChat(player)

@@ -756,10 +756,14 @@ loadPlayerClan = function()
 				cancelText = "Cancelar",
 				onConfirm = function(newName)
 					if newName and #newName >= 3 then
-						ClanClient:ChangeClanName(newName)
-						Notify:Success("Actualizado", "Nombre cambiado a: " .. newName, 4)
-						task.wait(1)
-						loadPlayerClan()
+						local success, msg = ClanClient:ChangeClanName(newName)
+						if success then
+							Notify:Success("Actualizado", "Nombre cambiado a: " .. newName, 4)
+							task.wait(1)
+							loadPlayerClan()
+						else
+							Notify:Error("Error", msg or "No se pudo cambiar el nombre", 4)
+						end
 					else
 						Notify:Warning("Inválido", "Mínimo 3 caracteres", 3)
 					end
@@ -780,10 +784,14 @@ loadPlayerClan = function()
 				onConfirm = function(newTag)
 					newTag = newTag and newTag:upper() or ""
 					if #newTag >= 2 and #newTag <= 5 then
-						ClanClient:ChangeClanTag(newTag)
-						Notify:Success("Actualizado", "TAG cambiado a: [" .. newTag .. "]", 4)
-						task.wait(1)
-						loadPlayerClan()
+						local success, msg = ClanClient:ChangeClanTag(newTag)
+						if success then
+							Notify:Success("Actualizado", "TAG cambiado a: [" .. newTag .. "]", 4)
+							task.wait(1)
+							loadPlayerClan()
+						else
+							Notify:Error("Error", msg or "No se pudo cambiar el TAG", 4)
+						end
 					else
 						Notify:Warning("Inválido", "Entre 2 y 5 caracteres", 3)
 					end

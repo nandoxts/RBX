@@ -106,6 +106,27 @@ ClanSystemConfig.ROLES = {
 }
 
 -- ═══════════════════════════════════════════════════════════
+-- CLANS POR DEFECTO (Creados automáticamente al iniciar)
+-- ═══════════════════════════════════════════════════════════
+ClanSystemConfig.DEFAULT_CLANS = {
+	{
+		clanName = "XYZ",
+		ownerId = 10179455284, -- Tu UserId
+		clanTag = "XYZ",
+		clanLogo = "rbxassetid://0",
+		descripcion = "Clan oficial de fundadores"
+	},
+	-- Puedes agregar más clans aquí
+	-- {
+	-- 	clanName = "Staff",
+	-- 	ownerId = 8387751399,
+	-- 	clanTag = "STF",
+	-- 	clanLogo = "rbxassetid://0",
+	-- 	descripcion = "Clan del staff del juego"
+	-- },
+}
+
+-- ═══════════════════════════════════════════════════════════
 -- VALIDACIÓN Y FILTRADO
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.VALIDATION = {

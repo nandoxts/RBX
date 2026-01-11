@@ -132,6 +132,9 @@ function ClanSystem:JoinClan(clanId, playerId)
 	end
 	
 	local success, result = ClanData:AddMember(clanId, playerId, "miembro")
+	if success then
+		updatePlayerClanAttributes(playerId)
+	end
 	return success, success and "Te has unido al clan" or result
 end
 
@@ -151,6 +154,9 @@ function ClanSystem:InvitePlayer(clanId, inviterId, targetUserId)
 	end
 	
 	local success, result = ClanData:AddMember(clanId, targetUserId, "miembro")
+	if success then
+		updatePlayerClanAttributes(targetUserId)
+	end
 	return success, success and "Jugador invitado" or result
 end
 
@@ -180,6 +186,9 @@ function ClanSystem:KickPlayer(clanId, kickerId, targetUserId)
 	end
 	
 	local success, result = ClanData:RemoveMember(clanId, targetUserId)
+	if success then
+		updatePlayerClanAttributes(targetUserId)
+	end
 	return success, success and "Jugador expulsado" or result
 end
 
@@ -206,6 +215,9 @@ function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
 	end
 	
 	local success, result = ClanData:ChangeRole(clanId, targetUserId, newRole)
+	if success then
+		updatePlayerClanAttributes(targetUserId)
+	end
 	return success, success and "Rol actualizado" or result
 end
 
@@ -225,6 +237,11 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 	end
 	
 	local success, result = ClanData:UpdateClan(clanId, {clanName = newName})
+	if success and clanData and clanData.miembros_data then
+		for memberIdStr, _ in pairs(clanData.miembros_data) do
+			updatePlayerClanAttributes(tonumber(memberIdStr))
+		end
+	end
 	return success, success and "Nombre actualizado" or result
 end
 
@@ -245,6 +262,16 @@ function ClanSystem:ChangeTag(clanId, requesterId, newTag)
 	end
 	
 	local success, result = ClanData:UpdateClan(clanId, {clanTag = newTag})
+	if success then
+		-- Re-obtener datos del clan después de actualizar
+		clanData = ClanData:GetClan(clanId)
+		-- Actualizar atributos de todos los miembros del clan
+		if clanData and clanData.miembros_data then
+			for memberIdStr, memberData in pairs(clanData.miembros_data) do
+				updatePlayerClanAttributes(tonumber(memberIdStr))
+			end
+		end
+	end
 	return success, success and "TAG actualizado" or result
 end
 
@@ -260,6 +287,11 @@ function ClanSystem:ChangeDescription(clanId, requesterId, newDesc)
 	end
 	
 	local success, result = ClanData:UpdateClan(clanId, {descripcion = newDesc})
+	if success and clanData and clanData.miembros_data then
+		for memberIdStr, _ in pairs(clanData.miembros_data) do
+			updatePlayerClanAttributes(tonumber(memberIdStr))
+		end
+	end
 	return success, success and "Descripción actualizada" or result
 end
 
@@ -279,6 +311,11 @@ function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
 	end
 	
 	local success, result = ClanData:UpdateClan(clanId, {clanLogo = newLogoId})
+	if success and clanData and clanData.miembros_data then
+		for memberIdStr, _ in pairs(clanData.miembros_data) do
+			updatePlayerClanAttributes(tonumber(memberIdStr))
+		end
+	end
 	return success, success and "Logo actualizado" or result
 end
 
@@ -293,6 +330,12 @@ function ClanSystem:DissolveClan(clanId, requesterId)
 	end
 	
 	local success, err = ClanData:DissolveClan(clanId)
+	if success then
+		-- Limpiar atributos de todos los miembros
+		for memberIdStr, memberData in pairs(clanData.miembros_data) do
+			updatePlayerClanAttributes(tonumber(memberIdStr))
+		end
+	end
 	return success, success and "Clan disuelto" or err
 end
 
@@ -320,6 +363,11 @@ function ClanSystem:AdminDissolveClan(adminId, clanId)
 	})
 	
 	local success, err = ClanData:DissolveClan(clanId)
+	if success and clanData and clanData.miembros_data then
+		for memberIdStr, _ in pairs(clanData.miembros_data) do
+			updatePlayerClanAttributes(tonumber(memberIdStr))
+		end
+	end
 	return success, success and "Clan disuelto por admin" or err
 end
 
@@ -334,6 +382,9 @@ function ClanSystem:LeaveClan(clanId, requesterId)
 	end
 	
 	local success, err = ClanData:RemoveMember(clanId, requesterId)
+	if success then
+		updatePlayerClanAttributes(requesterId)
+	end
 	return success, success and "Has abandonado el clan" or err
 end
 
@@ -416,65 +467,56 @@ CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, c
 	local ownerId = player.UserId
 	if customOwnerId and isAdmin(player.UserId) then
 		ownerId = customOwnerId
-		print("🔧 [Admin] " .. player.Name .. " está creando clan para UserId: " .. ownerId)
 	end
 	
 	local success, clanId, result = ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	if success then
-		print("✅ [Clan] Nuevo clan creado: " .. clanName .. " [" .. clanTag .. "] (Owner: " .. ownerId .. ")")
+		-- Refrescar atributos del owner
+		updatePlayerClanAttributes(ownerId)
 		return true, clanId, "Clan creado exitosamente"
 	else
 		local errorMsg = tostring(result or "Error desconocido")
-		warn("❌ [Clan] Error al crear clan (" .. player.Name .. "): " .. errorMsg)
 		return false, nil, errorMsg
 	end
 end
 
 InvitePlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
 	local success, msg = ClanSystem:InvitePlayer(clanId, player.UserId, targetPlayerId)
-	print(success and ("✅ " .. player.Name .. " invitó a un jugador") or ("❌ " .. msg))
 	return success, msg
 end
 
 KickPlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
 	local success, msg = ClanSystem:KickPlayer(clanId, player.UserId, targetPlayerId)
-	print(success and ("✅ " .. player.Name .. " expulsó a un jugador") or ("❌ " .. msg))
 	return success, msg
 end
 
 ChangeRoleEvent.OnServerInvoke = function(player, clanId, targetPlayerId, newRole)
 	local success, msg = ClanSystem:ChangeRole(clanId, player.UserId, targetPlayerId, newRole)
-	print(success and ("✅ Rol cambiado") or ("❌ " .. msg))
 	return success, msg
 end
 
 ChangeClanNameEvent.OnServerInvoke = function(player, clanId, newName)
 	local success, msg = ClanSystem:ChangeName(clanId, player.UserId, newName)
-	print(success and ("✅ Nombre actualizado: " .. newName) or ("❌ " .. msg))
 	return success, msg
 end
 
 ChangeClanTagEvent.OnServerInvoke = function(player, clanId, newTag)
 	local success, msg = ClanSystem:ChangeTag(clanId, player.UserId, newTag)
-	print(success and ("✅ TAG actualizado: " .. newTag) or ("❌ " .. msg))
 	return success, msg
 end
 
 ChangeClanDescEvent.OnServerInvoke = function(player, clanId, newDesc)
 	local success, msg = ClanSystem:ChangeDescription(clanId, player.UserId, newDesc)
-	print(success and "✅ Descripción actualizada" or ("❌ " .. msg))
 	return success, msg
 end
 
 ChangeClanLogoEvent.OnServerInvoke = function(player, clanId, newLogoId)
 	local success, msg = ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
-	print(success and "✅ Logo actualizado" or ("❌ " .. msg))
 	return success, msg
 end
 
 DissolveEvent.OnServerInvoke = function(player, clanId)
 	local success, msg = ClanSystem:DissolveClan(clanId, player.UserId)
-	print(success and ("✅ Clan disuelto por: " .. player.Name) or ("❌ " .. msg))
 	return success, msg
 end
 
@@ -485,7 +527,6 @@ AdminDissolveClanEvent.OnServerInvoke = function(player, clanId)
 	end
 	
 	local success, msg = ClanSystem:AdminDissolveClan(player.UserId, clanId)
-	print(success and ("✅ [Admin] Clan disuelto por: " .. player.Name) or ("❌ " .. msg))
 	return success, msg
 end
 
@@ -496,13 +537,11 @@ end)
 
 JoinClanEvent.OnServerInvoke = function(player, clanId)
 	local success, msg = ClanSystem:JoinClan(clanId, player.UserId)
-	print(success and ("✅ " .. player.Name .. " se unió al clan") or ("❌ " .. msg))
 	return success, msg
 end
 
 LeaveClanEvent.OnServerInvoke = function(player, clanId)
 	local success, msg = ClanSystem:LeaveClan(clanId, player.UserId)
-	print(success and ("✅ " .. player.Name .. " salió del clan") or ("❌ " .. msg))
 	return success, msg
 end
 
@@ -534,10 +573,20 @@ end
 -- ============================================
 ClanData:LoadAllClans()
 task.wait(0.5)
+-- Crear clans por defecto si no existen
+ClanData:CreateDefaultClans()
+-- Inicializar atributos de clanes para jugadores ya en el juego
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(initializePlayerClanAttributes, player)
+end
+
+-- Conectar evento PlayerAdded para nuevos jugadores
+Players.PlayerAdded:Connect(initializePlayerClanAttributes)
+
 -- Notificar a todos los clientes conectados
 local allClans = ClanData:GetAllClans()
 ClansUpdatedEvent:FireAllClients(allClans)
 
-print("✅ [Clan System] Inicializado correctamente")
+print(" [Clan System] Inicializado correctamente")
 
 return {}

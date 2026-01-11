@@ -475,6 +475,38 @@ function ClanData:GetAllClans()
 	return allClans
 end
 
+-- Crear clans por defecto
+function ClanData:CreateDefaultClans()
+	if not Config.DEFAULT_CLANS or #Config.DEFAULT_CLANS == 0 then
+		return -- No hay clans por defecto configurados
+	end
+	
+	for _, defaultClan in ipairs(Config.DEFAULT_CLANS) do
+		-- Verificar si el clan ya existe (por TAG)
+		local exists = false
+		for _, existingClan in pairs(clansDatabase) do
+			if existingClan.clanTag == defaultClan.clanTag then
+				exists = true
+				break
+			end
+		end
+		
+		if not exists then
+			local success, clanId, result = self:CreateClan(
+				defaultClan.clanName,
+				defaultClan.ownerId,
+				defaultClan.clanTag,
+				defaultClan.clanLogo or "rbxassetid://0",
+				defaultClan.descripcion or "Clan oficial"
+			)
+			
+			if success then
+				print("[Clan Default] Creado: " .. defaultClan.clanName .. " [" .. defaultClan.clanTag .. "]")
+			end
+		end
+	end
+end
+
 -- Obtener evento de actualización (como DjDashboard)
 function ClanData:OnClanDataUpdated()
 	return clanDataUpdatedEvent.Event
