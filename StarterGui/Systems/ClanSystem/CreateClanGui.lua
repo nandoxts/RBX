@@ -1,7 +1,6 @@
 --[[
-	Clan System - Professional Edition v2
+	Clan System 
 	Sistema completo de clanes con roles
-	REORGANIZADO Y OPTIMIZADO - Sin errores de orden
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -15,11 +14,11 @@ local RunService = game:GetService("RunService")
 -- ════════════════════════════════════════════════════════════════
 -- MODULES
 -- ════════════════════════════════════════════════════════════════
-local ClanClient = require(ReplicatedStorage:WaitForChild("ClanClient"))
+local ClanClient = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("ClanSystem"):WaitForChild("ClanClient"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
-local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
-local ConfirmationModal = require(ReplicatedStorage:WaitForChild("ConfirmationModal"))
-local ModalManager = require(ReplicatedStorage:WaitForChild("ModalManager"))
+local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
+local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
+local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- CONFIG
@@ -1097,7 +1096,7 @@ createClanEntry = function(clanData)
 
 	-- Usar datos del servidor (isPlayerMember viene del backend)
 	local isPlayerMember = clanData.isPlayerMember or false
-	
+
 	if isPlayerMember then
 		-- Ya está en este clan (datos del servidor)
 		joinBtn.Text = "UNIDO"
@@ -1107,7 +1106,7 @@ createClanEntry = function(clanData)
 	else
 		-- No está en este clan
 		hoverEffect(joinBtn, THEME.accent, brighten(THEME.accent, 1.15))
-		
+
 		joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:JoinClan(clanData.clanId)
 			if success then
@@ -1120,7 +1119,7 @@ createClanEntry = function(clanData)
 			end
 		end)
 	end
-	
+
 	hoverEffect(entry, THEME.card, Color3.fromRGB(40, 40, 50))
 
 	return entry

@@ -1,6 +1,7 @@
 -- ============================================
 -- CLAN SERVER - Sistema Consolidado de Clanes
 -- ============================================
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClanData = require(game:GetService("ServerStorage"):WaitForChild("Systems"):WaitForChild("ClanSystem"):WaitForChild("ClanData"))
 local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
@@ -53,6 +54,37 @@ local function canActOn(userRole, targetRole, action)
 	local userLevel = Config:GetRoleLevel(userRole)
 	local targetLevel = Config:GetRoleLevel(targetRole)
 	return userLevel > targetLevel
+end
+
+-- ============================================
+-- FUNCIONES DE ATRIBUTOS PARA OVERHEAD
+-- ============================================
+local function updatePlayerClanAttributes(userId)
+	local player = Players:GetPlayerByUserId(userId)
+	if not player then return end
+	
+	local playerClan = ClanData:GetPlayerClan(userId)
+	if playerClan and playerClan.clanId then
+		local clanData = ClanData:GetClan(playerClan.clanId)
+		if clanData then
+			player:SetAttribute("ClanTag", clanData.clanTag or "")
+			player:SetAttribute("ClanName", clanData.clanName or "")
+			player:SetAttribute("ClanId", clanData.clanId or "")
+		else
+			player:SetAttribute("ClanTag", nil)
+			player:SetAttribute("ClanName", nil)
+			player:SetAttribute("ClanId", nil)
+		end
+	else
+		player:SetAttribute("ClanTag", nil)
+		player:SetAttribute("ClanName", nil)
+		player:SetAttribute("ClanId", nil)
+	end
+end
+
+local function initializePlayerClanAttributes(player)
+	task.wait(1) -- Esperar a que el jugador esté completamente cargado
+	updatePlayerClanAttributes(player.UserId)
 end
 
 -- ============================================
