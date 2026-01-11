@@ -7,30 +7,22 @@ local ClanData = require(game:GetService("ServerStorage"):WaitForChild("Systems"
 local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
 
 -- ============================================
--- CONFIGURACIÓN (desde módulo)
+-- RATE LIMITING
 -- ============================================
-local ADMIN_IDS = Config.ADMINS.AdminUserIds
-local PERMISOS = Config.ROLES.Permissions
-local JERARQUIA = Config.ROLES.Hierarchy
-
--- ============================================
--- RATE LIMITING & SPAM PROTECTION (desde config)
--- ============================================
-local playerRequestLimits = {} -- { userId = { funcName = lastTime } }
+local playerRequestLimits = {}
 
 local function checkRateLimit(userId, funcName)
 	local userLimits = playerRequestLimits[tostring(userId)] or {}
 	local lastTime = userLimits[funcName] or 0
 	local now = os.time()
 	local interval = Config:GetRateLimit(funcName) or 1
-	
+
 	if interval == 0 then return true, nil end
-	
+
 	if (now - lastTime) < interval then
-		local remainingTime = interval - (now - lastTime)
-		return false, "Espera " .. remainingTime .. " segundos antes de hacer esa acción"
+		return false, "Espera " .. (interval - (now - lastTime)) .. " segundos"
 	end
-	
+
 	playerRequestLimits[tostring(userId)] = userLimits
 	userLimits[funcName] = now
 	return true, nil
@@ -50,59 +42,45 @@ end
 local function canActOn(userRole, targetRole, action)
 	if userRole == "owner" then return true end
 	if not hasPermission(userRole, action) then return false end
-	
-	local userLevel = Config:GetRoleLevel(userRole)
-	local targetLevel = Config:GetRoleLevel(targetRole)
-	return userLevel > targetLevel
+	return Config:GetRoleLevel(userRole) > Config:GetRoleLevel(targetRole)
 end
 
 -- ============================================
--- FUNCIONES DE ATRIBUTOS PARA OVERHEAD
+-- ATRIBUTOS PARA OVERHEAD
 -- ============================================
 local function updatePlayerClanAttributes(userId)
 	local player = Players:GetPlayerByUserId(userId)
 	if not player then return end
-	
+
 	local playerClan = ClanData:GetPlayerClan(userId)
-	
+
 	if playerClan and playerClan.clanId then
 		local clanData = ClanData:GetClan(playerClan.clanId)
-		
+
 		if clanData then
 			player:SetAttribute("ClanTag", clanData.clanTag or "")
 			player:SetAttribute("ClanName", clanData.clanName or "")
 			player:SetAttribute("ClanId", clanData.clanId or "")
 			player:SetAttribute("ClanEmoji", clanData.clanEmoji or "")
-			-- Guardar color como Color3 directo (tipo nativo)
 			if clanData.clanColor and typeof(clanData.clanColor) == "table" then
-				local r = tonumber(clanData.clanColor[1]) or 255
-				local g = tonumber(clanData.clanColor[2]) or 255
-				local b = tonumber(clanData.clanColor[3]) or 255
-				player:SetAttribute("ClanColor", Color3.fromRGB(r, g, b))
+				player:SetAttribute("ClanColor", Color3.fromRGB(
+					tonumber(clanData.clanColor[1]) or 255,
+					tonumber(clanData.clanColor[2]) or 255,
+					tonumber(clanData.clanColor[3]) or 255
+					))
 			else
 				player:SetAttribute("ClanColor", Color3.fromRGB(255, 255, 255))
 			end
-		else
-			-- Limpiar atributos si no hay datos del clan
-			player:SetAttribute("ClanTag", nil)
-			player:SetAttribute("ClanName", nil)
-			player:SetAttribute("ClanId", nil)
-			player:SetAttribute("ClanEmoji", nil)
-			player:SetAttribute("ClanColor", nil)
+			return
 		end
-	else
-		-- Limpiar atributos si el jugador no tiene clan
-		player:SetAttribute("ClanTag", nil)
-		player:SetAttribute("ClanName", nil)
-		player:SetAttribute("ClanId", nil)
-		player:SetAttribute("ClanEmoji", nil)
-		player:SetAttribute("ClanColor", nil)
 	end
-end
 
-local function initializePlayerClanAttributes(player)
-	-- Asignar inmediatamente para evitar race conditions con overhead
-	updatePlayerClanAttributes(player.UserId)
+	-- Limpiar atributos
+	player:SetAttribute("ClanTag", nil)
+	player:SetAttribute("ClanName", nil)
+	player:SetAttribute("ClanId", nil)
+	player:SetAttribute("ClanEmoji", nil)
+	player:SetAttribute("ClanColor", nil)
 end
 
 -- ============================================
@@ -111,13 +89,10 @@ end
 local ClanSystem = {}
 
 function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
-	-- Rate limiting
 	local allowed, errMsg = checkRateLimit(ownerId, "CreateClan")
 	if not allowed then
 		return false, nil, errMsg
 	end
-	
-	-- Validar con Config (ya no necesitamos validar aquí, ClanData lo hace)
 	return ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 end
 
@@ -130,7 +105,6 @@ function ClanSystem:GetPlayerClan(userId)
 end
 
 function ClanSystem:GetAllClans()
-	-- Sin rate limiting - devuelve datos frescos siempre
 	return ClanData:GetAllClans()
 end
 
@@ -139,16 +113,16 @@ function ClanSystem:JoinClan(clanId, playerId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	if clanData.miembros_data[playerId] then
+
+	if clanData.miembros_data and clanData.miembros_data[tostring(playerId)] then
 		return false, "Ya eres miembro de este clan"
 	end
-	
-	local playerClanId = ClanData:GetPlayerClan(playerId)
-	if playerClanId then
+
+	local playerClan = ClanData:GetPlayerClan(playerId)
+	if playerClan then
 		return false, "Ya perteneces a otro clan"
 	end
-	
+
 	local success, result = ClanData:AddMember(clanId, playerId, "miembro")
 	if success then
 		updatePlayerClanAttributes(playerId)
@@ -161,16 +135,16 @@ function ClanSystem:InvitePlayer(clanId, inviterId, targetUserId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	local inviterData = clanData.miembros_data[tostring(inviterId)]
+
+	local inviterData = clanData.miembros_data and clanData.miembros_data[tostring(inviterId)]
 	if not inviterData then
 		return false, "No eres miembro del clan"
 	end
-	
+
 	if not hasPermission(inviterData.rol, "invitar") then
 		return false, "No tienes permiso para invitar"
 	end
-	
+
 	local success, result = ClanData:AddMember(clanId, targetUserId, "miembro")
 	if success then
 		updatePlayerClanAttributes(targetUserId)
@@ -183,26 +157,21 @@ function ClanSystem:KickPlayer(clanId, kickerId, targetUserId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
+
 	if kickerId == targetUserId then
 		return false, "No puedes expulsarte a ti mismo"
 	end
-	
-	local kickerData = clanData.miembros_data[tostring(kickerId)]
-	local targetData = clanData.miembros_data[tostring(targetUserId)]
-	
-	if not kickerData then
-		return false, "No eres miembro del clan"
-	end
-	
-	if not targetData then
-		return false, "El usuario no es miembro"
-	end
-	
+
+	local kickerData = clanData.miembros_data and clanData.miembros_data[tostring(kickerId)]
+	local targetData = clanData.miembros_data and clanData.miembros_data[tostring(targetUserId)]
+
+	if not kickerData then return false, "No eres miembro del clan" end
+	if not targetData then return false, "El usuario no es miembro" end
+
 	if not canActOn(kickerData.rol, targetData.rol, "expulsar") then
 		return false, "No tienes permiso para expulsar a este usuario"
 	end
-	
+
 	local success, result = ClanData:RemoveMember(clanId, targetUserId)
 	if success then
 		updatePlayerClanAttributes(targetUserId)
@@ -215,23 +184,17 @@ function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	local requesterData = clanData.miembros_data[tostring(requesterId)]
-	local targetData = clanData.miembros_data[tostring(targetUserId)]
-	
-	if not requesterData then
-		return false, "No eres miembro del clan"
-	end
-	
-	if not targetData then
-		return false, "El usuario no es miembro"
-	end
-	
-	local permissionNeeded = "cambiar_" .. newRole .. "s"
-	if not canActOn(requesterData.rol, targetData.rol, permissionNeeded) then
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
+	local targetData = clanData.miembros_data and clanData.miembros_data[tostring(targetUserId)]
+
+	if not requesterData then return false, "No eres miembro del clan" end
+	if not targetData then return false, "El usuario no es miembro" end
+
+	if not canActOn(requesterData.rol, targetData.rol, "cambiar_" .. newRole .. "s") then
 		return false, "No tienes permiso para cambiar roles"
 	end
-	
+
 	local success, result = ClanData:ChangeRole(clanId, targetUserId, newRole)
 	if success then
 		updatePlayerClanAttributes(targetUserId)
@@ -243,21 +206,24 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 	if not newName or newName == "" then
 		return false, "El nombre no puede estar vacío"
 	end
-	
+
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	local requesterData = clanData.miembros_data[tostring(requesterId)]
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_nombre") then
 		return false, "No tienes permiso"
 	end
-	
+
 	local success, result = ClanData:UpdateClan(clanId, {clanName = newName})
-	if success and clanData and clanData.miembros_data then
-		for memberIdStr, _ in pairs(clanData.miembros_data) do
-			updatePlayerClanAttributes(tonumber(memberIdStr))
+	if success then
+		clanData = ClanData:GetClan(clanId)
+		if clanData and clanData.miembros_data then
+			for memberIdStr in pairs(clanData.miembros_data) do
+				updatePlayerClanAttributes(tonumber(memberIdStr))
+			end
 		end
 	end
 	return success, success and "Nombre actualizado" or result
@@ -267,25 +233,22 @@ function ClanSystem:ChangeTag(clanId, requesterId, newTag)
 	if not newTag or newTag == "" or #newTag < 2 or #newTag > 5 then
 		return false, "El TAG debe tener entre 2 y 5 caracteres"
 	end
-	
+
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	-- Convertir requesterId a string para comparar
-	local requesterData = clanData.miembros_data[tostring(requesterId)]
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or requesterData.rol ~= "owner" then
 		return false, "Solo el owner puede cambiar el TAG"
 	end
-	
-	local success, result = ClanData:UpdateClan(clanId, {clanTag = newTag})
+
+	local success, result = ClanData:UpdateClan(clanId, {clanTag = string.upper(newTag)})
 	if success then
-		-- Re-obtener datos del clan después de actualizar
 		clanData = ClanData:GetClan(clanId)
-		-- Actualizar atributos de todos los miembros del clan
 		if clanData and clanData.miembros_data then
-			for memberIdStr, memberData in pairs(clanData.miembros_data) do
+			for memberIdStr in pairs(clanData.miembros_data) do
 				updatePlayerClanAttributes(tonumber(memberIdStr))
 			end
 		end
@@ -298,18 +261,13 @@ function ClanSystem:ChangeDescription(clanId, requesterId, newDesc)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	local requesterData = clanData.miembros_data[tostring(requesterId)]
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_descripcion") then
 		return false, "No tienes permiso"
 	end
-	
+
 	local success, result = ClanData:UpdateClan(clanId, {descripcion = newDesc})
-	if success and clanData and clanData.miembros_data then
-		for memberIdStr, _ in pairs(clanData.miembros_data) do
-			updatePlayerClanAttributes(tonumber(memberIdStr))
-		end
-	end
 	return success, success and "Descripción actualizada" or result
 end
 
@@ -317,23 +275,18 @@ function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
 	if not newLogoId or newLogoId == "" then
 		return false, "Logo inválido"
 	end
-	
+
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	local requesterData = clanData.miembros_data[tostring(requesterId)]
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_logo") then
 		return false, "No tienes permiso"
 	end
-	
+
 	local success, result = ClanData:UpdateClan(clanId, {clanLogo = newLogoId})
-	if success and clanData and clanData.miembros_data then
-		for memberIdStr, _ in pairs(clanData.miembros_data) do
-			updatePlayerClanAttributes(tonumber(memberIdStr))
-		end
-	end
 	return success, success and "Logo actualizado" or result
 end
 
@@ -342,15 +295,16 @@ function ClanSystem:DissolveClan(clanId, requesterId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
+
 	if clanData.owner ~= requesterId then
 		return false, "Solo el owner puede disolver el clan"
 	end
-	
+
+	local members = clanData.miembros_data
 	local success, err = ClanData:DissolveClan(clanId)
-	if success then
-		-- Limpiar atributos de todos los miembros
-		for memberIdStr, memberData in pairs(clanData.miembros_data) do
+
+	if success and members then
+		for memberIdStr in pairs(members) do
 			updatePlayerClanAttributes(tonumber(memberIdStr))
 		end
 	end
@@ -358,31 +312,27 @@ function ClanSystem:DissolveClan(clanId, requesterId)
 end
 
 function ClanSystem:AdminDissolveClan(adminId, clanId)
-	-- Rate limiting
 	local allowed, errMsg = checkRateLimit(adminId, "AdminDissolveClan")
 	if not allowed then
 		return false, errMsg
 	end
-	
-	-- Obtener data del clan antes de eliminarlo (para auditoría)
+
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
-	-- Obtener nombre del admin
-	local adminName = game:GetService("Players"):GetNameFromUserIdAsync(adminId)
-	
-	-- Registrar en auditoría
+
+	local adminName = Players:GetNameFromUserIdAsync(adminId)
 	ClanData:LogAdminAction(adminId, adminName, "delete_clan", clanId, clanData.clanName, {
-		timestamp = os.time(),
-		memberCount = #clanData.miembros,
+		memberCount = clanData.miembros and #clanData.miembros or 0,
 		ownerUserId = clanData.owner
 	})
-	
+
+	local members = clanData.miembros_data
 	local success, err = ClanData:DissolveClan(clanId)
-	if success and clanData and clanData.miembros_data then
-		for memberIdStr, _ in pairs(clanData.miembros_data) do
+
+	if success and members then
+		for memberIdStr in pairs(members) do
 			updatePlayerClanAttributes(tonumber(memberIdStr))
 		end
 	end
@@ -394,11 +344,11 @@ function ClanSystem:LeaveClan(clanId, requesterId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
+
 	if clanData.owner == requesterId then
 		return false, "El owner no puede abandonar el clan. Disuelve el clan si deseas"
 	end
-	
+
 	local success, err = ClanData:RemoveMember(clanId, requesterId)
 	if success then
 		updatePlayerClanAttributes(requesterId)
@@ -406,23 +356,16 @@ function ClanSystem:LeaveClan(clanId, requesterId)
 	return success, success and "Has abandonado el clan" or err
 end
 
-function ClanSystem:AdminGetAuditLog(limit)
-	return ClanData:GetAuditLog(limit or 50)
-end
-
 -- ============================================
--- CONFIGURACIÓN DE EVENTOS
+-- EVENTOS
 -- ============================================
-local existingEvents = game.ReplicatedStorage:FindFirstChild("ClanEvents")
-if existingEvents then
-	existingEvents:Destroy()
-end
+local existingEvents = ReplicatedStorage:FindFirstChild("ClanEvents")
+if existingEvents then existingEvents:Destroy() end
 
 local clanEvents = Instance.new("Folder")
 clanEvents.Name = "ClanEvents"
-clanEvents.Parent = game:GetService("ReplicatedStorage")
+clanEvents.Parent = ReplicatedStorage
 
--- Crear eventos
 local CreateClanEvent = Instance.new("RemoteFunction", clanEvents)
 CreateClanEvent.Name = "CreateClan"
 
@@ -468,160 +411,129 @@ ClansUpdatedEvent.Name = "ClansUpdated"
 local GetClansListFunction = Instance.new("RemoteFunction", clanEvents)
 GetClansListFunction.Name = "GetClansList"
 
--- Conectar evento de actualización para notificar a clientes
-ClanData:OnClanDataUpdated():Connect(function()
-	local allClans = ClanData:GetAllClans()
-	ClansUpdatedEvent:FireAllClients(allClans)
-end)
-
 local GetPlayerClanFunction = Instance.new("RemoteFunction", clanEvents)
 GetPlayerClanFunction.Name = "GetPlayerClan"
 
+-- Evento de actualización
+ClanData:OnClanDataUpdated():Connect(function()
+	ClansUpdatedEvent:FireAllClients(ClanData:GetAllClans())
+end)
+
 -- ============================================
--- MANEJADORES DE EVENTOS
+-- HANDLERS
 -- ============================================
 CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, clanDesc, customOwnerId)
-	-- Usar customOwnerId si se proporciona y el jugador es admin, sino usar player.UserId
 	local ownerId = player.UserId
 	if customOwnerId and isAdmin(player.UserId) then
 		ownerId = customOwnerId
 	end
-	
+
 	local success, clanId, result = ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc)
 	if success then
-		-- Refrescar atributos del owner
 		updatePlayerClanAttributes(ownerId)
 		return true, clanId, "Clan creado exitosamente"
-	else
-		local errorMsg = tostring(result or "Error desconocido")
-		return false, nil, errorMsg
 	end
+	return false, nil, tostring(result or "Error desconocido")
 end
 
 InvitePlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
-	local success, msg = ClanSystem:InvitePlayer(clanId, player.UserId, targetPlayerId)
-	return success, msg
+	return ClanSystem:InvitePlayer(clanId, player.UserId, targetPlayerId)
 end
 
 KickPlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
-	local success, msg = ClanSystem:KickPlayer(clanId, player.UserId, targetPlayerId)
-	return success, msg
+	return ClanSystem:KickPlayer(clanId, player.UserId, targetPlayerId)
 end
 
 ChangeRoleEvent.OnServerInvoke = function(player, clanId, targetPlayerId, newRole)
-	local success, msg = ClanSystem:ChangeRole(clanId, player.UserId, targetPlayerId, newRole)
-	return success, msg
+	return ClanSystem:ChangeRole(clanId, player.UserId, targetPlayerId, newRole)
 end
 
 ChangeClanNameEvent.OnServerInvoke = function(player, clanId, newName)
-	local success, msg = ClanSystem:ChangeName(clanId, player.UserId, newName)
-	return success, msg
+	return ClanSystem:ChangeName(clanId, player.UserId, newName)
 end
 
 ChangeClanTagEvent.OnServerInvoke = function(player, clanId, newTag)
-	local success, msg = ClanSystem:ChangeTag(clanId, player.UserId, newTag)
-	return success, msg
+	return ClanSystem:ChangeTag(clanId, player.UserId, newTag)
 end
 
 ChangeClanDescEvent.OnServerInvoke = function(player, clanId, newDesc)
-	local success, msg = ClanSystem:ChangeDescription(clanId, player.UserId, newDesc)
-	return success, msg
+	return ClanSystem:ChangeDescription(clanId, player.UserId, newDesc)
 end
 
 ChangeClanLogoEvent.OnServerInvoke = function(player, clanId, newLogoId)
-	local success, msg = ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
-	return success, msg
+	return ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
 end
 
 DissolveEvent.OnServerInvoke = function(player, clanId)
-	local success, msg = ClanSystem:DissolveClan(clanId, player.UserId)
-	return success, msg
+	return ClanSystem:DissolveClan(clanId, player.UserId)
 end
 
 AdminDissolveClanEvent.OnServerInvoke = function(player, clanId)
 	if not isAdmin(player.UserId) then
-		warn("⚠️ [Admin] Intento no autorizado por: " .. player.Name)
 		return false, "No autorizado"
 	end
-	
-	local success, msg = ClanSystem:AdminDissolveClan(player.UserId, clanId)
-	return success, msg
+	return ClanSystem:AdminDissolveClan(player.UserId, clanId)
 end
 
 GetClanDataEvent.OnServerEvent:Connect(function(player, clanId)
-	local clanData = ClanSystem:GetClanData(clanId)
-	GetClanDataEvent:FireClient(player, clanData)
+	GetClanDataEvent:FireClient(player, ClanSystem:GetClanData(clanId))
 end)
 
 JoinClanEvent.OnServerInvoke = function(player, clanId)
-	local success, msg = ClanSystem:JoinClan(clanId, player.UserId)
-	return success, msg
+	return ClanSystem:JoinClan(clanId, player.UserId)
 end
 
 LeaveClanEvent.OnServerInvoke = function(player, clanId)
-	local success, msg = ClanSystem:LeaveClan(clanId, player.UserId)
-	return success, msg
+	return ClanSystem:LeaveClan(clanId, player.UserId)
 end
 
 GetClansListFunction.OnServerInvoke = function(player)
-	-- Obtener clanes frescos sin caché
 	local allClans = ClanData:GetAllClans()
-	
-	-- Agregar flag isPlayerMember a cada clan (datos frescos del servidor)
 	local playerClan = ClanData:GetPlayerClan(player.UserId)
 	local playerClanId = playerClan and playerClan.clanId or nil
-	
-	for _, clanData in ipairs(allClans) do
-		clanData.isPlayerMember = (clanData.clanId == playerClanId)
+
+	for _, clan in ipairs(allClans) do
+		clan.isPlayerMember = (clan.clanId == playerClanId)
 	end
-	
+
 	return allClans
 end
 
 GetPlayerClanFunction.OnServerInvoke = function(player)
-	local playerClanData = ClanSystem:GetPlayerClan(player.UserId)
-	if playerClanData and playerClanData.clanId then
-		return ClanSystem:GetClanData(playerClanData.clanId)
+	local playerClan = ClanSystem:GetPlayerClan(player.UserId)
+	if playerClan and playerClan.clanId then
+		return ClanSystem:GetClanData(playerClan.clanId)
 	end
 	return nil
 end
 
 -- ============================================
--- INICIALIZACIÓN (optimizada - sin bloqueo)
+-- INICIALIZACIÓN
 -- ============================================
-print("[Clan System] 🚀 Iniciando sistema de clanes...")
-
--- Crear clans por defecto INMEDIATAMENTE (no esperar LoadAll)
 task.spawn(function()
-	print("[Clan System] Creando clanes por defecto...")
-	ClanData:CreateDefaultClans()
-	
-	-- Notificar a todos los clientes después de crear defaults
+	-- Limpiar registros huérfanos de owners de DEFAULT_CLANS
+	-- (esto se hace automáticamente en GetPlayerClan, pero lo hacemos explícito)
+	for _, defaultClan in ipairs(Config.DEFAULT_CLANS or {}) do
+		ClanData:GetPlayerClan(defaultClan.ownerId) -- Limpia automáticamente si es huérfano
+	end
+
+	-- Crear clanes por defecto
+	local created = ClanData:CreateDefaultClans()
+
+	-- Obtener todos los clanes
 	local allClans = ClanData:GetAllClans()
+
+	-- Notificar clientes
 	ClansUpdatedEvent:FireAllClients(allClans)
-	print("[Clan System] ✅ Clanes por defecto listos: " .. #allClans)
 end)
 
--- Cargar clanes del DataStore en background (no bloquear inicio)
-task.spawn(function()
-	task.wait(2) -- Dar prioridad a la creación de defaults
-	print("[Clan System] Cargando clanes adicionales del DataStore...")
-	ClanData:LoadAllClans()
-	
-	-- Actualizar clientes después de cargar
-	local allClans = ClanData:GetAllClans()
-	ClansUpdatedEvent:FireAllClients(allClans)
-	print("[Clan System] 📦 Total clanes en memoria: " .. #allClans)
-end)
-
--- Inicializar atributos de clanes para jugadores ya en el juego
+-- Inicializar atributos para jugadores conectados
 for _, player in ipairs(Players:GetPlayers()) do
-	task.spawn(initializePlayerClanAttributes, player)
+	task.spawn(updatePlayerClanAttributes, player.UserId)
 end
 
--- Conectar evento PlayerAdded para nuevos jugadores
-Players.PlayerAdded:Connect(initializePlayerClanAttributes)
-
-print("[Clan System] ✅ Sistema iniciado (carga en background)")
+Players.PlayerAdded:Connect(function(player)
+	updatePlayerClanAttributes(player.UserId)
+end)
 
 return {}

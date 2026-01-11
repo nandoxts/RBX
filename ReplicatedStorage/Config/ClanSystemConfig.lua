@@ -24,7 +24,7 @@ ClanSystemConfig.ADMINS = {
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.DATABASE = {
 	UseDataStore = true,
-	ClanStoreName = "ClansData_v1",
+	ClanStoreName = "ClansData_v2",
 	PlayerClanStoreName = "PlayerClans_v1",
 	AuditStoreName = "AdminAudit_v1",
 	CooldownStoreName = "ClanCooldowns_v1",
@@ -153,7 +153,8 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		descripcion = "Clan King of Darkness",
 		clanEmoji = "💀",
 		clanColor = {138, 43, 226}, -- Morado/Púrpura (BlueViolet)
-	},	{
+	},
+	{
 		clanName = "DOLLYS",
 		ownerId = 437675178,
 		clanTag = "DLS",
@@ -161,7 +162,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		descripcion = "Clan DOLLYS",
 		clanEmoji = "😹",
 		clanColor = {34, 177, 76}, -- Verde elegante
-	},	-- Puedes agregar más clans aquí
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════

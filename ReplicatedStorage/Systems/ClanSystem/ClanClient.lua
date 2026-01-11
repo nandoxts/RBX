@@ -60,7 +60,6 @@ local function WaitForFunction(name, timeout)
 	timeout = timeout or 5 -- Reducido de 30 a 5 segundos
 	local func = clanEvents:WaitForChild(name, timeout)
 	if not func or not func:IsA("RemoteFunction") then
-		warn("⚠️ [ClanClient] RemoteFunction no encontrada:", name)
 		return nil
 	end
 	return func
@@ -73,7 +72,6 @@ local function EnsureInitialized()
 	-- Esperar a que ClanEvents exista (máximo 5 segundos)
 	clanEvents = ReplicatedStorage:WaitForChild("ClanEvents", 5)
 	if not clanEvents then
-		warn("[ClanClient] ❌ No se pudo obtener ClanEvents")
 		return
 	end
 	
@@ -99,11 +97,9 @@ local function EnsureInitialized()
 		DissolveFunction = WaitForFunction("DissolveClan")
 		LeaveClanFunction = WaitForFunction("LeaveClan")
 		AdminDissolveFunction = WaitForFunction("AdminDissolveClan")
-		print("✅ [ClanClient] Funciones secundarias cargadas")
 	end)
-	
+
 	initialized = true
-	print("✅ [ClanClient] Inicialización rápida completada")
 end
 
 
@@ -144,7 +140,6 @@ function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwne
 			return false, nil, msg or "No se pudo crear el clan"
 		end
 	else
-		warn("[Clan] No se encontró función CreateClan")
 		return false, nil, "Función no disponible"
 	end
 end
@@ -303,7 +298,6 @@ function ClanClient:JoinClan(clanId)
 		end
 		return success, msg
 	else
-		warn("[Clan] No se encontró función JoinClan")
 		return false, "Función no disponible"
 	end
 end
@@ -334,11 +328,10 @@ function ClanClient:GetClansList()
 			self._lastClansListTime = tick()
 			return clans or {}
 		else
-			warn("❌ Error obteniendo lista de clanes:", clans)
 			return self._lastClansList or {}
 		end
 	else
-		warn("❌ GetClansList RemoteFunction no encontrada")
+		return {}
 	end
 	return self._lastClansList or {}
 end
@@ -360,9 +353,6 @@ function ClanClient:GetPlayerClan()
 			-- El jugador no está en ningún clan
 			self.currentClan = nil
 			self.currentClanId = nil
-			if not success then
-				warn("Error obteniendo clan del jugador:", clanData)
-			end
 			return nil
 		end
 	end
@@ -383,7 +373,6 @@ function ClanClient:AdminDissolveClan(clanId)
 		local success, msg = AdminDissolveFunction:InvokeServer(clanId)
 		return success, msg
 	else
-		warn("[Clan] No se encontró función AdminDissolveClan")
 		return false, "Función no disponible"
 	end
 end
