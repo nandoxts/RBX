@@ -436,63 +436,23 @@ function ClanData:GetAuditLog(limit)
 	return result
 end
 
--- Cargar todos los clanes desde DataStore (solo al inicializar)
+-- Cargar todos los clanes desde DataStore (optimizado - sin ListKeysAsync)
 function ClanData:LoadAllClans()
 	if not Config.DATABASE.UseDataStore then
 		print("⚠️ [ClanData] DataStore deshabilitado - usando solo memoria")
-		return true -- Éxito en modo memoria
+		return true
 	end
 	
-	local success = pcall(function()
-		local pages = clanStore:ListKeysAsync()
-		
-		while true do
-			local keys = pages:GetCurrentPage()
-			
-			for _, key in ipairs(keys) do
-				if key.KeyName:match("^clan:") then
-					local clanSuccess, clanData = pcall(function()
-						return clanStore:GetAsync(key.KeyName)
-					end)
-					
-					if clanSuccess and clanData then
-						local memberCount = 0
-						if clanData.miembros_data then
-							for _ in pairs(clanData.miembros_data) do
-								memberCount = memberCount + 1
-							end
-						end
-						
-						clansDatabase[clanData.clanId] = {
-							clanId = clanData.clanId,
-							clanName = clanData.clanName,
-							clanTag = clanData.clanTag or "TAG",
-							clanLogo = clanData.clanLogo,
-							clanEmoji = clanData.clanEmoji or "",
-							clanColor = clanData.clanColor,
-							descripcion = clanData.descripcion or "Sin descripción",
-							nivel = clanData.nivel or 1,
-							miembros_count = memberCount,
-							fechaCreacion = clanData.fechaCreacion
-						}
-					else
-						-- Eliminar clan corrupto
-						pcall(function()
-							clanStore:RemoveAsync(key.KeyName)
-						end)
-					end
-				end
-			end
-			
-			if pages.IsFinished then 
-				break 
-			end
-			
-			pages:AdvanceToNextPageAsync()
-		end
-	end)
+	print("⚠️ [ClanData] LoadAllClans deshabilitado para mejor performance")
+	print("   Los clanes se cargarán bajo demanda o desde DEFAULT_CLANS")
 	
-	return success
+	-- No usar ListKeysAsync - es extremadamente lento
+	-- Los clanes se cargarán:
+	-- 1. Desde DEFAULT_CLANS al iniciar
+	-- 2. Bajo demanda cuando se acceda a GetClan()
+	-- 3. Cuando se creen nuevos clanes
+	
+	return true
 end
 
 -- Obtener todos los clanes (directo desde memoria)

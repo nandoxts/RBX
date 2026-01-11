@@ -125,7 +125,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanLogo = "rbxassetid://112234631634424",
 		descripcion = "Clan Shadow Garden",
 		clanEmoji = "🔱",
-		clanColor = {147, 51, 234}, -- Morado vibrante
+		clanColor = {255, 215, 0}, -- Dorado
 	},
 	{
 		clanName = "TH4",

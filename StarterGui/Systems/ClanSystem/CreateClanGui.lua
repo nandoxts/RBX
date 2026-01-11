@@ -1354,11 +1354,14 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function openUI()
 	modal:open()
-	-- Inicializar ClanClient en background
-	task.spawn(function()
-		ClanClient:Initialize()
-	end)
-	switchTab("Disponibles")
+	-- Inicializar ClanClient si no está listo (no bloquear)
+	if not ClanClient.initialized then
+		task.spawn(function()
+			ClanClient:Initialize()
+		end)
+	end
+	-- Cargar tab TuClan primero (más rápido que Disponibles)
+	switchTab("TuClan")
 end
 
 local function closeUI()

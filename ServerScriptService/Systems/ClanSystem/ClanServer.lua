@@ -587,17 +587,32 @@ GetPlayerClanFunction.OnServerInvoke = function(player)
 end
 
 -- ============================================
--- INICIALIZACIÓN (como DjDashboard)
+-- INICIALIZACIÓN (optimizada - sin bloqueo)
 -- ============================================
-print("[Clan System] Iniciando carga de clanes...")
-ClanData:LoadAllClans()
-print("[Clan System] Clanes cargados de DataStore")
+print("[Clan System] 🚀 Iniciando sistema de clanes...")
 
-task.wait(1) -- Esperar más tiempo para asegurar que el DataStore está listo
+-- Crear clans por defecto INMEDIATAMENTE (no esperar LoadAll)
+task.spawn(function()
+	print("[Clan System] Creando clanes por defecto...")
+	ClanData:CreateDefaultClans()
+	
+	-- Notificar a todos los clientes después de crear defaults
+	local allClans = ClanData:GetAllClans()
+	ClansUpdatedEvent:FireAllClients(allClans)
+	print("[Clan System] ✅ Clanes por defecto listos: " .. #allClans)
+end)
 
--- Crear clans por defecto si no existen
-print("[Clan System] Creando clanes por defecto...")
-ClanData:CreateDefaultClans()
+-- Cargar clanes del DataStore en background (no bloquear inicio)
+task.spawn(function()
+	task.wait(2) -- Dar prioridad a la creación de defaults
+	print("[Clan System] Cargando clanes adicionales del DataStore...")
+	ClanData:LoadAllClans()
+	
+	-- Actualizar clientes después de cargar
+	local allClans = ClanData:GetAllClans()
+	ClansUpdatedEvent:FireAllClients(allClans)
+	print("[Clan System] 📦 Total clanes en memoria: " .. #allClans)
+end)
 
 -- Inicializar atributos de clanes para jugadores ya en el juego
 for _, player in ipairs(Players:GetPlayers()) do
@@ -607,10 +622,6 @@ end
 -- Conectar evento PlayerAdded para nuevos jugadores
 Players.PlayerAdded:Connect(initializePlayerClanAttributes)
 
--- Notificar a todos los clientes conectados
-local allClans = ClanData:GetAllClans()
-ClansUpdatedEvent:FireAllClients(allClans)
-
-print("[Clan System] ✓ Inicializado correctamente. Total clanes: " .. table.getn(allClans))
+print("[Clan System] ✅ Sistema iniciado (carga en background)")
 
 return {}
