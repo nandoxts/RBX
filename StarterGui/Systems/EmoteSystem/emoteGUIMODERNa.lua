@@ -91,7 +91,7 @@ local PlayerGui = Jugador:WaitForChild("PlayerGui")
 local Char = Jugador.Character or Jugador.CharacterAdded:Wait()
 local Animator = Char:WaitForChild("Humanoid"):WaitForChild("Animator")
 
-local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local IsMobile = UserInputService.TouchEnabled
 local EmotesFavs = {}
 local EmotesTrending = {}
 local DanceActivated = nil
@@ -101,7 +101,6 @@ local tieneVIP = false
 -- Debounces
 local actualizandoDebounce = false
 local favoritoDebounce = false
-local activeTweens = {} -- Rastrear tweens para limpiarlos
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- UTILIDADES UI
@@ -110,12 +109,7 @@ local activeTweens = {} -- Rastrear tweens para limpiarlos
 local UI = {}
 
 function UI.Tween(obj, dur, props, style, dir)
-	-- CRÍTICO: Cancelar tween anterior del mismo objeto
-	if activeTweens[obj] then
-		pcall(function() activeTweens[obj]:Cancel() end)
-	end
 	local tween = TweenService:Create(obj, TweenInfo.new(dur, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
-	activeTweens[obj] = tween
 	tween:Play()
 	return tween
 end
@@ -165,15 +159,9 @@ end
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local cardConnections = {} -- Solo conexiones de tarjetas (se limpian en Actualizar)
-local persistentConnections = {} -- Conexiones persistentes (nunca se limpian)
 
 local function trackCardConnection(connection)
 	table.insert(cardConnections, connection)
-	return connection
-end
-
-local function trackPersistentConnection(connection)
-	table.insert(persistentConnections, connection)
 	return connection
 end
 
@@ -184,14 +172,6 @@ local function disconnectCardConnections()
 		end
 	end
 	cardConnections = {}
-	
-	-- CRÍTICO: Cancelar tweens de tarjetas también
-	for obj, tween in pairs(activeTweens) do
-		if tween then
-			pcall(function() tween:Cancel() end)
-		end
-		activeTweens[obj] = nil
-	end
 end
 
 local function GetCardHeight()
@@ -213,11 +193,23 @@ local function EstaEnFavoritos(id)
 	return table.find(EmotesFavs, id) ~= nil
 end
 
--- Animar visibilidad de elementos hijos (OPTIMIZADO: solo animar card, no descendientes)
+-- Animar visibilidad de elementos hijos
 local function AnimarElementos(card, visible, excludeActiveBorder)
 	local targetTransparency = visible and 0 or 1
-	-- Solo animar el card principal, NO cada hijo individualmente
+
 	UI.Tween(card, 0.3, {BackgroundTransparency = targetTransparency})
+
+	for _, child in ipairs(card:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") then
+			UI.Tween(child, 0.3, {TextTransparency = targetTransparency})
+		elseif child:IsA("ImageLabel") then
+			UI.Tween(child, 0.3, {ImageTransparency = targetTransparency})
+		elseif child:IsA("UIStroke") then
+			if not (excludeActiveBorder and child.Name == "ActiveBorder") then
+				UI.Tween(child, 0.3, {Transparency = targetTransparency})
+			end
+		end
+	end
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -667,7 +659,7 @@ Actualizar = function(filtro)
 
 	-- Limpiar CONEXIONES PRIMERO, luego UI
 	disconnectCardConnections()
-	
+
 	for _, child in ipairs(ScrollFrame:GetChildren()) do
 		if child:GetAttribute("EmoteEntry") then
 			child:Destroy()
@@ -682,13 +674,12 @@ Actualizar = function(filtro)
 	local orden = 1
 	local filtroLower = filtro:lower()
 	local delayCounter = 0
-	local MAX_ANIMATED_CARDS = 15  -- CRÍTICO: Limitar tarjetas animadas
 
 	local function pasaFiltro(nombre)
 		return filtroLower == "" or nombre:lower():find(filtroLower, 1, true)
 	end
 
-	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado, shouldAnimate)
+	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado)
 		local card, favBtn = CrearTarjetaEmote(nombre, id, tipo, orden)
 		orden = orden + 1
 
@@ -702,25 +693,13 @@ Actualizar = function(filtro)
 			end
 		end
 
-		-- Animar entrada SOLO si es dentro del límite
-		if shouldAnimate then
-			delayCounter = delayCounter + 1
-			task.delay(delayCounter * 0.03, function()
-				if card and card.Parent then
-					AnimarElementos(card, true, true)
-				end
-			end)
-		else
-			-- Sin animación: simplemente hacer visible
-			card.BackgroundTransparency = 0
-			for _, child in ipairs(card:GetDescendants()) do
-				if child:IsA("TextLabel") or child:IsA("TextButton") then
-					child.TextTransparency = 0
-				elseif child:IsA("UIStroke") then
-					child.Transparency = 0
-				end
+		-- Animar entrada
+		delayCounter = delayCounter + 1
+		task.delay(delayCounter * 0.03, function()
+			if card and card.Parent then
+				AnimarElementos(card, true, true)
 			end
-		end
+		end)
 
 		-- Configurar clicks
 		trackCardConnection(card.MouseButton1Click:Connect(function()
@@ -810,11 +789,9 @@ Actualizar = function(filtro)
 				CrearSeparador(cat.nombre, cat.icono, cat.color, orden)
 				orden = orden + 1
 
-				for i, data in ipairs(visibles) do
+				for _, data in ipairs(visibles) do
 					local esVIPBloqueado = cat.esVIP and not tieneVIP
-					-- Solo animar las primeras MAX_ANIMATED_CARDS tarjetas
-					local shouldAnimate = delayCounter < MAX_ANIMATED_CARDS
-					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado, shouldAnimate)
+					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado)
 				end
 			end
 		end

@@ -42,30 +42,56 @@ local currentPage = "Disponibles"
 local availableClans = {}
 
 -- ════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════════
 -- GESTIÓN DE MEMORIA: Tweens y Conexiones
 -- ════════════════════════════════════════════════════════════════
 local activeTweens = {}
+local avatarCache = {} -- Cache de avatares para evitar descargas duplicadas
 local clanCardConnections = {} -- Conexiones de tarjetas (se limpian por tab)
+local MAX_ACTIVE_TWEENS = 15 -- Limitar tweens simultáneos
+
+local function countTable(t)
+	local count = 0
+	for _ in pairs(t) do count = count + 1 end
+	return count
+end
+
 local function safeCreateTween(object, info, target)
 	if activeTweens[object] then
 		activeTweens[object]:Cancel()
 		activeTweens[object] = nil
+	end
+	-- Limitar tweens activos
+	if countTable(activeTweens) >= MAX_ACTIVE_TWEENS then
+		for obj, tween in pairs(activeTweens) do
+			if tween then
+				pcall(function() tween:Cancel() end)
+			end
+			activeTweens[obj] = nil
+			break
+		end
 	end
 	local tween = TweenService:Create(object, info, target)
 	activeTweens[object] = tween
 	return tween
 end
 
-local function cleanupTween(object)
-	if activeTweens[object] then
-		activeTweens[object]:Cancel()
-		activeTweens[object] = nil
-	end
-end
-
 local function trackClanConnection(conn)
 	table.insert(clanCardConnections, conn)
 	return conn
+end
+
+local function getAvatarImage(userId, size)
+	size = size or Enum.ThumbnailSize.Size150x150
+	local cacheKey = userId .. "_" .. tostring(size)
+	
+	if not avatarCache[cacheKey] then
+		local success, thumb = pcall(function()
+			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, size)
+		end)
+		avatarCache[cacheKey] = success and thumb or ""
+	end
+	return avatarCache[cacheKey]
 end
 
 local function cleanupAllTweens()

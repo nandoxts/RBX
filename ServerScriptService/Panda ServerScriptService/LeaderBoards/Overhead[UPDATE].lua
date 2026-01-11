@@ -11,6 +11,27 @@ local DataStoreService = game:GetService("DataStoreService")
 local streakStore = DataStoreService:GetDataStore("LoginStreaks")
 local TopRachaStore = DataStoreService:GetOrderedDataStore("TopRacha")
 
+--  GESTIÓN DE CONEXIONES POR JUGADOR
+local playerConnections = {}
+
+local function trackConnection(player, connection)
+	if not playerConnections[player.UserId] then
+		playerConnections[player.UserId] = {}
+	end
+	table.insert(playerConnections[player.UserId], connection)
+	return connection
+end
+
+local function disconnectAllPlayerConnections(userId)
+	if not playerConnections[userId] then return end
+	for _, conn in ipairs(playerConnections[userId]) do
+		if conn then
+			pcall(function() conn:Disconnect() end)
+		end
+	end
+	playerConnections[userId] = nil
+end
+
 --// Módulos
 local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
 local Configuration = require(PandaSSS:WaitForChild("Configuration"))
@@ -433,10 +454,11 @@ function OverheadManager:setupLevelDisplay(levelFrame, player)
 	updateLevelDisplay(levelLabel, levelStat.Value)
 	player:SetAttribute("Level", levelStat.Value)
 
-	levelStat:GetPropertyChangedSignal("Value"):Connect(function()
+	-- ✅ TRACK CONNECTION PARA LIMPIARLA DESPUÉS
+	trackConnection(player, levelStat:GetPropertyChangedSignal("Value"):Connect(function()
 		updateLevelDisplay(levelLabel, levelStat.Value)
 		player:SetAttribute("Level", levelStat.Value)
-	end)
+	end))
 end
 
 --------------------------------------------------------------------------------------------------------
@@ -458,13 +480,14 @@ local function setupMovementDetection(char, player)
 		setAFK(player, false)
 	end
 
-	humanoid.Running:Connect(function(speed)
+	-- ✅ TRACK CONNECTIONS
+	trackConnection(player, humanoid.Running:Connect(function(speed)
 		if speed > 0 then removeAFK() end
-	end)
+	end))
 
-	humanoid.Jumping:Connect(function(isActive)
+	trackConnection(player, humanoid.Jumping:Connect(function(isActive)
 		if isActive then removeAFK() end
-	end)
+	end))
 end
 
 --------------------------------------------------------------------------------------------------------
@@ -477,9 +500,9 @@ local function onCharacterAdded(char, player)
 end
 
 Players.PlayerAdded:Connect(function(player)
-	player:GetAttributeChangedSignal("SelectedColor"):Connect(function()
+	trackConnection(player, player:GetAttributeChangedSignal("SelectedColor"):Connect(function()
 		updatePlayerNameColor(player)
-	end)
+	end))
 	
 	-- Listener para actualizar el overhead cuando cambie el tag del clan
 	local function refreshClanTag()
@@ -501,15 +524,16 @@ Players.PlayerAdded:Connect(function(player)
 		end
 	end
 
-	player:GetAttributeChangedSignal("ClanTag"):Connect(refreshClanTag)
-	player:GetAttributeChangedSignal("ClanEmoji"):Connect(refreshClanTag)
-	player:GetAttributeChangedSignal("ClanColor"):Connect(refreshClanTag)
+	-- ✅ TRACK ATTRIBUTE CONNECTIONS
+	trackConnection(player, player:GetAttributeChangedSignal("ClanTag"):Connect(refreshClanTag))
+	trackConnection(player, player:GetAttributeChangedSignal("ClanEmoji"):Connect(refreshClanTag))
+	trackConnection(player, player:GetAttributeChangedSignal("ClanColor"):Connect(refreshClanTag))
 
 	setupPlayerChat(player)
 
-	player.CharacterAdded:Connect(function(char)
+	trackConnection(player, player.CharacterAdded:Connect(function(char)
 		onCharacterAdded(char, player)
-	end)
+	end))
 
 	if player.Character then
 		onCharacterAdded(player.Character, player)
@@ -526,3 +550,8 @@ for _, player in ipairs(Players:GetPlayers()) do
 		updateStreak(player)
 	end)
 end
+
+-- ✅ LIMPIAR CONEXIONES CUANDO EL JUGADOR SALE
+Players.PlayerRemoving:Connect(function(player)
+	disconnectAllPlayerConnections(player.UserId)
+end)

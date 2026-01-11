@@ -164,7 +164,24 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "😹",
 		clanColor = {34, 177, 76}, -- Verde elegante
 	},
-
+	{
+		clanName = "DZN",
+		ownerId = 7904861114,
+		clanTag = "DZN",
+		clanLogo = "rbxassetid://134988933629013",
+		descripcion = "Clan DZN",
+		clanEmoji = "👑",
+		clanColor = {0, 122, 255}, -- Azul
+	},
+	{
+		clanName = "Supreme Legacy",
+		ownerId = 9764396115,
+		clanTag = "SL",
+		clanLogo = "rbxassetid://93259920027853",
+		descripcion = "Clan Supreme Legacy",
+		clanEmoji = "🔱",
+		clanColor = {255, 215, 0}, -- Dorado
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════

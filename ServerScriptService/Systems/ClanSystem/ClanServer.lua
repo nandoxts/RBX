@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("Cl
 -- RATE LIMITING
 -- ============================================
 local playerRequestLimits = {}
+local CLEANUP_INTERVAL = 600 -- Limpiar cada 10 minutos
 
 local function checkRateLimit(userId, funcName)
 	local userLimits = playerRequestLimits[tostring(userId)] or {}
@@ -27,6 +28,27 @@ local function checkRateLimit(userId, funcName)
 	userLimits[funcName] = now
 	return true, nil
 end
+
+--  LIMPIAR playerRequestLimits AUTOMÁTICAMENTE
+local lastCleanup = tick()
+task.spawn(function()
+	while true do
+		task.wait(CLEANUP_INTERVAL)
+		if tick() - lastCleanup > CLEANUP_INTERVAL then
+			local onlinePlayers = {}
+			for _, player in ipairs(Players:GetPlayers()) do
+				onlinePlayers[tostring(player.UserId)] = true
+			end
+			-- Eliminar jugadores offline
+			for userId in pairs(playerRequestLimits) do
+				if not onlinePlayers[userId] then
+					playerRequestLimits[userId] = nil
+				end
+			end
+			lastCleanup = tick()
+		end
+	end
+end)
 
 -- ============================================
 -- FUNCIONES AUXILIARES
