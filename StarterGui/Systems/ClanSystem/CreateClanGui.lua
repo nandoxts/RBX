@@ -114,7 +114,7 @@ if Icon then
 		pcall(function() _G.ClanSystemIcon:destroy() end)
 	end
 	clanIcon = Icon.new()
-		:setLabel("CLAN")
+		:setLabel("⚔️")
 		:setOrder(2)
 		:setEnabled(true)
 	_G.ClanSystemIcon = clanIcon
