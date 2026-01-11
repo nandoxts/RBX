@@ -89,6 +89,7 @@ function ModalManager.new(config)
 
 	-- Estado
 	self.isOpen = false
+	self.activeTweens = {} -- Rastrear tweens para limpiarlos
 
 	-- Crear componentes
 	self:_createOverlay()
@@ -113,7 +114,7 @@ function ModalManager:_createOverlay()
 	self.overlay.Parent = self.screenGui
 
 	-- Click en overlay cierra el modal solo si es fuera del panel
-	self.overlay.MouseButton1Click:Connect(function()
+	self.overlayConnection = self.overlay.MouseButton1Click:Connect(function()
 		local mousePos = game:GetService("UserInputService"):GetMouseLocation()
 		local panelPos = self.panel.AbsolutePosition
 		local panelSize = self.panel.AbsoluteSize
@@ -158,19 +159,25 @@ function ModalManager:open()
 	self.overlay.Visible = true
 
 	-- Animar overlay
-	TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45}):Play()
+	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 0.45})
+	table.insert(self.activeTweens, overlayTween)
+	overlayTween:Play()
 
 	-- Animar blur
 	if self.blur then
 		self.blur.Enabled = true
-		TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = self.blurSize}):Play()
+		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = self.blurSize})
+		table.insert(self.activeTweens, blurTween)
+		blurTween:Play()
 	end
 
 	-- Animar panel
 	self.panel.Position = UDim2.fromScale(0.5, 1.1)
-	TweenService:Create(self.panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {
+	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 0.5)
-	}):Play()
+	})
+	table.insert(self.activeTweens, panelTween)
+	panelTween:Play()
 
 	-- Callback
 	if self.onOpen then
@@ -182,13 +189,25 @@ function ModalManager:close()
 	if not self.isOpen then return end
 	self.isOpen = false
 
+	-- Cancelar tweens activos
+	for _, tween in ipairs(self.activeTweens) do
+		if tween then
+			pcall(function() tween:Cancel() end)
+		end
+	end
+	self.activeTweens = {}
+
 	-- Animar panel
-	TweenService:Create(self.panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
+	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 1.1)
-	}):Play()
+	})
+	table.insert(self.activeTweens, panelTween)
+	panelTween:Play()
 
 	-- Animar overlay
-	TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
+	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1})
+	table.insert(self.activeTweens, overlayTween)
+	overlayTween:Play()
 
 	-- Ocultar después de la animación
 	task.delay(0.22, function()
@@ -198,7 +217,9 @@ function ModalManager:close()
 
 	-- Animar blur
 	if self.blur then
-		TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = 0}):Play()
+		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = 0})
+		table.insert(self.activeTweens, blurTween)
+		blurTween:Play()
 		task.delay(0.22, function()
 			if self.blur then 
 				self.blur.Enabled = false 

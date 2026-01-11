@@ -42,6 +42,51 @@ local currentPage = "Disponibles"
 local availableClans = {}
 
 -- ════════════════════════════════════════════════════════════════
+-- GESTIÓN DE MEMORIA: Tweens y Conexiones
+-- ════════════════════════════════════════════════════════════════
+local activeTweens = {}
+local clanCardConnections = {} -- Conexiones de tarjetas (se limpian por tab)
+local function safeCreateTween(object, info, target)
+	if activeTweens[object] then
+		activeTweens[object]:Cancel()
+		activeTweens[object] = nil
+	end
+	local tween = TweenService:Create(object, info, target)
+	activeTweens[object] = tween
+	return tween
+end
+
+local function cleanupTween(object)
+	if activeTweens[object] then
+		activeTweens[object]:Cancel()
+		activeTweens[object] = nil
+	end
+end
+
+local function trackClanConnection(conn)
+	table.insert(clanCardConnections, conn)
+	return conn
+end
+
+local function cleanupAllTweens()
+	for object, tween in pairs(activeTweens) do
+		if tween then
+			pcall(function() tween:Cancel() end)
+		end
+		activeTweens[object] = nil
+	end
+end
+
+local function disconnectClanConnections()
+	for _, conn in ipairs(clanCardConnections) do
+		if conn then
+			pcall(function() conn:Disconnect() end)
+		end
+	end
+	clanCardConnections = {}
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- FORWARD DECLARATIONS (para evitar errores de orden)
 -- ════════════════════════════════════════════════════════════════
 local loadPlayerClan
@@ -357,6 +402,19 @@ listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	clansScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
 end)
 
+-- FILTRO DE BÚSQUEDA
+local searchDebounce = false
+searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+	if searchDebounce then return end
+	searchDebounce = true
+	task.delay(0.3, function()
+		if currentPage == "Disponibles" then
+			loadClansFromServer(searchInput.Text)
+		end
+		searchDebounce = false
+	end)
+end)
+
 tabPages["Disponibles"] = pageDisponibles
 
 -- ════════════════════════════════════════════════════════════════
@@ -539,6 +597,9 @@ end
 
 -- Función: Cargar clan del jugador
 loadPlayerClan = function()
+	-- CRÍTICO: Limpiar tweens e imágenes previas
+	cleanupAllTweens()
+
 	for _, child in ipairs(tuClanContainer:GetChildren()) do
 		child:Destroy()
 	end
@@ -744,7 +805,7 @@ loadPlayerClan = function()
 		btnEditTag.Parent = editFrame
 		rounded(btnEditTag, 6)
 
-		btnEditName.MouseButton1Click:Connect(function()
+		trackClanConnection(btnEditName.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
 				screenGui = screenGui,
 				title = "Cambiar Nombre",
@@ -769,9 +830,9 @@ loadPlayerClan = function()
 					end
 				end
 			})
-		end)
+		end))
 
-		btnEditTag.MouseButton1Click:Connect(function()
+		trackClanConnection(btnEditTag.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
 				screenGui = screenGui,
 				title = "Cambiar TAG",
@@ -797,7 +858,7 @@ loadPlayerClan = function()
 					end
 				end
 			})
-		end)
+		end))
 
 		-- Botón salir/disolver (solo para owner)
 		-- Solo mostrar botón si es owner
@@ -815,7 +876,7 @@ loadPlayerClan = function()
 			btnDissolve.Parent = clanCard
 			rounded(btnDissolve, 6)
 
-			btnDissolve.MouseButton1Click:Connect(function()
+			trackClanConnection(btnDissolve.MouseButton1Click:Connect(function()
 				ConfirmationModal.new({
 					screenGui = screenGui,
 					title = "Disolver Clan",
@@ -833,7 +894,7 @@ loadPlayerClan = function()
 						end
 					end
 				})
-			end)
+			end))
 		else
 			-- Para miembros no-owner: botón de salir
 			local btnLeave = Instance.new("TextButton")
@@ -849,7 +910,7 @@ loadPlayerClan = function()
 			btnLeave.Parent = clanCard
 			rounded(btnLeave, 6)
 
-			btnLeave.MouseButton1Click:Connect(function()
+			trackClanConnection(btnLeave.MouseButton1Click:Connect(function()
 				ConfirmationModal.new({
 					screenGui = screenGui,
 					title = "Salir del Clan",
@@ -867,7 +928,7 @@ loadPlayerClan = function()
 						end
 					end
 				})
-			end)
+			end))
 		end
 
 		-- Miembros
@@ -916,37 +977,44 @@ loadPlayerClan = function()
 				memberFrame.Parent = membersScroll
 				rounded(memberFrame, 8)
 
-				local avatar = Instance.new("ImageLabel")
-				avatar.Size = UDim2.new(0, 50, 0, 50)
-				avatar.Position = UDim2.new(0.5, -25, 0, 5)
-				avatar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-				avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. odI .. "&width=420&height=420&format=png"
-				avatar.ZIndex = 107
-				avatar.Parent = memberFrame
-				rounded(avatar, 6)
+				-- Validar odI es un número
+				local userId = tonumber(odI) or 0
+				if userId > 0 then
 
-				local nameLabel = Instance.new("TextLabel")
-				nameLabel.Size = UDim2.new(1, -4, 0, 12)
-				nameLabel.Position = UDim2.new(0, 2, 0, 58)
-				nameLabel.BackgroundTransparency = 1
-				nameLabel.Text = (memberData.nombre or "Usuario"):sub(1, 10)
-				nameLabel.TextColor3 = THEME.text
-				nameLabel.TextSize = 8
-				nameLabel.Font = Enum.Font.Gotham
-				nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				nameLabel.ZIndex = 107
-				nameLabel.Parent = memberFrame
+					local avatar = Instance.new("ImageLabel")
+					avatar.Size = UDim2.new(0, 50, 0, 50)
+					avatar.Position = UDim2.new(0.5, -25, 0, 5)
+					avatar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+					avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
+					avatar.ZIndex = 107
+					avatar.Parent = memberFrame
+					rounded(avatar, 6)
+					-- CRÍTICO: Agregar error handling para imágenes fallidas
+					avatar.ImageTransparency = 0.1
 
-				local rolLabel = Instance.new("TextLabel")
-				rolLabel.Size = UDim2.new(1, -4, 0, 10)
-				rolLabel.Position = UDim2.new(0, 2, 0, 72)
-				rolLabel.BackgroundTransparency = 1
-				rolLabel.Text = memberData.rol:sub(1,1):upper() .. memberData.rol:sub(2)
-				rolLabel.TextColor3 = THEME.accent
-				rolLabel.TextSize = 7
-				rolLabel.Font = Enum.Font.GothamBold
-				rolLabel.ZIndex = 107
-				rolLabel.Parent = memberFrame
+					local nameLabel = Instance.new("TextLabel")
+					nameLabel.Size = UDim2.new(1, -4, 0, 12)
+					nameLabel.Position = UDim2.new(0, 2, 0, 58)
+					nameLabel.BackgroundTransparency = 1
+					nameLabel.Text = (memberData.nombre or "Usuario"):sub(1, 10)
+					nameLabel.TextColor3 = THEME.text
+					nameLabel.TextSize = 8
+					nameLabel.Font = Enum.Font.Gotham
+					nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+					nameLabel.ZIndex = 107
+					nameLabel.Parent = memberFrame
+
+					local rolLabel = Instance.new("TextLabel")
+					rolLabel.Size = UDim2.new(1, -4, 0, 10)
+					rolLabel.Position = UDim2.new(0, 2, 0, 72)
+					rolLabel.BackgroundTransparency = 1
+					rolLabel.Text = (memberData.rol and (memberData.rol:sub(1,1):upper() .. memberData.rol:sub(2))) or "?"
+					rolLabel.TextColor3 = THEME.accent
+					rolLabel.TextSize = 7
+					rolLabel.Font = Enum.Font.GothamBold
+					rolLabel.ZIndex = 107
+					rolLabel.Parent = memberFrame
+				end
 			end
 		end
 
@@ -1108,7 +1176,7 @@ createClanEntry = function(clanData)
 		-- No está en este clan
 		hoverEffect(joinBtn, THEME.accent, brighten(THEME.accent, 1.15))
 
-		joinBtn.MouseButton1Click:Connect(function()
+		trackClanConnection(joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:JoinClan(clanData.clanId)
 			if success then
 				Notify:Success("Unido al clan", msg or ("Te has unido a " .. clanData.clanName), 5)
@@ -1118,7 +1186,7 @@ createClanEntry = function(clanData)
 			else
 				Notify:Error("Error", msg or "No se pudo unir al clan", 5)
 			end
-		end)
+		end))
 	end
 
 	hoverEffect(entry, THEME.card, Color3.fromRGB(40, 40, 50))
@@ -1127,7 +1195,10 @@ createClanEntry = function(clanData)
 end
 
 -- Función: Cargar clanes desde el servidor
-loadClansFromServer = function()
+loadClansFromServer = function(filtro)
+	filtro = filtro or ""
+	local filtroLower = filtro:lower()
+
 	for _, child in ipairs(clansScroll:GetChildren()) do
 		if not child:IsA("UIListLayout") then
 			child:Destroy()
@@ -1161,9 +1232,11 @@ loadClansFromServer = function()
 			return
 		end
 		for i, dot in ipairs(loadingDots) do
-			TweenService:Create(dot, TweenInfo.new(0.2), {
-				BackgroundTransparency = (i == animIndex) and 0 or 0.6
-			}):Play()
+			if dot and dot.Parent then
+				TweenService:Create(dot, TweenInfo.new(0.2), {
+					BackgroundTransparency = (i == animIndex) and 0 or 0.6
+				}):Play()
+			end
 		end
 		animIndex = (animIndex % 3) + 1
 	end)
@@ -1182,6 +1255,7 @@ loadClansFromServer = function()
 	task.spawn(function()
 		local clans = ClanClient:GetClansList()
 
+		-- CRÍTICO: Desconectar animación antes de destruir container
 		if animConnection then animConnection:Disconnect() end
 		if loadingContainer and loadingContainer.Parent then
 			loadingContainer:Destroy()
@@ -1190,8 +1264,28 @@ loadClansFromServer = function()
 		availableClans = clans or {}
 
 		if #availableClans > 0 then
+			local hayResultados = false
 			for _, clanData in ipairs(availableClans) do
-				createClanEntry(clanData)
+				-- Aplicar filtro
+				local nombre = (clanData.clanName or ""):lower()
+				local tag = (clanData.clanTag or ""):lower()
+
+				if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
+					createClanEntry(clanData)
+					hayResultados = true
+				end
+			end
+
+			if not hayResultados and filtroLower ~= "" then
+				local noResults = Instance.new("TextLabel")
+				noResults.Size = UDim2.new(1, 0, 0, 60)
+				noResults.BackgroundTransparency = 1
+				noResults.Text = "No se encontraron clanes"
+				noResults.TextColor3 = THEME.muted
+				noResults.TextSize = 13
+				noResults.Font = Enum.Font.GothamMedium
+				noResults.ZIndex = 104
+				noResults.Parent = clansScroll
 			end
 		else
 			local noClans = Instance.new("TextLabel")
@@ -1281,7 +1375,7 @@ loadAdminClans = function()
 		hoverEffect(deleteBtn, Color3.fromRGB(160, 50, 50), Color3.fromRGB(200, 70, 70))
 		hoverEffect(entry, THEME.card, Color3.fromRGB(40, 40, 50))
 
-		deleteBtn.MouseButton1Click:Connect(function()
+		trackClanConnection(deleteBtn.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
 				screenGui = screenGui,
 				title = "Eliminar Clan",
@@ -1298,7 +1392,7 @@ loadAdminClans = function()
 					end
 				end
 			})
-		end)
+		end))
 	end
 end
 
@@ -1306,6 +1400,10 @@ end
 -- TAB SWITCHING
 -- ════════════════════════════════════════════════════════════════
 switchTab = function(tabName)
+	-- CRÍTICO: Limpiar conexiones PRIMERO, luego tweens
+	disconnectClanConnections()
+	cleanupAllTweens()
+
 	currentPage = tabName
 
 	for name, btn in pairs(tabButtons) do
@@ -1427,10 +1525,13 @@ end
 
 -- Listener para actualizaciones en tiempo real (como DjDashboard)
 ClanClient.onClansUpdated = function(clans)
+	-- CRÍTICO: Validar que screenGui aún existe
+	if not screenGui or not screenGui.Parent then return end
+
 	-- Solo actualizar si estamos en la pestaña correspondiente
-	if currentPage == "Disponibles" then
+	if currentPage == "Disponibles" and clansScroll and clansScroll.Parent then
 		loadClansFromServer()
-	elseif currentPage == "Admin" and isAdmin then
+	elseif currentPage == "Admin" and isAdmin and adminClansScroll and adminClansScroll.Parent then
 		loadAdminClans()
 	end
 end

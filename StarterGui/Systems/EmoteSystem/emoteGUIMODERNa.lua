@@ -101,6 +101,7 @@ local tieneVIP = false
 -- Debounces
 local actualizandoDebounce = false
 local favoritoDebounce = false
+local activeTweens = {} -- Rastrear tweens para limpiarlos
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- UTILIDADES UI
@@ -109,7 +110,12 @@ local favoritoDebounce = false
 local UI = {}
 
 function UI.Tween(obj, dur, props, style, dir)
+	-- CRÍTICO: Cancelar tween anterior del mismo objeto
+	if activeTweens[obj] then
+		pcall(function() activeTweens[obj]:Cancel() end)
+	end
 	local tween = TweenService:Create(obj, TweenInfo.new(dur, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
+	activeTweens[obj] = tween
 	tween:Play()
 	return tween
 end
@@ -158,18 +164,34 @@ end
 -- HELPERS
 -- ════════════════════════════════════════════════════════════════════════════════
 
-local allConnections = {}
-local function trackConnection(connection)
-	table.insert(allConnections, connection)
+local cardConnections = {} -- Solo conexiones de tarjetas (se limpian en Actualizar)
+local persistentConnections = {} -- Conexiones persistentes (nunca se limpian)
+
+local function trackCardConnection(connection)
+	table.insert(cardConnections, connection)
 	return connection
 end
-local function disconnectAllConnections()
-	for _, conn in ipairs(allConnections) do
+
+local function trackPersistentConnection(connection)
+	table.insert(persistentConnections, connection)
+	return connection
+end
+
+local function disconnectCardConnections()
+	for _, conn in ipairs(cardConnections) do
 		if conn then
 			pcall(function() conn:Disconnect() end)
 		end
 	end
-	allConnections = {}
+	cardConnections = {}
+	
+	-- CRÍTICO: Cancelar tweens de tarjetas también
+	for obj, tween in pairs(activeTweens) do
+		if tween then
+			pcall(function() tween:Cancel() end)
+		end
+		activeTweens[obj] = nil
+	end
 end
 
 local function GetCardHeight()
@@ -191,23 +213,11 @@ local function EstaEnFavoritos(id)
 	return table.find(EmotesFavs, id) ~= nil
 end
 
--- Animar visibilidad de elementos hijos
+-- Animar visibilidad de elementos hijos (OPTIMIZADO: solo animar card, no descendientes)
 local function AnimarElementos(card, visible, excludeActiveBorder)
 	local targetTransparency = visible and 0 or 1
-
+	-- Solo animar el card principal, NO cada hijo individualmente
 	UI.Tween(card, 0.3, {BackgroundTransparency = targetTransparency})
-
-	for _, child in ipairs(card:GetDescendants()) do
-		if child:IsA("TextLabel") or child:IsA("TextButton") then
-			UI.Tween(child, 0.3, {TextTransparency = targetTransparency})
-		elseif child:IsA("ImageLabel") then
-			UI.Tween(child, 0.3, {ImageTransparency = targetTransparency})
-		elseif child:IsA("UIStroke") then
-			if not (excludeActiveBorder and child.Name == "ActiveBorder") then
-				UI.Tween(child, 0.3, {Transparency = targetTransparency})
-			end
-		end
-	end
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -321,9 +331,6 @@ if mostrarBusqueda then
 	SearchBox.Parent = SearchContainer
 
 	posY = posY + (IsMobile and 30 or 36)
-else
-	-- Crear SearchBox dummy para evitar nil errors
-	SearchBox = {Text = "", GetPropertyChangedSignal = function() return {Connect = function() end} end}
 end
 
 -- Slider
@@ -576,10 +583,10 @@ local function CrearTarjetaEmote(nombre, id, tipo, orden)
 	favBtn.Parent = card
 
 	-- Hover
-	trackConnection(card.MouseEnter:Connect(function()
+	trackCardConnection(card.MouseEnter:Connect(function()
 		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor:Lerp(Color3.fromRGB(255,255,255), 0.2)})
 	end))
-	trackConnection(card.MouseLeave:Connect(function()
+	trackCardConnection(card.MouseLeave:Connect(function()
 		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor})
 	end))
 
@@ -653,28 +660,19 @@ Actualizar = function(filtro)
 	if actualizandoDebounce then return end
 	actualizandoDebounce = true
 
-	filtro = filtro or (type(SearchBox) == "table" and SearchBox.Text or "")
+	filtro = filtro or (SearchBox and SearchBox.Text or "")
 
 	local activeDanceName = DanceActivated
 	local scrollPosition = ScrollFrame.CanvasPosition.Y
 
-	-- Limpiar
+	-- Limpiar CONEXIONES PRIMERO, luego UI
+	disconnectCardConnections()
+	
 	for _, child in ipairs(ScrollFrame:GetChildren()) do
 		if child:GetAttribute("EmoteEntry") then
-			if child:IsA("TextButton") then
-				pcall(function() child.MouseButton1Click:DisconnectAll() end)
-				pcall(function() child.MouseEnter:DisconnectAll() end)
-				pcall(function() child.MouseLeave:DisconnectAll() end)
-			end
-			for _, grandchild in ipairs(child:GetDescendants()) do
-				if grandchild:IsA("TextButton") then
-					pcall(function() grandchild.MouseButton1Click:DisconnectAll() end)
-				end
-			end
 			child:Destroy()
 		end
 	end
-	disconnectAllConnections()
 	ActiveCard = nil
 
 	-- Obtener datos
@@ -684,12 +682,13 @@ Actualizar = function(filtro)
 	local orden = 1
 	local filtroLower = filtro:lower()
 	local delayCounter = 0
+	local MAX_ANIMATED_CARDS = 15  -- CRÍTICO: Limitar tarjetas animadas
 
 	local function pasaFiltro(nombre)
 		return filtroLower == "" or nombre:lower():find(filtroLower, 1, true)
 	end
 
-	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado)
+	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado, shouldAnimate)
 		local card, favBtn = CrearTarjetaEmote(nombre, id, tipo, orden)
 		orden = orden + 1
 
@@ -703,20 +702,32 @@ Actualizar = function(filtro)
 			end
 		end
 
-		-- Animar entrada
-		delayCounter = delayCounter + 1
-		task.delay(delayCounter * 0.03, function()
-			if card and card.Parent then
-				AnimarElementos(card, true, true)
+		-- Animar entrada SOLO si es dentro del límite
+		if shouldAnimate then
+			delayCounter = delayCounter + 1
+			task.delay(delayCounter * 0.03, function()
+				if card and card.Parent then
+					AnimarElementos(card, true, true)
+				end
+			end)
+		else
+			-- Sin animación: simplemente hacer visible
+			card.BackgroundTransparency = 0
+			for _, child in ipairs(card:GetDescendants()) do
+				if child:IsA("TextLabel") or child:IsA("TextButton") then
+					child.TextTransparency = 0
+				elseif child:IsA("UIStroke") then
+					child.Transparency = 0
+				end
 			end
-		end)
+		end
 
 		-- Configurar clicks
-		trackConnection(card.MouseButton1Click:Connect(function()
+		trackCardConnection(card.MouseButton1Click:Connect(function()
 			ManejarClickTarjeta(card, nombre, esVIPBloqueado)
 		end))
 
-		trackConnection(favBtn.MouseButton1Click:Connect(function()
+		trackCardConnection(favBtn.MouseButton1Click:Connect(function()
 			ManejarClickFavorito(id, nombre)
 		end))
 
@@ -799,9 +810,11 @@ Actualizar = function(filtro)
 				CrearSeparador(cat.nombre, cat.icono, cat.color, orden)
 				orden = orden + 1
 
-				for _, data in ipairs(visibles) do
+				for i, data in ipairs(visibles) do
 					local esVIPBloqueado = cat.esVIP and not tieneVIP
-					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado)
+					-- Solo animar las primeras MAX_ANIMATED_CARDS tarjetas
+					local shouldAnimate = delayCounter < MAX_ANIMATED_CARDS
+					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado, shouldAnimate)
 				end
 			end
 		end
@@ -885,16 +898,17 @@ end
 -- BÚSQUEDA
 -- ════════════════════════════════════════════════════════════════════════════════
 
-if mostrarBusqueda and type(SearchBox) ~= "table" then
+if mostrarBusqueda and SearchBox then
 	local searchDebounce = false
-	trackConnection(SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	-- NO usar trackConnection aquí porque disconnectAllConnections() lo desconectaría
+	SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		if searchDebounce then return end
 		searchDebounce = true
 		task.delay(0.3, function()
 			Actualizar(SearchBox.Text)
 			searchDebounce = false
 		end)
-	end))
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -1014,14 +1028,15 @@ end)
 -- RESPONSIVE
 -- ════════════════════════════════════════════════════════════════════════════════
 
-trackConnection(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+-- NO usar trackConnection para eventos globales que no deben desconectarse
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
 	local newIsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	if newIsMobile ~= IsMobile then
 		IsMobile = newIsMobile
 		ActualizarTamanoFrame()
 		Actualizar()
 	end
-end))
+end)
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN

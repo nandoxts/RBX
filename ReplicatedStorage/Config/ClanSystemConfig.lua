@@ -155,6 +155,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanColor = {138, 43, 226}, -- Morado/Púrpura (BlueViolet)
 	},
 	{
+
 		clanName = "DOLLYS",
 		ownerId = 437675178,
 		clanTag = "DLS",
@@ -163,6 +164,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "😹",
 		clanColor = {34, 177, 76}, -- Verde elegante
 	},
+
 }
 
 -- ═══════════════════════════════════════════════════════════
