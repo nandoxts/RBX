@@ -73,7 +73,7 @@ local Theme = {
 	TextSecondary = THEME_CONFIG.muted,
 	TextMuted = THEME_CONFIG.subtle,
 	Border = THEME_CONFIG.stroke,
-	
+
 	-- Categorías
 	Favorites = Color3.fromRGB(255, 200, 0),
 	Trending = Color3.fromRGB(255, 140, 0),
@@ -158,6 +158,20 @@ end
 -- HELPERS
 -- ════════════════════════════════════════════════════════════════════════════════
 
+local allConnections = {}
+local function trackConnection(connection)
+	table.insert(allConnections, connection)
+	return connection
+end
+local function disconnectAllConnections()
+	for _, conn in ipairs(allConnections) do
+		if conn then
+			pcall(function() conn:Disconnect() end)
+		end
+	end
+	allConnections = {}
+end
+
 local function GetCardHeight()
 	return IsMobile and 28 or 38
 end
@@ -180,9 +194,9 @@ end
 -- Animar visibilidad de elementos hijos
 local function AnimarElementos(card, visible, excludeActiveBorder)
 	local targetTransparency = visible and 0 or 1
-	
+
 	UI.Tween(card, 0.3, {BackgroundTransparency = targetTransparency})
-	
+
 	for _, child in ipairs(card:GetDescendants()) do
 		if child:IsA("TextLabel") or child:IsA("TextButton") then
 			UI.Tween(child, 0.3, {TextTransparency = targetTransparency})
@@ -274,7 +288,7 @@ if mostrarTitulo then
 	TitleLabel.TextColor3 = Theme.TextPrimary
 	TitleLabel.TextSize = IsMobile and 16 or 20
 	TitleLabel.Parent = Header
-	
+
 	posY = IsMobile and 30 or 42
 end
 
@@ -305,7 +319,7 @@ if mostrarBusqueda then
 	SearchBox.TextXAlignment = Enum.TextXAlignment.Left
 	SearchBox.ClearTextOnFocus = false
 	SearchBox.Parent = SearchContainer
-	
+
 	posY = posY + (IsMobile and 30 or 36)
 else
 	-- Crear SearchBox dummy para evitar nil errors
@@ -372,7 +386,7 @@ if mostrarSlider then
 	SliderKnob.Parent = SliderTrack
 	UI.CreateCorner(SliderKnob, 8)
 	UI.CreateStroke(SliderKnob, Theme.Primary, 2)
-	
+
 	posY = posY + 36
 else
 	posY = posY + 4
@@ -423,19 +437,19 @@ local function AplicarEfectoActivo(card)
 	local activeBar = card:FindFirstChild("ActiveBar")
 	local activeOverlay = card:FindFirstChild("ActiveOverlay")
 	local activeBorder = card:FindFirstChild("ActiveBorder")
-	
+
 	if activeBorder then UI.Tween(activeBorder, 0.3, {Transparency = 0}) end
-	
+
 	if activeBar then
 		activeBar.Size = UDim2.new(0, 0, 1, 0)
 		UI.Tween(activeBar, 0.3, {BackgroundTransparency = 0})
 		UI.Tween(activeBar, 0.4, {Size = UDim2.new(0, 4, 1, 0)}, Enum.EasingStyle.Back)
 	end
-	
+
 	if activeOverlay then
 		UI.Tween(activeOverlay, 0.3, {BackgroundTransparency = 0.85})
 	end
-	
+
 	UI.Tween(card, 0.2, {Size = UDim2.new(1, 4, 0, GetCardHeight() + 2)}, Enum.EasingStyle.Back)
 end
 
@@ -443,18 +457,18 @@ local function RemoverEfectoActivo(card)
 	local activeBar = card:FindFirstChild("ActiveBar")
 	local activeOverlay = card:FindFirstChild("ActiveOverlay")
 	local activeBorder = card:FindFirstChild("ActiveBorder")
-	
+
 	if activeBorder then UI.Tween(activeBorder, 0.2, {Transparency = 1}) end
-	
+
 	if activeBar then
 		UI.Tween(activeBar, 0.2, {BackgroundTransparency = 1})
 		UI.Tween(activeBar, 0.2, {Size = UDim2.new(0, 0, 1, 0)})
 	end
-	
+
 	if activeOverlay then
 		UI.Tween(activeOverlay, 0.2, {BackgroundTransparency = 1})
 	end
-	
+
 	UI.Tween(card, 0.2, {Size = UDim2.new(1, 0, 0, GetCardHeight())})
 end
 
@@ -501,7 +515,7 @@ local function CrearTarjetaEmote(nombre, id, tipo, orden)
 	card:SetAttribute("EmoteName", nombre)
 	card:SetAttribute("EmoteTipo", tipo)
 	card.Parent = ScrollFrame
-	
+
 	UI.CreateCorner(card, IsMobile and 5 or 8)
 	UI.CreateGradient(card, cardColor, Color3.fromRGB(0, 0, 0), 180)
 
@@ -515,7 +529,7 @@ local function CrearTarjetaEmote(nombre, id, tipo, orden)
 	activeBar.ZIndex = 10
 	activeBar.Parent = card
 	UI.CreateCorner(activeBar, IsMobile and 5 or 8)
-	
+
 	local activeOverlay = Instance.new("Frame")
 	activeOverlay.Name = "ActiveOverlay"
 	activeOverlay.Size = UDim2.new(1, 0, 1, 0)
@@ -525,7 +539,7 @@ local function CrearTarjetaEmote(nombre, id, tipo, orden)
 	activeOverlay.ZIndex = 2
 	activeOverlay.Parent = card
 	UI.CreateCorner(activeOverlay, IsMobile and 5 or 8)
-	
+
 	local activeBorder = Instance.new("UIStroke")
 	activeBorder.Name = "ActiveBorder"
 	activeBorder.Color = cardColor
@@ -562,12 +576,12 @@ local function CrearTarjetaEmote(nombre, id, tipo, orden)
 	favBtn.Parent = card
 
 	-- Hover
-	card.MouseEnter:Connect(function()
+	trackConnection(card.MouseEnter:Connect(function()
 		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor:Lerp(Color3.fromRGB(255,255,255), 0.2)})
-	end)
-	card.MouseLeave:Connect(function()
+	end))
+	trackConnection(card.MouseLeave:Connect(function()
 		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor})
-	end)
+	end))
 
 	return card, favBtn
 end
@@ -585,7 +599,7 @@ local function ManejarClickTarjeta(card, nombre, esVIPBloqueado)
 		MarketplaceService:PromptGamePassPurchase(Jugador, VIPGamePassID)
 		return
 	end
-	
+
 	if DanceActivated == nombre then
 		DanceActivated = nil
 		StopAnimationRemote:FireServer()
@@ -605,11 +619,11 @@ end
 local function ManejarClickFavorito(id, nombre)
 	if favoritoDebounce then return end
 	favoritoDebounce = true
-	
+
 	local success, status = pcall(function()
 		return AnadirFav:InvokeServer(id)
 	end)
-	
+
 	if not success then
 		NotificationSystem:Error("Error", "Error de conexión al servidor", 3)
 		favoritoDebounce = false
@@ -625,7 +639,7 @@ local function ManejarClickFavorito(id, nombre)
 		favoritoDebounce = false
 		return
 	end
-	
+
 	EmotesFavs = ObtenerFavs:InvokeServer() or {}
 	favoritoDebounce = false
 	Actualizar()
@@ -638,18 +652,29 @@ end
 Actualizar = function(filtro)
 	if actualizandoDebounce then return end
 	actualizandoDebounce = true
-	
+
 	filtro = filtro or (type(SearchBox) == "table" and SearchBox.Text or "")
-	
+
 	local activeDanceName = DanceActivated
 	local scrollPosition = ScrollFrame.CanvasPosition.Y
-	
+
 	-- Limpiar
 	for _, child in ipairs(ScrollFrame:GetChildren()) do
 		if child:GetAttribute("EmoteEntry") then
+			if child:IsA("TextButton") then
+				pcall(function() child.MouseButton1Click:DisconnectAll() end)
+				pcall(function() child.MouseEnter:DisconnectAll() end)
+				pcall(function() child.MouseLeave:DisconnectAll() end)
+			end
+			for _, grandchild in ipairs(child:GetDescendants()) do
+				if grandchild:IsA("TextButton") then
+					pcall(function() grandchild.MouseButton1Click:DisconnectAll() end)
+				end
+			end
 			child:Destroy()
 		end
 	end
+	disconnectAllConnections()
 	ActiveCard = nil
 
 	-- Obtener datos
@@ -663,11 +688,11 @@ Actualizar = function(filtro)
 	local function pasaFiltro(nombre)
 		return filtroLower == "" or nombre:lower():find(filtroLower, 1, true)
 	end
-	
+
 	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado)
 		local card, favBtn = CrearTarjetaEmote(nombre, id, tipo, orden)
 		orden = orden + 1
-		
+
 		-- Iniciar invisible
 		card.BackgroundTransparency = 1
 		for _, child in ipairs(card:GetDescendants()) do
@@ -677,7 +702,7 @@ Actualizar = function(filtro)
 				child.Transparency = 1
 			end
 		end
-		
+
 		-- Animar entrada
 		delayCounter = delayCounter + 1
 		task.delay(delayCounter * 0.03, function()
@@ -685,16 +710,16 @@ Actualizar = function(filtro)
 				AnimarElementos(card, true, true)
 			end
 		end)
-		
+
 		-- Configurar clicks
-		card.MouseButton1Click:Connect(function()
+		trackConnection(card.MouseButton1Click:Connect(function()
 			ManejarClickTarjeta(card, nombre, esVIPBloqueado)
-		end)
-		
-		favBtn.MouseButton1Click:Connect(function()
+		end))
+
+		trackConnection(favBtn.MouseButton1Click:Connect(function()
 			ManejarClickFavorito(id, nombre)
-		end)
-		
+		end))
+
 		return card
 	end
 
@@ -751,11 +776,11 @@ Actualizar = function(filtro)
 	for _, cat in ipairs(categorias) do
 		if cat.datos and #cat.datos > 0 then
 			local visibles = {}
-			
+
 			for _, v in ipairs(cat.datos) do
 				local id = cat.esID and v or v.ID
 				local nombre = cat.esID and EncontrarNombre(v) or v.Nombre
-				
+
 				-- Verificar si no está en listas de filtro
 				local enOtraLista = false
 				for _, lista in ipairs(cat.filtrarDe) do
@@ -764,16 +789,16 @@ Actualizar = function(filtro)
 						break
 					end
 				end
-				
+
 				if not enOtraLista and pasaFiltro(nombre) then
 					table.insert(visibles, {id = id, nombre = nombre})
 				end
 			end
-			
+
 			if #visibles > 0 then
 				CrearSeparador(cat.nombre, cat.icono, cat.color, orden)
 				orden = orden + 1
-				
+
 				for _, data in ipairs(visibles) do
 					local esVIPBloqueado = cat.esVIP and not tieneVIP
 					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado)
@@ -781,11 +806,11 @@ Actualizar = function(filtro)
 			end
 		end
 	end
-	
+
 	-- Restaurar estado
 	task.delay(0.15, function()
 		ScrollFrame.CanvasPosition = Vector2.new(0, scrollPosition)
-		
+
 		if activeDanceName then
 			for _, child in ipairs(ScrollFrame:GetChildren()) do
 				if child:GetAttribute("EmoteName") == activeDanceName then
@@ -795,7 +820,7 @@ Actualizar = function(filtro)
 				end
 			end
 		end
-		
+
 		actualizandoDebounce = false
 	end)
 end
@@ -862,14 +887,14 @@ end
 
 if mostrarBusqueda and type(SearchBox) ~= "table" then
 	local searchDebounce = false
-	SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	trackConnection(SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		if searchDebounce then return end
 		searchDebounce = true
 		task.delay(0.3, function()
 			Actualizar(SearchBox.Text)
 			searchDebounce = false
 		end)
-	end)
+	end))
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -970,14 +995,17 @@ RunService.RenderStepped:Connect(function()
 	if not esValido then return end
 
 	LastSyncedAnim = track.Animation
-	if SyncAnim then SyncAnim:Stop() end
+	if SyncAnim then
+		pcall(function() SyncAnim:Stop() end)
+		SyncAnim = nil
+	end
 
 	SyncAnim = Animator:LoadAnimation(track.Animation)
 	SyncAnim.Priority = Enum.AnimationPriority.Action
 	SyncAnim:Play()
 	SyncAnim.TimePosition = track.TimePosition
 	SyncAnim:AdjustSpeed(track.Speed)
-	
+
 	NotificationSystem:Success("Sincronización", "Sincronizado: " .. LastSyncedAnim.Name, 2)
 end)
 
@@ -986,14 +1014,14 @@ end)
 -- RESPONSIVE
 -- ════════════════════════════════════════════════════════════════════════════════
 
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+trackConnection(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
 	local newIsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	if newIsMobile ~= IsMobile then
 		IsMobile = newIsMobile
 		ActualizarTamanoFrame()
 		Actualizar()
 	end
-end)
+end))
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN
