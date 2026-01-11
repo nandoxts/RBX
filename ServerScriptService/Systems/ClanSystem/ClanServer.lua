@@ -64,25 +64,26 @@ local function updatePlayerClanAttributes(userId)
 	if not player then return end
 	
 	local playerClan = ClanData:GetPlayerClan(userId)
+	
 	if playerClan and playerClan.clanId then
 		local clanData = ClanData:GetClan(playerClan.clanId)
+		
 		if clanData then
 			player:SetAttribute("ClanTag", clanData.clanTag or "")
 			player:SetAttribute("ClanName", clanData.clanName or "")
 			player:SetAttribute("ClanId", clanData.clanId or "")
 			player:SetAttribute("ClanEmoji", clanData.clanEmoji or "")
-			-- Guardar color como string "r,g,b" para fácil parseo en overhead
+			-- Guardar color como Color3 directo (tipo nativo)
 			if clanData.clanColor and typeof(clanData.clanColor) == "table" then
-				local r,g,b = tonumber(clanData.clanColor[1]), tonumber(clanData.clanColor[2]), tonumber(clanData.clanColor[3])
-				if r and g and b then
-					player:SetAttribute("ClanColor", string.format("%d,%d,%d", r, g, b))
-				else
-					player:SetAttribute("ClanColor", "")
-				end
+				local r = tonumber(clanData.clanColor[1]) or 255
+				local g = tonumber(clanData.clanColor[2]) or 255
+				local b = tonumber(clanData.clanColor[3]) or 255
+				player:SetAttribute("ClanColor", Color3.fromRGB(r, g, b))
 			else
-				player:SetAttribute("ClanColor", "")
+				player:SetAttribute("ClanColor", Color3.fromRGB(255, 255, 255))
 			end
 		else
+			-- Limpiar atributos si no hay datos del clan
 			player:SetAttribute("ClanTag", nil)
 			player:SetAttribute("ClanName", nil)
 			player:SetAttribute("ClanId", nil)
@@ -90,6 +91,7 @@ local function updatePlayerClanAttributes(userId)
 			player:SetAttribute("ClanColor", nil)
 		end
 	else
+		-- Limpiar atributos si el jugador no tiene clan
 		player:SetAttribute("ClanTag", nil)
 		player:SetAttribute("ClanName", nil)
 		player:SetAttribute("ClanId", nil)
@@ -99,7 +101,7 @@ local function updatePlayerClanAttributes(userId)
 end
 
 local function initializePlayerClanAttributes(player)
-	task.wait(1) -- Esperar a que el jugador esté completamente cargado
+	-- Asignar inmediatamente para evitar race conditions con overhead
 	updatePlayerClanAttributes(player.UserId)
 end
 
@@ -587,10 +589,16 @@ end
 -- ============================================
 -- INICIALIZACIÓN (como DjDashboard)
 -- ============================================
+print("[Clan System] Iniciando carga de clanes...")
 ClanData:LoadAllClans()
-task.wait(0.5)
+print("[Clan System] Clanes cargados de DataStore")
+
+task.wait(1) -- Esperar más tiempo para asegurar que el DataStore está listo
+
 -- Crear clans por defecto si no existen
+print("[Clan System] Creando clanes por defecto...")
 ClanData:CreateDefaultClans()
+
 -- Inicializar atributos de clanes para jugadores ya en el juego
 for _, player in ipairs(Players:GetPlayers()) do
 	task.spawn(initializePlayerClanAttributes, player)
@@ -603,6 +611,6 @@ Players.PlayerAdded:Connect(initializePlayerClanAttributes)
 local allClans = ClanData:GetAllClans()
 ClansUpdatedEvent:FireAllClients(allClans)
 
-print(" [Clan System] Inicializado correctamente")
+print("[Clan System] ✓ Inicializado correctamente. Total clanes: " .. table.getn(allClans))
 
 return {}

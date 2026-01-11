@@ -70,7 +70,7 @@ ClanSystemConfig.ROLES = {
 		lider = 2,
 		miembro = 1,
 	},
-	
+
 	Permissions = {
 		owner = {
 			invitar = true,
@@ -113,19 +113,55 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanName = "XYZ",
 		ownerId = 10179455284, -- Tu UserId
 		clanTag = "XYZ",
-		clanLogo = "rbxassetid://0",
+		clanLogo = "rbxassetid://86607775490417",
 		descripcion = "Clan oficial de fundadores",
-		clanEmoji = "🔥", -- Emoji que se mostrará junto al TAG
-		clanColor = {0, 170, 255}, -- Color RGB del clan (R,G,B)
+		clanEmoji = "🐉", -- Emoji que se mostrará junto al TAG
+		clanColor = {139, 0, 0}, -- Color RGB del clan (R,G,B) - Rojo oscuro
 	},
-	-- Puedes agregar más clans aquí
-	-- {
-	-- 	clanName = "Staff",
-	-- 	ownerId = 8387751399,
-	-- 	clanTag = "STF",
-	-- 	clanLogo = "rbxassetid://0",
-	-- 	descripcion = "Clan del staff del juego"
-	-- },
+	{
+		clanName = "Shadow Garden",
+		ownerId = 758075372, -- Asignar ownerId
+		clanTag = "SG",
+		clanLogo = "rbxassetid://112234631634424",
+		descripcion = "Clan Shadow Garden",
+		clanEmoji = "🔱",
+		clanColor = {147, 51, 234}, -- Morado vibrante
+	},
+	{
+		clanName = "TH4",
+		ownerId = 3186256515, -- Asignar ownerId
+		clanTag = "TH4",
+		clanLogo = "rbxassetid://116232400811020",
+		descripcion = "Clan TH4",
+		clanEmoji = "🔥",
+		clanColor = {255, 69, 0}, -- Color sugerido (naranja)
+	},
+	{
+		clanName = "RealG4LIFE",
+		ownerId =  2360093196, -- Asignar ownerId
+		clanTag = "RGL",
+		clanLogo = "rbxassetid://133679989617013",
+		descripcion = "Clan RealG4LIFE",
+		clanEmoji = "😈",
+		clanColor = {128, 0, 128}, -- Color sugerido (morado)
+	},
+	{
+		clanName = "King of Darkness",
+		ownerId = 8109061566, -- Asignar ownerId
+		clanTag = "DK",
+		clanLogo = "rbxassetid://110433791728647",
+		descripcion = "Clan King of Darkness",
+		clanEmoji = "💀",
+		clanColor = {138, 43, 226}, -- Morado/Púrpura (BlueViolet)
+	},	{
+		clanName = "DOLLYS",
+		ownerId = 437675178,
+		clanTag = "DLS",
+		clanLogo = "rbxassetid://98191040674306",
+		descripcion = "Clan DOLLYS",
+		clanEmoji = "😹",
+		clanColor = {34, 177, 76}, -- Verde elegante
+	},	-- Puedes agregar más clans aquí
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -172,16 +208,16 @@ function ClanSystemConfig:ValidateClanName(name)
 	if not name or type(name) ~= "string" then
 		return false, "Nombre inválido"
 	end
-	
+
 	local len = #name
 	if len < self.LIMITS.MinClanNameLength then
 		return false, "Nombre muy corto (mínimo " .. self.LIMITS.MinClanNameLength .. " caracteres)"
 	end
-	
+
 	if len > self.LIMITS.MaxClanNameLength then
 		return false, "Nombre muy largo (máximo " .. self.LIMITS.MaxClanNameLength .. " caracteres)"
 	end
-	
+
 	-- Verificar blacklist
 	local lowerName = name:lower()
 	for _, word in ipairs(self.VALIDATION.BlacklistedWords) do
@@ -189,7 +225,7 @@ function ClanSystemConfig:ValidateClanName(name)
 			return false, "Nombre contiene palabras prohibidas"
 		end
 	end
-	
+
 	return true
 end
 
@@ -198,16 +234,16 @@ function ClanSystemConfig:ValidateTag(tag)
 	if not tag or type(tag) ~= "string" then
 		return false, "TAG inválido"
 	end
-	
+
 	local len = #tag
 	if len < self.LIMITS.MinTagLength then
 		return false, "TAG muy corto (mínimo " .. self.LIMITS.MinTagLength .. " caracteres)"
 	end
-	
+
 	if len > self.LIMITS.MaxTagLength then
 		return false, "TAG muy largo (máximo " .. self.LIMITS.MaxTagLength .. " caracteres)"
 	end
-	
+
 	return true
 end
 

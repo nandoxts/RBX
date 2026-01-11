@@ -507,35 +507,51 @@ end
 -- Crear clans por defecto
 function ClanData:CreateDefaultClans()
 	if not Config.DEFAULT_CLANS or #Config.DEFAULT_CLANS == 0 then
+		warn("[ClanData] No hay DEFAULT_CLANS configurados en ClanSystemConfig")
 		return -- No hay clans por defecto configurados
 	end
 	
-	for _, defaultClan in ipairs(Config.DEFAULT_CLANS) do
-		-- Verificar si el clan ya existe (por TAG)
+	print("[ClanData] Iniciando creación de " .. #Config.DEFAULT_CLANS .. " clanes por defecto...")
+	
+	for i, defaultClan in ipairs(Config.DEFAULT_CLANS) do
+		-- Verificar si el clan ya existe (por TAG, case-insensitive)
 		local exists = false
 		for _, existingClan in pairs(clansDatabase) do
-			if existingClan.clanTag == defaultClan.clanTag then
-				exists = true
-				break
+			if existingClan and existingClan.clanTag and defaultClan.clanTag then
+				if string.upper(existingClan.clanTag) == string.upper(defaultClan.clanTag) then
+					exists = true
+					break
+				end
 			end
 		end
 		
 		if not exists then
+			print("[ClanData] Creando clan [" .. i .. "/" .. #Config.DEFAULT_CLANS .. "]: " .. defaultClan.clanName)
+			
 			local success, clanId, result = self:CreateClan(
 				defaultClan.clanName,
 				defaultClan.ownerId,
 				defaultClan.clanTag,
 				defaultClan.clanLogo or "rbxassetid://0",
 				defaultClan.descripcion or "Clan oficial",
-				defaultClan.clanEmoji,
+				defaultClan.clanEmoji or "❓",
 				defaultClan.clanColor
 			)
 			
 			if success then
-				print("[Clan Default] Creado: " .. defaultClan.clanName .. " [" .. defaultClan.clanTag .. "]")
+				print("  ✓ Creado: " .. defaultClan.clanName .. " [ID: " .. clanId .. "] [TAG: " .. defaultClan.clanTag .. "]")
+			else
+				warn("  ✗ ERROR al crear " .. defaultClan.clanName .. ": " .. tostring(result))
 			end
+		else
+			print("  ⚠ Ya existe: " .. defaultClan.clanName .. " [TAG: " .. defaultClan.clanTag .. "]")
 		end
+		
+		-- Pequeña pausa entre creaciones para evitar race conditions
+		task.wait(0.1)
 	end
+	
+	print("[ClanData] Clanes por defecto creados. Total en BD: " .. table.getn(clansDatabase))
 end
 
 -- Obtener evento de actualización (como DjDashboard)

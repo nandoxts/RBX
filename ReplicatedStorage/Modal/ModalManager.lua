@@ -10,11 +10,37 @@
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 -- ════════════════════════════════════════════════════════════════
 -- THEME
 -- ════════════════════════════════════════════════════════════════
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+
+-- ════════════════════════════════════════════════════════════════
+-- DETECCIÓN DE DISPOSITIVO
+-- ════════════════════════════════════════════════════════════════
+local function isMobileDevice()
+	-- Detectar por touch o tamaño de pantalla
+	return UserInputService.TouchEnabled
+end
+
+local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight)
+	local screenSize = screenGui.AbsoluteSize
+	local isMobile = isMobileDevice()
+	
+	if isMobile then
+		-- En celular: usa 90% del ancho, máximo 85% del alto con padding
+		local width = screenSize.X * 0.9
+		local height = math.min(screenSize.Y * 0.85, baseHeight * 0.8)
+		return width, height
+	else
+		-- En desktop: usa tamaño base pero respeta pantalla mínima
+		local width = math.min(baseWidth, screenSize.X * 0.95)
+		local height = math.min(baseHeight, screenSize.Y * 0.9)
+		return width, height
+	end
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -48,13 +74,18 @@ function ModalManager.new(config)
 	-- Configuración
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
-	self.panelWidth = config.panelWidth or (THEME.panelWidth or 980)
-	self.panelHeight = config.panelHeight or (THEME.panelHeight or 620)
+	
+	-- Calcular dimensiones responsivas
+	local baseWidth = config.panelWidth or (THEME.panelWidth or 980)
+	local baseHeight = config.panelHeight or (THEME.panelHeight or 620)
+	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight)
+	
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
 	self.blurSize = config.blurSize or 14
 	self.onOpen = config.onOpen
 	self.onClose = config.onClose
+	self.isMobile = isMobileDevice()
 
 	-- Estado
 	self.isOpen = false

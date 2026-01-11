@@ -240,8 +240,8 @@ end
 
 tabButtons["TuClan"] = createTab("TU CLAN")
 tabButtons["Disponibles"] = createTab("DISPONIBLES")
-tabButtons["Crear"] = createTab("CREAR")
 if isAdmin then
+	tabButtons["Crear"] = createTab("CREAR")
 	tabButtons["Admin"] = createTab("ADMIN")
 end
 
@@ -964,21 +964,14 @@ loadPlayerClan = function()
 		rounded(noClanCard, 12)
 		stroked(noClanCard, 0.6)
 
-		local iconBg = Instance.new("Frame")
-		iconBg.Size = UDim2.new(0, 50, 0, 50)
-		iconBg.Position = UDim2.new(0.5, -25, 0, 20)
-		iconBg.BackgroundColor3 = THEME.surface
-		iconBg.ZIndex = 104
-		iconBg.Parent = noClanCard
-		rounded(iconBg, 25)
-
-		local shield = Instance.new("Frame")
-		shield.Size = UDim2.new(0, 18, 0, 20)
-		shield.Position = UDim2.new(0.5, -9, 0.5, -10)
-		shield.BackgroundColor3 = THEME.muted
-		shield.ZIndex = 105
-		shield.Parent = iconBg
-		rounded(shield, 4)
+		local shieldEmoji = Instance.new("TextLabel")
+		shieldEmoji.Size = UDim2.new(0, 60, 0, 60)
+		shieldEmoji.Position = UDim2.new(0.5, -30, 0, 15)
+		shieldEmoji.BackgroundTransparency = 1
+		shieldEmoji.Text = "🛡️"
+		shieldEmoji.TextSize = 40
+		shieldEmoji.ZIndex = 104
+		shieldEmoji.Parent = noClanCard
 
 		local noClanText = Instance.new("TextLabel")
 		noClanText.Size = UDim2.new(1, -20, 0, 20)
@@ -1322,6 +1315,9 @@ switchTab = function(tabName)
 	end
 
 	local positions = { TuClan = 20, Disponibles = 112, Crear = 204, Admin = 296 }
+	if not isAdmin then
+		positions = { TuClan = 20, Disponibles = 112 }
+	end
 	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0, positions[tabName] or 20, 0, 93)
 	}):Play()
@@ -1335,6 +1331,13 @@ switchTab = function(tabName)
 		task.spawn(loadPlayerClan)
 	elseif tabName == "Disponibles" then
 		task.spawn(loadClansFromServer)
+	elseif tabName == "Crear" and isAdmin then
+		task.spawn(function()
+			-- Asegurarse de que la página existe
+			if pageCrear and pageCrear.Parent then
+				task.spawn(function() end) -- Página ya está lista
+			end
+		end)
 	elseif tabName == "Admin" and isAdmin then
 		task.spawn(loadAdminClans)
 	end
