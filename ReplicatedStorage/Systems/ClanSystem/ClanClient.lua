@@ -99,11 +99,11 @@ local function EnsureInitialized()
 		DissolveFunction = WaitForFunction("DissolveClan")
 		LeaveClanFunction = WaitForFunction("LeaveClan")
 		AdminDissolveFunction = WaitForFunction("AdminDissolveClan")
-		print("✅ [ClanClient] Funciones secundarias cargadas")
+		print("[ClanClient] Funciones secundarias cargadas")
 	end)
 
 	initialized = true
-	print("✅ [ClanClient] Inicialización rápida completada")
+	print("[ClanClient] Inicialización rápida completada")
 end
 
 

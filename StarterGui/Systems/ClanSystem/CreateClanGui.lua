@@ -84,7 +84,7 @@ end
 local function getAvatarImage(userId, size)
 	size = size or Enum.ThumbnailSize.Size150x150
 	local cacheKey = userId .. "_" .. tostring(size)
-	
+
 	if not avatarCache[cacheKey] then
 		local success, thumb = pcall(function()
 			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, size)
