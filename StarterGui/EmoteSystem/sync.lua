@@ -9,7 +9,8 @@ local Remotes = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local syncremote = Remotes.Sync
 
 local Remotos = ReplicatedStorage:WaitForChild("Eventos_Emote")
-local Noti = Remotos:WaitForChild("RemoteNoti")
+-- Usar NotificationSystem local en el cliente en vez de RemoteNoti
+local NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
 
 --[[ LOCALS ]]--
@@ -78,9 +79,7 @@ UserInputService.InputBegan:Connect(function(Input, Processed)
 
 			-- Enviar notificación con validación
 			pcall(function()
-				if Noti then
-					Noti:FireServer("Has dejado de estar sincronizado", "sync", 4)
-				end
+				NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
 			end)
 
 		else
@@ -91,9 +90,7 @@ UserInputService.InputBegan:Connect(function(Input, Processed)
 				-- Enviar notificación con validación de nombre
 				local targetName = tostring(Target.Name):sub(1, 50) -- Limitar a 50 caracteres
 				pcall(function()
-					if Noti then
-						Noti:FireServer("Ahora estás sincronizado con: " .. targetName, "sync", 4)
-					end
+					NotificationSystem:Success("Sync", "Ahora estás sincronizado con: " .. targetName, 4)
 				end)
 			else
 				debounce = false
