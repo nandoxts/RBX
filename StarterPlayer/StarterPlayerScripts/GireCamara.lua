@@ -8,32 +8,33 @@ local camera = workspace.CurrentCamera
 
 local rotateEvent = ReplicatedStorage:WaitForChild("RotateEffectEvent")
 
+local isRotating = false
+
 local function startRotateEffect()
+	if isRotating then return end
+	isRotating = true
+
 	local character = player.Character or player.CharacterAdded:Wait()
 	local rootPart = character:WaitForChild("HumanoidRootPart")
 
-	-- VARIABLES MODIFICABLES
-	local effectDuration = 10 
+	-- VARIABLES MODIFICABLES (valores reducidos para giro más suave)
+	local effectDuration = 10
 	local fadeDuration = 5
-	local speedPhase1 = 0.5
-	local speedPhase2 = 5
-	local speedPhase3 = 13
+	local phaseSpeed1 = 0.8
+	local phaseSpeed2 = 1.8
+	local phaseSpeed3 = 3.2
 	local hueSpeed = 0.01
 
 	local saturation = 1
 	local brightness = 1
 
-	local beatFrequency = 3
-	local beatAmplitude = 1
+	local beatFrequency = 2
+	local beatAmplitude = 0.6
 
-	local originalCameraType = camera.CameraType
-	local originalCFrame = camera.CFrame
-
-	camera.CameraType = Enum.CameraType.Scriptable
+	local maxRotationDegrees = 8 -- amplitud máxima del giro en grados (reducido)
 
 	local startTime = tick()
 	local hue = 0
-	local rotationZ = 0
 
 	local function HSVtoRGB(h, s, v)
 		local c = v * s
@@ -64,34 +65,41 @@ local function startRotateEffect()
 		colorEffect.Parent = Lighting
 	end
 
-	local lastTick = tick()
+	local prevOffset = CFrame.new()
+	local prevRotation = CFrame.new()
+	local lastTick = startTime
 
-	while true do
+	local function applyRotate()
 		local now = tick()
-		local deltaTime = now - lastTick
+		local delta = now - lastTick
 		lastTick = now
-
 		local elapsed = now - startTime
 
 		if elapsed > effectDuration + fadeDuration then
-			camera.CameraType = originalCameraType
-			camera.CFrame = originalCFrame
-			colorEffect:Destroy()
-			break
+			RunService:UnbindFromRenderStep("RotateEffect")
+			camera.CFrame = camera.CFrame * prevOffset:Inverse()
+			if colorEffect then colorEffect:Destroy() end
+			isRotating = false
+			return
 		end
 
+		-- elegir velocidad según fase, pero con valores suaves
 		local speed
 		if elapsed <= 4 then
-			speed = speedPhase1
+			speed = phaseSpeed1
 		elseif elapsed <= 7 then
-			speed = speedPhase2
+			speed = phaseSpeed2
 		elseif elapsed <= effectDuration then
-			speed = speedPhase3
+			speed = phaseSpeed3
 		else
-			speed = speedPhase3
+			speed = phaseSpeed3
 		end
 
-		rotationZ = (rotationZ + speed * 60 * deltaTime) % 360
+		-- Rotación incremental acumulada (visible y suave)
+		local degPerSec = speed * 12 -- ajustar multiplicador para velocidad
+		local angularDelta = math.rad(degPerSec * delta)
+		local rotationIncrement = CFrame.Angles(0, 0, angularDelta)
+		prevRotation = prevRotation * rotationIncrement
 
 		hue = (hue + hueSpeed) % 1
 		local color = HSVtoRGB(hue, saturation, brightness)
@@ -107,14 +115,20 @@ local function startRotateEffect()
 
 		local beatOffset = math.sin(elapsed * math.pi * 2 * beatFrequency) * beatAmplitude
 
-		local basePosition = rootPart.Position + Vector3.new(0, 5, 10 + beatOffset)
-		local lookAt = rootPart.Position + Vector3.new(0, 2, 0)
-		local camCFrame = CFrame.new(basePosition, lookAt) * CFrame.Angles(0, 0, math.rad(rotationZ))
+		-- Positional offset (no acumulativa, pequeña influencia)
+		local forwardOffset = beatOffset * 0.6
+		local positionalOffset = CFrame.new(0, 0, forwardOffset)
 
-		camera.CFrame = camCFrame
+		-- Nuevo offset total = rotación acumulada * posicionamiento
+		local newOffset = prevRotation * positionalOffset
 
-		RunService.RenderStepped:Wait()
+		-- Aplicar offset relativo a la cámara actual (no re-centra la cámara en el personaje)
+		local baseCFrame = camera.CFrame * prevOffset:Inverse()
+		camera.CFrame = baseCFrame * newOffset
+		prevOffset = newOffset
 	end
+
+	RunService:BindToRenderStep("RotateEffect", Enum.RenderPriority.Camera.Value + 1, applyRotate)
 end
 
 rotateEvent.OnClientEvent:Connect(function()

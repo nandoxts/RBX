@@ -9,7 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
 
--- Servicios de sincronización
+-- Servicios de sincronizacion
 local RemotesSync = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local SyncRemote = RemotesSync:WaitForChild("Sync")
 
@@ -20,8 +20,7 @@ local Ev_UpdateStatus = SelectedPlayer.Events.update_status
 local Highlight = SelectedPlayer:WaitForChild("Highlight")
 local ColorEffects = require(SelectedPlayer.COLORS)
 
--- `ReplicatedStorage` variable above points to `Panda ReplicatedStorage` folder.
--- Use the actual root ReplicatedStorage to find shared `Systems` folder.
+-- ReplicatedStorage global para sistemas compartidos
 local _GlobalReplicated = game:GetService("ReplicatedStorage")
 local NotificationSystem = require(_GlobalReplicated:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
@@ -60,7 +59,7 @@ local DNT_Button = MainFrame.Donate_BUTTON
 
 local debounceSync = false
 
--- Información del usuario
+-- Informacion del usuario
 local MainFrameInformation = MainFrame.UserInformation
 local Description = MainFrameInformation.Description
 local UserIMG = MainFrameInformation.User_IMG
@@ -101,7 +100,7 @@ local pressStartTime = 0
 local PRESS_DURATION = 1
 
 -- ============================================
--- 💾 SISTEMA DE LIKES OPTIMIZADO
+-- SISTEMA DE LIKES OPTIMIZADO
 -- ============================================
 
 local LikesSystem = {
@@ -111,7 +110,7 @@ local LikesSystem = {
 	IsSending = false
 }
 
--- Actualizar visualización de likes
+-- Actualizar visualizacion de likes
 local function updateLikesDisplay()
 	if not currentTarget then return end
 
@@ -149,7 +148,7 @@ local function updateLocalCooldown(targetPlayer)
 	LikesSystem.Cooldowns.Like[cooldownKey] = tick()
 end
 
--- Mostrar notificación de cooldown
+-- Mostrar notificacion de cooldown
 local function showCooldownNotification(remainingTime)
 	local minutes = math.ceil(remainingTime / 60)
 	StarterGui:SetCore("SendNotification", {
@@ -160,7 +159,7 @@ local function showCooldownNotification(remainingTime)
 end
 
 -- ============================================
--- 🎨 SISTEMA DE COLORES Y HIGHLIGHT
+-- SISTEMA DE COLORES Y HIGHLIGHT
 -- ============================================
 
 local function updateHighlightColor(player)
@@ -192,7 +191,7 @@ local function detachHighlight()
 end
 
 -- ============================================
--- 🎮 GAMEPASS SYSTEM
+-- GAMEPASS SYSTEM
 -- ============================================
 
 local gamepassCache = {}
@@ -231,14 +230,14 @@ local function clearAllGamepassLists()
 end
 
 -- ============================================
--- 📊 INFORMACIÓN DEL JUGADOR
+-- INFORMACION DEL JUGADOR
 -- ============================================
 
 local function updatePlayerInfo(targetPlayer)
 	UserName.Text = "<b>" .. targetPlayer.DisplayName .. "</b><br /><font size=\"4\"><i>@" .. targetPlayer.Name .. "</i></font>"
 	UserIMG.Image = "rbxthumb://type=AvatarHeadShot&id=" .. targetPlayer.UserId .. "&w=420&h=420"
 
-	local status = targetPlayer:GetAttribute("status") or "No se proporcionó ningún estado"
+	local status = targetPlayer:GetAttribute("status") or "No se proporciono ningun estado"
 	Description.Text = '"' .. status .. '"'
 
 	if targetPlayer == LocalPlayer then
@@ -261,7 +260,7 @@ local function updatePlayerInfo(targetPlayer)
 end
 
 -- ============================================
--- 🎬 ANIMACIONES DE GUI
+-- ANIMACIONES DE GUI
 -- ============================================
 
 local function toggleGui(visible, targetPlayer)
@@ -326,7 +325,7 @@ local function animatePanel(panel, open)
 end
 
 -- ============================================
--- ❤️ BOTONES DE LIKES
+-- BOTONES DE LIKES
 -- ============================================
 
 if LikeButton then
@@ -370,7 +369,7 @@ if SuperLikeButton then
 end
 
 -- ============================================
--- 📡 EVENTOS DEL SERVIDOR
+-- EVENTOS DEL SERVIDOR
 -- ============================================
 
 if GiveLikeEvent then
@@ -414,9 +413,9 @@ BroadcastEvent.OnClientEvent:Connect(function(action, data)
 	if action == "LikeNotification" then
 		local message
 		if data.IsSuperLike then
-			message = '<font color="#F7004D"><b>' .. data.Sender .. ' dio un ❤️‍🔥 Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
+			message = '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
 		else
-			message = '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un 👍 a ' .. data.Target .. '</b></font>'
+			message = '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
 		end
 
 		local TextChannels = TextChatService:WaitForChild("TextChannels")
@@ -426,7 +425,7 @@ BroadcastEvent.OnClientEvent:Connect(function(action, data)
 end)
 
 -- ============================================
--- 🎯 SISTEMA DE SELECCIÓN DE JUGADORES
+-- SISTEMA DE SELECCION DE JUGADORES
 -- ============================================
 
 if LocalPlayer:GetAttribute("SelectedUser") == nil then
@@ -452,11 +451,26 @@ LocalPlayer:GetAttributeChangedSignal("SelectedUser"):Connect(function()
 end)
 
 -- ============================================
--- 🖱️ CURSOR Y DETECCIÓN
+-- CURSOR Y DETECCION
 -- ============================================
 
 local DEFAULT_CURSOR = "rbxassetid://13335399499"
 local SELECTED_CURSOR = "rbxassetid://84923889690331"
+
+-- Obtener jugador desde una parte (busqueda recursiva mejorada)
+local function getPlayerFromPart(part)
+	if not part then return nil end
+
+	local current = part
+	while current and current ~= workspace do
+		local player = Players:GetPlayerFromCharacter(current)
+		if player then
+			return player
+		end
+		current = current.Parent
+	end
+	return nil
+end
 
 RunService.RenderStepped:Connect(function()
 	if not canSelectPlayer() then
@@ -469,8 +483,7 @@ RunService.RenderStepped:Connect(function()
 	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * MAX_ACTIVATION_DISTANCE)
 
 	if raycast and raycast.Instance then
-		local hoveredPlayer = Players:GetPlayerFromCharacter(raycast.Instance.Parent) or 
-			Players:GetPlayerFromCharacter(raycast.Instance.Parent.Parent)
+		local hoveredPlayer = getPlayerFromPart(raycast.Instance)
 
 		if hoveredPlayer 
 			and hoveredPlayer ~= LocalPlayer 
@@ -484,7 +497,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================
--- 🎮 GAMEPASSES
+-- GAMEPASSES
 -- ============================================
 
 local function loadDonationGamepasses()
@@ -580,21 +593,18 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 	if LocalPlayer.Character:FindFirstChild("SyncOnOff") 
 		and LocalPlayer.Character.SyncOnOff.Value then
 
-
 		SyncRemote:FireServer("unsync")
 
 		pcall(function()
 			NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
 		end)
 
-
 		toggleGui(false)
 	else
-
 		SyncRemote:FireServer("sync", currentTarget)
 
 		pcall(function()
-			NotificationSystem:Success("Sync", "Ahora estás sincronizado con: " .. tostring(currentTarget.Name), 4)
+			NotificationSystem:Success("Sync", "Ahora estas sincronizado con: " .. tostring(currentTarget.Name), 4)
 		end)
 	end
 
@@ -603,7 +613,7 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================
--- 🔘 EVENTOS DE BOTONES
+-- EVENTOS DE BOTONES
 -- ============================================
 
 DNT_Button.MouseButton1Click:Connect(function()
@@ -629,7 +639,7 @@ VA_Button.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================
--- 📝 INPUT Y SELECCIÓN
+-- INPUT Y SELECCION
 -- ============================================
 
 local function trySelectAtPosition(position)
@@ -657,8 +667,7 @@ local function trySelectAtPosition(position)
 	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * MAX_ACTIVATION_DISTANCE)
 
 	if raycast and raycast.Instance then
-		local clickedPlayer = Players:GetPlayerFromCharacter(raycast.Instance.Parent) or 
-			Players:GetPlayerFromCharacter(raycast.Instance.Parent.Parent)
+		local clickedPlayer = getPlayerFromPart(raycast.Instance)
 
 		if clickedPlayer then
 			if clickedPlayer == LocalPlayer then
@@ -669,6 +678,10 @@ local function trySelectAtPosition(position)
 						return
 					end 
 				end
+			end
+
+			if clickedPlayer:GetAttribute("SelectedUser") == false then
+				return
 			end
 
 			if clickedPlayer == currentTarget and MainFrame.Visible then
@@ -731,7 +744,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ============================================
--- 💬 OTROS EVENTOS
+-- OTROS EVENTOS
 -- ============================================
 
 Description.FocusLost:Connect(function()
@@ -745,15 +758,15 @@ Ev_DonationMessage.OnClientEvent:Connect(function(donatingPlayer, amount, donate
 	local TextChannels = TextChatService:WaitForChild("TextChannels")
 	local RBXSystem = TextChannels:WaitForChild("RBXSystem")
 
-	-- Verificar si el receptor de la donación debe ser reemplazado
+	-- Verificar si el receptor de la donacion debe ser reemplazado
 	local displayName = donatedPlayer
 	if donatedPlayer == "Panda Mania' [Games]" or donatedPlayer == "Panda15Fps" or donatedPlayer == "Panda Mania' [UGC]" then
 		displayName = "Zona Peruana"
 	end
 
-	-- Mostrar mensaje de donación en el chat del sistema
+	-- Mostrar mensaje de donacion en el chat del sistema
 	RBXSystem:DisplaySystemMessage(
-		'<font color="#8762FF"><b>' .. donatingPlayer .. " donó " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+		'<font color="#8762FF"><b>' .. donatingPlayer .. " dono " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
 	)
 end)
 
@@ -778,11 +791,11 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 end)
 
--- ⚡ Listener para cambios en TotalLikes
+-- Listener para cambios en TotalLikes
 LocalPlayer:GetAttributeChangedSignal("TotalLikes"):Connect(updateLikesDisplay)
 
 -- ============================================
--- 🚀 INICIALIZACIÓN
+-- INICIALIZACION
 -- ============================================
 
 if UserGamePass then UserGamePass.Visible = false end

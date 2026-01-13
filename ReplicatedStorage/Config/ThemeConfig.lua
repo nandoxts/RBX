@@ -7,7 +7,7 @@ local THEME = {
 	-- ══════════════════════════════════════════════════════════════
 	-- FONDOS - Escala de grises más rica
 	-- ══════════════════════════════════════════════════════════════
-	bg       = Color3.fromRGB(15, 15, 18),      -- Fondo principal
+	bg       = Color3.fromRGB(17, 17, 19),      -- Fondo principal
 	panel    = Color3.fromRGB(22, 22, 27),      -- Panel modal
 	head     = Color3.fromRGB(18, 18, 22),      -- Header más oscuro que panel
 	card     = Color3.fromRGB(30, 30, 36),      -- Cards internas
@@ -24,8 +24,8 @@ local THEME = {
 	-- ══════════════════════════════════════════════════════════════
 	-- ACENTO PRINCIPAL - Azul sofisticado (menos saturado)
 	-- ══════════════════════════════════════════════════════════════
-	accent      = Color3.fromRGB(99, 102, 241),    -- Indigo elegante
-	accentHover = Color3.fromRGB(129, 140, 248),   -- Hover más claro
+	accent      = Color3.fromRGB(41, 44, 211),    -- Indigo elegante
+	accentHover = Color3.fromRGB(76, 90, 218),   -- Hover más claro
 	accentMuted = Color3.fromRGB(55, 58, 95),      -- Versión apagada para fondos
 
 	-- ══════════════════════════════════════════════════════════════
@@ -37,12 +37,12 @@ local THEME = {
 	btnDanger       = Color3.fromRGB(180, 60, 60),    -- Rojo apagado
 	btnDangerHover  = Color3.fromRGB(200, 80, 80),
 	-- Alias históricos usados por UI scripts
-	danger          = Color3.fromRGB(180, 60, 60),
+	danger          = Color3.fromRGB(194, 48, 48),
 
 	-- ══════════════════════════════════════════════════════════════
 	-- ESTADOS - Colores funcionales (menos saturados)
 	-- ══════════════════════════════════════════════════════════════
-	success     = Color3.fromRGB(52, 168, 83),     -- Verde Google (menos neón)
+	success     = Color3.fromRGB(12, 196, 61),     -- Verde Google (menos neón)
 	successMuted= Color3.fromRGB(35, 75, 45),      -- Fondo verde
 	warn        = Color3.fromRGB(220, 95, 95),     -- Rojo suave
 	warnMuted   = Color3.fromRGB(75, 40, 40),
