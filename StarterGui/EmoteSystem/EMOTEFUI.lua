@@ -590,25 +590,61 @@ ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 ListLayout.Parent = ScrollFrame
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- HELPERS PARA SINCRONIZAR UI (definidos aquí después de ScrollFrame)
+-- HELPERS PARA SINCRONIZAR UI (optimizado con caché y debouncing)
 -- ════════════════════════════════════════════════════════════════════════════════
+
+local CardCache = {} -- Caché: nombre -> card reference
+local lastActiveUpdate = 0
+local activeUpdateDebounce = 0.1 -- 100ms debounce
+
+-- Actualizar caché cuando se cargan tarjetas
+local function UpdateCardCache()
+	CardCache = {}
+	for _, child in ipairs(ScrollFrame:GetChildren()) do
+		local cardName = child:GetAttribute("Name")
+		if cardName then
+			CardCache[cardName] = child
+		end
+	end
+end
 
 local function setActiveByName(nombre)
 	if not nombre then return end
-	-- Buscar la tarjeta existente en el ScrollFrame
-	for _, child in ipairs(ScrollFrame:GetChildren()) do
-		if child:GetAttribute("Name") == nombre then
-			if ActiveCard and ActiveCard.Parent then
-				RemoverEfectoActivo(ActiveCard)
+	
+	-- Debouncing: evitar actualizaciones muy frecuentes
+	local now = tick()
+	if now - lastActiveUpdate < activeUpdateDebounce then
+		DanceActivated = nombre
+		return
+	end
+	lastActiveUpdate = now
+	
+	-- Usar caché primero (muy rápido)
+	local card = CardCache[nombre]
+	
+	-- Si no está en caché, buscar y actualizar caché
+	if not card then
+		for _, child in ipairs(ScrollFrame:GetChildren()) do
+			if child:GetAttribute("Name") == nombre then
+				card = child
+				CardCache[nombre] = card
+				break
 			end
-			ActiveCard = child
-			DanceActivated = nombre
-			AplicarEfectoActivo(child)
-			return
 		end
 	end
-	-- Si no está cargada aún, guardar el nombre para restaurarlo cuando se carguen contenidos
-	DanceActivated = nombre
+	
+	-- Aplicar efecto si encontró la tarjeta
+	if card and card.Parent then
+		if ActiveCard and ActiveCard.Parent and ActiveCard ~= card then
+			RemoverEfectoActivo(ActiveCard)
+		end
+		ActiveCard = card
+		DanceActivated = nombre
+		AplicarEfectoActivo(card)
+	else
+		-- Guardar nombre para cuando se carguen las tarjetas
+		DanceActivated = nombre
+	end
 end
 
 local function clearActive()
@@ -619,7 +655,7 @@ local function clearActive()
 	DanceActivated = nil
 end
 
--- Escuchar eventos del servidor (si existen)
+-- Escuchar eventos del servidor (con debouncing integrado)
 if PlayAnimationRemote and PlayAnimationRemote.IsA and PlayAnimationRemote:IsA("RemoteEvent") then
 	TrackGlobalConnection(PlayAnimationRemote.OnClientEvent:Connect(function(action, payload)
 		if action == "playAnim" and type(payload) == "string" then
@@ -942,6 +978,7 @@ end
 
 local function LimpiarScroll()
 	CleanupAllCards()
+	CardCache = {} -- Limpiar caché
 
 	for _, child in ipairs(ScrollFrame:GetChildren()) do
 		if child:GetAttribute("Entry") then
@@ -953,14 +990,13 @@ local function LimpiarScroll()
 end
 
 local function RestaurarBaileActivo()
+	UpdateCardCache() -- Actualizar caché después de cargar tarjetas
 	if not DanceActivated then return end
 
-	for _, child in ipairs(ScrollFrame:GetChildren()) do
-		if child:GetAttribute("Name") == DanceActivated then
-			ActiveCard = child
-			AplicarEfectoActivo(child)
-			break
-		end
+	local card = CardCache[DanceActivated]
+	if card then
+		ActiveCard = card
+		AplicarEfectoActivo(card)
 	end
 end
 
