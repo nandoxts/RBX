@@ -252,6 +252,7 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc, cla
 		descripcion = clanDesc or "Sin descripción",
 		nivel = 1,
 		fechaCreacion = now,
+		joinRequests = {}, -- Solicitudes de unión pendientes
 		miembros_data = {
 			[tostring(ownerId)] = {
 				nombre = ownerName,
@@ -508,6 +509,186 @@ function ClanData:DissolveClan(clanId)
 end
 
 -- ============================================
+-- SOLICITUDES DE UNIÓN
+-- ============================================
+
+-- ENVIAR SOLICITUD DE UNIÓN
+function ClanData:RequestJoinClan(clanId, playerId)
+	local clanData = self:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+
+	local playerIdStr = tostring(playerId)
+
+	-- Verificar si ya es miembro
+	if clanData.miembros_data and clanData.miembros_data[playerIdStr] then
+		return false, "Ya eres miembro de este clan"
+	end
+
+	-- Verificar si ya pertenece a otro clan
+	local existingClan = self:GetPlayerClan(playerId)
+	if existingClan then
+		return false, "Ya perteneces a otro clan"
+	end
+
+	-- Verificar si ya tiene una solicitud pendiente
+	if clanData.joinRequests and clanData.joinRequests[playerIdStr] then
+		return false, "Ya tienes una solicitud pendiente para este clan"
+	end
+
+	-- Crear solicitud
+	clanData.joinRequests = clanData.joinRequests or {}
+	clanData.joinRequests[playerIdStr] = {
+		playerId = playerId,
+		playerName = getPlayerName(playerId),
+		requestTime = os.time(),
+		status = "pending"
+	}
+
+	local success, err = pcall(function()
+		clanStore:SetAsync("clan:" .. clanId, clanData)
+	end)
+
+	if success then
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, success and "Solicitud enviada" or err
+end
+
+-- APROBAR SOLICITUD DE UNIÓN
+function ClanData:ApproveJoinRequest(clanId, approverId, targetUserId)
+	local clanData = self:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+
+	local approverIdStr = tostring(approverId)
+	local targetIdStr = tostring(targetUserId)
+
+	-- Verificar permisos (owner, colider, lider)
+	local memberData = clanData.miembros_data and clanData.miembros_data[approverIdStr]
+	if not memberData then
+		return false, "No eres miembro de este clan"
+	end
+
+	local hasPermission = (memberData.rol == "owner" or memberData.rol == "colider" or memberData.rol == "lider")
+	if not hasPermission then
+		return false, "No tienes permisos para aprobar solicitudes"
+	end
+
+	-- Verificar que existe la solicitud
+	if not clanData.joinRequests or not clanData.joinRequests[targetIdStr] then
+		return false, "No hay solicitud pendiente de este jugador"
+	end
+
+	-- Verificar que el objetivo no sea ya miembro
+	if clanData.miembros_data and clanData.miembros_data[targetIdStr] then
+		-- Limpiar solicitud si ya es miembro
+		clanData.joinRequests[targetIdStr] = nil
+		pcall(function()
+			clanStore:SetAsync("clan:" .. clanId, clanData)
+		end)
+		clanDataUpdatedEvent:Fire()
+		return false, "El jugador ya es miembro del clan"
+	end
+
+	-- Agregar al clan
+	local success, err = self:AddMember(clanId, targetUserId, "miembro")
+	if success then
+		-- Limpiar solicitud
+		clanData = self:GetClan(clanId) -- Recargar datos actualizados
+		if clanData.joinRequests then
+			clanData.joinRequests[targetIdStr] = nil
+			pcall(function()
+				clanStore:SetAsync("clan:" .. clanId, clanData)
+			end)
+		end
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, success and "Solicitud aprobada" or err
+end
+
+-- RECHAZAR SOLICITUD DE UNIÓN
+function ClanData:RejectJoinRequest(clanId, rejectorId, targetUserId)
+	local clanData = self:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+
+	local rejectorIdStr = tostring(rejectorId)
+	local targetIdStr = tostring(targetUserId)
+
+	-- Verificar permisos
+	local memberData = clanData.miembros_data and clanData.miembros_data[rejectorIdStr]
+	if not memberData then
+		return false, "No eres miembro de este clan"
+	end
+
+	local hasPermission = (memberData.rol == "owner" or memberData.rol == "colider" or memberData.rol == "lider")
+	if not hasPermission then
+		return false, "No tienes permisos para rechazar solicitudes"
+	end
+
+	-- Verificar que existe la solicitud
+	if not clanData.joinRequests or not clanData.joinRequests[targetIdStr] then
+		return false, "No hay solicitud pendiente de este jugador"
+	end
+
+	-- Rechazar solicitud
+	clanData.joinRequests[targetIdStr] = nil
+
+	local success, err = pcall(function()
+		clanStore:SetAsync("clan:" .. clanId, clanData)
+	end)
+
+	if success then
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, success and "Solicitud rechazada" or err
+end
+
+-- OBTENER SOLICITUDES PENDIENTES
+function ClanData:GetJoinRequests(clanId, requesterId)
+	local clanData = self:GetClan(clanId)
+	if not clanData then
+		return {}
+	end
+
+	local requesterIdStr = tostring(requesterId)
+
+	-- Verificar permisos
+	local memberData = clanData.miembros_data and clanData.miembros_data[requesterIdStr]
+	if not memberData then
+		return {}
+	end
+
+	local hasPermission = (memberData.rol == "owner" or memberData.rol == "colider" or memberData.rol == "lider")
+	if not hasPermission then
+		return {}
+	end
+
+	-- Retornar solicitudes pendientes
+	local requests = {}
+	if clanData.joinRequests then
+		for playerIdStr, requestData in pairs(clanData.joinRequests) do
+			if requestData.status == "pending" then
+				table.insert(requests, {
+					playerId = requestData.playerId,
+					playerName = requestData.playerName,
+					requestTime = requestData.requestTime
+				})
+			end
+		end
+	end
+
+	return requests
+end
+
+-- ============================================
 -- CLANES POR DEFECTO
 -- ============================================
 local defaultClansProcessed = false
@@ -545,6 +726,30 @@ function ClanData:CreateDefaultClans()
 				defaultClan.clanEmoji or "",
 				defaultClan.clanColor
 			)
+
+			-- Si el clan se creó exitosamente y hay atributos adicionales, actualizarlos
+			if success and clanId then
+				local needsUpdate = false
+				local clanData = self:GetClan(clanId)
+
+				-- Agregar cualquier atributo adicional que no esté en CreateClan
+				for key, value in pairs(defaultClan) do
+					if not table.find({"clanName", "ownerId", "clanTag", "clanLogo", "descripcion", "clanEmoji", "clanColor"}, key) then
+						clanData[key] = value
+						needsUpdate = true
+					end
+				end
+
+				-- Guardar si hay cambios
+				if needsUpdate then
+					local updateSuccess = pcall(function()
+						clanStore:SetAsync("clan:" .. clanId, clanData)
+					end)
+					if updateSuccess then
+						print("  ✅ Atributos adicionales agregados al clan:", defaultClan.clanName)
+					end
+				end
+			end
 
 			if success then
 				created = created + 1
@@ -631,6 +836,90 @@ end
 -- ============================================
 function ClanData:OnClanDataUpdated()
 	return clanDataUpdatedEvent.Event
+end
+
+-- ============================================
+-- VERIFICAR SOLICITUDES PENDIENTES DEL USUARIO
+-- ============================================
+function ClanData:GetUserPendingRequests(userId)
+	local userIdStr = tostring(userId)
+	local pendingRequests = {}
+
+	-- Obtener todos los clanes
+	local allClans = self:GetAllClans()
+
+	for _, clanInfo in ipairs(allClans) do
+		local clanData = self:GetClan(clanInfo.clanId)
+		if clanData and clanData.joinRequests and clanData.joinRequests[userIdStr] then
+			local request = clanData.joinRequests[userIdStr]
+			if request.status == "pending" then
+				table.insert(pendingRequests, {
+					clanId = clanInfo.clanId,
+					clanName = clanInfo.clanName,
+					clanTag = clanInfo.clanTag,
+					requestTime = request.requestTime
+				})
+			end
+		end
+	end
+
+	return pendingRequests
+end
+
+-- ============================================
+-- CANCELAR SOLICITUD DE UNIÓN
+-- ============================================
+function ClanData:CancelJoinRequest(clanId, playerId)
+	local clanData = self:GetClan(clanId)
+	if not clanData then
+		return false, "Clan no encontrado"
+	end
+
+	local playerIdStr = tostring(playerId)
+
+	-- Verificar que existe la solicitud
+	if not clanData.joinRequests or not clanData.joinRequests[playerIdStr] then
+		return false, "No tienes una solicitud pendiente en este clan"
+	end
+
+	-- Verificar que la solicitud sea del propio jugador
+	if clanData.joinRequests[playerIdStr].playerId ~= playerId then
+		return false, "No puedes cancelar solicitudes de otros jugadores"
+	end
+
+	-- Cancelar solicitud
+	clanData.joinRequests[playerIdStr] = nil
+
+	local success, err = pcall(function()
+		clanStore:SetAsync("clan:" .. clanId, clanData)
+	end)
+
+	if success then
+		clanDataUpdatedEvent:Fire()
+	end
+
+	return success, success and "Solicitud cancelada" or err
+end
+
+-- CANCELAR TODAS LAS SOLICITUDES DE UNIÓN DEL USUARIO
+function ClanData:CancelAllJoinRequests(playerId)
+	local userIdStr = tostring(playerId)
+	local allClans = self:GetAllClans()
+	local count = 0
+	for _, clanInfo in ipairs(allClans) do
+		local clanData = self:GetClan(clanInfo.clanId)
+		if clanData and clanData.joinRequests and clanData.joinRequests[userIdStr] then
+			clanData.joinRequests[userIdStr] = nil
+			pcall(function()
+				clanStore:SetAsync("clan:" .. clanInfo.clanId, clanData)
+			end)
+			count = count + 1
+		end
+	end
+	if count > 0 then
+		clanDataUpdatedEvent:Fire()
+	end
+	return true, count .. " solicitudes canceladas"
 end
 
 return ClanData

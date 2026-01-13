@@ -47,7 +47,6 @@ ClanSystemConfig.LIMITS = {
 ClanSystemConfig.RATE_LIMITS = {
 	GetClansList = 0,
 	CreateClan = 10,
-	JoinClan = 1,
 	LeaveClan = 5,
 	InvitePlayer = 1,
 	KickPlayer = 2,
@@ -58,6 +57,12 @@ ClanSystemConfig.RATE_LIMITS = {
 	ChangeLogo = 60,
 	DissolveClan = 10,
 	AdminDissolveClan = 10,
+	-- NUEVOS RATE LIMITS PARA SOLICITUDES
+	RequestJoinClan = 5,      -- 5 segundos entre solicitudes
+	ApproveJoinRequest = 1,   -- 1 segundo entre aprobaciones
+	RejectJoinRequest = 1,    -- 1 segundo entre rechazos
+	CancelJoinRequest = 1,    -- 1 segundo entre cancelaciones
+	GetJoinRequests = 2       -- 2 segundos entre consultas
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -83,6 +88,10 @@ ClanSystemConfig.ROLES = {
 			cambiar_logo = true,
 			disolver_clan = true,
 			ver_estadisticas = true,
+			-- NUEVOS PERMISOS PARA SOLICITUDES
+			aprobar_solicitudes = true,
+			rechazar_solicitudes = true,
+			ver_solicitudes = true
 		},
 		colider = {
 			invitar = true,
@@ -92,15 +101,27 @@ ClanSystemConfig.ROLES = {
 			cambiar_nombre = true,
 			cambiar_logo = true,
 			ver_estadisticas = true,
+			-- NUEVOS PERMISOS PARA SOLICITUDES
+			aprobar_solicitudes = true,
+			rechazar_solicitudes = true,
+			ver_solicitudes = true
 		},
 		lider = {
 			invitar = true,
 			expulsar = true,
 			cambiar_descripcion = true,
 			ver_estadisticas = false,
+			-- NUEVOS PERMISOS PARA SOLICITUDES
+			aprobar_solicitudes = true,
+			rechazar_solicitudes = true,
+			ver_solicitudes = true
 		},
 		miembro = {
 			ver_estadisticas = false,
+			-- MIEMBROS NO PUEDEN GESTIONAR SOLICITUDES
+			aprobar_solicitudes = false,
+			rechazar_solicitudes = false,
+			ver_solicitudes = false
 		}
 	},
 }
@@ -109,15 +130,6 @@ ClanSystemConfig.ROLES = {
 -- CLANS POR DEFECTO (Creados automáticamente al iniciar)
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.DEFAULT_CLANS = {
-	{
-		clanName = "XYZ",
-		ownerId = 10179455284, -- Tu UserId
-		clanTag = "XYZ",
-		clanLogo = "rbxassetid://86607775490417",
-		descripcion = "Clan oficial de fundadores",
-		clanEmoji = "🐉", -- Emoji que se mostrará junto al TAG
-		clanColor = {139, 0, 0}, -- Color RGB del clan (R,G,B) - Rojo oscuro
-	},
 	{
 		clanName = "Shadow Garden",
 		ownerId = 758075372, -- Asignar ownerId
@@ -181,6 +193,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		descripcion = "Clan Supreme Legacy",
 		clanEmoji = "🔱",
 		clanColor = {255, 215, 0}, -- Dorado
+	},
+	{
+		clanName = "AMERI",
+		ownerId = 4074563891,
+		clanTag = "SSJ",
+		clanLogo = "rbxassetid://72377979178497",
+		descripcion = "solo para sabios",
+		clanEmoji = "🔝",
+		clanColor = {151, 0, 0}, -- rojo
 	},
 }
 

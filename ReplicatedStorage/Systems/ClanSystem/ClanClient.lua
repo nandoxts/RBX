@@ -1,399 +1,419 @@
+--[[
+	CLAN CLIENT - Sistema Optimizado
+	Soporta: emoji, color, solicitudes, roles
+]]
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Obtener player y playerGui de forma segura (lazy loading)
 local player = Players.LocalPlayer
-local playerGui
 
 -- ════════════════════════════════════════════════════════════════
--- THROTTLING & SPAM PROTECTION
+-- THROTTLING
 -- ════════════════════════════════════════════════════════════════
 local throttleConfig = {
-	GetClansList = 1, -- 1 segundo
-	CreateClan = 0, -- 0 segundos (sin límite)
-	JoinClan = 1, -- 1 segundo
-	AdminDissolveClan = 0, -- 0 segundos (sin límite)
-	InvitePlayer = 1 -- 1 segundo
+	GetClansList = 1,
+	CreateClan = 3,
+	AdminDissolveClan = 2,
+	InvitePlayer = 1,
+	RequestJoinClan = 5,
+	ApproveJoinRequest = 1,
+	RejectJoinRequest = 1,
+	CancelJoinRequest = 1,
+	GetJoinRequests = 2,
+	ChangeRole = 2
 }
 
-local lastCallTimes = {} -- { funcName = lastTime }
+local lastCallTimes = {}
 
 local function checkThrottle(funcName)
-	local minInterval = throttleConfig[funcName] or 1
-	local lastTime = lastCallTimes[funcName] or 0
+	local interval = throttleConfig[funcName] or 1
+	local last = lastCallTimes[funcName] or 0
 	local now = tick()
 
-	if (now - lastTime) < minInterval then
-		local remainingTime = minInterval - (now - lastTime)
-		return false, "Espera " .. string.format("%.1f", remainingTime) .. "s antes de repetir"
+	if (now - last) < interval then
+		return false, string.format("Espera %.1fs", interval - (now - last))
 	end
 
 	lastCallTimes[funcName] = now
-	return true, nil
+	return true
 end
 
 -- ════════════════════════════════════════════════════════════════
--- LAZY INITIALIZATION (para evitar dependencias circulares)
+-- INICIALIZACIÓN LAZY
 -- ════════════════════════════════════════════════════════════════
 local clanEvents = nil
-local CreateClanFunction = nil
-local InvitePlayerFunction = nil
-local KickPlayerFunction = nil
-local ChangeRoleFunction = nil
-local ChangeClanNameFunction = nil
-local ChangeClanTagFunction = nil
-local ChangeClanDescFunction = nil
-local ChangeClanLogoFunction = nil
-local DissolveFunction = nil
-local GetClansListFunction = nil
-local LeaveClanFunction = nil
-local GetPlayerClanFunction = nil
-local JoinClanEvent = nil
-local AdminDissolveFunction = nil
-local GetClanDataEvent = nil
-local ClansUpdatedEvent = nil
+local remoteFunctions = {}
 local initialized = false
 
--- SOLO OBTENER REFERENCIAS A LAS REMOTEFUNCTIONS CREADAS POR EL SERVIDOR
-local function WaitForFunction(name, timeout)
+local function getRemote(name, timeout)
+	if remoteFunctions[name] then return remoteFunctions[name] end
 	if not clanEvents then return nil end
-	timeout = timeout or 5 -- Reducido de 30 a 5 segundos
-	local func = clanEvents:WaitForChild(name, timeout)
-	if not func or not func:IsA("RemoteFunction") then
-		warn("⚠️ [ClanClient] RemoteFunction no encontrada:", name)
-		return nil
+
+	local remote = clanEvents:WaitForChild(name, timeout or 5)
+	if remote then
+		remoteFunctions[name] = remote
 	end
-	return func
+	return remote
 end
 
--- Función de inicialización (paralela y rápida)
-local function EnsureInitialized()
-	if initialized then return end
+local function ensureInitialized()
+	if initialized then return true end
 
-	-- Esperar a que ClanEvents exista (máximo 5 segundos)
 	clanEvents = ReplicatedStorage:WaitForChild("ClanEvents", 5)
 	if not clanEvents then
-		warn("[ClanClient] ❌ No se pudo obtener ClanEvents")
-		return
+		warn("[ClanClient] ClanEvents no encontrado")
+		return false
 	end
 
-	-- Obtener SOLO las funciones críticas primero (más rápido)
-	GetClansListFunction = WaitForFunction("GetClansList")
-	GetPlayerClanFunction = WaitForFunction("GetPlayerClan")
-	JoinClanEvent = WaitForFunction("JoinClan")
-	CreateClanFunction = WaitForFunction("CreateClan")
+	-- Cargar funciones críticas
+	getRemote("GetClansList")
+	getRemote("GetPlayerClan")
+	getRemote("CreateClan")
 
-	-- Esperar eventos (RemoteEvent)
-	GetClanDataEvent = clanEvents:WaitForChild("GetClanData", 5)
-	ClansUpdatedEvent = clanEvents:WaitForChild("ClansUpdated", 5)
-
-	-- Cargar el resto de funciones en background (no bloquear UI)
+	-- Cargar resto en background
 	task.spawn(function()
-		InvitePlayerFunction = WaitForFunction("InvitePlayer")
-		KickPlayerFunction = WaitForFunction("KickPlayer")
-		ChangeRoleFunction = WaitForFunction("ChangeRole")
-		ChangeClanNameFunction = WaitForFunction("ChangeClanName")
-		ChangeClanTagFunction = WaitForFunction("ChangeClanTag")
-		ChangeClanDescFunction = WaitForFunction("ChangeClanDescription")
-		ChangeClanLogoFunction = WaitForFunction("ChangeClanLogo")
-		DissolveFunction = WaitForFunction("DissolveClan")
-		LeaveClanFunction = WaitForFunction("LeaveClan")
-		AdminDissolveFunction = WaitForFunction("AdminDissolveClan")
-		print("[ClanClient] Funciones secundarias cargadas")
+		getRemote("InvitePlayer")
+		getRemote("KickPlayer")
+		getRemote("ChangeRole")
+		getRemote("ChangeClanName")
+		getRemote("ChangeClanTag")
+		getRemote("ChangeClanDescription")
+		getRemote("ChangeClanLogo")
+		getRemote("DissolveClan")
+		getRemote("LeaveClan")
+		getRemote("AdminDissolveClan")
+		getRemote("RequestJoinClan")
+		getRemote("ApproveJoinRequest")
+		getRemote("RejectJoinRequest")
+		getRemote("GetJoinRequests")
+		getRemote("CancelJoinRequest")
+		getRemote("CancelAllJoinRequests")
+		getRemote("GetUserPendingRequests")
 	end)
 
 	initialized = true
-	print("[ClanClient] Inicialización rápida completada")
+	return true
 end
 
-
-
+-- ════════════════════════════════════════════════════════════════
+-- CLAN CLIENT
+-- ════════════════════════════════════════════════════════════════
 local ClanClient = {}
 ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
-ClanClient.onClansUpdated = nil -- Callback para UI
+ClanClient.onClansUpdated = nil
+ClanClient.initialized = false
 
--- ════════════════════════════════════════════════════════════════
--- INICIALIZACIÓN PÚBLICA
--- ════════════════════════════════════════════════════════════════
+-- Cache
+local clansListCache = nil
+local clansListCacheTime = 0
+local pendingRequestsCache = nil
+local pendingRequestsCacheTime = 0
+
 function ClanClient:Initialize()
-	EnsureInitialized()
-end
-
--- Crear clan
-function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwnerId)
-	-- Throttling
-	local allowed, errMsg = checkThrottle("CreateClan")
-	if not allowed then
-		return false, nil, errMsg
-	end
-
-	-- Usar customOwnerId si se proporciona, sino usar el UserId del jugador local
-	local ownerId = customOwnerId or player.UserId
-
-	if CreateClanFunction then
-		local success, clanId, msg = CreateClanFunction:InvokeServer(clanName, clanTag or "TAG", clanLogo or "rbxassetid://0", clanDesc or "Sin descripción", ownerId)
-		if success then
-			-- Actualizar el ID del clan recién creado
-			self.currentClanId = clanId
-			-- Obtener los datos completos del clan
-			self:GetPlayerClan()
-			return true, clanId, msg or "Clan creado exitosamente"
-		else
-			-- Retornar el mensaje de error específico
-			return false, nil, msg or "No se pudo crear el clan"
-		end
-	else
-		warn("[Clan] No se encontró función CreateClan")
-		return false, nil, "Función no disponible"
+	if ensureInitialized() then
+		self.initialized = true
 	end
 end
 
--- Invitar jugador
-function ClanClient:InvitePlayer(targetUserId)
-	-- Throttling
-	local allowed, errMsg = checkThrottle("InvitePlayer")
-	if not allowed then
-		return false, errMsg
+-- ════════════════════════════════════════════════════════════════
+-- CREAR CLAN (con emoji y color)
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwnerId, clanEmoji, clanColor)
+	local allowed, err = checkThrottle("CreateClan")
+	if not allowed then return false, nil, err end
+
+	local remote = getRemote("CreateClan")
+	if not remote then return false, nil, "Función no disponible" end
+
+	local success, clanId, msg = remote:InvokeServer(
+		clanName,
+		clanTag or "TAG",
+		clanLogo or "rbxassetid://0",
+		clanDesc or "Sin descripción",
+		customOwnerId,
+		clanEmoji or "⚔️",
+		clanColor or {255, 255, 255}
+	)
+
+	if success then
+		self.currentClanId = clanId
+		self:GetPlayerClan()
 	end
 
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if InvitePlayerFunction then
-		local success, msg = InvitePlayerFunction:InvokeServer(self.currentClanId, targetUserId)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
+	return success, clanId, msg
 end
 
--- Expulsar jugador
-function ClanClient:KickPlayer(targetUserId)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if KickPlayerFunction then
-		local success, msg = KickPlayerFunction:InvokeServer(self.currentClanId, targetUserId)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Cambiar rol
-function ClanClient:ChangePlayerRole(targetUserId, newRole)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if ChangeRoleFunction then
-		local success, msg = ChangeRoleFunction:InvokeServer(self.currentClanId, targetUserId, newRole)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Cambiar nombre del clan
-function ClanClient:ChangeClanName(newName)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if ChangeClanNameFunction then
-		local success, msg = ChangeClanNameFunction:InvokeServer(self.currentClanId, newName)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Cambiar TAG del clan
-function ClanClient:ChangeClanTag(newTag)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if ChangeClanTagFunction then
-		local success, msg = ChangeClanTagFunction:InvokeServer(self.currentClanId, newTag)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Cambiar descripción
-function ClanClient:ChangeClanDescription(newDesc)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if ChangeClanDescFunction then
-		local success, msg = ChangeClanDescFunction:InvokeServer(self.currentClanId, newDesc)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Cambiar logo
-function ClanClient:ChangeClanLogo(newLogoId)
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if ChangeClanLogoFunction then
-		local success, msg = ChangeClanLogoFunction:InvokeServer(self.currentClanId, newLogoId)
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Disolver clan
-function ClanClient:DissolveClan()
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if DissolveFunction then
-		local success, msg = DissolveFunction:InvokeServer(self.currentClanId)
-		if success then
-			self.currentClan = nil
-			self.currentClanId = nil
-		end
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Salir del clan
-function ClanClient:LeaveClan()
-	if not self.currentClanId then
-		return false, "No estás en un clan"
-	end
-	if LeaveClanFunction then
-		local success, msg = LeaveClanFunction:InvokeServer(self.currentClanId)
-		if success then
-			-- Actualizar el estado del cliente solo si el servidor confirma
-			self.currentClan = nil
-			self.currentClanId = nil
-		end
-		return success, msg
-	else
-		return false, "Función no disponible"
-	end
-end
-
--- Obtener datos del clan
-function ClanClient:RefreshClanData()
-	GetClanDataEvent:FireServer(self.currentClanId)
-end
-
--- Unirse a un clan
-function ClanClient:JoinClan(clanId)
-	-- Throttling
-	local allowed, errMsg = checkThrottle("JoinClan")
-	if not allowed then
-		return false, errMsg
-	end
-
-	if JoinClanEvent then
-		local success, msg = JoinClanEvent:InvokeServer(clanId)
-		if success then
-			-- Actualizar el estado del cliente
-			self.currentClanId = clanId
-			self:GetPlayerClan()
-		end
-		return success, msg
-	else
-		warn("[Clan] No se encontró función JoinClan")
-		return false, "Función no disponible"
-	end
-end
-
--- Obtener lista de todos los clanes (con caché inteligente)
+-- ════════════════════════════════════════════════════════════════
+-- OBTENER DATOS
+-- ════════════════════════════════════════════════════════════════
 function ClanClient:GetClansList()
-	EnsureInitialized()
+	ensureInitialized()
 
-	-- Si tenemos caché reciente (menos de 3 segundos), usarla
-	if self._lastClansList and self._lastClansListTime and (tick() - self._lastClansListTime) < 3 then
-		return self._lastClansList
+	-- Cache de 3 segundos
+	if clansListCache and (tick() - clansListCacheTime) < 3 then
+		return clansListCache
 	end
 
-	-- Throttling
-	local allowed, errMsg = checkThrottle("GetClansList")
-	if not allowed then
-		-- Retornar caché si está disponible
-		return self._lastClansList or {}
+	local allowed = checkThrottle("GetClansList")
+	if not allowed then return clansListCache or {} end
+
+	local remote = getRemote("GetClansList")
+	if not remote then return clansListCache or {} end
+
+	local success, clans = pcall(function()
+		return remote:InvokeServer()
+	end)
+
+	if success and clans then
+		clansListCache = clans
+		clansListCacheTime = tick()
+		return clans
 	end
 
-	if GetClansListFunction then
-		local success, clans = pcall(function()
-			return GetClansListFunction:InvokeServer()
-		end)
-
-		if success then
-			self._lastClansList = clans or {}
-			self._lastClansListTime = tick()
-			return clans or {}
-		else
-			warn("❌ Error obteniendo lista de clanes:", clans)
-			return self._lastClansList or {}
-		end
-	else
-		warn("❌ GetClansList RemoteFunction no encontrada")
-	end
-	return self._lastClansList or {}
+	return clansListCache or {}
 end
 
--- Obtener el clan actual del jugador
 function ClanClient:GetPlayerClan()
-	EnsureInitialized()
-	if GetPlayerClanFunction then
-		local success, clanData = pcall(function()
-			return GetPlayerClanFunction:InvokeServer()
-		end)
+	ensureInitialized()
 
-		if success and clanData then
-			-- Actualizar el estado del cliente
-			self.currentClan = clanData
-			self.currentClanId = clanData.clanId
-			return clanData
-		else
-			-- El jugador no está en ningún clan
-			self.currentClan = nil
-			self.currentClanId = nil
-			if not success then
-				warn("Error obteniendo clan del jugador:", clanData)
-			end
-			return nil
-		end
+	local remote = getRemote("GetPlayerClan")
+	if not remote then
+		self.currentClan = nil
+		self.currentClanId = nil
+		return nil
 	end
+
+	local success, clanData = pcall(function()
+		return remote:InvokeServer()
+	end)
+
+	if success and clanData then
+		self.currentClan = clanData
+		self.currentClanId = clanData.clanId
+		return clanData
+	end
+
 	self.currentClan = nil
 	self.currentClanId = nil
 	return nil
 end
 
--- Disolver clan como admin
-function ClanClient:AdminDissolveClan(clanId)
-	-- Throttling
-	local allowed, errMsg = checkThrottle("AdminDissolveClan")
-	if not allowed then
-		return false, errMsg
-	end
+-- ════════════════════════════════════════════════════════════════
+-- GESTIÓN DE MIEMBROS
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:InvitePlayer(targetUserId)
+	local allowed, err = checkThrottle("InvitePlayer")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
 
-	if AdminDissolveFunction then
-		local success, msg = AdminDissolveFunction:InvokeServer(clanId)
-		return success, msg
-	else
-		warn("[Clan] No se encontró función AdminDissolveClan")
-		return false, "Función no disponible"
-	end
+	local remote = getRemote("InvitePlayer")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(self.currentClanId, targetUserId)
 end
 
--- Listener para actualizaciones en tiempo real (como DjDashboard)
+function ClanClient:KickPlayer(targetUserId)
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("KickPlayer")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(self.currentClanId, targetUserId)
+end
+
+function ClanClient:ChangePlayerRole(targetUserId, newRole)
+	local allowed, err = checkThrottle("ChangeRole")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("ChangeRole")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(self.currentClanId, targetUserId, newRole)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- EDICIÓN DEL CLAN
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:ChangeClanName(newName)
+	if not self.currentClanId then return false, "No estás en un clan" end
+	local remote = getRemote("ChangeClanName")
+	if not remote then return false, "Función no disponible" end
+	return remote:InvokeServer(self.currentClanId, newName)
+end
+
+function ClanClient:ChangeClanTag(newTag)
+	if not self.currentClanId then return false, "No estás en un clan" end
+	local remote = getRemote("ChangeClanTag")
+	if not remote then return false, "Función no disponible" end
+	return remote:InvokeServer(self.currentClanId, newTag)
+end
+
+function ClanClient:ChangeClanDescription(newDesc)
+	if not self.currentClanId then return false, "No estás en un clan" end
+	local remote = getRemote("ChangeClanDescription")
+	if not remote then return false, "Función no disponible" end
+	return remote:InvokeServer(self.currentClanId, newDesc)
+end
+
+function ClanClient:ChangeClanLogo(newLogoId)
+	if not self.currentClanId then return false, "No estás en un clan" end
+	local remote = getRemote("ChangeClanLogo")
+	if not remote then return false, "Función no disponible" end
+	return remote:InvokeServer(self.currentClanId, newLogoId)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- SALIR / DISOLVER
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:LeaveClan()
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("LeaveClan")
+	if not remote then return false, "Función no disponible" end
+
+	local success, msg = remote:InvokeServer(self.currentClanId)
+	if success then
+		self.currentClan = nil
+		self.currentClanId = nil
+	end
+	return success, msg
+end
+
+function ClanClient:DissolveClan()
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("DissolveClan")
+	if not remote then return false, "Función no disponible" end
+
+	local success, msg = remote:InvokeServer(self.currentClanId)
+	if success then
+		self.currentClan = nil
+		self.currentClanId = nil
+	end
+	return success, msg
+end
+
+function ClanClient:AdminDissolveClan(clanId)
+	local allowed, err = checkThrottle("AdminDissolveClan")
+	if not allowed then return false, err end
+
+	local remote = getRemote("AdminDissolveClan")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(clanId)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- SOLICITUDES DE UNIÓN
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:RequestJoinClan(clanId)
+	local allowed, err = checkThrottle("RequestJoinClan")
+	if not allowed then return false, err end
+	if self.currentClanId then return false, "Ya perteneces a un clan" end
+
+	local remote = getRemote("RequestJoinClan")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(clanId)
+end
+
+function ClanClient:ApproveJoinRequest(clanId, targetUserId)
+	local allowed, err = checkThrottle("ApproveJoinRequest")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("ApproveJoinRequest")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(clanId, targetUserId)
+end
+
+function ClanClient:RejectJoinRequest(clanId, targetUserId)
+	local allowed, err = checkThrottle("RejectJoinRequest")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("RejectJoinRequest")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(clanId, targetUserId)
+end
+
+function ClanClient:GetJoinRequests(clanId)
+	local allowed = checkThrottle("GetJoinRequests")
+	if not allowed then return {} end
+	if not self.currentClanId then return {} end
+
+	local remote = getRemote("GetJoinRequests")
+	if not remote then return {} end
+
+	local success, requests = pcall(function()
+		return remote:InvokeServer(clanId)
+	end)
+
+	return (success and requests) or {}
+end
+
+function ClanClient:CancelJoinRequest(clanId)
+	local allowed, err = checkThrottle("CancelJoinRequest")
+	if not allowed then return false, err end
+
+	local remote = getRemote("CancelJoinRequest")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(clanId)
+end
+
+function ClanClient:CancelAllJoinRequests()
+	ensureInitialized()
+
+	local remote = getRemote("CancelAllJoinRequests")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer()
+end
+
+function ClanClient:GetUserPendingRequests()
+	ensureInitialized()
+
+	-- Cache de 2 segundos
+	if pendingRequestsCache and (tick() - pendingRequestsCacheTime) < 2 then
+		return pendingRequestsCache
+	end
+
+	local remote = getRemote("GetUserPendingRequests")
+	if not remote then return {} end
+
+	local success, result = pcall(function()
+		return remote:InvokeServer()
+	end)
+
+	if success and type(result) == "table" then
+		pendingRequestsCache = result
+		pendingRequestsCacheTime = tick()
+		return result
+	end
+
+	return {}
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- LISTENER DE ACTUALIZACIONES
+-- ════════════════════════════════════════════════════════════════
 task.spawn(function()
-	EnsureInitialized()
-	if ClansUpdatedEvent then
-		ClansUpdatedEvent.OnClientEvent:Connect(function(clans)
-			-- Notificar a la UI si hay callback registrado
+	ensureInitialized()
+
+	local updateEvent = clanEvents and clanEvents:WaitForChild("ClansUpdated", 5)
+	if updateEvent then
+		updateEvent.OnClientEvent:Connect(function(clans)
+			-- Actualizar cache
+			clansListCache = clans
+			clansListCacheTime = tick()
+
+			-- Notificar UI
 			if ClanClient.onClansUpdated then
 				ClanClient.onClansUpdated(clans)
 			end

@@ -85,11 +85,14 @@ end
 
 --// Funciones para el sistema de racha
 local function getCurrentDay()
-	local now = os.date("*t")
+	-- Usar UTC explícitamente para evitar problemas de zona horaria
+	local now = os.date("!*t")  -- El ! fuerza UTC
 	now.hour = 0
 	now.min = 0
 	now.sec = 0
-	return math.floor(os.time(now) / 86400)
+
+	local dayNumber = math.floor(os.time(now) / 86400)
+	return dayNumber
 end
 
 local function updateStreak(player)
@@ -106,31 +109,53 @@ local function updateStreak(player)
 
 	if success and data then
 		streak = data.streak or 1
-		lastDay = data.lastLoginDay or -1
+		lastDay = data.lastLoginDay or data.lastDay or -1
 
+		local dayDiff = today - lastDay
 		if lastDay == today then
-
 			streak = streak
 		elseif lastDay == today - 1 then
-
 			streak = streak + 1
 		else
-
 			streak = 1
 		end
+	else
 	end
 
-	pcall(function()
+	-- Intentar guardar en streakStore
+	local saveSuccess1 = pcall(function()
 		streakStore:SetAsync(userId, {
 			streak = streak,
-			lastLoginDay = today
+			lastLoginDay = today,
+			lastDay = today -- Backup por si acaso
 		})
 	end)
 
-	pcall(function()
+	if saveSuccess1 then
 
+		-- Verificar que se guardó correctamente
+		local verifySuccess, verifyData = pcall(function()
+			return streakStore:GetAsync(userId)
+		end)
+		if verifySuccess and verifyData then
+
+		else
+			warn(string.format("[RACHA ERROR] %s - No se pudo verificar guardado", player.Name))
+		end
+	else
+		warn(string.format("[RACHA ERROR] %s - Falló guardar en LoginStreaks", player.Name))
+	end
+
+	-- Intentar guardar en TopRachaStore
+	local saveSuccess2 = pcall(function()
 		TopRachaStore:SetAsync(userId, streak)
 	end)
+
+	if saveSuccess2 then
+
+	else
+		warn(string.format("[RACHA ERROR] %s - Falló actualizar leaderboard", player.Name))
+	end
 
 	return streak
 end
@@ -154,6 +179,18 @@ local function EsAdminGrupo(player)
 	return Colors.hasPermission(player, GroupID, ALLOWED_RANKS)
 end
 
+local function updateStreakDisplay(player, streakValue)
+	if not player or not player.Character then return end
+
+	local components = getOverheadComponents(player.Character)
+	if not components or not components.nameFrame then return end
+
+	local displayName = components.nameFrame:FindFirstChild("DisplayName")
+	if displayName then
+		displayName.Text = player.DisplayName .. " 🔥" .. tostring(streakValue)
+	end
+end
+
 local function setStreakManual(player, amount)
 	local userId = tostring(player.UserId)
 
@@ -170,7 +207,8 @@ local function setStreakManual(player, amount)
 		TopRachaStore:SetAsync(userId, amount)
 	end)
 
-	print("Nueva racha para", player.Name, "=", amount)
+	-- Actualizar display inmediatamente
+	updateStreakDisplay(player, amount)
 end
 
 Players.PlayerAdded:Connect(function(plr)
@@ -178,26 +216,17 @@ Players.PlayerAdded:Connect(function(plr)
 		msg = msg:lower()
 
 		if msg:sub(1,3) == ":rc" then
-
-			if not EsAdminGrupo(plr) then
-				print(plr.Name .. " intentó usar !rc pero NO tiene permisos de grupo.")
-				return
-			end
+			if not EsAdminGrupo(plr) then return end
 
 			local args = msg:split(" ")
 			local targetName = args[2]
 			local amount = tonumber(args[3])
 
-			if not targetName or not amount then		
-				print("Uso correcto: !rc jugador cantidad")
-				return
-			end
+			if not targetName or not amount then return end
 
 			local target = Players:FindFirstChild(targetName)
 			if target then
 				setStreakManual(target, amount)
-			else
-				print("Jugador no encontrado:", targetName)
 			end
 		end
 	end)
@@ -497,6 +526,10 @@ local function onCharacterAdded(char, player)
 	updatePlayerNameColor(player)
 	setAFK(player, false)
 	setupMovementDetection(char, player)
+
+	-- Actualizar display de racha con valor guardado
+	local savedStreak = getSavedStreak(player)
+	updateStreakDisplay(player, savedStreak)
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -539,7 +572,8 @@ Players.PlayerAdded:Connect(function(player)
 		onCharacterAdded(player.Character, player)
 	end
 
-	updateStreak(player)
+	local currentStreak = updateStreak(player)
+	updateStreakDisplay(player, currentStreak)
 end)
 
 for _, player in ipairs(Players:GetPlayers()) do
@@ -547,7 +581,8 @@ for _, player in ipairs(Players:GetPlayers()) do
 		setupPlayerChat(player)
 		local char = player.Character or player.CharacterAdded:Wait()
 		onCharacterAdded(char, player)
-		updateStreak(player)
+		local currentStreak = updateStreak(player)
+		updateStreakDisplay(player, currentStreak)
 	end)
 end
 
