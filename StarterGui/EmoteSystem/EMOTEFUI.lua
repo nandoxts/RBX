@@ -1,6 +1,6 @@
 --[[
 	═══════════════════════════════════════════════════════════════════════════════
-	   EMOTES SYSTEM - MODERN UI (OPTIMIZADO)
+	   EMOTES SYSTEM - TABS (Optimizado con gestión de memoria)
 	═══════════════════════════════════════════════════════════════════════════════
 ]]--
 
@@ -12,14 +12,13 @@ local Config = {
 	PC_Ancho = 180,
 	PC_Alto = 380,
 	PC_MargenIzquierdo = 5,
-	PC_OffsetVertical = 18,
+	PC_OffsetVertical = 40,
 
 	Movil_Ancho = 150,
-	Movil_Alto = 120,
+	Movil_Alto = 250,
 	Movil_MargenIzquierdo = 5,
 	Movil_OffsetVertical = 10,
 
-	Movil_MostrarTitulo = false,
 	Movil_MostrarSlider = false,
 	Movil_MostrarBusqueda = true,
 }
@@ -31,7 +30,6 @@ local Config = {
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -67,15 +65,11 @@ local Theme = {
 	BackgroundSecondary = THEME_CONFIG.panel,
 	BackgroundTertiary = THEME_CONFIG.elevated,
 	Primary = THEME_CONFIG.accent,
-	PrimaryHover = THEME_CONFIG.accentHover,
 	Warning = THEME_CONFIG.warn,
 	TextPrimary = THEME_CONFIG.text,
 	TextSecondary = THEME_CONFIG.muted,
 	TextMuted = THEME_CONFIG.subtle,
 	Border = THEME_CONFIG.stroke,
-
-	-- Categorías
-	Favorites = Color3.fromRGB(255, 200, 0),
 	Trending = Color3.fromRGB(255, 140, 0),
 	VIP = Color3.fromRGB(180, 100, 255),
 	Recommended = Color3.fromRGB(0, 200, 255),
@@ -88,8 +82,6 @@ local Theme = {
 
 local Jugador = Players.LocalPlayer
 local PlayerGui = Jugador:WaitForChild("PlayerGui")
-local Char = Jugador.Character or Jugador.CharacterAdded:Wait()
-local Animator = Char:WaitForChild("Humanoid"):WaitForChild("Animator")
 
 local IsMobile = UserInputService.TouchEnabled
 local EmotesFavs = {}
@@ -97,31 +89,29 @@ local EmotesTrending = {}
 local DanceActivated = nil
 local ActiveCard = nil
 local tieneVIP = false
+local TabActual = "Todos"
 
--- Debounces
-local actualizandoDebounce = false
-local favoritoDebounce = false
+-- Gestión de memoria
+local CardConnections = {}
+local ActiveTweens = {}
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- UTILIDADES UI
+-- UTILIDADES
 -- ════════════════════════════════════════════════════════════════════════════════
 
-local UI = {}
-
-function UI.Tween(obj, dur, props, style, dir)
-	local tween = TweenService:Create(obj, TweenInfo.new(dur, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
+local function Tween(obj, dur, props, style)
+	local tween = TweenService:Create(obj, TweenInfo.new(dur, style or Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props)
 	tween:Play()
 	return tween
 end
 
-function UI.CreateCorner(parent, radius)
+local function CreateCorner(parent, radius)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, radius or 8)
 	c.Parent = parent
-	return c
 end
 
-function UI.CreateStroke(parent, color, thickness, transparency)
+local function CreateStroke(parent, color, thickness, transparency)
 	local s = Instance.new("UIStroke")
 	s.Color = color or Theme.Border
 	s.Thickness = thickness or 1
@@ -130,90 +120,116 @@ function UI.CreateStroke(parent, color, thickness, transparency)
 	return s
 end
 
-function UI.CreateGradient(parent, color1, color2, rotation)
-	local g = Instance.new("UIGradient")
-	g.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)})
-	g.Rotation = rotation or 90
-	g.Parent = parent
-	return g
-end
-
-function UI.CreateShadow(parent)
-	local s = Instance.new("ImageLabel")
-	s.Name = "Shadow"
-	s.BackgroundTransparency = 1
-	s.Image = "rbxassetid://5554236805"
-	s.ImageColor3 = Color3.fromRGB(0, 0, 0)
-	s.ImageTransparency = 0.6
-	s.ScaleType = Enum.ScaleType.Slice
-	s.SliceCenter = Rect.new(23, 23, 277, 277)
-	s.Size = UDim2.new(1, 30, 1, 30)
-	s.Position = UDim2.new(0, -15, 0, -15)
-	s.ZIndex = parent.ZIndex - 1
-	s.Parent = parent
-	return s
-end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- HELPERS
--- ════════════════════════════════════════════════════════════════════════════════
-
-local cardConnections = {} -- Solo conexiones de tarjetas (se limpian en Actualizar)
-
-local function trackCardConnection(connection)
-	table.insert(cardConnections, connection)
-	return connection
-end
-
-local function disconnectCardConnections()
-	for _, conn in ipairs(cardConnections) do
-		if conn then
-			pcall(function() conn:Disconnect() end)
-		end
-	end
-	cardConnections = {}
-end
-
 local function GetCardHeight()
 	return IsMobile and 28 or 38
 end
 
-local function EncontrarNombre(BaileId)
+local function EncontrarDatos(BaileId)
 	for _, lista in ipairs({Modulo.Ids, Modulo.Vip, Modulo.Recomendado}) do
 		if lista then
 			for _, v in pairs(lista) do
-				if v.ID == BaileId then return v.Nombre end
+				if v.ID == BaileId then return v.Nombre, lista == Modulo.Vip end
 			end
 		end
 	end
-	return "Dance"
+	return "Dance", false
 end
 
 local function EstaEnFavoritos(id)
 	return table.find(EmotesFavs, id) ~= nil
 end
 
--- Animar visibilidad de elementos hijos
-local function AnimarElementos(card, visible, excludeActiveBorder)
-	local targetTransparency = visible and 0 or 1
-
-	UI.Tween(card, 0.3, {BackgroundTransparency = targetTransparency})
-
-	for _, child in ipairs(card:GetDescendants()) do
-		if child:IsA("TextLabel") or child:IsA("TextButton") then
-			UI.Tween(child, 0.3, {TextTransparency = targetTransparency})
-		elseif child:IsA("ImageLabel") then
-			UI.Tween(child, 0.3, {ImageTransparency = targetTransparency})
-		elseif child:IsA("UIStroke") then
-			if not (excludeActiveBorder and child.Name == "ActiveBorder") then
-				UI.Tween(child, 0.3, {Transparency = targetTransparency})
-			end
-		end
-	end
+local function ObtenerTipo(id)
+	if table.find(EmotesTrending or {}, id) then return "Trending" end
+	for _, v in ipairs(Modulo.Vip or {}) do if v.ID == id then return "VIP" end end
+	for _, v in ipairs(Modulo.Recomendado or {}) do if v.ID == id then return "Recommended" end end
+	return "Normal"
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- CREAR GUI PRINCIPAL
+-- GESTIÓN DE MEMORIA
+-- ════════════════════════════════════════════════════════════════════════════════
+
+local function TrackConnection(card, connection)
+	if not CardConnections[card] then
+		CardConnections[card] = {}
+	end
+	table.insert(CardConnections[card], connection)
+end
+
+local function TrackTween(card, tween)
+	if not ActiveTweens[card] then
+		ActiveTweens[card] = {}
+	end
+	table.insert(ActiveTweens[card], tween)
+end
+
+local function CleanupCard(card)
+	if ActiveTweens[card] then
+		for _, tween in ipairs(ActiveTweens[card]) do
+			tween:Cancel()
+		end
+		ActiveTweens[card] = nil
+	end
+
+	if CardConnections[card] then
+		for _, conn in ipairs(CardConnections[card]) do
+			conn:Disconnect()
+		end
+		CardConnections[card] = nil
+	end
+end
+
+local function CleanupAllCards()
+	for card in pairs(CardConnections) do
+		CleanupCard(card)
+	end
+	CardConnections = {}
+	ActiveTweens = {}
+end
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- ANIMACIÓN ACTIVA
+-- ════════════════════════════════════════════════════════════════════════════════
+
+local function AplicarEfectoActivo(card)
+	if not card or not card.Parent then return end
+
+	local border = card:FindFirstChild("ActiveBorder")
+	local overlay = card:FindFirstChild("ActiveOverlay")
+	local cardHeight = GetCardHeight()
+
+	if border then
+		TrackTween(card, Tween(border, 0.3, {Transparency = 0, Thickness = 3}))
+	end
+
+	if overlay then
+		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.85}))
+	end
+
+	TrackTween(card, Tween(card, 0.25, {Size = UDim2.new(1, 6, 0, cardHeight + 4)}, Enum.EasingStyle.Back))
+end
+
+local function RemoverEfectoActivo(card)
+	if not card or not card.Parent then return end
+
+	local border = card:FindFirstChild("ActiveBorder")
+	local overlay = card:FindFirstChild("ActiveOverlay")
+	local cardHeight = GetCardHeight()
+
+	if border then
+		TrackTween(card, Tween(border, 0.2, {Transparency = 1, Thickness = 2}))
+	end
+
+	if overlay then
+		TrackTween(card, Tween(overlay, 0.2, {BackgroundTransparency = 1}))
+	end
+
+	TrackTween(card, Tween(card, 0.2, {Size = UDim2.new(1, 0, 0, cardHeight)}))
+end
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- GUI PRINCIPAL
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -242,78 +258,81 @@ local function ActualizarTamanoFrame()
 end
 ActualizarTamanoFrame()
 
-UI.CreateCorner(MainFrame, 12)
-UI.CreateStroke(MainFrame, Theme.Border, 1, 0.5)
-UI.CreateShadow(MainFrame)
-
--- Gradiente de fondo
-local bgGradient = Instance.new("Frame")
-bgGradient.Name = "BackgroundGradient"
-bgGradient.Size = UDim2.new(1, 0, 0.3, 0)
-bgGradient.BackgroundColor3 = Theme.Primary
-bgGradient.BackgroundTransparency = 0.92
-bgGradient.BorderSizePixel = 0
-bgGradient.ZIndex = 1
-bgGradient.Parent = MainFrame
-UI.CreateCorner(bgGradient, 16)
-
-local gradientEffect = Instance.new("UIGradient")
-gradientEffect.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
-gradientEffect.Rotation = 180
-gradientEffect.Parent = bgGradient
+CreateCorner(MainFrame, 12)
+CreateStroke(MainFrame, Theme.Border, 1, 0.5)
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- HEADER, BÚSQUEDA, SLIDER (configuración dinámica)
+-- TABS
 -- ════════════════════════════════════════════════════════════════════════════════
 
-local mostrarTitulo = IsMobile and Config.Movil_MostrarTitulo or true
+local TabsContainer = Instance.new("Frame")
+TabsContainer.Name = "TabsContainer"
+TabsContainer.Size = UDim2.new(1, -16, 0, IsMobile and 24 or 30)
+TabsContainer.Position = UDim2.new(0, 8, 0, 8)
+TabsContainer.BackgroundColor3 = Theme.BackgroundSecondary
+TabsContainer.BorderSizePixel = 0
+TabsContainer.Parent = MainFrame
+CreateCorner(TabsContainer, 8)
+
+local TabIndicator = Instance.new("Frame")
+TabIndicator.Name = "TabIndicator"
+TabIndicator.Size = UDim2.new(0.5, -4, 1, -4)
+TabIndicator.Position = UDim2.new(0, 2, 0, 2)
+TabIndicator.BackgroundColor3 = Theme.Primary
+TabIndicator.BorderSizePixel = 0
+TabIndicator.ZIndex = 2
+TabIndicator.Parent = TabsContainer
+CreateCorner(TabIndicator, 6)
+
+local TabTodos = Instance.new("TextButton")
+TabTodos.Name = "TabTodos"
+TabTodos.Size = UDim2.new(0.5, 0, 1, 0)
+TabTodos.BackgroundTransparency = 1
+TabTodos.Font = Enum.Font.GothamBold
+TabTodos.Text = "Todos"
+TabTodos.TextColor3 = Theme.TextPrimary
+TabTodos.TextSize = IsMobile and 12 or 14
+TabTodos.ZIndex = 3
+TabTodos.Parent = TabsContainer
+
+local TabFavoritos = Instance.new("TextButton")
+TabFavoritos.Name = "TabFavoritos"
+TabFavoritos.Size = UDim2.new(0.5, 0, 1, 0)
+TabFavoritos.Position = UDim2.new(0.5, 0, 0, 0)
+TabFavoritos.BackgroundTransparency = 1
+TabFavoritos.Font = Enum.Font.GothamBold
+TabFavoritos.Text = "Favoritos"
+TabFavoritos.TextColor3 = Theme.TextSecondary
+TabFavoritos.TextSize = IsMobile and 12 or 14
+TabFavoritos.ZIndex = 3
+TabFavoritos.Parent = TabsContainer
+
+local posY = IsMobile and 36 or 42
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- BÚSQUEDA
+-- ════════════════════════════════════════════════════════════════════════════════
+
 local mostrarBusqueda = IsMobile and Config.Movil_MostrarBusqueda or true
-local mostrarSlider = IsMobile and Config.Movil_MostrarSlider or true
+local SearchContainer, SearchBox
 
-local posY = 8
-
--- Header
-if mostrarTitulo then
-	local Header = Instance.new("Frame")
-	Header.Name = "Header"
-	Header.Size = UDim2.new(1, 0, 0, IsMobile and 28 or 40)
-	Header.Position = UDim2.new(0, 0, 0, 0)
-	Header.BackgroundTransparency = 1
-	Header.ZIndex = 5
-	Header.Parent = MainFrame
-
-	local TitleLabel = Instance.new("TextLabel")
-	TitleLabel.Size = UDim2.new(1, 0, 1, 0)
-	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Font = Enum.Font.GothamBold
-	TitleLabel.Text = "Bailes"
-	TitleLabel.TextColor3 = Theme.TextPrimary
-	TitleLabel.TextSize = IsMobile and 16 or 20
-	TitleLabel.Parent = Header
-
-	posY = IsMobile and 30 or 42
-end
-
--- Búsqueda
-local SearchBox
 if mostrarBusqueda then
-	local SearchContainer = Instance.new("Frame")
+	SearchContainer = Instance.new("Frame")
 	SearchContainer.Name = "SearchContainer"
 	SearchContainer.Size = UDim2.new(1, -16, 0, IsMobile and 26 or 32)
 	SearchContainer.Position = UDim2.new(0, 8, 0, posY)
 	SearchContainer.BackgroundColor3 = Theme.BackgroundSecondary
 	SearchContainer.BorderSizePixel = 0
-	SearchContainer.ZIndex = 5
 	SearchContainer.Parent = MainFrame
-	UI.CreateCorner(SearchContainer, 8)
-	UI.CreateStroke(SearchContainer, Theme.Border, 1, 0.3)
+	CreateCorner(SearchContainer, 8)
+	CreateStroke(SearchContainer, Theme.Border, 1, 0.3)
 
 	SearchBox = Instance.new("TextBox")
 	SearchBox.Size = UDim2.new(1, -16, 1, 0)
 	SearchBox.Position = UDim2.new(0, 10, 0, 0)
 	SearchBox.BackgroundTransparency = 1
 	SearchBox.Font = Enum.Font.Gotham
-	SearchBox.PlaceholderText = "Busca tu Baile"
+	SearchBox.PlaceholderText = "Buscar baile..."
 	SearchBox.PlaceholderColor3 = Theme.TextMuted
 	SearchBox.Text = ""
 	SearchBox.TextColor3 = Theme.TextPrimary
@@ -325,8 +344,13 @@ if mostrarBusqueda then
 	posY = posY + (IsMobile and 30 or 36)
 end
 
--- Slider
+-- ════════════════════════════════════════════════════════════════════════════════
+-- SLIDER
+-- ════════════════════════════════════════════════════════════════════════════════
+
+local mostrarSlider = IsMobile and Config.Movil_MostrarSlider or true
 local SpeedValue, SliderFill, SliderKnob, SliderTrack
+
 if mostrarSlider then
 	local SliderSection = Instance.new("Frame")
 	SliderSection.Name = "SliderSection"
@@ -334,9 +358,8 @@ if mostrarSlider then
 	SliderSection.Position = UDim2.new(0, 8, 0, posY)
 	SliderSection.BackgroundColor3 = Theme.BackgroundSecondary
 	SliderSection.BorderSizePixel = 0
-	SliderSection.ZIndex = 5
 	SliderSection.Parent = MainFrame
-	UI.CreateCorner(SliderSection, 8)
+	CreateCorner(SliderSection, 8)
 
 	local SpeedLabel = Instance.new("TextLabel")
 	SpeedLabel.Size = UDim2.new(0, 35, 1, 0)
@@ -361,20 +384,19 @@ if mostrarSlider then
 	SpeedValue.Parent = SliderSection
 
 	SliderTrack = Instance.new("Frame")
-	SliderTrack.Name = "SliderTrack"
 	SliderTrack.Size = UDim2.new(0.5, 0, 0, 8)
 	SliderTrack.Position = UDim2.new(0.22, 0, 0.5, -4)
 	SliderTrack.BackgroundColor3 = Theme.BackgroundTertiary
 	SliderTrack.BorderSizePixel = 0
 	SliderTrack.Parent = SliderSection
-	UI.CreateCorner(SliderTrack, 4)
+	CreateCorner(SliderTrack, 4)
 
 	SliderFill = Instance.new("Frame")
 	SliderFill.Size = UDim2.new(0.5, 0, 1, 0)
 	SliderFill.BackgroundColor3 = Theme.Primary
 	SliderFill.BorderSizePixel = 0
 	SliderFill.Parent = SliderTrack
-	UI.CreateCorner(SliderFill, 4)
+	CreateCorner(SliderFill, 4)
 
 	SliderKnob = Instance.new("Frame")
 	SliderKnob.Size = UDim2.new(0, 16, 0, 16)
@@ -383,8 +405,8 @@ if mostrarSlider then
 	SliderKnob.BorderSizePixel = 0
 	SliderKnob.ZIndex = 3
 	SliderKnob.Parent = SliderTrack
-	UI.CreateCorner(SliderKnob, 8)
-	UI.CreateStroke(SliderKnob, Theme.Primary, 2)
+	CreateCorner(SliderKnob, 8)
+	CreateStroke(SliderKnob, Theme.Primary, 2)
 
 	posY = posY + 36
 else
@@ -392,7 +414,7 @@ else
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- SCROLLING FRAME
+-- CONTENEDOR DE SCROLL
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local ContentArea = Instance.new("Frame")
@@ -428,424 +450,425 @@ ContentPadding.PaddingLeft = UDim.new(0, IsMobile and 4 or 6)
 ContentPadding.PaddingRight = UDim.new(0, IsMobile and 4 or 6)
 ContentPadding.Parent = ScrollFrame
 
--- ════════════════════════════════════════════════════════════════════════════════
--- EFECTOS DE TARJETA ACTIVA
--- ════════════════════════════════════════════════════════════════════════════════
+local EmptyMessage = Instance.new("TextLabel")
+EmptyMessage.Name = "EmptyMessage"
+EmptyMessage.Size = UDim2.new(0, 0, 0, 0) -- Empieza sin tamaño
+EmptyMessage.BackgroundTransparency = 1
+EmptyMessage.Font = Enum.Font.GothamMedium
+EmptyMessage.Text = "Sin favoritos\nToca la estrella en cualquier baile"
+EmptyMessage.TextColor3 = Theme.TextMuted
+EmptyMessage.TextSize = IsMobile and 11 or 13
+EmptyMessage.Visible = false
+EmptyMessage.LayoutOrder = 999 -- Al final
+EmptyMessage.Parent = ScrollFrame
 
-local function AplicarEfectoActivo(card)
-	local activeBar = card:FindFirstChild("ActiveBar")
-	local activeOverlay = card:FindFirstChild("ActiveOverlay")
-	local activeBorder = card:FindFirstChild("ActiveBorder")
-
-	if activeBorder then UI.Tween(activeBorder, 0.3, {Transparency = 0}) end
-
-	if activeBar then
-		activeBar.Size = UDim2.new(0, 0, 1, 0)
-		UI.Tween(activeBar, 0.3, {BackgroundTransparency = 0})
-		UI.Tween(activeBar, 0.4, {Size = UDim2.new(0, 4, 1, 0)}, Enum.EasingStyle.Back)
-	end
-
-	if activeOverlay then
-		UI.Tween(activeOverlay, 0.3, {BackgroundTransparency = 0.85})
-	end
-
-	UI.Tween(card, 0.2, {Size = UDim2.new(1, 4, 0, GetCardHeight() + 2)}, Enum.EasingStyle.Back)
-end
-
-local function RemoverEfectoActivo(card)
-	local activeBar = card:FindFirstChild("ActiveBar")
-	local activeOverlay = card:FindFirstChild("ActiveOverlay")
-	local activeBorder = card:FindFirstChild("ActiveBorder")
-
-	if activeBorder then UI.Tween(activeBorder, 0.2, {Transparency = 1}) end
-
-	if activeBar then
-		UI.Tween(activeBar, 0.2, {BackgroundTransparency = 1})
-		UI.Tween(activeBar, 0.2, {Size = UDim2.new(0, 0, 1, 0)})
-	end
-
-	if activeOverlay then
-		UI.Tween(activeOverlay, 0.2, {BackgroundTransparency = 1})
-	end
-
-	UI.Tween(card, 0.2, {Size = UDim2.new(1, 0, 0, GetCardHeight())})
+local function MostrarEmptyMessage(mostrar, texto)
+	if texto then EmptyMessage.Text = texto end
+	EmptyMessage.Visible = mostrar
+	EmptyMessage.Size = mostrar and UDim2.new(1, 0, 0, 60) or UDim2.new(0, 0, 0, 0)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- CREAR ELEMENTOS
+-- CREAR TARJETA
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local function CrearSeparador(texto, icono, color, orden)
 	local separator = Instance.new("Frame")
-	separator.Name = "Separator_" .. texto
-	separator.Size = UDim2.new(1, 0, 0, IsMobile and 16 or 26)
+	separator.Name = "Sep_" .. texto
+	separator.Size = UDim2.new(1, 0, 0, IsMobile and 16 or 22)
 	separator.BackgroundTransparency = 1
 	separator.LayoutOrder = orden
-	separator:SetAttribute("EmoteEntry", true)
+	separator:SetAttribute("Entry", true)
 	separator.Parent = ScrollFrame
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
-	label.Text = (icono or "") .. " " .. texto .. " " .. (icono or "")
-	label.TextColor3 = color or Theme.TextSecondary
-	label.TextSize = IsMobile and 9 or 13
+	label.Text = icono .. " " .. texto
+	label.TextColor3 = color
+	label.TextSize = IsMobile and 9 or 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = separator
-
-	return separator
 end
 
-local function CrearTarjetaEmote(nombre, id, tipo, orden)
+local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	local cardColor = Theme[tipo] or Theme.Normal
-	local cardHeight = GetCardHeight()
 	local esFavorito = EstaEnFavoritos(id)
+	local esVIPBloqueado = esVIP and not tieneVIP
+	local cardHeight = GetCardHeight()
 
 	local card = Instance.new("TextButton")
-	card.Name = "Emote_" .. nombre
+	card.Name = "Card_" .. id
 	card.Size = UDim2.new(1, 0, 0, cardHeight)
 	card.BackgroundColor3 = cardColor
 	card.BorderSizePixel = 0
 	card.LayoutOrder = orden
 	card.Text = ""
 	card.AutoButtonColor = false
-	card:SetAttribute("EmoteEntry", true)
-	card:SetAttribute("EmoteID", id)
-	card:SetAttribute("EmoteName", nombre)
-	card:SetAttribute("EmoteTipo", tipo)
+	card:SetAttribute("Entry", true)
+	card:SetAttribute("ID", id)
+	card:SetAttribute("Name", nombre)
 	card.Parent = ScrollFrame
 
-	UI.CreateCorner(card, IsMobile and 5 or 8)
-	UI.CreateGradient(card, cardColor, Color3.fromRGB(0, 0, 0), 180)
+	CreateCorner(card, IsMobile and 5 or 8)
 
-	-- Elementos de estado activo (invisibles inicialmente)
-	local activeBar = Instance.new("Frame")
-	activeBar.Name = "ActiveBar"
-	activeBar.Size = UDim2.new(0, 4, 1, 0)
-	activeBar.BackgroundColor3 = cardColor
-	activeBar.BackgroundTransparency = 1
-	activeBar.BorderSizePixel = 0
-	activeBar.ZIndex = 10
-	activeBar.Parent = card
-	UI.CreateCorner(activeBar, IsMobile and 5 or 8)
+	-- Gradient negro
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, cardColor),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+	})
+	gradient.Rotation = 180
+	gradient.Parent = card
 
+	-- Overlay para efecto activo
 	local activeOverlay = Instance.new("Frame")
 	activeOverlay.Name = "ActiveOverlay"
 	activeOverlay.Size = UDim2.new(1, 0, 1, 0)
-	activeOverlay.BackgroundColor3 = cardColor
+	activeOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	activeOverlay.BackgroundTransparency = 1
 	activeOverlay.BorderSizePixel = 0
 	activeOverlay.ZIndex = 2
 	activeOverlay.Parent = card
-	UI.CreateCorner(activeOverlay, IsMobile and 5 or 8)
+	CreateCorner(activeOverlay, IsMobile and 5 or 8)
 
+	-- Borde activo
 	local activeBorder = Instance.new("UIStroke")
 	activeBorder.Name = "ActiveBorder"
-	activeBorder.Color = cardColor
-	activeBorder.Thickness = 3
+	activeBorder.Color = Color3.fromRGB(255, 255, 255)
+	activeBorder.Thickness = 2
 	activeBorder.Transparency = 1
 	activeBorder.Parent = card
 
 	-- Nombre
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Name = "EmoteName"
-	nameLabel.Size = UDim2.new(1, IsMobile and -32 or -45, 1, 0)
-	nameLabel.Position = UDim2.new(0, IsMobile and 6 or 12, 0, 0)
+	nameLabel.Size = UDim2.new(1, IsMobile and -30 or -40, 1, 0)
+	nameLabel.Position = UDim2.new(0, IsMobile and 8 or 12, 0, 0)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = nombre
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = IsMobile and 10 or 14
+	nameLabel.TextSize = IsMobile and 10 or 13
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.ZIndex = 3
 	nameLabel.Parent = card
 
 	-- Botón favorito
 	local favBtn = Instance.new("TextButton")
-	favBtn.Name = "FavButton"
-	favBtn.Size = UDim2.new(0, IsMobile and 22 or 30, 0, IsMobile and 20 or 26)
-	favBtn.Position = UDim2.new(1, IsMobile and -24 or -38, 0.5, IsMobile and -10 or -13)
+	favBtn.Name = "FavBtn"
+	favBtn.Size = UDim2.new(0, IsMobile and 24 or 32, 1, 0)
+	favBtn.Position = UDim2.new(1, IsMobile and -24 or -32, 0, 0)
 	favBtn.BackgroundTransparency = 1
 	favBtn.Text = esFavorito and "★" or "☆"
-	favBtn.TextColor3 = esFavorito and Theme.Warning or Color3.fromRGB(50, 50, 50)
-	favBtn.TextSize = IsMobile and 16 or 22
+	favBtn.TextColor3 = esFavorito and Theme.Warning or Color3.fromRGB(80, 80, 80)
+	favBtn.TextSize = IsMobile and 14 or 18
 	favBtn.Font = Enum.Font.GothamBold
-	favBtn.AutoButtonColor = false
-	favBtn.ZIndex = 2
+	favBtn.ZIndex = 4
 	favBtn.Parent = card
 
 	-- Hover
-	trackCardConnection(card.MouseEnter:Connect(function()
-		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor:Lerp(Color3.fromRGB(255,255,255), 0.2)})
-	end))
-	trackCardConnection(card.MouseLeave:Connect(function()
-		UI.Tween(card, 0.15, {BackgroundColor3 = cardColor})
+	TrackConnection(card, card.MouseEnter:Connect(function()
+		Tween(card, 0.15, {BackgroundColor3 = cardColor:Lerp(Color3.fromRGB(255,255,255), 0.15)})
 	end))
 
-	return card, favBtn
-end
+	TrackConnection(card, card.MouseLeave:Connect(function()
+		Tween(card, 0.15, {BackgroundColor3 = cardColor})
+	end))
 
--- ════════════════════════════════════════════════════════════════════════════════
--- LÓGICA DE TARJETAS
--- ════════════════════════════════════════════════════════════════════════════════
-
-local Actualizar -- Forward declaration
-
-local function ManejarClickTarjeta(card, nombre, esVIPBloqueado)
-	if esVIPBloqueado then
-		NotificationSystem:Warning("Acceso VIP", "Necesitas el GamePass VIP para este baile", 4)
-		task.wait(0.5)
-		MarketplaceService:PromptGamePassPurchase(Jugador, VIPGamePassID)
-		return
-	end
-
-	if DanceActivated == nombre then
-		DanceActivated = nil
-		StopAnimationRemote:FireServer()
-		RemoverEfectoActivo(card)
-		ActiveCard = nil
-	else
-		if ActiveCard and ActiveCard ~= card then
-			RemoverEfectoActivo(ActiveCard)
+	-- Click tarjeta
+	TrackConnection(card, card.MouseButton1Click:Connect(function()
+		if esVIPBloqueado then
+			NotificationSystem:Warning("VIP", "Necesitas VIP para este baile", 3)
+			task.wait(0.3)
+			MarketplaceService:PromptGamePassPurchase(Jugador, VIPGamePassID)
+			return
 		end
-		DanceActivated = nombre
-		ActiveCard = card
-		PlayAnimationRemote:FireServer("playAnim", nombre)
-		AplicarEfectoActivo(card)
-	end
-end
 
-local function ManejarClickFavorito(id, nombre)
-	if favoritoDebounce then return end
-	favoritoDebounce = true
+		if DanceActivated == nombre then
+			DanceActivated = nil
+			StopAnimationRemote:FireServer()
+			RemoverEfectoActivo(card)
+			ActiveCard = nil
+		else
+			if ActiveCard and ActiveCard.Parent then
+				RemoverEfectoActivo(ActiveCard)
+			end
 
-	local success, status = pcall(function()
-		return AnadirFav:InvokeServer(id)
-	end)
+			DanceActivated = nombre
+			ActiveCard = card
+			PlayAnimationRemote:FireServer("playAnim", nombre)
+			AplicarEfectoActivo(card)
+		end
+	end))
 
-	if not success then
-		NotificationSystem:Error("Error", "Error de conexión al servidor", 3)
-		favoritoDebounce = false
-		return
-	end
+	-- Click favorito
+	TrackConnection(card, favBtn.MouseButton1Click:Connect(function()
+		local success, status = pcall(function()
+			return AnadirFav:InvokeServer(id)
+		end)
 
-	if status == "Anadido" then
-		NotificationSystem:Success("Favorito", nombre .. " añadido a favoritos", 3)
-	elseif status == "Eliminada" then
-		NotificationSystem:Success("Favorito", nombre .. " eliminado de favoritos", 3)
-	else
-		NotificationSystem:Error("Error", "No se pudo modificar favoritos", 4)
-		favoritoDebounce = false
-		return
-	end
+		if not success then
+			NotificationSystem:Error("Error", "Error de conexión", 2)
+			return
+		end
 
-	EmotesFavs = ObtenerFavs:InvokeServer() or {}
-	favoritoDebounce = false
-	Actualizar()
+		if status == "Anadido" then
+			table.insert(EmotesFavs, id)
+			NotificationSystem:Success("Favorito", nombre .. " añadido", 2)
+
+			for _, child in ipairs(ScrollFrame:GetChildren()) do
+				if child:GetAttribute("ID") == id then
+					local btn = child:FindFirstChild("FavBtn")
+					if btn then
+						btn.Text = "★"
+						btn.TextColor3 = Theme.Warning
+					end
+				end
+			end
+
+		elseif status == "Eliminada" then
+			local idx = table.find(EmotesFavs, id)
+			if idx then table.remove(EmotesFavs, idx) end
+			NotificationSystem:Success("Favorito", nombre .. " quitado", 2)
+
+			if TabActual == "Favoritos" then
+				CleanupCard(card)
+
+				Tween(card, 0.25, {
+					Position = UDim2.new(1.5, 0, 0, 0),
+					BackgroundTransparency = 0.8
+				}, Enum.EasingStyle.Back)
+
+				task.delay(0.2, function()
+					local t = Tween(card, 0.15, {Size = UDim2.new(1, 0, 0, 0)})
+					t.Completed:Connect(function()
+						card:Destroy()
+						if #EmotesFavs == 0 then
+							MostrarEmptyMessage(true, "Sin favoritos\nToca la estrella en cualquier baile")
+						end
+					end)
+				end)
+			else
+				for _, child in ipairs(ScrollFrame:GetChildren()) do
+					if child:GetAttribute("ID") == id then
+						local btn = child:FindFirstChild("FavBtn")
+						if btn then
+							btn.Text = "☆"
+							btn.TextColor3 = Color3.fromRGB(80, 80, 80)
+						end
+					end
+				end
+			end
+		end
+	end))
+
+	return card
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- FUNCIÓN ACTUALIZAR
+-- CARGAR CONTENIDO
 -- ════════════════════════════════════════════════════════════════════════════════
 
-Actualizar = function(filtro)
-	if actualizandoDebounce then return end
-	actualizandoDebounce = true
-
-	filtro = filtro or (SearchBox and SearchBox.Text or "")
-
-	local activeDanceName = DanceActivated
-	local scrollPosition = ScrollFrame.CanvasPosition.Y
-
-	-- Limpiar CONEXIONES PRIMERO, luego UI
-	disconnectCardConnections()
+local function LimpiarScroll()
+	CleanupAllCards()
 
 	for _, child in ipairs(ScrollFrame:GetChildren()) do
-		if child:GetAttribute("EmoteEntry") then
+		if child:GetAttribute("Entry") then
 			child:Destroy()
 		end
 	end
+	MostrarEmptyMessage(false)
 	ActiveCard = nil
+end
 
-	-- Obtener datos
-	EmotesTrending = ObtenerTrending:InvokeServer() or {}
-	tieneVIP = Ownership:InvokeServer(VIPGamePassID)
+local function RestaurarBaileActivo()
+	if not DanceActivated then return end
 
+	for _, child in ipairs(ScrollFrame:GetChildren()) do
+		if child:GetAttribute("Name") == DanceActivated then
+			ActiveCard = child
+			AplicarEfectoActivo(child)
+			break
+		end
+	end
+end
+
+local function CargarTodos(filtro)
+	LimpiarScroll()
+
+	filtro = (filtro or ""):lower()
 	local orden = 1
-	local filtroLower = filtro:lower()
-	local delayCounter = 0
 
 	local function pasaFiltro(nombre)
-		return filtroLower == "" or nombre:lower():find(filtroLower, 1, true)
+		return filtro == "" or nombre:lower():find(filtro, 1, true)
 	end
 
-	local function crearYAnimarTarjeta(nombre, id, tipo, esVIPBloqueado)
-		local card, favBtn = CrearTarjetaEmote(nombre, id, tipo, orden)
-		orden = orden + 1
-
-		-- Iniciar invisible
-		card.BackgroundTransparency = 1
-		for _, child in ipairs(card:GetDescendants()) do
-			if child:IsA("TextLabel") or child:IsA("TextButton") then
-				child.TextTransparency = 1
-			elseif child:IsA("UIStroke") then
-				child.Transparency = 1
-			end
-		end
-
-		-- Animar entrada
-		delayCounter = delayCounter + 1
-		task.delay(delayCounter * 0.03, function()
-			if card and card.Parent then
-				AnimarElementos(card, true, true)
-			end
-		end)
-
-		-- Configurar clicks
-		trackCardConnection(card.MouseButton1Click:Connect(function()
-			ManejarClickTarjeta(card, nombre, esVIPBloqueado)
-		end))
-
-		trackCardConnection(favBtn.MouseButton1Click:Connect(function()
-			ManejarClickFavorito(id, nombre)
-		end))
-
-		return card
-	end
-
-	-- Categorías de emotes con su configuración
-	local categorias = {
-		{
-			nombre = "FAVORITOS",
-			icono = "⭐",
-			color = Theme.Favorites,
-			tipo = "Favorites",
-			datos = EmotesFavs,
-			esID = true,
-			filtrarDe = {}
-		},
-		{
-			nombre = "TRENDING",
-			icono = "🔥",
-			color = Theme.Trending,
-			tipo = "Trending",
-			datos = EmotesTrending,
-			esID = true,
-			filtrarDe = {EmotesFavs}
-		},
-		{
-			nombre = "VIP",
-			icono = "👑",
-			color = Theme.VIP,
-			tipo = "VIP",
-			datos = Modulo.Vip,
-			esID = false,
-			filtrarDe = {EmotesFavs, EmotesTrending},
-			esVIP = true
-		},
-		{
-			nombre = "RECOMENDADOS",
-			icono = "💡",
-			color = Theme.Recommended,
-			tipo = "Recommended",
-			datos = Modulo.Recomendado,
-			esID = false,
-			filtrarDe = {EmotesFavs, EmotesTrending}
-		},
-		{
-			nombre = "TODOS LOS BAILES",
-			icono = "🎵",
-			color = Theme.Normal,
-			tipo = "Normal",
-			datos = Modulo.Ids,
-			esID = false,
-			filtrarDe = {EmotesFavs, EmotesTrending}
-		}
-	}
-
-	for _, cat in ipairs(categorias) do
-		if cat.datos and #cat.datos > 0 then
-			local visibles = {}
-
-			for _, v in ipairs(cat.datos) do
-				local id = cat.esID and v or v.ID
-				local nombre = cat.esID and EncontrarNombre(v) or v.Nombre
-
-				-- Verificar si no está en listas de filtro
-				local enOtraLista = false
-				for _, lista in ipairs(cat.filtrarDe) do
-					if table.find(lista or {}, id) then
-						enOtraLista = true
-						break
-					end
+	if EmotesTrending and #EmotesTrending > 0 then
+		local hayVisibles = false
+		for _, id in ipairs(EmotesTrending) do
+			local nombre = EncontrarDatos(id)
+			if pasaFiltro(nombre) then
+				if not hayVisibles then
+					CrearSeparador("TRENDING", "🔥", Theme.Trending, orden)
+					orden = orden + 1
+					hayVisibles = true
 				end
-
-				if not enOtraLista and pasaFiltro(nombre) then
-					table.insert(visibles, {id = id, nombre = nombre})
-				end
-			end
-
-			if #visibles > 0 then
-				CrearSeparador(cat.nombre, cat.icono, cat.color, orden)
+				CrearTarjeta(nombre, id, "Trending", orden, false)
 				orden = orden + 1
-
-				for _, data in ipairs(visibles) do
-					local esVIPBloqueado = cat.esVIP and not tieneVIP
-					crearYAnimarTarjeta(data.nombre, data.id, cat.tipo, esVIPBloqueado)
-				end
 			end
 		end
 	end
 
-	-- Restaurar estado
-	task.delay(0.15, function()
-		ScrollFrame.CanvasPosition = Vector2.new(0, scrollPosition)
-
-		if activeDanceName then
-			for _, child in ipairs(ScrollFrame:GetChildren()) do
-				if child:GetAttribute("EmoteName") == activeDanceName then
-					ActiveCard = child
-					AplicarEfectoActivo(child)
-					break
+	if Modulo.Vip and #Modulo.Vip > 0 then
+		local hayVisibles = false
+		for _, v in ipairs(Modulo.Vip) do
+			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
+				if not hayVisibles then
+					CrearSeparador("VIP", "👑", Theme.VIP, orden)
+					orden = orden + 1
+					hayVisibles = true
 				end
+				CrearTarjeta(v.Nombre, v.ID, "VIP", orden, true)
+				orden = orden + 1
 			end
 		end
+	end
 
-		actualizandoDebounce = false
+	if Modulo.Recomendado and #Modulo.Recomendado > 0 then
+		local hayVisibles = false
+		for _, v in ipairs(Modulo.Recomendado) do
+			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
+				if not hayVisibles then
+					CrearSeparador("RECOMENDADOS", "💡", Theme.Recommended, orden)
+					orden = orden + 1
+					hayVisibles = true
+				end
+				CrearTarjeta(v.Nombre, v.ID, "Recommended", orden, false)
+				orden = orden + 1
+			end
+		end
+	end
+
+	if Modulo.Ids and #Modulo.Ids > 0 then
+		local hayVisibles = false
+		for _, v in ipairs(Modulo.Ids) do
+			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
+				if not hayVisibles then
+					CrearSeparador("TODOS", "🎵", Theme.Normal, orden)
+					orden = orden + 1
+					hayVisibles = true
+				end
+				CrearTarjeta(v.Nombre, v.ID, "Normal", orden, false)
+				orden = orden + 1
+			end
+		end
+	end
+
+	RestaurarBaileActivo()
+end
+
+local function CargarFavoritos(filtro)
+	LimpiarScroll()
+
+	if #EmotesFavs == 0 then
+		MostrarEmptyMessage(true, "Sin favoritos\nToca la estrella en cualquier baile")
+		return
+	end
+
+	filtro = (filtro or ""):lower()
+	local orden = 1
+	local hayVisibles = false
+
+	for _, id in ipairs(EmotesFavs) do
+		local nombre, esVIP = EncontrarDatos(id)
+		if filtro == "" or nombre:lower():find(filtro, 1, true) then
+			local tipo = ObtenerTipo(id)
+			CrearTarjeta(nombre, id, tipo, orden, esVIP)
+			orden = orden + 1
+			hayVisibles = true
+		end
+	end
+
+	if not hayVisibles then
+		MostrarEmptyMessage(true, "Sin resultados")
+	end
+
+	RestaurarBaileActivo()
+end
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- CAMBIO DE TABS
+-- ════════════════════════════════════════════════════════════════════════════════
+
+local function CambiarTab(tab)
+	if tab == TabActual then return end
+	TabActual = tab
+
+	local filtro = SearchBox and SearchBox.Text or ""
+
+	if tab == "Todos" then
+		Tween(TabIndicator, 0.25, {Position = UDim2.new(0, 2, 0, 2)}, Enum.EasingStyle.Back)
+		TabTodos.TextColor3 = Theme.TextPrimary
+		TabFavoritos.TextColor3 = Theme.TextSecondary
+		CargarTodos(filtro)
+	else
+		Tween(TabIndicator, 0.25, {Position = UDim2.new(0.5, 2, 0, 2)}, Enum.EasingStyle.Back)
+		TabTodos.TextColor3 = Theme.TextSecondary
+		TabFavoritos.TextColor3 = Theme.TextPrimary
+		CargarFavoritos(filtro)
+	end
+end
+
+TabTodos.MouseButton1Click:Connect(function() CambiarTab("Todos") end)
+TabFavoritos.MouseButton1Click:Connect(function() CambiarTab("Favoritos") end)
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- BÚSQUEDA
+-- ════════════════════════════════════════════════════════════════════════════════
+
+if SearchBox then
+	local searchDebounce = false
+	SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if searchDebounce then return end
+		searchDebounce = true
+		task.delay(0.25, function()
+			if TabActual == "Todos" then
+				CargarTodos(SearchBox.Text)
+			else
+				CargarFavoritos(SearchBox.Text)
+			end
+			searchDebounce = false
+		end)
 	end)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- SLIDER DE VELOCIDAD
+-- SLIDER
 -- ════════════════════════════════════════════════════════════════════════════════
 
-if mostrarSlider and SliderTrack then
+if SliderTrack then
 	local sliderDragging = false
 	local speedValues = {0.01, 0.05, 0.3, 0.5, 0.7, 1, 1.3, 1.6, 1.9, 2.2, 2.5}
 	local currentSpeedIndex = 6
 
-	local function UpdateSliderVisual(percentage)
-		SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
-		SliderKnob.Position = UDim2.new(percentage, -8, 0.5, -8)
-		local index = math.clamp(math.floor(percentage * 10) + 1, 1, 11)
-		SpeedValue.Text = string.format("%.1fx", speedValues[index])
-	end
-
-	local function SetSliderValue(percentage)
-		percentage = math.clamp(percentage, 0, 1)
-		UpdateSliderVisual(percentage)
-		local index = math.clamp(math.floor(percentage * 10) + 1, 1, 11)
-		if index ~= currentSpeedIndex then
-			currentSpeedIndex = index
-			PlayAnimationRemote:FireServer("speed", speedValues[index])
+	local function UpdateSlider(pct)
+		pct = math.clamp(pct, 0, 1)
+		SliderFill.Size = UDim2.new(pct, 0, 1, 0)
+		SliderKnob.Position = UDim2.new(pct, -8, 0.5, -8)
+		local idx = math.clamp(math.floor(pct * 10) + 1, 1, 11)
+		SpeedValue.Text = string.format("%.1fx", speedValues[idx])
+		if idx ~= currentSpeedIndex then
+			currentSpeedIndex = idx
+			PlayAnimationRemote:FireServer("speed", speedValues[idx])
 		end
 	end
 
 	SliderTrack.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			sliderDragging = true
-			local relativeX = (input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X
-			SetSliderValue(relativeX)
+			UpdateSlider((input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X)
 		end
 	end)
 
@@ -857,8 +880,7 @@ if mostrarSlider and SliderTrack then
 
 	UserInputService.InputChanged:Connect(function(input)
 		if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local relativeX = (input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X
-			SetSliderValue(relativeX)
+			UpdateSlider((input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X)
 		end
 	end)
 
@@ -868,38 +890,21 @@ if mostrarSlider and SliderTrack then
 		end
 	end)
 
-	UpdateSliderVisual(0.5)
+	UpdateSlider(0.5)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- BÚSQUEDA
--- ════════════════════════════════════════════════════════════════════════════════
-
-if mostrarBusqueda and SearchBox then
-	local searchDebounce = false
-	-- NO usar trackConnection aquí porque disconnectAllConnections() lo desconectaría
-	SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-		if searchDebounce then return end
-		searchDebounce = true
-		task.delay(0.3, function()
-			Actualizar(SearchBox.Text)
-			searchDebounce = false
-		end)
-	end)
-end
-
--- ════════════════════════════════════════════════════════════════════════════════
--- TOGGLE GUI & TOPBAR ICON
+-- TOGGLE GUI
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local function ToggleGUI(visible)
 	if visible then
 		MainFrame.Visible = true
 		MainFrame.BackgroundTransparency = 1
-		UI.Tween(MainFrame, 0.3, {BackgroundTransparency = 0}, Enum.EasingStyle.Quad)
+		Tween(MainFrame, 0.3, {BackgroundTransparency = 0})
 	else
-		local tween = UI.Tween(MainFrame, 0.25, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad)
-		tween.Completed:Wait()
+		local t = Tween(MainFrame, 0.2, {BackgroundTransparency = 1})
+		t.Completed:Wait()
 		MainFrame.Visible = false
 	end
 end
@@ -913,22 +918,10 @@ Icono.selected:Connect(function() ToggleGUI(true) end)
 Icono.deselected:Connect(function() ToggleGUI(false) end)
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- RESPONSIVE
--- ════════════════════════════════════════════════════════════════════════════════
-
--- NO usar trackConnection para eventos globales que no deben desconectarse
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-	local newIsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-	if newIsMobile ~= IsMobile then
-		IsMobile = newIsMobile
-		ActualizarTamanoFrame()
-		Actualizar()
-	end
-end)
-
--- ════════════════════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN
 -- ════════════════════════════════════════════════════════════════════════════════
 
 EmotesFavs = ObtenerFavs:InvokeServer() or {}
-Actualizar()
+EmotesTrending = ObtenerTrending:InvokeServer() or {}
+tieneVIP = Ownership:InvokeServer(VIPGamePassID)
+CargarTodos()

@@ -1,259 +1,804 @@
-# ��� Sistema de Notificaciones - Documentación
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
 
-Sistema profesional de notificaciones para Roblox, completamente integrado con ThemeConfig.
+-- Servicios de sincronizacion
+local RemotesSync = ReplicatedStorage:WaitForChild("Emotes_Sync")
+local SyncRemote = RemotesSync:WaitForChild("Sync")
 
-## ��� Ubicación
+-- Sistema de jugador seleccionado
+local SelectedPlayer = ReplicatedStorage:WaitForChild("SelectedPlayer")
+local Ev_DonationMessage = SelectedPlayer.Events.donation_message
+local Ev_UpdateStatus = SelectedPlayer.Events.update_status
+local Highlight = SelectedPlayer:WaitForChild("Highlight")
+local ColorEffects = require(SelectedPlayer.COLORS)
 
-```
-ReplicatedStorage/
-  └─ NotificationSystem.lua
-```
+-- ReplicatedStorage global para sistemas compartidos
+local _GlobalReplicated = game:GetService("ReplicatedStorage")
+local NotificationSystem = require(_GlobalReplicated:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
-## ✨ Características
+-- Sistema de regalos
+local Gifting = ReplicatedStorage["Gamepass Gifting"].Remotes.Gifting
+local Config = require(ReplicatedStorage["Gamepass Gifting"].Modules.Config)
+local Configuration = require(ReplicatedStorage.Configuration)
 
-- ✅ **5 tipos de notificaciones** (Success, Error, Warning, Info, Clan)
-- ✅ **Diseño moderno** usando ThemeConfig
-- ✅ **Animaciones suaves** con TweenService
-- ✅ **Auto-posicionamiento** dinámico
-- ✅ **Notificaciones clickeables**
-- ✅ **Barra de progreso** animada
-- ✅ **Máximo 5 notificaciones** simultáneas
-- ✅ **Sistema de cola** automático
+-- Sistema de likes
+local LikesEvents = ReplicatedStorage:WaitForChild("LikesEvents")
+local GiveLikeEvent = LikesEvents:WaitForChild("GiveLikeEvent")
+local GiveSuperLikeEvent = LikesEvents:WaitForChild("GiveSuperLikeEvent")
+local BroadcastEvent = LikesEvents:WaitForChild("BroadcastEvent")
 
-## ��� Tipos de Notificaciones
+-- Referencias al jugador local
+local LocalPlayer = Players.LocalPlayer
+local mouse = LocalPlayer:GetMouse()
+local camera = workspace.CurrentCamera
 
-### 1. Success (✓)
-```lua
-Notify:Success("¡Éxito!", "Operación completada correctamente", 5)
-```
-- **Color**: Verde (#34A853)
-- **Uso**: Acciones exitosas, confirmaciones
+-- Elementos de la interfaz
+local MainFrame = script.Parent.MainFrame
 
-### 2. Error (✕)
-```lua
-Notify:Error("Error", "Algo salió mal", 5)
-```
-- **Color**: Rojo (#DC5F5F)
-- **Uso**: Errores, fallos de operación
+-- Colores cambiantes
+local COLOR_GiftUserGamePass = MainFrame.GiftUserGamePass.Container.SelectedColor
+local COLOR_UserGamePass = MainFrame.UserGamePass.Container.SelectedColor
+local COLOR_UserInformation = MainFrame.UserInformation.Container.SelectedColor
+local COLOR_GiftUserGamePass_UserN = MainFrame.GiftUserGamePass.User_Name
+local COLOR_UserGamePass_UserN = MainFrame.UserGamePass.User_Name
+local COLOR_UserInformation_UserN = MainFrame.UserInformation.User_Name
 
-### 3. Warning (⚠)
-```lua
-Notify:Warning("Advertencia", "Ten cuidado con esto", 5)
-```
-- **Color**: Amarillo (#FFC107)
-- **Uso**: Avisos importantes, precauciones
+-- Botones principales
+local SYNC_BUTTON = MainFrame.SYNC_BUTTON
+local VA_Button = MainFrame.VA_BUTTON
+local GP_Button = MainFrame.Gamepass_BUTTON
+local DNT_Button = MainFrame.Donate_BUTTON
 
-### 4. Info (ℹ)
-```lua
-Notify:Info("Información", "Datos útiles para el usuario", 5)
-```
-- **Color**: Azul (#4285F4)
-- **Uso**: Información general, tips
+local debounceSync = false
 
-### 5. Clan (⚔)
-```lua
-Notify:Clan("Sistema de Clanes", "Acción relacionada con clanes", 5)
-```
-- **Color**: Índigo (Accent)
-- **Uso**: Notificaciones específicas de clanes
+-- Informacion del usuario
+local MainFrameInformation = MainFrame.UserInformation
+local Description = MainFrameInformation.Description
+local UserIMG = MainFrameInformation.User_IMG
+local UserName = MainFrameInformation.User_Name
 
-## ��� Uso Básico
+-- Elementos de likes
+local LikeButton = MainFrameInformation:FindFirstChild("LikeButton")
+local SuperLikeButton = MainFrameInformation:FindFirstChild("SuperLikeButton")
+local NumTotalLikes = MainFrameInformation:FindFirstChild("NumTotalLikes")
 
-### Importar el módulo
+local SUPER_LIKE_PRODUCT_ID = Configuration.SUPER_LIKE
+local LIKE_COOLDOWN = Configuration.LIKE_COOLDOWN
 
-```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
-```
+local isGuiOpen = false
 
-### Notificación simple
+-- Paneles de gamepasses
+local UserGamePass = MainFrame:FindFirstChild("UserGamePass")
+local GiftUserGamePass = MainFrame:FindFirstChild("GiftUserGamePass")
 
-```lua
-Notify:Success("¡Genial!", "Completaste la misión", 4)
-```
+-- Plantilla para gamepasses
+local TemplateGamePass = script.Template
+local Lock = TemplateGamePass.Lock
+local Icon = TemplateGamePass.Icon
+local Price = TemplateGamePass.Price
 
-### Notificación con duración personalizada
+-- Variables de estado
+local currentTarget = LocalPlayer
+local syncedPlayer = nil
+local MAX_ACTIVATION_DISTANCE = 80
+local isDonateMenuOpen = false
+local isGiftMenuOpen = false
+local isSynced = false
 
-```lua
-Notify:Info("Título", "Mensaje", 8)  -- 8 segundos
-```
+-- Variables para el press prolongado
+local activado_press = false
+local isPressing = false
+local pressStartTime = 0
+local PRESS_DURATION = 1
 
-### Notificación clickeable
+-- ============================================
+-- SISTEMA DE LIKES OPTIMIZADO
+-- ============================================
 
-```lua
-Notify:Notify({
-title = "Nueva Misión",
-message = "Haz click para ver detalles",
-type = "info",
-duration = 10,
-onClick = function()
-print("El usuario clickeó la notificación!")
--- Abrir UI de misiones, etc.
-end
-})
-```
-
-### Notificación avanzada
-
-```lua
-Notify:Notify({
-title = "Título Personalizado",
-message = "Mensaje personalizado más largo",
-type = "success",  -- success, error, warning, info, clan
-duration = 6,      -- segundos (0 = no auto-cerrar)
-onClick = function()
--- Acción al hacer click
-end
-})
-```
-
-## ��� Ejemplos de Integración
-
-### En el Sistema de Clanes
-
-```lua
--- Cuando un jugador se une a un clan
-Notify:Clan("¡Bienvenido!", "Te has unido a " .. clanName, 5)
-
--- Cuando se crea un clan
-Notify:Success("¡Clan Creado!", "Tu clan '" .. clanName .. "' está listo", 5)
-
--- Error al crear clan
-Notify:Error("Error", "No se pudo crear el clan", 5)
-```
-
-### En un Sistema de Tienda
-
-```lua
--- Compra exitosa
-Notify:Success("Compra Exitosa", "Has comprado: " .. itemName, 4)
-
--- Sin dinero
-Notify:Warning("Fondos Insuficientes", "Necesitas " .. price .. " monedas", 5)
-```
-
-### En un Sistema de Chat
-
-```lua
--- Nuevo mensaje privado
-Notify:Info("Nuevo Mensaje", playerName .. " te envió un mensaje", 6, function()
--- Abrir chat
-ChatUI:Open(playerName)
-end)
-```
-
-## ⚙️ Configuración
-
-Puedes modificar la configuración en `NotificationSystem.lua`:
-
-```lua
-local CONFIG = {
-POSITION_START = UDim2.new(1, -20, 1, -20),  -- Posición inicial
-NOTIFICATION_WIDTH = 320,                     -- Ancho
-NOTIFICATION_HEIGHT = 80,                     -- Alto
-SPACING = 10,                                 -- Espaciado entre notificaciones
-DURATION_SHORT = 3,                           -- Duración corta
-DURATION_MEDIUM = 5,                          -- Duración media
-DURATION_LONG = 8,                            -- Duración larga
-ANIMATION_TIME = 0.3,                         -- Tiempo de animación
-MAX_NOTIFICATIONS = 5                         -- Máximo simultáneo
+local LikesSystem = {
+	Cooldowns = {
+		Like = {}
+	},
+	IsSending = false
 }
-```
 
-## ��� Métodos Disponibles
+-- Actualizar visualizacion de likes
+local function updateLikesDisplay()
+	if not currentTarget then return end
 
-| Método | Parámetros | Descripción |
-|--------|-----------|-------------|
-| `Notify:Success()` | title, message, duration | Notificación de éxito |
-| `Notify:Error()` | title, message, duration | Notificación de error |
-| `Notify:Warning()` | title, message, duration | Notificación de advertencia |
-| `Notify:Info()` | title, message, duration | Notificación informativa |
-| `Notify:Clan()` | title, message, duration, onClick | Notificación de clan |
-| `Notify:Notify()` | options{} | Notificación personalizada |
-| `Notify:ClearAll()` | - | Eliminar todas las notificaciones |
+	if NumTotalLikes then
+		NumTotalLikes.Text = "Total Likes: " .. tostring(currentTarget:GetAttribute("TotalLikes") or 0)
+	end
 
-## ��� Personalización de Colores
+	if LikeButton then
+		LikeButton.Visible = (currentTarget ~= LocalPlayer)
+	end
 
-Los colores se toman automáticamente de `ThemeConfig.lua`:
-
-```lua
-NOTIFICATION_TYPES = {
-success = {
-icon = "✓",
-color = THEME.success,        -- Verde
-bgColor = THEME.successMuted,
-borderColor = THEME.success
-},
--- ... otros tipos
-}
-```
-
-## ��� Mejores Prácticas
-
-1. **Usa el tipo correcto**: No uses Success para errores
-2. **Mensajes concisos**: Máximo 2 líneas de texto
-3. **Duración apropiada**: 
-   - Info rápida: 3-4 segundos
-   - Avisos: 5-6 segundos  
-   - Errores importantes: 8+ segundos
-4. **No abuses**: Máximo 2-3 notificaciones por acción
-5. **onClick solo cuando sea útil**: No fuerces clicks innecesarios
-
-## ��� Integración en Nuevos Módulos
-
-### Paso 1: Importar
-```lua
-local Notify = require(ReplicatedStorage:WaitForChild("NotificationSystem"))
-```
-
-### Paso 2: Usar en eventos
-```lua
--- Ejemplo en un sistema de logros
-AchievementSystem.OnAchievement:Connect(function(achievementName)
-Notify:Success(
-"¡Logro Desbloqueado!",
-achievementName,
-6
-)
-end)
-```
-
-## ��� Responsive Design
-
-El sistema es completamente responsive:
-- Se adapta a diferentes resoluciones
-- Posición fija en esquina inferior derecha
-- Stack automático de notificaciones
-- Animaciones suaves de entrada/salida
-
-## ��� Debugging
-
-Para ver logs de notificaciones:
-
-```lua
--- Activar modo debug (agregar al inicio de NotificationSystem.lua)
-local DEBUG = true
-
-if DEBUG then
-print("[Notification] Showing:", title, "-", message)
+	if SuperLikeButton then
+		SuperLikeButton.Visible = (currentTarget ~= LocalPlayer)
+	end
 end
-```
 
-## ��� Eliminar Todas las Notificaciones
+-- Verificar cooldown local (UI feedback)
+local function checkLocalCooldown(targetPlayer)
+	local userId = LocalPlayer.UserId
+	local targetId = targetPlayer.UserId
+	local cooldownKey = userId .. "_" .. targetId
 
-```lua
-Notify:ClearAll()
-```
+	local lastTime = LikesSystem.Cooldowns.Like[cooldownKey] or 0
+	local elapsed = tick() - lastTime
 
-Útil para:
-- Cambios de escena
-- Teleports
-- Resets de UI
+	return elapsed >= LIKE_COOLDOWN, lastTime
+end
 
----
+-- Actualizar cooldown local
+local function updateLocalCooldown(targetPlayer)
+	local userId = LocalPlayer.UserId
+	local targetId = targetPlayer.UserId
+	local cooldownKey = userId .. "_" .. targetId
 
-**Creado para:** Sistema SX  
-**Versión:** 1.0  
-**Compatible con:** Roblox Studio 2026  
-**Dependencias:** ThemeConfig.lua
+	LikesSystem.Cooldowns.Like[cooldownKey] = tick()
+end
 
+-- Mostrar notificacion de cooldown
+local function showCooldownNotification(remainingTime)
+	local minutes = math.ceil(remainingTime / 60)
+	StarterGui:SetCore("SendNotification", {
+		Title = "Enfriamiento",
+		Text = string.format("Espera %d minuto%s", minutes, minutes > 1 and "s" or ""),
+		Duration = 3
+	})
+end
+
+-- ============================================
+-- SISTEMA DE COLORES Y HIGHLIGHT
+-- ============================================
+
+local function updateHighlightColor(player)
+	local colorName = player:GetAttribute("SelectedColor") or "default"
+	local color = ColorEffects.colors[colorName] or ColorEffects.defaultSelectedColor
+
+	Highlight.FillColor = color
+	Highlight.OutlineColor = color
+	COLOR_GiftUserGamePass.ImageColor3 = color
+	COLOR_UserGamePass.ImageColor3 = color
+	COLOR_UserInformation.ImageColor3 = color
+	COLOR_GiftUserGamePass_UserN.TextColor3 = color
+	COLOR_UserGamePass_UserN.TextColor3 = color
+	COLOR_UserInformation_UserN.TextColor3 = color
+end
+
+local function attachHighlight(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+	updateHighlightColor(targetPlayer)
+	Highlight.Adornee = targetPlayer.Character
+	Highlight.Enabled = true
+end
+
+local function detachHighlight()
+	if Highlight then
+		Highlight.Adornee = nil
+		Highlight.Enabled = false
+	end
+end
+
+-- ============================================
+-- GAMEPASS SYSTEM
+-- ============================================
+
+local gamepassCache = {}
+
+local function playerHasGamepass(player, gamepassId)
+	local cacheKey = player.UserId .. "_" .. gamepassId
+	if gamepassCache[cacheKey] ~= nil then
+		return gamepassCache[cacheKey]
+	end
+
+	local success, hasPass = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
+	end)
+
+	gamepassCache[cacheKey] = success and hasPass
+	return success and hasPass
+end
+
+local function clearGamepassCache()
+	gamepassCache = {}
+end
+
+local function clearGamepassList(listFrame)
+	if not listFrame then return end
+
+	for _, child in pairs(listFrame:GetChildren()) do
+		if child:IsA("Frame") and (child.Name:find("Gamepass_") or child.Name:find("GiftGamepass_")) then
+			child:Destroy()
+		end
+	end
+end
+
+local function clearAllGamepassLists()
+	if UserGamePass then clearGamepassList(UserGamePass.ListGamePass) end
+	if GiftUserGamePass then clearGamepassList(GiftUserGamePass.ListGamePass) end
+end
+
+-- ============================================
+-- INFORMACION DEL JUGADOR
+-- ============================================
+
+local function updatePlayerInfo(targetPlayer)
+	UserName.Text = "<b>" .. targetPlayer.DisplayName .. "</b><br /><font size=\"4\"><i>@" .. targetPlayer.Name .. "</i></font>"
+	UserIMG.Image = "rbxthumb://type=AvatarHeadShot&id=" .. targetPlayer.UserId .. "&w=420&h=420"
+
+	local status = targetPlayer:GetAttribute("status") or "No se proporciono ningun estado"
+	Description.Text = '"' .. status .. '"'
+
+	if targetPlayer == LocalPlayer then
+		Description.TextEditable = true
+		SYNC_BUTTON.Visible = false
+		DNT_Button.Visible = false
+		GP_Button.Visible = false
+		LikeButton.Visible = false
+		SuperLikeButton.Visible = false
+	else
+		Description.TextEditable = false
+		SYNC_BUTTON.Visible = true
+		DNT_Button.Visible = true
+		GP_Button.Visible = true
+		LikeButton.Visible = false
+		SuperLikeButton.Visible = true
+	end
+
+	updateLikesDisplay()
+end
+
+-- ============================================
+-- ANIMACIONES DE GUI
+-- ============================================
+
+local function toggleGui(visible, targetPlayer)
+	if targetPlayer then
+		currentTarget = targetPlayer
+		updatePlayerInfo(targetPlayer)
+
+		if targetPlayer.Character then
+			attachHighlight(targetPlayer)
+		end
+
+		if UserGamePass then UserGamePass.Visible = false end
+		if GiftUserGamePass then GiftUserGamePass.Visible = false end
+		isDonateMenuOpen = false
+		isGiftMenuOpen = false
+	end
+
+	if visible then
+		isGuiOpen = true
+		MainFrame.Visible = true
+		MainFrame.Position = UDim2.new(0, 0, 1, 0)
+
+		TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0, 0, 0, 0)
+		}):Play()
+	else
+		isGuiOpen = false
+		detachHighlight()
+
+		local tween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(0, 0, 1, 0)
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			if MainFrame.Position == UDim2.new(0, 0, 1, 0) then
+				MainFrame.Visible = false
+			end
+		end)
+	end
+
+	clearGamepassCache()
+end
+
+local function animatePanel(panel, open)
+	if not panel then return end
+
+	if open then
+		panel.Visible = true
+		panel.Position = UDim2.new(1, 0, 0, 0)
+		TweenService:Create(panel, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0, 0, 0, 0)
+		}):Play()
+	else
+		local tween = TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = UDim2.new(1, 0, 0, 0)
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			panel.Visible = false
+		end)
+	end
+end
+
+-- ============================================
+-- BOTONES DE LIKES
+-- ============================================
+
+if LikeButton then
+	LikeButton.MouseButton1Click:Connect(function()
+		if currentTarget == LocalPlayer or not currentTarget then return end
+		if LikesSystem.IsSending then return end
+
+		local canLike, lastLikeTime = checkLocalCooldown(currentTarget)
+
+		if canLike then
+			LikesSystem.IsSending = true
+
+			GiveLikeEvent:FireServer("GiveLike", currentTarget.UserId)
+
+			task.delay(1, function()
+				LikesSystem.IsSending = false
+			end)
+		else
+			local remainingTime = LIKE_COOLDOWN - (tick() - lastLikeTime)
+			showCooldownNotification(remainingTime)
+		end
+	end)
+end
+
+if SuperLikeButton then
+	SuperLikeButton.MouseButton1Click:Connect(function()
+		if currentTarget and currentTarget ~= LocalPlayer then
+			LocalPlayer:SetAttribute("SuperLikeTarget", currentTarget.UserId)
+
+			local success = pcall(function()
+				GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", currentTarget.UserId)
+			end)
+
+			if success then
+				pcall(function()
+					MarketplaceService:PromptProductPurchase(LocalPlayer, SUPER_LIKE_PRODUCT_ID)
+				end)
+			end
+		end
+	end)
+end
+
+-- ============================================
+-- EVENTOS DEL SERVIDOR
+-- ============================================
+
+if GiveLikeEvent then
+	GiveLikeEvent.OnClientEvent:Connect(function(action, data)
+		if action == "LikeSuccess" then
+			updateLocalCooldown(currentTarget)
+
+			if script:FindFirstChild("Sounds") and script.Sounds:FindFirstChild("Like") then
+				script.Sounds.Like:Play()
+			end
+
+			updateLikesDisplay()
+
+		elseif action == "Error" then
+			StarterGui:SetCore("SendNotification", {
+				Title = "Error",
+				Text = data,
+				Duration = 3
+			})
+
+			if script:FindFirstChild("Sounds") and script.Sounds:FindFirstChild("Error") then
+				script.Sounds.Error:Play()
+			end
+		end
+	end)
+end
+
+if GiveSuperLikeEvent then
+	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data)
+		if action == "SuperLikeSuccess" then
+			if script:FindFirstChild("Sounds") and script.Sounds:FindFirstChild("Like") then
+				script.Sounds.Like:Play()
+			end
+
+			updateLikesDisplay()
+		end
+	end)
+end
+
+BroadcastEvent.OnClientEvent:Connect(function(action, data)
+	if action == "LikeNotification" then
+		local message
+		if data.IsSuperLike then
+			message = '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
+		else
+			message = '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
+		end
+
+		local TextChannels = TextChatService:WaitForChild("TextChannels")
+		local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+		RBXSystem:DisplaySystemMessage(message)
+	end
+end)
+
+-- ============================================
+-- SISTEMA DE SELECCION DE JUGADORES
+-- ============================================
+
+if LocalPlayer:GetAttribute("SelectedUser") == nil then
+	LocalPlayer:SetAttribute("SelectedUser", true)
+end
+
+local function hasToolEquipped()
+	local char = LocalPlayer.Character
+	if char and char:FindFirstChildOfClass("Tool") then
+		return true
+	end
+	return false
+end
+
+local function canSelectPlayer()
+	return LocalPlayer:GetAttribute("SelectedUser") and not hasToolEquipped()
+end
+
+LocalPlayer:GetAttributeChangedSignal("SelectedUser"):Connect(function()
+	if not LocalPlayer:GetAttribute("SelectedUser") then
+		toggleGui(false)
+	end
+end)
+
+-- ============================================
+-- CURSOR Y DETECCION
+-- ============================================
+
+local DEFAULT_CURSOR = "rbxassetid://13335399499"
+local SELECTED_CURSOR = "rbxassetid://84923889690331"
+
+-- Obtener jugador desde una parte (busqueda recursiva mejorada)
+local function getPlayerFromPart(part)
+	if not part then return nil end
+
+	local current = part
+	while current and current ~= workspace do
+		local player = Players:GetPlayerFromCharacter(current)
+		if player then
+			return player
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
+RunService.RenderStepped:Connect(function()
+	if not canSelectPlayer() then
+		mouse.Icon = DEFAULT_CURSOR
+		return
+	end
+
+	local mousePos = UserInputService:GetMouseLocation()
+	local unitRay = camera:ScreenPointToRay(mousePos.X, mousePos.Y)
+	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * MAX_ACTIVATION_DISTANCE)
+
+	if raycast and raycast.Instance then
+		local hoveredPlayer = getPlayerFromPart(raycast.Instance)
+
+		if hoveredPlayer 
+			and hoveredPlayer ~= LocalPlayer 
+			and hoveredPlayer:GetAttribute("SelectedUser") ~= false then
+			mouse.Icon = SELECTED_CURSOR
+			return
+		end
+	end
+
+	mouse.Icon = DEFAULT_CURSOR
+end)
+
+-- ============================================
+-- GAMEPASSES
+-- ============================================
+
+local function loadDonationGamepasses()
+	if not UserGamePass then return end
+	clearGamepassList(UserGamePass.ListGamePass)
+
+	local gamepassesOnSale = {}
+	local success, result = pcall(function()
+		return HttpService:JSONDecode(currentTarget:GetAttribute("gamepassesOnSale") or "[]")
+	end)
+
+	if success then
+		gamepassesOnSale = result
+	end
+
+	for _, assetId in ipairs(gamepassesOnSale) do
+		local success, response = pcall(MarketplaceService.GetProductInfo, MarketplaceService, assetId, Enum.InfoType.GamePass)
+
+		if success and response.PriceInRobux then
+			local gamepassFrame = TemplateGamePass:Clone()
+			gamepassFrame.Name = "Gamepass_" .. assetId
+			gamepassFrame.Icon.Image = "rbxthumb://type=GamePass&id=" .. assetId .. "&w=150&h=150"
+			gamepassFrame.Price.Text = utf8.char(0xE002) .. tostring(response.PriceInRobux)
+			gamepassFrame.Lock.Visible = playerHasGamepass(LocalPlayer, assetId)
+
+			gamepassFrame.Icon.MouseButton1Click:Connect(function()
+				MarketplaceService:PromptGamePassPurchase(LocalPlayer, assetId)
+			end)
+
+			gamepassFrame.Parent = UserGamePass.ListGamePass
+			gamepassFrame.Visible = true
+		end
+	end
+
+	if UserGamePass.User_IMG then
+		UserGamePass.User_IMG.Image = "rbxthumb://type=AvatarHeadShot&id=" .. currentTarget.UserId .. "&w=150&h=150"
+	end
+
+	if UserGamePass.User_Name then
+		UserGamePass.User_Name.Text = currentTarget.DisplayName
+	end
+end
+
+local function loadGiftGamepasses()
+	if not GiftUserGamePass then return end
+	clearGamepassList(GiftUserGamePass.ListGamePass)
+
+	for i, gamepass in pairs(Config.Gamepasses) do
+		local gamepassId = gamepass[1]
+		local productId = gamepass[2]
+
+		local success, passInfo = pcall(MarketplaceService.GetProductInfo, MarketplaceService, gamepassId, Enum.InfoType.GamePass)
+
+		if success then
+			local gamepassFrame = TemplateGamePass:Clone()
+			gamepassFrame.Name = "GiftGamepass_" .. gamepassId
+			gamepassFrame.Icon.Image = "rbxassetid://" .. passInfo.IconImageAssetId
+			gamepassFrame.Price.Text = utf8.char(0xE002) .. tostring(passInfo.PriceInRobux)
+
+			gamepassFrame.Icon.MouseButton1Click:Connect(function()
+				pcall(function()
+					Gifting:FireServer(
+						{gamepassId, productId},
+						currentTarget.UserId,
+						LocalPlayer.Name, 
+						LocalPlayer.UserId
+					)
+				end)
+			end)
+
+			gamepassFrame.Parent = GiftUserGamePass.ListGamePass
+			gamepassFrame.Visible = true
+		end
+	end
+
+	if GiftUserGamePass.User_IMG then
+		GiftUserGamePass.User_IMG.Image = "rbxthumb://type=AvatarHeadShot&id=" .. currentTarget.UserId .. "&w=150&h=150"
+	end
+
+	if GiftUserGamePass.User_Name then
+		GiftUserGamePass.User_Name.Text = currentTarget.DisplayName
+	end
+end
+
+-- ============================================
+-- Sistema de SYNC
+-- ============================================
+
+SYNC_BUTTON.MouseButton1Click:Connect(function()
+	if debounceSync or not currentTarget then return end
+	debounceSync = true
+
+	if LocalPlayer.Character:FindFirstChild("SyncOnOff") 
+		and LocalPlayer.Character.SyncOnOff.Value then
+
+		SyncRemote:FireServer("unsync")
+
+		pcall(function()
+			NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
+		end)
+
+		toggleGui(false)
+	else
+		SyncRemote:FireServer("sync", currentTarget)
+
+		pcall(function()
+			NotificationSystem:Success("Sync", "Ahora estas sincronizado con: " .. tostring(currentTarget.Name), 4)
+		end)
+	end
+
+	task.wait(0.5)
+	debounceSync = false
+end)
+
+-- ============================================
+-- EVENTOS DE BOTONES
+-- ============================================
+
+DNT_Button.MouseButton1Click:Connect(function()
+	if currentTarget == LocalPlayer then return end
+	isDonateMenuOpen = not isDonateMenuOpen
+	animatePanel(UserGamePass, isDonateMenuOpen)
+	if isDonateMenuOpen then
+		loadDonationGamepasses()
+	end
+end)
+
+GP_Button.MouseButton1Click:Connect(function()
+	if currentTarget == LocalPlayer then return end
+	isGiftMenuOpen = not isGiftMenuOpen
+	animatePanel(GiftUserGamePass, isGiftMenuOpen)
+	if isGiftMenuOpen then
+		loadGiftGamepasses()
+	end
+end)
+
+VA_Button.MouseButton1Click:Connect(function()
+	GuiService:InspectPlayerFromUserId(currentTarget.UserId)
+end)
+
+-- ============================================
+-- INPUT Y SELECCION
+-- ============================================
+
+local function trySelectAtPosition(position)
+	if isGuiOpen then
+		local guiObjects = MainFrame:GetDescendants()
+		for _, obj in ipairs(guiObjects) do
+			if obj:IsA("GuiObject") then
+				local absPos = obj.AbsolutePosition
+				local absSize = obj.AbsoluteSize
+				if position.X >= absPos.X
+					and position.X <= absPos.X + absSize.X
+					and position.Y >= absPos.Y
+					and position.Y <= absPos.Y + absSize.Y then
+					return
+				end
+			end
+		end
+		toggleGui(false)
+		return
+	end
+
+	if not canSelectPlayer() then return end
+
+	local unitRay = camera:ScreenPointToRay(position.X, position.Y)
+	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * MAX_ACTIVATION_DISTANCE)
+
+	if raycast and raycast.Instance then
+		local clickedPlayer = getPlayerFromPart(raycast.Instance)
+
+		if clickedPlayer then
+			if clickedPlayer == LocalPlayer then
+				local character = clickedPlayer.Character
+				if character then
+					local Head = character:FindFirstChild("Head")
+					if Head and Head.LocalTransparencyModifier == 1 then
+						return
+					end 
+				end
+			end
+
+			if clickedPlayer:GetAttribute("SelectedUser") == false then
+				return
+			end
+
+			if clickedPlayer == currentTarget and MainFrame.Visible then
+				toggleGui(false)
+				return
+			end
+
+			toggleGui(true, clickedPlayer)
+			return
+		end
+	end
+
+	toggleGui(false)
+end
+
+local function startPress(position)
+	isPressing = true
+	pressStartTime = tick()
+
+	if activado_press then
+		task.spawn(function()
+			while isPressing do
+				if tick() - pressStartTime >= PRESS_DURATION then
+					trySelectAtPosition(position)
+					break
+				end
+				RunService.Heartbeat:Wait()
+			end
+		end)
+	end
+end
+
+local function endPress(position)
+	if not activado_press then
+		trySelectAtPosition(position)
+	end
+	isPressing = false
+end
+
+UserInputService.TouchStarted:Connect(function(input, gameProcessed)
+	if not gameProcessed and canSelectPlayer() then
+		startPress(input.Position)
+	end
+end)
+
+UserInputService.TouchEnded:Connect(function(input)
+	endPress(input.Position)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 and canSelectPlayer() then
+		startPress(Vector2.new(mouse.X, mouse.Y))
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		endPress(Vector2.new(mouse.X, mouse.Y))
+	end
+end)
+
+-- ============================================
+-- OTROS EVENTOS
+-- ============================================
+
+Description.FocusLost:Connect(function()
+	if currentTarget == LocalPlayer then
+		local sanitizedText = string.sub(Description.Text, 1, 30)
+		Ev_UpdateStatus:FireServer(sanitizedText)
+	end
+end)
+
+Ev_DonationMessage.OnClientEvent:Connect(function(donatingPlayer, amount, donatedPlayer)
+	local TextChannels = TextChatService:WaitForChild("TextChannels")
+	local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+
+	-- Verificar si el receptor de la donacion debe ser reemplazado
+	local displayName = donatedPlayer
+	if donatedPlayer == "Panda Mania' [Games]" or donatedPlayer == "Panda15Fps" or donatedPlayer == "Panda Mania' [UGC]" then
+		displayName = "Zona Peruana"
+	end
+
+	-- Mostrar mensaje de donacion en el chat del sistema
+	RBXSystem:DisplaySystemMessage(
+		'<font color="#8762FF"><b>' .. donatingPlayer .. " dono " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+	)
+end)
+
+Gifting.OnClientEvent:Connect(function(action, message)
+	if action == "Purchase" then
+		script.Sounds.Confirm:Play()
+	elseif action == "Error" then
+		script.Sounds.Error:Play()
+		StarterGui:SetCore("SendNotification", {
+			Title = "ERROR",
+			Text = message,
+			Duration = 5
+		})
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	if player == currentTarget then
+		toggleGui(false)
+		currentTarget = LocalPlayer
+		syncedPlayer = nil
+	end
+end)
+
+-- Listener para cambios en TotalLikes
+LocalPlayer:GetAttributeChangedSignal("TotalLikes"):Connect(updateLikesDisplay)
+
+-- ============================================
+-- INICIALIZACION
+-- ============================================
+
+if UserGamePass then UserGamePass.Visible = false end
+if GiftUserGamePass then GiftUserGamePass.Visible = false end
+toggleGui(false)
+updatePlayerInfo(LocalPlayer)
