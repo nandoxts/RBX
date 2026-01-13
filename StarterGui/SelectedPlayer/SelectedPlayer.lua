@@ -20,8 +20,10 @@ local Ev_UpdateStatus = SelectedPlayer.Events.update_status
 local Highlight = SelectedPlayer:WaitForChild("Highlight")
 local ColorEffects = require(SelectedPlayer.COLORS)
 
-local Remotos = ReplicatedStorage:WaitForChild("Eventos_Emote")
-local Noti = Remotos:WaitForChild("RemoteNoti")
+-- `ReplicatedStorage` variable above points to `Panda ReplicatedStorage` folder.
+-- Use the actual root ReplicatedStorage to find shared `Systems` folder.
+local _GlobalReplicated = game:GetService("ReplicatedStorage")
+local NotificationSystem = require(_GlobalReplicated:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
 -- Sistema de regalos
 local Gifting = ReplicatedStorage["Gamepass Gifting"].Remotes.Gifting
@@ -581,8 +583,9 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 
 		SyncRemote:FireServer("unsync")
 
-
-		Noti:FireServer("Has dejado de estar sincronizado", "sync", 4)
+		pcall(function()
+			NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
+		end)
 
 
 		toggleGui(false)
@@ -590,8 +593,9 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 
 		SyncRemote:FireServer("sync", currentTarget)
 
-
-		Noti:FireServer("Ahora estás sincronizado con: " .. currentTarget.Name, "sync", 4)
+		pcall(function()
+			NotificationSystem:Success("Sync", "Ahora estás sincronizado con: " .. tostring(currentTarget.Name), 4)
+		end)
 	end
 
 	task.wait(0.5)
