@@ -28,7 +28,7 @@ end
 local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight)
 	local screenSize = screenGui.AbsoluteSize
 	local isMobile = isMobileDevice()
-	
+
 	if isMobile then
 		-- En celular: usa 90% del ancho, máximo 85% del alto con padding
 		local width = screenSize.X * 0.9
@@ -74,12 +74,12 @@ function ModalManager.new(config)
 	-- Configuración
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
-	
+
 	-- Calcular dimensiones responsivas
 	local baseWidth = config.panelWidth or (THEME.panelWidth or 980)
 	local baseHeight = config.panelHeight or (THEME.panelHeight or 620)
 	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight)
-	
+
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
 	self.blurSize = config.blurSize or 14

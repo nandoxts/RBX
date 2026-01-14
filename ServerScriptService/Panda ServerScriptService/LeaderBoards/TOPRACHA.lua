@@ -29,9 +29,10 @@ local TopPlayersCache = {}
 -- FORMATEO DE NÚMEROS
 local function FormatNumber(Amount)
 	local formatted = tostring(Amount)
-	while true do  
+	while true do
+		local k
 		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
-		if (k==0) then break end
+		if (k == 0) then break end
 	end
 	return formatted
 end
@@ -180,9 +181,28 @@ Players.PlayerAdded:Connect(onPlayerAdded)
 -- INICIALIZAR
 UpdateLeaderboard()
 
--- Auto-refresh cada 10 segundos
+-- Auto-refresh cada 180 segundos (3 minutos) y evitar solapamientos
+local isUpdating = false
+local function SafeUpdateLeaderboard()
+	if isUpdating then return end
+	isUpdating = true
+	local maxRetries = 3
+	local retryDelay = 10
+	for attempt = 1, maxRetries do
+		local success, err = pcall(UpdateLeaderboard)
+		if success then
+			break
+		else
+			warn("[TOPRACHA] Error al actualizar leaderboard (intento "..attempt.."): ", err)
+			task.wait(retryDelay * attempt) -- Espera más en cada intento
+		end
+	end
+	isUpdating = false
+end
+
 task.spawn(function()
-	while task.wait(60) do
-		UpdateLeaderboard()
+	while true do
+		SafeUpdateLeaderboard()
+		task.wait(180) -- 3 minutos
 	end
 end)

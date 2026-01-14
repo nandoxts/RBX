@@ -343,8 +343,6 @@ function ClanClient:RejectJoinRequest(clanId, targetUserId)
 end
 
 function ClanClient:GetJoinRequests(clanId)
-	local allowed = checkThrottle("GetJoinRequests")
-	if not allowed then return {} end
 	if not self.currentClanId then return {} end
 
 	local remote = getRemote("GetJoinRequests")

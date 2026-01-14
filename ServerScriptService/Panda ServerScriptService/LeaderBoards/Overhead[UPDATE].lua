@@ -95,10 +95,17 @@ local function getCurrentDay()
 	return dayNumber
 end
 
+local streakCache = {}
 local function updateStreak(player)
 	if not player or not player.UserId then return 1 end
 	local userId = tostring(player.UserId)
 	local today = getCurrentDay()
+
+	-- Usar caché si existe y es del día
+	local cached = streakCache[userId]
+	if cached and cached.lastDay == today then
+		return cached.streak
+	end
 
 	local success, data = pcall(function()
 		return streakStore:GetAsync(userId)
@@ -119,42 +126,31 @@ local function updateStreak(player)
 		else
 			streak = 1
 		end
-	else
 	end
 
-	-- Intentar guardar en streakStore
-	local saveSuccess1 = pcall(function()
-		streakStore:SetAsync(userId, {
+	-- Solo guardar si cambió la racha
+	local function safeSetAsync(store, key, value)
+		local maxRetries = 3
+		local retryDelay = 5
+		for attempt = 1, maxRetries do
+			local ok, err = pcall(function()
+				store:SetAsync(key, value)
+			end)
+			if ok then return true end
+			warn(string.format("[RACHA] SetAsync error (intento %d): %s", attempt, tostring(err)))
+			task.wait(retryDelay * attempt)
+		end
+		return false
+	end
+
+	if not cached or cached.streak ~= streak or cached.lastDay ~= today then
+		safeSetAsync(streakStore, userId, {
 			streak = streak,
 			lastLoginDay = today,
-			lastDay = today -- Backup por si acaso
+			lastDay = today
 		})
-	end)
-
-	if saveSuccess1 then
-
-		-- Verificar que se guardó correctamente
-		local verifySuccess, verifyData = pcall(function()
-			return streakStore:GetAsync(userId)
-		end)
-		if verifySuccess and verifyData then
-
-		else
-			warn(string.format("[RACHA ERROR] %s - No se pudo verificar guardado", player.Name))
-		end
-	else
-		warn(string.format("[RACHA ERROR] %s - Falló guardar en LoginStreaks", player.Name))
-	end
-
-	-- Intentar guardar en TopRachaStore
-	local saveSuccess2 = pcall(function()
-		TopRachaStore:SetAsync(userId, streak)
-	end)
-
-	if saveSuccess2 then
-
-	else
-		warn(string.format("[RACHA ERROR] %s - Falló actualizar leaderboard", player.Name))
+		safeSetAsync(TopRachaStore, userId, streak)
+		streakCache[userId] = {streak = streak, lastDay = today}
 	end
 
 	return streak
@@ -163,15 +159,15 @@ end
 local function getSavedStreak(player)
 	if not player or not player.UserId then return 1 end
 	local userId = tostring(player.UserId)
-
+	local cached = streakCache[userId]
+	if cached then return cached.streak end
 	local success, data = pcall(function()
 		return streakStore:GetAsync(userId)
 	end)
-
 	if success and data and data.streak then
+		streakCache[userId] = {streak = data.streak, lastDay = data.lastLoginDay or data.lastDay or 0}
 		return data.streak
 	end
-
 	return 1
 end
 

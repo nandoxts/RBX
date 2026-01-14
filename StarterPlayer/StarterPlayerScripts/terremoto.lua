@@ -20,9 +20,9 @@ local function startTerremotoEffect()
 	isShaking = true
 
 	-- VARIABLES MODIFICABLES
-	local effectDuration = 8
+	local effectDuration = 15
 	local fadeDuration = 2
-	local shakeIntensity = 3      -- Intensidad del temblor (reducida)
+	local shakeIntensity = 6      -- Intensidad del temblor (reducida)
 	local shakeSpeed = 20             -- Velocidad del temblor
 	local hueSpeed = 0.015            -- Velocidad cambio de color
 

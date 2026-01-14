@@ -62,7 +62,7 @@ ClanSystemConfig.RATE_LIMITS = {
 	ApproveJoinRequest = 1,   -- 1 segundo entre aprobaciones
 	RejectJoinRequest = 1,    -- 1 segundo entre rechazos
 	CancelJoinRequest = 1,    -- 1 segundo entre cancelaciones
-	GetJoinRequests = 2       -- 2 segundos entre consultas
+	GetJoinRequests = 0,       -- Sin throttle para consultas de lectura
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -124,6 +124,38 @@ ClanSystemConfig.ROLES = {
 			ver_solicitudes = false
 		}
 	},
+
+	-- Configuración visual y jerarquía para UI
+	Visual = {
+		owner = {
+			display = "Fundador",
+			color = Color3.fromRGB(255, 215, 0),
+			icon = "👑",
+			priority = 4,
+			canManage = {"colider", "lider", "miembro"}
+		},
+		colider = {
+			display = "Co-Líder", 
+			color = Color3.fromRGB(180, 100, 255),
+			icon = "⚜️",
+			priority = 3,
+			canManage = {"lider", "miembro"}
+		},
+		lider = {
+			display = "Líder",
+			color = Color3.fromRGB(100, 200, 255),
+			icon = "🔹",
+			priority = 2,
+			canManage = {}
+		},
+		miembro = {
+			display = "Miembro",
+			color = Color3.fromRGB(200, 200, 200), -- Usar un color muted en lugar de THEME.muted
+			icon = "•",
+			priority = 1,
+			canManage = {}
+		}
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -132,7 +164,7 @@ ClanSystemConfig.ROLES = {
 ClanSystemConfig.DEFAULT_CLANS = {
 	{
 		clanName = "Shadow Garden",
-		ownerId = 758075372, -- Asignar ownerId
+		ownerId = 8659516822, -- Asignar ownerId
 		clanTag = "SG",
 		clanLogo = "rbxassetid://112234631634424",
 		descripcion = "Clan Shadow Garden",
@@ -149,13 +181,13 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanColor = {255, 69, 0}, -- Color sugerido (naranja)
 	},
 	{
-		clanName = "RealG4LIFE",
-		ownerId =  2360093196, -- Asignar ownerId
-		clanTag = "RGL",
-		clanLogo = "rbxassetid://133679989617013",
-		descripcion = "Clan RealG4LIFE",
-		clanEmoji = "😈",
-		clanColor = {128, 0, 128}, -- Color sugerido (morado)
+		clanName = "ETA",
+		ownerId = 9167247137,
+		clanTag = "ETA",
+		clanLogo ="rbxassetid://139899084429788",
+		descripcion = "Entrelazados todos somos una alianza",
+		clanEmoji = "⚔️",
+		clanColor = {0, 0, 255}, -- Azul
 	},
 	{
 		clanName = "King of Darkness",
