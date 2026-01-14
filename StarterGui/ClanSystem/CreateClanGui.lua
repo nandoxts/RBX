@@ -159,8 +159,8 @@ local header = UI.frame({
 
 local headerGradient = Instance.new("UIGradient")
 headerGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 35)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 24))
+	ColorSequenceKeypoint.new(0, THEME.panel),
+	ColorSequenceKeypoint.new(1, THEME.head)
 }
 headerGradient.Rotation = 90
 headerGradient.Parent = header
@@ -177,7 +177,7 @@ local closeBtn = UI.button({
 UI.stroked(closeBtn, 0.4)
 
 Memory.track(closeBtn.MouseEnter:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 60, 60), TextColor3 = Color3.new(1, 1, 1)}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.btnDangerHover, TextColor3 = THEME.text}):Play()
 end))
 Memory.track(closeBtn.MouseLeave:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.card, TextColor3 = THEME.muted}):Play()
@@ -472,13 +472,13 @@ if isAdmin then
 
 	local adminHeader = UI.frame({
 		size = UDim2.new(1, -20, 0, 40), pos = UDim2.new(0, 10, 0, 10),
-		bg = Color3.fromRGB(50, 35, 35), z = 103, parent = pageAdmin, corner = 8, stroke = true, strokeA = 0.5, strokeC = Color3.fromRGB(180, 70, 70)
+		bg = THEME.warnMuted, z = 103, parent = pageAdmin, corner = 8, stroke = true, strokeA = 0.5, strokeC = THEME.btnDanger
 	})
 
 	UI.label({
 		size = UDim2.new(1, -16, 1, 0), pos = UDim2.new(0, 8, 0, 0),
 		text = "⚠ Panel de Administrador - Acciones irreversibles",
-		color = Color3.fromRGB(255, 160, 160), textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader
+		color = THEME.warn, textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader
 	})
 
 	adminClansScroll = Instance.new("ScrollingFrame")
@@ -649,7 +649,7 @@ local function createNavCard(config)
 			name = "NotificationDot",
 			size = UDim2.new(0, 10, 0, 10),
 			pos = UDim2.new(1, -50, 0, 10),
-			bg = Color3.fromRGB(255, 80, 80),
+			bg = THEME.btnDanger,
 			z = 106,
 			parent = card,
 			corner = 5
@@ -671,7 +671,7 @@ local function createNavCard(config)
 	end
 	
 	-- Hover effect
-	UI.hover(card, THEME.card, Color3.fromRGB(45, 45, 55))
+	UI.hover(card, THEME.card, THEME.hover)
 	
 	-- Hacer clickeable
 	local clickBtn = Instance.new("TextButton")
@@ -888,13 +888,13 @@ local function createMainView(parent, clanData, playerRole)
 	local roleColor = THEME.accent
 	local roleDisplay = "Miembro"
 	if playerRole == "owner" then 
-		roleColor = Color3.fromRGB(255, 215, 0)
+		roleColor = THEME.success
 		roleDisplay = "Fundador"
 	elseif playerRole == "colider" then 
-		roleColor = Color3.fromRGB(180, 100, 255)
+		roleColor = THEME.accent
 		roleDisplay = "Co-Líder"
 	elseif playerRole == "lider" then 
-		roleColor = Color3.fromRGB(100, 200, 255)
+		roleColor = THEME.info
 		roleDisplay = "Líder"
 	end
 	
@@ -1031,7 +1031,7 @@ local function createMainView(parent, clanData, playerRole)
 			corner = 10
 		})
 		btnEditName.LayoutOrder = 4
-		UI.hover(btnEditName, THEME.surface, Color3.fromRGB(50, 50, 60))
+		UI.hover(btnEditName, THEME.surface, THEME.hover)
 		
 		-- Botón EDITAR TAG - sin fondo, 100% ancho
 		local btnEditTag = UI.button({
@@ -1046,7 +1046,7 @@ local function createMainView(parent, clanData, playerRole)
 			corner = 10
 		})
 		btnEditTag.LayoutOrder = 5
-		UI.hover(btnEditTag, THEME.surface, Color3.fromRGB(50, 50, 60))
+		UI.hover(btnEditTag, THEME.surface, THEME.hover)
 		
 		Memory.track(btnEditName.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
@@ -1106,9 +1106,9 @@ local function createMainView(parent, clanData, playerRole)
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
 	local actionBtn = UI.button({
 		size = UDim2.new(1, -8, 0, 44),
-		bg = Color3.fromRGB(140, 45, 45),
+		bg = THEME.btnDanger,
 		text = actionBtnText,
-		color = Color3.new(1, 1, 1),
+		color = THEME.text,
 		textSize = 13,
 		font = Enum.Font.GothamBold,
 		z = 104,
@@ -1118,7 +1118,7 @@ local function createMainView(parent, clanData, playerRole)
 	-- LayoutOrder dinámico: después de botones de editar si existen, sino después de las cards
 	actionBtn.LayoutOrder = canEdit and 6 or 4
 	
-	UI.hover(actionBtn, Color3.fromRGB(140, 45, 45), Color3.fromRGB(180, 60, 60))
+	UI.hover(actionBtn, THEME.btnDanger, THEME.btnDangerHover)
 	
 	Memory.track(actionBtn.MouseButton1Click:Connect(function()
 		if playerRole == "owner" then
@@ -1128,7 +1128,7 @@ local function createMainView(parent, clanData, playerRole)
 				message = "¿Disolver \"" .. clanData.clanName .. "\"?\n\nEsta acción es IRREVERSIBLE.",
 				confirmText = "Disolver",
 				cancelText = "Cancelar",
-				confirmColor = Color3.fromRGB(200, 60, 60),
+				confirmColor = THEME.btnDangerHover,
 				onConfirm = function()
 					local success, msg = ClanClient:DissolveClan()
 					if success then
@@ -1337,7 +1337,7 @@ local function createPendingView(parent, clanData, playerRole)
 				
 				-- Borde naranja (pendiente)
 				local pendingBorder = Instance.new("UIStroke")
-				pendingBorder.Color = Color3.fromRGB(255, 180, 60)
+				pendingBorder.Color = THEME.warn
 				pendingBorder.Thickness = 2
 				pendingBorder.Parent = avatarFrame
 				
@@ -1520,12 +1520,9 @@ loadPlayerClan = function()
 				views.pending = createPendingView(tuClanContainer, clanData, playerRole)
 			end
 			
-			-- Mostrar vista principal con animación de entrada
-			views.main.Position = UDim2.new(0, 0, 0, 20)
+			-- Mostrar vista principal
+			views.main.Position = UDim2.new(0, 0, 0, 0)
 			views.main.Visible = true
-			TweenService:Create(views.main, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Position = UDim2.new(0, 0, 0, 0)
-			}):Play()
 			
 		else
 			-- No tiene clan - mostrar mensaje
