@@ -2,7 +2,7 @@
 	═══════════════════════════════════════════════════════════
 	CLAN SYSTEM - CONFIGURACIÓN
 	═══════════════════════════════════════════════════════════
-	Autor: PandaISTPs
+	Autor: by ignxts
 	Versión: 2.0 (Simplificado)
 ]]
 
@@ -14,7 +14,6 @@ local ClanSystemConfig = {}
 ClanSystemConfig.ADMINS = {
 	AdminUserIds = {
 		8387751399,  -- nandoxts (Owner)
-		9375636407,  -- Otro admin
 	},
 	LogAdminActions = true,
 }

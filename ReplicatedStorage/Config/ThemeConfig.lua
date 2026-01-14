@@ -1,6 +1,7 @@
 -- ════════════════════════════════════════════════════════════════
 -- THEME CONFIGURATION v2.0 - PROFESSIONAL DARK
 -- Paleta madura estilo Discord/Spotify
+-- by ignxts
 -- ════════════════════════════════════════════════════════════════
 
 local THEME = {

@@ -3,7 +3,7 @@
 	- Gestión de solicitudes de unión
 	- Cambio de roles (owner/colider/lider)
 	- Emoji y color del clan
-	- Código centralizado y limpio
+	by ignxts
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -377,7 +377,7 @@ for i, emoji in ipairs(CLAN_EMOJIS) do
 		parent = emojiFrame,
 		corner = 6
 	})
-	
+
 	-- Label del emoji
 	UI.label({
 		size = UDim2.new(1, 0, 1, 0),
@@ -387,7 +387,7 @@ for i, emoji in ipairs(CLAN_EMOJIS) do
 		z = 107,
 		parent = emojiContainer
 	})
-	
+
 	-- Botón transparente para capturar clicks
 	local clickBtn = Instance.new("TextButton")
 	clickBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -395,9 +395,9 @@ for i, emoji in ipairs(CLAN_EMOJIS) do
 	clickBtn.Text = ""
 	clickBtn.ZIndex = 108
 	clickBtn.Parent = emojiContainer
-	
+
 	emojiButtons[i] = emojiContainer
-	
+
 	Memory.track(clickBtn.MouseButton1Click:Connect(function()
 		selectedEmojiIndex = i
 		for j, btn in ipairs(emojiButtons) do
@@ -527,7 +527,7 @@ local views = {
 -- ════════════════════════════════════════════════════════════════
 local function animateViewTransition(fromView, toView, direction)
 	local tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	
+
 	-- direction: "forward" (main->detail) o "back" (detail->main)
 	if direction == "forward" then
 		-- Vista actual sale hacia la izquierda
@@ -552,7 +552,7 @@ local function animateViewTransition(fromView, toView, direction)
 			TweenService:Create(toView, tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
 		end
 	end
-	
+
 	-- Ocultar vista anterior después de la animación
 	if fromView then
 		task.delay(0.3, function()
@@ -568,12 +568,12 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function navigateTo(viewName)
 	if currentView == viewName then return end
-	
+
 	local fromViewFrame = views[currentView]
 	local toViewFrame = views[viewName]
-	
+
 	local direction = (viewName == "main") and "back" or "forward"
-	
+
 	animateViewTransition(fromViewFrame, toViewFrame, direction)
 	currentView = viewName
 end
@@ -592,7 +592,7 @@ local function createNavCard(config)
 		stroke = true,
 		strokeA = 0.6
 	})
-	
+
 	-- Icono
 	UI.label({
 		size = UDim2.new(0, 40, 0, 40),
@@ -603,7 +603,7 @@ local function createNavCard(config)
 		z = 105,
 		parent = card
 	})
-	
+
 	-- Título
 	UI.label({
 		size = UDim2.new(1, -120, 0, 20),
@@ -616,7 +616,7 @@ local function createNavCard(config)
 		z = 105,
 		parent = card
 	})
-	
+
 	-- Subtítulo/contador
 	local subtitleLabel = UI.label({
 		name = "Subtitle",
@@ -629,7 +629,7 @@ local function createNavCard(config)
 		z = 105,
 		parent = card
 	})
-	
+
 	-- Flecha de navegación
 	UI.label({
 		size = UDim2.new(0, 30, 1, 0),
@@ -642,7 +642,7 @@ local function createNavCard(config)
 		z = 105,
 		parent = card
 	})
-	
+
 	-- Indicador de notificación (punto rojo)
 	local notificationDot = nil
 	if config.showNotification then
@@ -657,7 +657,7 @@ local function createNavCard(config)
 		})
 		notificationDot.Visible = false
 	end
-	
+
 	-- Preview de avatares (opcional)
 	local avatarPreview = nil
 	if config.showAvatarPreview then
@@ -670,10 +670,10 @@ local function createNavCard(config)
 			parent = card
 		})
 	end
-	
+
 	-- Hover effect
 	UI.hover(card, THEME.card, THEME.hover)
-	
+
 	-- Hacer clickeable
 	local clickBtn = Instance.new("TextButton")
 	clickBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -681,7 +681,7 @@ local function createNavCard(config)
 	clickBtn.Text = ""
 	clickBtn.ZIndex = 107
 	clickBtn.Parent = card
-	
+
 	return card, clickBtn, subtitleLabel, notificationDot, avatarPreview
 end
 
@@ -696,7 +696,7 @@ local function createViewHeader(parent, title, onBack)
 		parent = parent,
 		corner = 10
 	})
-	
+
 	-- Botón de retroceso
 	local backBtn = UI.button({
 		size = UDim2.new(0, 36, 0, 36),
@@ -710,13 +710,13 @@ local function createViewHeader(parent, title, onBack)
 		parent = headerFrame,
 		corner = 8
 	})
-	
+
 	UI.hover(backBtn, THEME.card, THEME.accent)
-	
+
 	Memory.track(backBtn.MouseButton1Click:Connect(function()
 		if onBack then onBack() end
 	end))
-	
+
 	-- Título
 	UI.label({
 		size = UDim2.new(1, -90, 1, 0),
@@ -729,7 +729,7 @@ local function createViewHeader(parent, title, onBack)
 		z = 107,
 		parent = headerFrame
 	})
-	
+
 	return headerFrame
 end
 
@@ -745,7 +745,7 @@ local function createMainView(parent, clanData, playerRole)
 		parent = parent,
 		clips = true
 	})
-	
+
 	local scrollFrame = Instance.new("ScrollingFrame")
 	scrollFrame.Size = UDim2.new(1, 0, 1, 0)
 	scrollFrame.BackgroundTransparency = 1
@@ -754,19 +754,19 @@ local function createMainView(parent, clanData, playerRole)
 	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scrollFrame.ZIndex = 103
 	scrollFrame.Parent = mainView
-	
+
 	local contentLayout = Instance.new("UIListLayout")
 	contentLayout.Padding = UDim.new(0, 12)
 	contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	contentLayout.Parent = scrollFrame
-	
+
 	local contentPadding = Instance.new("UIPadding")
 	contentPadding.PaddingTop = UDim.new(0, 8)
 	contentPadding.PaddingBottom = UDim.new(0, 8)
 	contentPadding.PaddingLeft = UDim.new(0, 4)
 	contentPadding.PaddingRight = UDim.new(0, 4)
 	contentPadding.Parent = scrollFrame
-	
+
 	-- ══════════════════════════════════════════════════════════════
 	-- CARD DE INFO DEL CLAN (Rediseñada - banner completo)
 	-- ══════════════════════════════════════════════════════════════
@@ -781,7 +781,7 @@ local function createMainView(parent, clanData, playerRole)
 		clips = true
 	})
 	infoCard.LayoutOrder = 1
-	
+
 	-- Banner con logo de fondo - CUBRE TODA LA CARD
 	local bannerImage = Instance.new("ImageLabel")
 	bannerImage.Size = UDim2.new(1, 0, 1, 0)
@@ -793,7 +793,7 @@ local function createMainView(parent, clanData, playerRole)
 	bannerImage.ZIndex = 104
 	bannerImage.Parent = infoCard
 	UI.rounded(bannerImage, 12) -- Borde redondeado
-	
+
 	local bannerGradient = Instance.new("UIGradient")
 	bannerGradient.Color = ColorSequence.new{
 		ColorSequenceKeypoint.new(0, Color3.new(0.06, 0.06, 0.08)),
@@ -801,7 +801,7 @@ local function createMainView(parent, clanData, playerRole)
 	}
 	bannerGradient.Rotation = 90
 	bannerGradient.Parent = bannerImage
-	
+
 	-- Logo/Emoji - MÁS GRANDE y mejor posicionado
 	local logoFrame = UI.frame({
 		size = UDim2.new(0, 74, 0, 74),
@@ -813,7 +813,7 @@ local function createMainView(parent, clanData, playerRole)
 		stroke = true,
 		strokeA = 0.3
 	})
-	
+
 	if clanData.clanLogo and clanData.clanLogo ~= "" and clanData.clanLogo ~= "rbxassetid://0" then
 		local logoImg = Instance.new("ImageLabel")
 		logoImg.Size = UDim2.new(1, -8, 1, -8)
@@ -834,14 +834,14 @@ local function createMainView(parent, clanData, playerRole)
 			parent = logoFrame
 		})
 	end
-	
+
 	-- Color del clan
 	local clanColor = clanData.clanColor and Color3.fromRGB(
 		clanData.clanColor[1] or 255, 
 		clanData.clanColor[2] or 255, 
 		clanData.clanColor[3] or 255
 	) or THEME.accent
-	
+
 	-- Contar miembros (para usar después)
 	local membersCount = 0
 	if clanData.miembros_data then
@@ -849,7 +849,7 @@ local function createMainView(parent, clanData, playerRole)
 			membersCount = membersCount + 1
 		end
 	end
-	
+
 	-- Nombre del clan - ALINEADO A LA DERECHA DEL LOGO
 	UI.label({
 		size = UDim2.new(1, -110, 0, 26),
@@ -862,7 +862,7 @@ local function createMainView(parent, clanData, playerRole)
 		z = 106,
 		parent = infoCard
 	})
-	
+
 	-- Tag del clan
 	UI.label({
 		size = UDim2.new(0, 80, 0, 20),
@@ -875,12 +875,12 @@ local function createMainView(parent, clanData, playerRole)
 		z = 106,
 		parent = infoCard
 	})
-	
+
 	-- Rol del jugador - A LA DERECHA
 	local roleData = ClanSystemConfig.ROLES.Visual[playerRole] or ClanSystemConfig.ROLES.Visual["miembro"]
 	local roleColor = roleData.color
 	local roleDisplay = roleData.display
-	
+
 	UI.label({
 		size = UDim2.new(0, 100, 0, 20),
 		pos = UDim2.new(1, -116, 0, 56),
@@ -892,7 +892,7 @@ local function createMainView(parent, clanData, playerRole)
 		z = 106,
 		parent = infoCard
 	})
-	
+
 	-- Descripción - MÁS GRANDE
 	UI.label({
 		size = UDim2.new(1, -32, 0, 36),
@@ -905,11 +905,11 @@ local function createMainView(parent, clanData, playerRole)
 		z = 106,
 		parent = infoCard
 	})
-	
+
 	-- ══════════════════════════════════════════════════════════════
 	-- BOTONES DE NAVEGACIÓN (Cards clickeables)
 	-- ══════════════════════════════════════════════════════════════
-	
+
 	-- Card: Miembros
 	local membersCard, membersBtn, membersSubtitle, _, membersAvatarPreview = createNavCard({
 		size = UDim2.new(1, -8, 0, 60),
@@ -920,7 +920,7 @@ local function createMainView(parent, clanData, playerRole)
 		showAvatarPreview = true
 	})
 	membersCard.LayoutOrder = 2
-	
+
 	-- Mostrar preview de avatares (primeros 3 miembros)
 	if membersAvatarPreview and clanData.miembros_data then
 		local avatarLayout = Instance.new("UIListLayout")
@@ -928,7 +928,7 @@ local function createMainView(parent, clanData, playerRole)
 		avatarLayout.Padding = UDim.new(0, -8)
 		avatarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		avatarLayout.Parent = membersAvatarPreview
-		
+
 		local count = 0
 		for odI, _ in pairs(clanData.miembros_data) do
 			if count >= 3 then break end
@@ -941,7 +941,7 @@ local function createMainView(parent, clanData, playerRole)
 					parent = membersAvatarPreview,
 					corner = 13
 				})
-				
+
 				local avatarImg = Instance.new("ImageLabel")
 				avatarImg.Size = UDim2.new(1, -4, 1, -4)
 				avatarImg.Position = UDim2.new(0, 2, 0, 2)
@@ -953,20 +953,20 @@ local function createMainView(parent, clanData, playerRole)
 				avatarImg.ZIndex = 107
 				avatarImg.Parent = miniAvatar
 				UI.rounded(avatarImg, 11)
-				
+
 				count = count + 1
 			end
 		end
 	end
-	
+
 	Memory.track(membersBtn.MouseButton1Click:Connect(function()
 		navigateTo("members")
 	end))
-	
+
 	-- Card: Pendientes (solo si puede gestionar)
 	local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 	local pendingCard, pendingBtn, pendingSubtitle, pendingDot
-	
+
 	if canManageRequests then
 		pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({
 			size = UDim2.new(1, -8, 0, 60),
@@ -977,11 +977,11 @@ local function createMainView(parent, clanData, playerRole)
 			showNotification = true
 		})
 		pendingCard.LayoutOrder = 3
-		
+
 		Memory.track(pendingBtn.MouseButton1Click:Connect(function()
 			navigateTo("pending")
 		end))
-		
+
 		-- Cargar conteo de pendientes en segundo plano
 		task.spawn(function()
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
@@ -994,12 +994,12 @@ local function createMainView(parent, clanData, playerRole)
 			end
 		end)
 	end
-	
+
 	-- ══════════════════════════════════════════════════════════════
 	-- BOTONES DE ACCIÓN (Editar / Salir)
 	-- ══════════════════════════════════════════════════════════════
 	local canEdit = ClanSystemConfig.ROLES.Permissions[playerRole] and ClanSystemConfig.ROLES.Permissions[playerRole].cambiar_nombre or false
-	
+
 	if canEdit then
 		-- Botón EDITAR NOMBRE - sin fondo, 100% ancho
 		local btnEditName = UI.button({
@@ -1015,7 +1015,7 @@ local function createMainView(parent, clanData, playerRole)
 		})
 		btnEditName.LayoutOrder = 4
 		UI.hover(btnEditName, THEME.surface, THEME.stroke)
-		
+
 		-- Botón EDITAR TAG - sin fondo, 100% ancho
 		local btnEditTag = UI.button({
 			size = UDim2.new(1, -8, 0, 42),
@@ -1030,7 +1030,7 @@ local function createMainView(parent, clanData, playerRole)
 		})
 		btnEditTag.LayoutOrder = 5
 		UI.hover(btnEditTag, THEME.surface, THEME.stroke)
-		
+
 		Memory.track(btnEditName.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
 				screenGui = screenGui,
@@ -1056,7 +1056,7 @@ local function createMainView(parent, clanData, playerRole)
 				end
 			})
 		end))
-		
+
 		Memory.track(btnEditTag.MouseButton1Click:Connect(function()
 			ConfirmationModal.new({
 				screenGui = screenGui,
@@ -1084,7 +1084,7 @@ local function createMainView(parent, clanData, playerRole)
 			})
 		end))
 	end
-	
+
 	-- Botón de salir/disolver - SIN EMOJIS
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
 	local actionBtn = UI.button({
@@ -1100,9 +1100,9 @@ local function createMainView(parent, clanData, playerRole)
 	})
 	-- LayoutOrder dinámico: después de botones de editar si existen, sino después de las cards
 	actionBtn.LayoutOrder = canEdit and 6 or 4
-	
+
 	UI.hover(actionBtn, THEME.warn, THEME.btnDanger)
-	
+
 	Memory.track(actionBtn.MouseButton1Click:Connect(function()
 		if playerRole == "owner" then
 			ConfirmationModal.new({
@@ -1141,12 +1141,12 @@ local function createMainView(parent, clanData, playerRole)
 			})
 		end
 	end))
-	
+
 	-- Actualizar canvas size
 	contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
 	end)
-	
+
 	return mainView
 end
 
@@ -1164,12 +1164,12 @@ local function createMembersView(parent, clanData, playerRole)
 		clips = true
 	})
 	membersView.Visible = false
-	
+
 	-- Header con botón de retroceso
 	createViewHeader(membersView, "👥 MIEMBROS", function()
 		navigateTo("main")
 	end)
-	
+
 	-- Contenedor de la lista
 	local listContainer = UI.frame({
 		size = UDim2.new(1, -8, 1, -56),
@@ -1178,7 +1178,7 @@ local function createMembersView(parent, clanData, playerRole)
 		z = 104,
 		parent = membersView
 	})
-	
+
 	-- Crear instancia de MembersList
 	membersListInstance = MembersList.new({
 		parent = listContainer,
@@ -1190,7 +1190,7 @@ local function createMembersView(parent, clanData, playerRole)
 			loadPlayerClan()
 		end
 	})
-	
+
 	return membersView
 end
 
@@ -1210,12 +1210,12 @@ local function createPendingView(parent, clanData, playerRole)
 		clips = true
 	})
 	pendingView.Visible = false
-	
+
 	-- Header con botón de retroceso
 	createViewHeader(pendingView, "📩 SOLICITUDES", function()
 		navigateTo("main")
 	end)
-	
+
 	-- Contenedor para la lista
 	local listContainer = UI.frame({
 		size = UDim2.new(1, -8, 1, -56),
@@ -1224,17 +1224,17 @@ local function createPendingView(parent, clanData, playerRole)
 		z = 104,
 		parent = pendingView
 	})
-	
+
 	-- Cargar solicitudes y crear lista
 	task.spawn(function()
 		local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-		
+
 		-- Limpiar instancia anterior si existe
 		if pendingListInstance then
 			pendingListInstance:destroy()
 			pendingListInstance = nil
 		end
-		
+
 		-- Crear MembersList en modo "pending"
 		pendingListInstance = MembersList.new({
 			parent = listContainer,
@@ -1248,7 +1248,7 @@ local function createPendingView(parent, clanData, playerRole)
 			end
 		})
 	end)
-	
+
 	return pendingView
 end
 
@@ -1267,46 +1267,46 @@ loadPlayerClan = function()
 	end
 	Memory.cleanup()
 	Memory.destroyChildren(tuClanContainer)
-	
+
 	-- Reset de estado
 	currentView = "main"
 	views = { main = nil, members = nil, pending = nil }
-	
+
 	-- Mostrar loading
 	local loadingFrame = UI.loading(tuClanContainer)
-	
+
 	task.spawn(function()
 		local clanData = ClanClient:GetPlayerClan()
-		
+
 		-- Limpiar loading
 		UI.cleanupLoading()
 		if loadingFrame and loadingFrame.Parent then loadingFrame:Destroy() end
 		Memory.destroyChildren(tuClanContainer)
-		
+
 		if clanData then
 			-- Guardar en caché
 			cachedClanData = clanData
-			
+
 			-- Obtener rol del jugador
 			local playerRole = "miembro"
 			if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
 				playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
 			end
 			cachedPlayerRole = playerRole
-			
+
 			-- Crear las 3 vistas (se crean una vez)
 			views.main = createMainView(tuClanContainer, clanData, playerRole)
 			views.members = createMembersView(tuClanContainer, clanData, playerRole)
-			
+
 			local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 			if canManageRequests then
 				views.pending = createPendingView(tuClanContainer, clanData, playerRole)
 			end
-			
+
 			-- Mostrar vista principal sin animación especial
 			views.main.Position = UDim2.new(0, 0, 0, 0)
 			views.main.Visible = true
-			
+
 		else
 			-- No tiene clan - mostrar mensaje
 			local noClanCard = UI.frame({
@@ -1319,7 +1319,7 @@ loadPlayerClan = function()
 				stroke = true,
 				strokeA = 0.6
 			})
-			
+
 			UI.label({
 				size = UDim2.new(1, 0, 0, 40),
 				pos = UDim2.new(0, 0, 0, 30),
@@ -1329,7 +1329,7 @@ loadPlayerClan = function()
 				z = 104,
 				parent = noClanCard
 			})
-			
+
 			UI.label({
 				size = UDim2.new(1, -20, 0, 20),
 				pos = UDim2.new(0, 10, 0, 75),
@@ -1340,7 +1340,7 @@ loadPlayerClan = function()
 				z = 104,
 				parent = noClanCard
 			})
-			
+
 			UI.label({
 				size = UDim2.new(1, -20, 0, 16),
 				pos = UDim2.new(0, 10, 0, 100),
@@ -1351,7 +1351,7 @@ loadPlayerClan = function()
 				z = 104,
 				parent = noClanCard
 			})
-			
+
 			-- Mostrar mensaje sin animación
 			noClanCard.Position = UDim2.new(0.5, -140, 0.5, -70)
 		end
