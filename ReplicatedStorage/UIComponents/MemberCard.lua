@@ -21,7 +21,7 @@ local ROLES_CONFIG = ClanSystemConfig.ROLES.Visual
 
 function MemberCard.new(config)
 	local self = setmetatable({}, MemberCard)
-	
+
 	self.userId = config.userId
 	self.memberData = config.memberData
 	self.playerRole = config.playerRole
@@ -29,10 +29,10 @@ function MemberCard.new(config)
 	self.parent = config.parent
 	self.screenGui = config.screenGui
 	self.onUpdate = config.onUpdate -- Callback cuando se actualiza
-	
+
 	self.connections = {}
 	self:_build()
-	
+
 	return self
 end
 
@@ -41,7 +41,7 @@ function MemberCard:_build()
 	local roleConfig = ROLES_CONFIG[memberRole] or ROLES_CONFIG.miembro
 	local isCurrentPlayer = self.userId == player.UserId
 	local canManageThis = self:_canManage(memberRole)
-	
+
 	-- Frame principal - diseño horizontal compacto
 	self.frame = UI.frame({
 		size = UDim2.new(1, 0, 0, 56),
@@ -50,7 +50,7 @@ function MemberCard:_build()
 		parent = self.parent,
 		corner = 10
 	})
-	
+
 	-- Avatar
 	local avatarContainer = UI.frame({
 		size = UDim2.new(0, 44, 0, 44),
@@ -60,7 +60,7 @@ function MemberCard:_build()
 		parent = self.frame,
 		corner = 22
 	})
-	
+
 	local avatar = Instance.new("ImageLabel")
 	avatar.Size = UDim2.new(1, -4, 1, -4)
 	avatar.Position = UDim2.new(0, 2, 0, 2)
@@ -72,13 +72,13 @@ function MemberCard:_build()
 	avatar.ZIndex = 108
 	avatar.Parent = avatarContainer
 	UI.rounded(avatar, 20)
-	
+
 	-- Indicador de rol (borde del avatar)
 	local roleBorder = Instance.new("UIStroke")
 	roleBorder.Color = roleConfig.color
 	roleBorder.Thickness = 2
 	roleBorder.Parent = avatarContainer
-	
+
 	-- Info del miembro
 	local infoContainer = UI.frame({
 		size = UDim2.new(1, -120, 1, -12),
@@ -87,13 +87,13 @@ function MemberCard:_build()
 		z = 107,
 		parent = self.frame
 	})
-	
+
 	-- Nombre
 	local displayName = (self.memberData.nombre or "Usuario")
 	if #displayName > 16 then
 		displayName = displayName:sub(1, 14) .. "..."
 	end
-	
+
 	UI.label({
 		size = UDim2.new(1, 0, 0, 20),
 		text = displayName .. (isCurrentPlayer and " (Tú)" or ""),
@@ -103,7 +103,7 @@ function MemberCard:_build()
 		z = 108,
 		parent = infoContainer
 	})
-	
+
 	-- Rol con icono
 	UI.label({
 		size = UDim2.new(1, 0, 0, 16),
@@ -116,17 +116,51 @@ function MemberCard:_build()
 		z = 108,
 		parent = infoContainer
 	})
-	
+
 	-- Botones de acción (solo si puede gestionar y no es él mismo)
 	if canManageThis and not isCurrentPlayer then
-		self:_createActionButtons()
+		-- Botón de cambiar rol
+		local roleBtn = UI.button({
+			size = UDim2.new(0, 44, 0, 38),
+			pos = UDim2.new(1, -100, 0.5, -19),
+			bg = THEME.accent,
+			text = "Rol",
+			textSize = 12,
+			z = 107,
+			parent = self.frame,
+			corner = 8
+		})
+
+		UI.hover(roleBtn, THEME.accent, THEME.accent:Lerp(Color3.new(1,1,1), 0.2))
+
+		table.insert(self.connections, roleBtn.MouseButton1Click:Connect(function()
+			self:_showRoleMenu()
+		end))
+
+		-- Botón de expulsar
+		local kickBtn = UI.button({
+			size = UDim2.new(0, 44, 0, 38),
+			pos = UDim2.new(1, -52, 0.5, -19),
+			bg = Color3.fromRGB(180, 60, 60),
+			text = "Kick",
+			textSize = 12,
+			z = 107,
+			parent = self.frame,
+			corner = 8
+		})
+
+		UI.hover(kickBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(200, 80, 80))
+
+		table.insert(self.connections, kickBtn.MouseButton1Click:Connect(function()
+			self:_confirmKick()
+		end))
 	end
 end
 
 function MemberCard:_canManage(targetRole)
 	local myRoleConfig = ROLES_CONFIG[self.playerRole]
 	if not myRoleConfig then return false end
-	
+
 	for _, manageable in ipairs(myRoleConfig.canManage) do
 		if manageable == targetRole then
 			return true
@@ -135,72 +169,10 @@ function MemberCard:_canManage(targetRole)
 	return false
 end
 
-function MemberCard:_createActionButtons()
-	local actionsContainer = UI.frame({
-		size = UDim2.new(0, 52, 0, 44),
-		pos = UDim2.new(1, -58, 0.5, -22),
-		bgT = 1,
-		z = 107,
-		parent = self.frame
-	})
-	
-	-- Botón de gestionar rol
-	local manageBtn = UI.button({
-		size = UDim2.new(0, 24, 0, 24),
-		pos = UDim2.new(0, 0, 0, 0),
-		bg = THEME.accent,
-		text = "⚙",
-		textSize = 12,
-		z = 108,
-		parent = actionsContainer,
-		corner = 12
-	})
-	
-	table.insert(self.connections, manageBtn.MouseButton1Click:Connect(function()
-		self:_showRoleMenu()
-	end))
-	
-	-- Botón de expulsar
-	local kickBtn = UI.button({
-		size = UDim2.new(0, 24, 0, 24),
-		pos = UDim2.new(0, 28, 0, 0),
-		bg = Color3.fromRGB(180, 60, 60),
-		text = "X",
-		textSize = 12,
-		z = 108,
-		parent = actionsContainer,
-		corner = 12
-	})
-	
-	table.insert(self.connections, kickBtn.MouseButton1Click:Connect(function()
-		self:_confirmKick()
-	end))
-	
-	-- Tooltips simples con hover
-	self:_addHoverEffect(manageBtn, "Cambiar rol")
-	self:_addHoverEffect(kickBtn, "Expulsar")
-end
-
-function MemberCard:_addHoverEffect(button, tooltipText)
-	local originalColor = button.BackgroundColor3
-	
-	table.insert(self.connections, button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = originalColor:Lerp(Color3.new(1,1,1), 0.2)
-		}):Play()
-	end))
-	
-	table.insert(self.connections, button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = originalColor
-		}):Play()
-	end))
-end
-
 function MemberCard:_showRoleMenu()
 	local memberRole = self.memberData.rol or "miembro"
 	local myRoleConfig = ROLES_CONFIG[self.playerRole]
-	
+
 	-- Construir opciones disponibles
 	local options = {}
 	for roleName, config in pairs(ROLES_CONFIG) do
@@ -214,15 +186,15 @@ function MemberCard:_showRoleMenu()
 			})
 		end
 	end
-	
+
 	-- Ordenar por prioridad (mayor primero)
 	table.sort(options, function(a, b) return a.priority > b.priority end)
-	
+
 	if #options == 0 then
 		Notify:Warning("Sin opciones", "No hay roles disponibles para asignar", 3)
 		return
 	end
-	
+
 	-- Crear menú de selección
 	RoleSelectionMenu.new({
 		screenGui = self.screenGui,
@@ -237,7 +209,7 @@ end
 
 function MemberCard:_changeRole(newRole)
 	local roleConfig = ROLES_CONFIG[newRole]
-	
+
 	ConfirmationModal.new({
 		screenGui = self.screenGui,
 		title = "Confirmar cambio de rol",
@@ -289,7 +261,7 @@ function MemberCard:destroy()
 		conn:Disconnect()
 	end
 	self.connections = {}
-	
+
 	if self.frame then
 		self.frame:Destroy()
 		self.frame = nil

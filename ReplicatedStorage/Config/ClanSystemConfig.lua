@@ -14,7 +14,7 @@ local ClanSystemConfig = {}
 ClanSystemConfig.ADMINS = {
 	AdminUserIds = {
 		8387751399,  -- nandoxts (Owner)
-		9375636407,  -- Admin2
+		9375636407,  -- Otro admin
 	},
 	LogAdminActions = true,
 }
@@ -71,8 +71,8 @@ ClanSystemConfig.RATE_LIMITS = {
 ClanSystemConfig.ROLES = {
 	Hierarchy = {
 		owner = 4,
-		colider = 3,
-		lider = 2,
+		lider = 3,
+		colider = 2,
 		miembro = 1,
 	},
 
@@ -128,25 +128,25 @@ ClanSystemConfig.ROLES = {
 	-- Configuración visual y jerarquía para UI
 	Visual = {
 		owner = {
-			display = "Fundador",
+			display = "Owner",
 			color = Color3.fromRGB(255, 215, 0),
 			icon = "👑",
 			priority = 4,
-			canManage = {"colider", "lider", "miembro"}
-		},
-		colider = {
-			display = "Co-Líder", 
-			color = Color3.fromRGB(180, 100, 255),
-			icon = "⚜️",
-			priority = 3,
-			canManage = {"lider", "miembro"}
+			canManage = {"lider", "colider", "miembro"}
 		},
 		lider = {
 			display = "Líder",
 			color = Color3.fromRGB(100, 200, 255),
 			icon = "🔹",
+			priority = 3,
+			canManage = {"colider", "miembro"}
+		},
+		colider = {
+			display = "Co-Líder", 
+			color = Color3.fromRGB(180, 100, 255),
+			icon = "⚜️",
 			priority = 2,
-			canManage = {}
+			canManage = {"miembro"}
 		},
 		miembro = {
 			display = "Miembro",
