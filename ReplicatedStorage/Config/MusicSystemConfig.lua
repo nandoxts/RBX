@@ -78,7 +78,7 @@ MusicSystemConfig.PERMISSIONS = {
 	NextSong = "everyone",
 	AddToLibrary = "admin",
 	RemoveFromLibrary = "admin",
-	AddSongToDJ = "admin",
+	-- AddSongToDJ permission removed (feature disabled)
 	RemoveSongFromDJ = "admin",
 	CreateDJ = "admin",
 	RemoveDJ = "admin",
@@ -91,44 +91,46 @@ MusicSystemConfig.PERMISSIONS = {
 -- ═══════════════════════════════════════════════════════════
 -- DJS PREDETERMINADOS
 -- ═══════════════════════════════════════════════════════════
-MusicSystemConfig.DEFAULT_DJS = {
-	{
-		name = "DJ Alex",
-		cover = "rbxassetid://0",
-		userId = 123456789,
-		songs = {}
-	},
-	{
-		name = "DJ Studio",
-		cover = "rbxassetid://0",
-		userId = 987654321,
-		songs = {}
-	},
-	{
-		name = "DJ Vibes",
-		cover = "rbxassetid://0",
-		userId = 111222333,
-		songs = {}
-	},
-	{
-		name = "DJ Beats",
-		cover = "rbxassetid://0",
-		userId = 444555666,
-		songs = {}
-	},
-	{
-		name = "DJ Chill",
-		cover = "rbxassetid://0",
-		userId = 777888999,
-		songs = {}
-	},
-	{
-		name = "DJ Energy",
-		cover = "rbxassetid://0",
-		userId = 101112131,
-		songs = {}
+function MusicSystemConfig:GetDJs()
+	return {
+		{
+			name = "DJ Alex",
+			cover = "rbxassetid://0",
+			userId = 123456789,
+			songs = {18411501, 18411502}
+		},
+		{
+			name = "DJ Studio",
+			cover = "rbxassetid://0",
+			userId = 987654321,
+			songs = {18411601, 18411602}
+		},
+		{
+			name = "DJ Vibes",
+			cover = "rbxassetid://0",
+			userId = 111222333,
+			songs = {18411701, 18411702}
+		},
+		{
+			name = "DJ Beats",
+			cover = "rbxassetid://0",
+			userId = 444555666,
+			songs = {18411801, 18411802}
+		},
+		{
+			name = "DJ Chill",
+			cover = "rbxassetid://0",
+			userId = 777888999,
+			songs = {18411901, 18411902}
+		},
+		{
+			name = "DJ Energy",
+			cover = "rbxassetid://0",
+			userId = 101112131,
+			songs = {18412001, 18412002}
+		}
 	}
-}
+end
 
 -- ═══════════════════════════════════════════════════════════
 -- FUNCIONES AUXILIARES
@@ -224,8 +226,9 @@ function MusicSystemConfig:ValidateVolume(volume)
 end
 
 -- Obtener configuración de DJs por defecto
+-- Backwards-compatible alias
 function MusicSystemConfig:GetDefaultDJs()
-	return self.DEFAULT_DJS
+	return self:GetDJs()
 end
 
 return MusicSystemConfig

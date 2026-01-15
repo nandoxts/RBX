@@ -16,10 +16,11 @@
 -- ════════════════════════════════════════════════════════════════
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local DataStoreService = game:GetService("DataStoreService")
+-- DataStore removed: using config defaults instead of external datastore
 local ServerStorage = game:GetService("ServerStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local ContentProvider = game:GetService("ContentProvider")
 
 -- ════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN (desde módulo centralizado)
@@ -30,16 +31,16 @@ local AdminConfig = require(game.ServerStorage:WaitForChild("Config"):WaitForChi
 -- ════════════════════════════════════════════════════════════════
 -- DATABASE
 -- ════════════════════════════════════════════════════════════════
-local MusicDB = require(ServerStorage:WaitForChild("Systems"):WaitForChild("MusicSystem"):WaitForChild("MusicDatabase"))
-
--- DataStore configurable desde MusicSystemConfig
-local musicStore = MusicConfig.DATABASE.UseDataStore and DataStoreService:GetDataStore(MusicConfig.DATABASE.MusicLibraryStoreName) or nil
+-- MusicDatabase module not required when using config defaults
+local MusicDB = nil
 
 local musicDatabase = {}
 local playQueue = {}
 local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
+-- Cache para evitar múltiples consultas a MarketplaceService
+local productCache = {}
 
 -- ════════════════════════════════════════════════════════════════
 -- ADMIN FUNCTIONS (usando MusicConfig)
@@ -82,7 +83,7 @@ local uiFolder = getOrCreateFolder(remotesFolder, "UI")
 local playbackRemotes = {
 	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong", "UpdatePlayback"}},
 	{folder = musicQueueFolder, names = {"AddToQueue", "RemoveFromQueue", "ClearQueue", "MoveInQueue", "UpdateQueue"}},
-	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "AddSongToDJ", "RemoveSongFromLibrary", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
+	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "RemoveSongFromLibrary", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
 	{folder = uiFolder, names = {"UpdateUI"}}
 }
 
@@ -122,7 +123,7 @@ local R = {
 	GetDJs = musicLibraryFolder:FindFirstChild("GetDJs"),
 	GetSongsByDJ = musicLibraryFolder:FindFirstChild("GetSongsByDJ"),
 	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
-	AddSongToDJ = musicLibraryFolder:FindFirstChild("AddSongToDJ"),
+	-- AddSongToDJ removed: feature deprecated/removed
 	RemoveSongFromLibrary = musicLibraryFolder:FindFirstChild("RemoveSongFromLibrary"),
 	RemoveDJ = musicLibraryFolder:FindFirstChild("RemoveDJ"),
 	RenameDJ = musicLibraryFolder:FindFirstChild("RenameDJ"),
@@ -153,140 +154,64 @@ end
 -- DATABASE FUNCTIONS
 -- ════════════════════════════════════════════════════════════════
 local function saveLibraryToDataStore()
-	if not MusicConfig.DATABASE.UseDataStore then
-		print("⚠️ [LIBRARY_SAVE] DataStore deshabilitado - no se guardará")
-		return
-	end
-	
-	pcall(function()
-		local dataToSave = {
-			djs = musicDatabase,
-			metadata = {
-				version = MusicConfig.SYSTEM.Version,
-				lastUpdated = os.date("%Y-%m-%d %H:%M:%S"),
-				totalSongs = 0
-			}
-		}
-
-		for djName, djData in pairs(musicDatabase) do
-			dataToSave.metadata.totalSongs = dataToSave.metadata.totalSongs + #djData.songs
-		end
-
-		musicStore:SetAsync("MusicLibrary_Global", dataToSave)
-		print("[LIBRARY_SAVE] Total songs stored:", dataToSave.metadata.totalSongs, "| Timestamp:", dataToSave.metadata.lastUpdated)
-	end)
+	-- Data persistence disabled: configuration-driven library only
+	return
 end
 
 local function loadLibraryFromDataStore()
-	local success, data = pcall(function()
-		return musicStore:GetAsync("MusicLibrary_Global")
-	end)
-
-	if success and data and data.djs then
-		musicDatabase = data.djs
-
-		local totalSongs = 0
-		for djName, djData in pairs(musicDatabase) do
-			totalSongs = totalSongs + #djData.songs
-		end
-
-	else
-		musicDatabase = {}
-
-		-- Intentar cargar desde MusicDatabase.lua
-		if MusicDB and MusicDB.djs then
-			for djName, djData in pairs(MusicDB.djs) do
-				musicDatabase[djName] = {
-					cover = djData.cover,
-					userId = djData.userId,
-					songs = {}
-				}
-				for _, song in ipairs(djData.songs) do
-					if song.id > 0 then
-						table.insert(musicDatabase[djName].songs, {
-							id = song.id,
-							name = song.name,
-							artist = song.artist,
-							djName = djName,
-							duration = song.duration or 0,
-							verified = song.verified or false,
+	-- Initialize musicDatabase from config defaults (no external datastore)
+	musicDatabase = {}
+			for _, djData in ipairs(MusicConfig:GetDJs()) do
+				local songsList = {}
+				for _, s in ipairs(djData.songs or {}) do
+					if type(s) == "number" then
+						local id = s
+						-- Intentar obtener metadata desde MarketplaceService con cache
+						local name = "Audio " .. tostring(id)
+						local artist = ""
+						local duration = 0
+						local verified = false
+						local ok, info = pcall(function()
+							if productCache[id] then return productCache[id] end
+							local res = MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
+							productCache[id] = res
+							return res
+						end)
+						if ok and info and info.AssetTypeId == 3 then
+							name = info.Name or name
+							artist = (info.Creator and info.Creator.Name) or artist
+							duration = info.Playtime or info.PlayTime or duration
+							verified = true
+						end
+						table.insert(songsList, {
+							id = id,
+							name = name,
+							artist = artist,
+							djName = djData.name,
+							duration = duration,
+							verified = verified,
 							addedDate = os.date("%Y-%m-%d"),
-							addedBy = "System"
+							addedBy = "Config"
 						})
+					elseif type(s) == "table" and s.id then
+						s.djName = s.djName or djData.name
+						s.addedBy = s.addedBy or "Config"
+						s.addedDate = s.addedDate or os.date("%Y-%m-%d")
+						table.insert(songsList, s)
 					end
 				end
-				print("[LIBRARY_LOAD] DJ:", djName, "| Songs loaded:", #musicDatabase[djName].songs)
-			end
-		else
-			-- Usar DJs predeterminados desde MusicConfig
-			for _, djData in ipairs(MusicConfig:GetDefaultDJs()) do
+
 				musicDatabase[djData.name] = {
 					cover = djData.cover,
 					userId = djData.userId,
-					songs = djData.songs
+					songs = songsList
 				}
-				print("[LIBRARY_LOAD] DJ (Config):", djData.name, "| Songs:", #djData.songs)
+				print("[LIBRARY_LOAD] DJ (Config):", djData.name, "| Songs:", #musicDatabase[djData.name].songs)
 			end
-		end
-
-		saveLibraryToDataStore()
-		print("[SYSTEM] Library initialization complete | Status: SUCCESS")
-	end
+	print("[SYSTEM] Library initialized from config defaults | Status: SUCCESS")
 end
 
-local function findSongInLibrary(audioId)
-	for djName, djData in pairs(musicDatabase) do
-		for _, song in ipairs(djData.songs) do
-			if song.id == audioId then
-				song.djName = djName
-				return song
-			end
-		end
-	end
-	return nil
-end
-
-local function addSongToDJ(audioId, songName, artistName, djName, adminName)
-	djName = djName or "Uncategorized"
-
-	if not musicDatabase[djName] then
-		musicDatabase[djName] = {
-			cover = "rbxassetid://0",
-			userId = 0,
-			songs = {}
-		}
-		print("[DJ_CREATE] New DJ added:", djName, "| Timestamp:", os.date("%H:%M:%S"))
-	end
-
-	-- Verificar límite de canciones por DJ
-	if musicDatabase[djName] and #musicDatabase[djName].songs >= MusicConfig.LIMITS.MaxSongsPerDJ then
-		warn("[VALIDATION_ERROR] DJ song limit reached | DJ:", djName, "| Limit:", MusicConfig.LIMITS.MaxSongsPerDJ, "| Action: SKIP")
-		return false, "DJ ha alcanzado el límite de " .. MusicConfig.LIMITS.MaxSongsPerDJ .. " canciones"
-	end
-
-	local existingSong = findSongInLibrary(audioId)
-	if existingSong then
-		print("[WARNING] Song already exists | Audio ID:", audioId, "| DJ:", existingSong.djName)
-		return false, "Canción ya existe"
-	end
-
-	local newSong = {
-		id = audioId,
-		name = songName,
-		artist = artistName,
-		djName = djName,
-		duration = 0,
-		verified = false,
-		addedDate = os.date("%Y-%m-%d"),
-		addedBy = adminName
-	}
-
-	table.insert(musicDatabase[djName].songs, newSong)
-	saveLibraryToDataStore()
-
-	print("[SONG_ADD] Admin:", adminName, "| Song:", songName, "| DJ:", djName, "| Audio ID:", audioId)
-	return true, "Canción agregada exitosamente"
-end
+-- addSongToDJ removed: adding songs to library via server is deprecated/disabled
 
 local function removeSongFromLibrary(audioId, adminName)
 	for djName, djData in pairs(musicDatabase) do
@@ -631,7 +556,7 @@ end)
 -- [SKIP] ADD TO QUEUE - CON PREVENCIÓN DE DUPLICADOS
 -- ════════════════════════════════════════════════════════════════
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
-	if not hasPermission(player, "add") then 
+	if not hasPermission(player, "AddToQueue") then 
 		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: ADD_QUEUE | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
@@ -718,6 +643,25 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 				currentSong = getCurrentSong(),
 				djs = djs,
 				error = "Not an audio asset"
+			})
+		end
+		return
+	end
+
+	-- Verificar que el asset sea accesible por la experiencia (no privado/restringido)
+	local cpOk, cpErr = pcall(function()
+		ContentProvider:PreloadAsync({"rbxassetid://" .. id})
+	end)
+	if not cpOk then
+		warn("[AUTH_ERROR] Asset not accessible | Audio ID:", id, "| Error:", tostring(cpErr))
+		if R.Update then
+			local djs, stats = getAllDJs()
+			R.Update:FireClient(player, {
+				library = musicDatabase,
+				queue = playQueue,
+				currentSong = getCurrentSong(),
+				djs = djs,
+				error = "No autorizado: el recurso no puede usarse en esta experiencia"
 			})
 		end
 		return
@@ -810,26 +754,7 @@ R.SearchSongs.OnServerEvent:Connect(function(player, searchTerm)
 end)
 
 -- ADD SONG TO DJ (para agregar a la biblioteca)
-R.AddSongToDJ.OnServerEvent:Connect(function(player, audioId, songName, artistName, djName)
-	if not MusicConfig:HasPermission(player.UserId, "AddToLibrary") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: ADD_LIBRARY | Reason: Insufficient permissions | Action: SKIP")
-		return 
-	end
-
-	local id = tonumber(audioId)
-	if not id then
-		warn("[VALIDATION_ERROR] Invalid Audio ID format | Input:", audioId, "| Action: SKIP")
-		return
-	end
-
-	local success, message = addSongToDJ(id, songName or "Sin título", artistName or "Desconocido", djName or "Uncategorized", player.Name)
-	if success then
-		updateLibrary()
-		R.AddSongToDJ:FireClient(player, {success = true, message = "Canción agregada a " .. djName})
-	else
-		R.AddSongToDJ:FireClient(player, {success = false, message = message or "La canción ya existe"})
-	end
-end)
+-- AddSongToDJ handler removed: adding songs to library is disabled on server
 
 -- REMOVE FROM LIBRARY
 R.RemoveSongFromLibrary.OnServerEvent:Connect(function(player, audioId)

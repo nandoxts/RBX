@@ -1,6 +1,6 @@
 --[[ Music Dashboard - Professional Edition v4
      • Sistema completo de música con múltiples admins
-     • Tabs: Queue / Library / Add
+	• Tabs: Queue / Library
      • Control de volumen PERSONAL (no global)
      • Reproductor en tiempo real con progreso
      • Layout optimizado y responsive
@@ -129,7 +129,7 @@ local function getRemote(name)
 		UpdateUI = "UI",
 		GetDJs = "MusicLibrary",
 		GetSongsByDJ = "MusicLibrary",
-		AddSongToDJ = "MusicLibrary",
+		-- AddSongToDJ removed (admin 'add music' UI eliminated)
 		RemoveSongFromLibrary = "MusicLibrary",
 		RemoveDJ = "MusicLibrary",
 		RenameDJ = "MusicLibrary"
@@ -164,7 +164,6 @@ local R = {
 	Update = getRemote("UpdateUI"),
 	GetDJs = getRemote("GetDJs"),
 	GetSongsByDJ = getRemote("GetSongsByDJ"),
-	AddSongToDJ = getRemote("AddSongToDJ"),
 	RemoveSongFromLibrary = getRemote("RemoveSongFromLibrary"),
 	RemoveDJ = getRemote("RemoveDJ"),
 	RenameDJ = getRemote("RenameDJ")
@@ -620,7 +619,7 @@ end
 
 local tQueue = createTab("QUEUE")
 local tLibrary = createTab("LIBRARY")
-local tAdd = isAdmin and createTab("ADD") or nil
+
 
 local underline = Instance.new("Frame")
 underline.Size = UDim2.new(0, 80, 0, 3)
@@ -1375,292 +1374,6 @@ local function drawSongs(songs)
 	end
 end
 
--- ════════════════════════════════════════════════════════════════
--- ADD PAGE (Solo para admins)
--- ════════════════════════════════════════════════════════════════
-local addPage
-if isAdmin then
-	addPage = Instance.new("Frame")
-	addPage.Name = "Add"
-	addPage.Size = UDim2.new(1, 0, 1, 0)
-	addPage.BackgroundTransparency = 1
-	addPage.LayoutOrder = 3
-	addPage.Parent = holder
-
-	local form = Instance.new("Frame")
-	form.Size = UDim2.new(0.9, 0, 0, 470)
-	form.Position = UDim2.new(0.05, 0, 0, 20)
-	form.BackgroundTransparency = 1
-	form.Parent = addPage
-
-	local function inputField(label, placeholder, yPos, maxLength)
-		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.new(1, 0, 0, 18)
-		lbl.Position = UDim2.new(0, 0, 0, yPos)
-		lbl.BackgroundTransparency = 1
-		lbl.Text = label
-		lbl.TextColor3 = THEME.muted
-		lbl.Font = Enum.Font.GothamBold
-		lbl.TextSize = 12
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.Parent = form
-
-		local input = Instance.new("TextBox")
-		input.Size = UDim2.new(1, 0, 0, 42)
-		input.Position = UDim2.new(0, 0, 0, yPos + 22)
-		input.BackgroundColor3 = THEME.elevated
-		input.Text = ""
-		input.PlaceholderText = placeholder
-		input.TextColor3 = THEME.text
-		input.PlaceholderColor3 = THEME.muted
-		input.Font = Enum.Font.Gotham
-		input.TextSize = 14
-		input.TextXAlignment = Enum.TextXAlignment.Left
-		input.ClearTextOnFocus = false
-		input.BorderSizePixel = 0
-		input.Parent = form
-		rounded(input, 8)
-		stroked(input, 0.3)
-
-		local inPad = Instance.new("UIPadding")
-		inPad.PaddingLeft = UDim.new(0, 12)
-		inPad.Parent = input
-
-		if maxLength then
-			input:GetPropertyChangedSignal("Text"):Connect(function()
-				if #input.Text > maxLength then
-					input.Text = string.sub(input.Text, 1, maxLength)
-				end
-			end)
-		end
-
-		return input
-	end
-
-	local idBox = inputField("AUDIO ID", "Enter Roblox Audio ID", 0, 19)
-	local nameBox = inputField("SONG NAME", "Auto-filled from Audio ID", 78)
-	local artistBox = inputField("ARTIST", "Auto-filled from Audio ID", 156)
-
-	idBox.FocusLost:Connect(function()
-		local audioId = idBox.Text
-		if isValidAudioId(audioId) then
-			local id = tonumber(audioId)
-			task.spawn(function()
-				local success, result = pcall(function()
-					return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
-				end)
-
-				if success and result then
-					if result.AssetTypeId == 3 then
-						nameBox.Text = result.Name or ""
-						artistBox.Text = result.Creator.Name or ""
-						nameBox.PlaceholderText = "Enter song name"
-						artistBox.PlaceholderText = "Enter artist name (optional)"
-					else
-						nameBox.Text = ""
-						artistBox.Text = ""
-						nameBox.PlaceholderText = "Not an audio asset"
-					end
-				else
-					nameBox.Text = ""
-					artistBox.Text = ""
-					nameBox.PlaceholderText = "Audio not found"
-				end
-			end)
-		else
-			nameBox.Text = ""
-			artistBox.Text = ""
-			nameBox.PlaceholderText = "Invalid Audio ID"
-		end
-	end)
-
-	local catLabel = Instance.new("TextLabel")
-	catLabel.Size = UDim2.new(1, 0, 0, 18)
-	catLabel.Position = UDim2.new(0, 0, 0, 234)
-	catLabel.BackgroundTransparency = 1
-	catLabel.Text = "DJ"
-	catLabel.TextColor3 = THEME.muted
-	catLabel.Font = Enum.Font.GothamBold
-	catLabel.TextSize = 12
-	catLabel.TextXAlignment = Enum.TextXAlignment.Left
-	catLabel.Parent = form
-
-	local catDropdown = Instance.new("TextButton")
-	catDropdown.Size = UDim2.new(1, 0, 0, 42)
-	catDropdown.Position = UDim2.new(0, 0, 0, 256)
-	catDropdown.BackgroundColor3 = THEME.elevated
-	catDropdown.Text = "Select DJ"
-	catDropdown.TextColor3 = THEME.text
-	catDropdown.Font = Enum.Font.Gotham
-	catDropdown.TextSize = 14
-	catDropdown.TextXAlignment = Enum.TextXAlignment.Left
-	catDropdown.BorderSizePixel = 0
-	catDropdown.Parent = form
-	rounded(catDropdown, 8)
-	stroked(catDropdown, 0.3)
-
-	local catPad = Instance.new("UIPadding")
-	catPad.PaddingLeft = UDim.new(0, 12)
-	catPad.Parent = catDropdown
-
-	local selectedCat = nil
-
-	catDropdown.MouseButton1Click:Connect(function()
-		local existingMenu = form:FindFirstChild("DJMenu")
-		if existingMenu then
-			existingMenu:Destroy()
-			return
-		end
-
-		local menu = Instance.new("Frame")
-		menu.Name = "DJMenu"
-		menu.Size = UDim2.new(0, catDropdown.AbsoluteSize.X, 0, math.min(#allDJs * 34 + 12, 210))
-		menu.Position = UDim2.new(0, catDropdown.Position.X.Offset, 0, catDropdown.Position.Y.Offset + 46)
-		menu.BackgroundColor3 = THEME.elevated
-		menu.BorderSizePixel = 0
-		menu.ZIndex = 110
-		menu.Parent = form
-		rounded(menu, 8)
-		stroked(menu, 0.3)
-
-		local menuScroll = Instance.new("ScrollingFrame")
-		menuScroll.Size = UDim2.new(1, -12, 1, -12)
-		menuScroll.Position = UDim2.new(0, 6, 0, 6)
-		menuScroll.BackgroundTransparency = 1
-		menuScroll.BorderSizePixel = 0
-		menuScroll.ScrollBarThickness = 5
-		menuScroll.ScrollBarImageColor3 = THEME.stroke
-		menuScroll.CanvasSize = UDim2.new(0, 0, 0, #allDJs * 34)
-		menuScroll.ZIndex = 111
-		menuScroll.Parent = menu
-
-		local menuList = Instance.new("UIListLayout")
-		menuList.Padding = UDim.new(0, 3)
-		menuList.Parent = menuScroll
-
-		for _, dj in ipairs(allDJs) do
-			local opt = Instance.new("TextButton")
-			opt.Size = UDim2.new(1, 0, 0, 32)
-			opt.BackgroundColor3 = THEME.card
-			opt.Text = dj.name
-			opt.TextColor3 = THEME.text
-			opt.Font = Enum.Font.Gotham
-			opt.TextSize = 13
-			opt.TextXAlignment = Enum.TextXAlignment.Left
-			opt.BorderSizePixel = 0
-			opt.ZIndex = 112
-			opt.Parent = menuScroll
-			rounded(opt, 6)
-
-			local optPad = Instance.new("UIPadding")
-			optPad.PaddingLeft = UDim.new(0, 12)
-			optPad.Parent = opt
-
-			opt.MouseEnter:Connect(function()
-				opt.BackgroundColor3 = THEME.hover
-			end)
-
-			opt.MouseLeave:Connect(function()
-				opt.BackgroundColor3 = THEME.card
-			end)
-
-			opt.MouseButton1Click:Connect(function()
-				selectedCat = dj.name
-				catDropdown.Text = dj.name
-				menu:Destroy()
-			end)
-		end
-
-		task.delay(0.2, function()
-			local conn
-			conn = UserInputService.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 then
-					local mousePos = UserInputService:GetMouseLocation()
-					local menuPos = menu.AbsolutePosition
-					local menuSize = menu.AbsoluteSize
-
-					if mousePos.X < menuPos.X or mousePos.X > menuPos.X + menuSize.X or
-						mousePos.Y < menuPos.Y or mousePos.Y > menuPos.Y + menuSize.Y then
-						conn:Disconnect()
-						if menu and menu.Parent then menu:Destroy() end
-					end
-				end
-			end)
-		end)
-	end)
-
-	local newCatBox = inputField("NEW DJ", "Or create new DJ", 312)
-
-	local addLib = Instance.new("TextButton")
-	addLib.Size = UDim2.new(1, 0, 0, 44)
-	addLib.Position = UDim2.new(0, 0, 0, 408)
-	addLib.BackgroundColor3 = THEME.accent
-	addLib.Text = "ADD TO LIBRARY"
-	addLib.TextColor3 = Color3.new(1, 1, 1)
-	addLib.Font = Enum.Font.GothamBold
-	addLib.TextSize = 15
-	addLib.BorderSizePixel = 0
-	addLib.Parent = form
-	rounded(addLib, 8)
-	stroked(addLib, 0.15)
-
-	addLib.MouseButton1Click:Connect(function()
-		local aid = idBox.Text
-		local nm = nameBox.Text
-		local ar = artistBox.Text
-		local cat = newCatBox.Text ~= "" and newCatBox.Text or selectedCat
-
-		if not isValidAudioId(aid) then
-			idBox.Text = ""
-			idBox.PlaceholderText = "INVALID AUDIO ID"
-			return
-		end
-
-		if nm == "" then
-			nameBox.PlaceholderText = "REQUIRED"
-			return
-		end
-
-		if not cat then
-			catDropdown.Text = "SELECT DJ"
-			return
-		end
-
-		if R.AddSongToDJ then
-			R.AddSongToDJ:FireServer(tonumber(aid), nm, ar, cat)
-
-			idBox.Text = ""
-			nameBox.Text = ""
-			artistBox.Text = ""
-			newCatBox.Text = ""
-			catDropdown.Text = "Select DJ"
-			selectedCat = nil
-
-			addLib.Text = "ADDED SUCCESSFULLY"
-			addLib.BackgroundColor3 = THEME.success
-			task.delay(2, function()
-				addLib.Text = "ADD TO LIBRARY"
-				addLib.BackgroundColor3 = THEME.accent
-			end)
-		end
-	end)
-
-	addLib.MouseEnter:Connect(function()
-		TweenService:Create(addLib, TweenInfo.new(0.15), {
-			BackgroundColor3 = Color3.fromRGB(
-				THEME.accent.R * 255 + 20,
-				THEME.accent.G * 255 + 20,
-				THEME.accent.B * 255 + 20
-			)
-		}):Play()
-	end)
-
-	addLib.MouseLeave:Connect(function()
-		TweenService:Create(addLib, TweenInfo.new(0.15), {
-			BackgroundColor3 = THEME.accent
-		}):Play()
-	end)
-end
 
 -- ════════════════════════════════════════════════════════════════
 -- PROGRESS BAR UPDATE
@@ -1724,7 +1437,6 @@ function showPage(name)
 
 	if queuePage then queuePage.Visible = false end
 	if libraryPage then libraryPage.Visible = false end
-	if addPage then addPage.Visible = false end
 
 	local pageFrame = holder:FindFirstChild(name)
 	if pageFrame then
@@ -1765,7 +1477,7 @@ end
 
 wireTab(tQueue, "Queue")
 wireTab(tLibrary, "Library")
-if tAdd then wireTab(tAdd, "Add") end
+
 
 task.defer(function()
 	task.wait(0.1)
@@ -1926,35 +1638,7 @@ if R.GetSongsByDJ then
 	end)
 end
 
-if R.AddSongToDJ then
-	R.AddSongToDJ.OnClientEvent:Connect(function(response)
-		if response and response.success ~= nil then
-			if response.success then
-				if quickAddBtn then
-					quickAddBtn.Text = "OK"
-					quickAddBtn.BackgroundColor3 = THEME.success
-					quickInput.PlaceholderText = "Enter Audio ID..."
-				end
-			else
-				if quickAddBtn then
-					quickAddBtn.Text = "ERROR"
-					quickAddBtn.BackgroundColor3 = THEME.danger
-					quickInput.PlaceholderText = response.message or "Error adding song"
-					qiStroke.Color = THEME.danger
-				end
-			end
-
-			task.delay(2, function()
-				if quickAddBtn then
-					quickAddBtn.Text = "ADD"
-					quickAddBtn.BackgroundColor3 = THEME.accent
-					qiStroke.Color = THEME.stroke
-					quickInput.PlaceholderText = "Enter Audio ID..."
-				end
-			end)
-		end
-	end)
-end
+-- AddSongToDJ handler removed (admin Add Music UI deleted)
 
 if R.RemoveFromLibrary then
 	R.RemoveFromLibrary.OnClientEvent:Connect(function(response)
