@@ -11,7 +11,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
-local terremotoEvent = ReplicatedStorage:WaitForChild("TerremotoEvent")
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local terremotoEvent = eventsFolder:WaitForChild("TerremotoEvent")
 
 local isShaking = false
 

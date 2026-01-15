@@ -7,7 +7,8 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-local rotateEvent = ReplicatedStorage:WaitForChild("RotateEffectEvent")
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local rotateEvent = eventsFolder:WaitForChild("RotateEffectEvent")
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN DEL EFECTO

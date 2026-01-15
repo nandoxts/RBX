@@ -20,6 +20,14 @@ local COLORS = {
 	Verified = THEME.text,
 }
 
+-- Debug flag: cambia a true para activar logs
+local DEBUG = false
+local function debugLog(...)
+	if DEBUG then
+		print(...)
+	end
+end
+
 -- ScreenGui (DisplayOrder alto para estar encima de todo)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AnuncioGlobalGui"
@@ -200,8 +208,14 @@ local function animateOut()
 	})
 	tween:Play()
 
-	tween.Completed:Connect(function()
-		mainContainer.Visible = false
+	-- Esperar hasta que termine el tween y luego resetear estado
+	pcall(function()
+		tween.Completed:Wait()
+	end)
+	mainContainer.Visible = false
+	pcall(function()
+		progressBar.Size = UDim2.new(1, 0, 1, 0)
+		mainContainer.Position = UDim2.new(0.5, 0, 0, -150)
 	end)
 end
 
@@ -212,122 +226,178 @@ local function animateProgress(duration)
 	}):Play()
 end
 
--- Evento Remoto
-local crearAnuncio = ReplicatedStorage:WaitForChild("CrearAnuncio")
+-- Obtener el RemoteEvent desde la carpeta canonical: ReplicatedStorage/Systems/Events
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local crearAnuncio = eventsFolder:WaitForChild("CrearAnuncio")
 
-crearAnuncio.OnClientEvent:Connect(function(creatorName, msg, duration)
-	local userId
-	local targetPlayer = Players:FindFirstChild(creatorName)
+-- Cola de anuncios para evitar cierres prematuros cuando llegan anuncios consecutivos
+local announcementQueue = {}
+local processingAnnouncements = false
+local startProcessing
 
-	if targetPlayer then
-		userId = targetPlayer.UserId
-	else
-		local success, result = pcall(function()
-			return Players:GetUserIdFromNameAsync(creatorName)
+local function processQueue()
+	while #announcementQueue > 0 do
+		debugLog("[AnuncioGlobal] Procesando anuncio, cola:", #announcementQueue)
+		local item = table.remove(announcementQueue, 1)
+		debugLog("[AnuncioGlobal] Item extraído:", item and item.creatorName, item and item.msg)
+		local ok, err = pcall(function()
+			local creatorName = item.creatorName
+			local msg = item.msg
+			local duration = item.duration or 4
+			debugLog("[AnuncioGlobal] Datos:", creatorName, msg, duration)
+
+			local userId
+			local targetPlayer = Players:FindFirstChild(creatorName)
+			if targetPlayer then
+				userId = targetPlayer.UserId
+				debugLog("[AnuncioGlobal] UserId directo:", userId)
+			else
+				local success, result = pcall(function()
+					return Players:GetUserIdFromNameAsync(creatorName)
+				end)
+				debugLog("[AnuncioGlobal] UserId por nombre:", success, result)
+				if success then
+					userId = result
+				end
+			end
+
+			messageText.Text = msg
+
+			-- Obtener nombres: display (si existe) y handle (username)
+			local displayName = creatorName
+			local handleName = creatorName
+			if userId then
+				local ok1, dname = pcall(function() return Players:GetDisplayNameAsync(userId) end)
+				debugLog("[AnuncioGlobal] DisplayName:", ok1, dname)
+				if ok1 and dname and dname ~= "" then displayName = dname end
+				local ok2, uname = pcall(function() return Players:GetNameFromUserIdAsync(userId) end)
+				debugLog("[AnuncioGlobal] HandleName:", ok2, uname)
+				if ok2 and uname and uname ~= "" then handleName = uname end
+			end
+
+			local displayLabel = nameContainer:FindFirstChild("DisplayName")
+			local handleLabel = nameContainer:FindFirstChild("UserHandle")
+			if displayLabel then displayLabel.Text = displayName end
+			if handleLabel then handleLabel.Text = "@" .. handleName end
+
+			-- Ajuste preciso usando TextService:GetTextSize (misma lógica que antes)
+			local maxWidth = 640
+			local minFontSize = 6
+			local baseFontSize = 26
+			local maxContainerHeight = 380
+			local minContainerHeight = 140
+			local maxLines = 5
+			local lineHeightFactor = 1.15
+
+			if mainContainer.AbsoluteSize.X == 0 then
+				debugLog("[AnuncioGlobal] Esperando tamaño de mainContainer...")
+				repeat task.wait() until mainContainer.AbsoluteSize.X > 0
+			end
+			local availableWidth = math.max(10, maxWidth - 110 - 12)
+			local function textHeightFor(size, text)
+				local okSize, sizeVec = pcall(function()
+					return TextService:GetTextSize(text or msg, size, messageText.Font, Vector2.new(availableWidth, 10000))
+				end)
+				debugLog("[AnuncioGlobal] textHeightFor:", size, text, okSize, sizeVec and sizeVec.Y)
+				return (okSize and sizeVec.Y) or 0
+			end
+
+			local chosenSize = baseFontSize
+			for s = baseFontSize, minFontSize, -1 do
+				local h = textHeightFor(s, msg)
+				local maxAllowed = maxLines * s * lineHeightFactor
+				if h <= maxAllowed then
+					chosenSize = s
+					debugLog("[AnuncioGlobal] FontSize elegido:", chosenSize)
+					break
+				end
+			end
+
+			local hBase = textHeightFor(baseFontSize, msg)
+			local singleLineHeight = baseFontSize * lineHeightFactor
+			if hBase <= singleLineHeight then
+				for s = baseFontSize + 1, baseFontSize + 8 do
+					if textHeightFor(s, msg) <= singleLineHeight then
+						chosenSize = s
+					else
+						break
+					end
+				end
+				debugLog("[AnuncioGlobal] FontSize singleLine ajustado:", chosenSize)
+			end
+
+			messageText.TextSize = chosenSize
+			local requiredHeight = textHeightFor(chosenSize, messageText.Text)
+			local desiredHeight = math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight)
+			debugLog("[AnuncioGlobal] requiredHeight:", requiredHeight, "desiredHeight:", desiredHeight)
+
+			local targetSize = UDim2.new(0, maxWidth, 0, math.min(desiredHeight, maxContainerHeight))
+			TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+			if textHeightFor(chosenSize, messageText.Text) > (mainContainer.AbsoluteSize.Y - 55) then
+				local truncated = msg
+				while textHeightFor(chosenSize, truncated .. "...") > (mainContainer.AbsoluteSize.Y - 55) and #truncated > 0 do
+					truncated = truncated:sub(1, -2)
+				end
+				messageText.Text = truncated .. (truncated ~= msg and "..." or "")
+				requiredHeight = textHeightFor(chosenSize, messageText.Text)
+				local finalSize = UDim2.new(0, maxWidth, 0, math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight))
+				TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = finalSize}):Play()
+				debugLog("[AnuncioGlobal] Mensaje truncado:", messageText.Text)
+			end
+			messageText.TextSize = chosenSize
+
+			if userId then
+				local successThumb, thumb = pcall(function()
+					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+				end)
+				debugLog("[AnuncioGlobal] Thumbnail:", successThumb, thumb)
+				if successThumb then
+					userImage.Image = thumb
+				end
+			else
+				userImage.Image = ""
+			end
+
+			-- Reset visual sincrónico antes de mostrar
+			progressBar.Size = UDim2.new(1, 0, 1, 0)
+			mainContainer.Position = UDim2.new(0.5, 0, 0, -150)
+			mainContainer.Visible = false
+			debugLog("[AnuncioGlobal] Estado visual reseteado antes de mostrar anuncio")
+
+			debugLog("[AnuncioGlobal] Mostrando anuncio...")
+			animateIn()
+			animateProgress(duration)
+
+			task.wait(duration)
+			debugLog("[AnuncioGlobal] Ocultando anuncio...")
+			animateOut()
 		end)
-		if success then
-			userId = result
+		if not ok then
+			warn("[AnuncioGlobal] Error mostrando anuncio: " .. tostring(err))
 		end
 	end
+end
 
+startProcessing = function()
+	if processingAnnouncements then
+		return
+	end
+	processingAnnouncements = true
+	task.spawn(function()
+		local ok, err = pcall(processQueue)
+		if not ok then
+			warn("[AnuncioGlobal] Error en la cola: " .. tostring(err))
+		end
+		processingAnnouncements = false
+		if #announcementQueue > 0 then
+			startProcessing()
+		end
+	end)
+end
 
-messageText.Text = msg
-
-   -- Obtener nombres: display (si existe) y handle (username)
-   local displayName = creatorName
-   local handleName = creatorName
-   if userId then
-       local ok1, dname = pcall(function() return Players:GetDisplayNameAsync(userId) end)
-       if ok1 and dname and dname ~= "" then displayName = dname end
-       local ok2, uname = pcall(function() return Players:GetNameFromUserIdAsync(userId) end)
-       if ok2 and uname and uname ~= "" then handleName = uname end
-   end
-
-   local displayLabel = nameContainer:FindFirstChild("DisplayName")
-   local handleLabel = nameContainer:FindFirstChild("UserHandle")
-   if displayLabel then displayLabel.Text = displayName end
-   if handleLabel then handleLabel.Text = "@" .. handleName end
-
-   -- Ajuste preciso usando TextService:GetTextSize
-   local maxWidth = 640
-   local minFontSize = 6
-   local baseFontSize = 26
-   local maxContainerHeight = 380
-   local minContainerHeight = 140
-   local maxLines = 5
-   local lineHeightFactor = 1.15 -- estimación del alto por línea
-
-   -- Asegurar que el tamaño absoluto esté disponible
-   if mainContainer.AbsoluteSize.X == 0 then
-       repeat task.wait() until mainContainer.AbsoluteSize.X > 0
-   end
-   local availableWidth = math.max(10, maxWidth - 110 - 12) -- padding extra (usar maxWidth para consistencia)
-   local function textHeightFor(size, text)
-       local ok, sizeVec = pcall(function()
-           return TextService:GetTextSize(text or msg, size, messageText.Font, Vector2.new(availableWidth, 10000))
-       end)
-       return (ok and sizeVec.Y) or 0
-   end
-
-   -- Elegir el tamaño de fuente más grande que quepa en maxLines
-   local chosenSize = baseFontSize
-   for s = baseFontSize, minFontSize, -1 do
-       local h = textHeightFor(s, msg)
-       local maxAllowed = maxLines * s * lineHeightFactor
-       if h <= maxAllowed then
-           chosenSize = s
-           break
-       end
-   end
-
-   -- Si el mensaje es corto (cabe en una línea al baseFontSize), intentar agrandar la fuente hasta baseFontSize+8
-   local hBase = textHeightFor(baseFontSize, msg)
-   local singleLineHeight = baseFontSize * lineHeightFactor
-   if hBase <= singleLineHeight then
-       for s = baseFontSize + 1, baseFontSize + 8 do
-           if textHeightFor(s, msg) <= singleLineHeight then
-               chosenSize = s
-           else
-               break
-           end
-       end
-   end
-
-   -- Aplicar tamaño elegido y calcular altura requerida
-   messageText.TextSize = chosenSize
-   local requiredHeight = textHeightFor(chosenSize, messageText.Text)
-   local desiredHeight = math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight)
-
-   -- Si no cabe en desiredHeight, intentar expandir contenedor hasta maxContainerHeight
-   local targetSize = UDim2.new(0, maxWidth, 0, math.min(desiredHeight, maxContainerHeight))
-   TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-   if textHeightFor(chosenSize, messageText.Text) > (mainContainer.AbsoluteSize.Y - 55) then
-       -- Truncar progresivamente
-       local truncated = msg
-       while textHeightFor(chosenSize, truncated .. "...") > (mainContainer.AbsoluteSize.Y - 55) and #truncated > 0 do
-           truncated = truncated:sub(1, -2)
-       end
-       messageText.Text = truncated .. (truncated ~= msg and "..." or "")
-       requiredHeight = textHeightFor(chosenSize, messageText.Text)
-       local finalSize = UDim2.new(0, maxWidth, 0, math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight))
-       TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = finalSize}):Play()
-   end
-   -- Asegurar que el TextLabel refleje el tamaño final
-   messageText.TextSize = chosenSize
-
-   if userId then
-       local success, thumb = pcall(function()
-           return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-       end)
-       if success then
-           userImage.Image = thumb
-       end
-   end
-
-   animateIn()
-   animateProgress(duration or 4)
-
-   -- Esperar la duración (o 4s por defecto) antes de ocultar
-   task.wait(duration or 4)
-   animateOut()
+crearAnuncio.OnClientEvent:Connect(function(creatorName, msg, duration, uid)
+	debugLog("[AnuncioGlobal] Recibido anuncio de:", creatorName, msg, duration, uid)
+	table.insert(announcementQueue, {creatorName = creatorName, msg = msg, duration = duration or 4, uid = uid})
+	debugLog("[AnuncioGlobal] Cola actual:", #announcementQueue)
+	startProcessing()
 end)

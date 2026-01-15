@@ -7,7 +7,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
-local fiestaEvent = ReplicatedStorage:WaitForChild("FiestaEvent")
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local fiestaEvent = eventsFolder:WaitForChild("FiestaEvent")
 local hueSpeed = 0.01
 
 local function HSVtoRGB(h, s, v)

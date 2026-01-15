@@ -2,12 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EffectModule = require(game.ServerScriptService:WaitForChild("EffectModule"))
 
-local rotateEvent = ReplicatedStorage:FindFirstChild("RotateEffectEvent")
-if not rotateEvent then
-	rotateEvent = Instance.new("RemoteEvent")
-	rotateEvent.Name = "RotateEffectEvent"
-	rotateEvent.Parent = ReplicatedStorage
-end
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local rotateEvent = eventsFolder:FindFirstChild("RotateEffectEvent")
 
 -- Función para manejar comandos del chat
 local function onPlayerChatted(player, message)

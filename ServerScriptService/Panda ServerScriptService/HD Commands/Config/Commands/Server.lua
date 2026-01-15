@@ -873,10 +873,11 @@ local module = {
 		Description = "Inicia efectos de fiesta para todos los jugadores";
 		Contributors = {"ignxts"};
 		Args = {};
-		Function = function(_, args)
+		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
-			local evt = ReplicatedStorage:FindFirstChild("FiestaEvent")
-			if evt then evt:FireAllClients() end
+			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+			local evt = eventsFolder and eventsFolder:FindFirstChild("FiestaEvent")
+			if evt then evt:FireClient(player) end
 		end;
 	};
 
@@ -891,16 +892,17 @@ local module = {
 		Description = "Dispara efecto de pulso/rotación en clientes";
 		Contributors = {"ignxts"};
 		Args = {};
-		Function = function(_, args)
+		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
-			local evt = ReplicatedStorage:FindFirstChild("RotateEffectEvent")
-			if evt then evt:FireAllClients() end
+			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+			local evt = eventsFolder and eventsFolder:FindFirstChild("RotateEffectEvent")
+			if evt then evt:FireClient(player) end
 		end;
 	};
 
 	{
-		Name = "terremoto";
-		Aliases = {"terremoto", "quake"};
+		Name = "quake";
+		Aliases = {"quake"};
 		Prefixes = {settings.Prefix};
 		Rank = 1.1;
 		RankLock = false;
@@ -909,10 +911,11 @@ local module = {
 		Description = "Activa efecto terremoto en todos los clientes";
 		Contributors = {"ignxts"};
 		Args = {};
-		Function = function(_, args)
+		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
-			local evt = ReplicatedStorage:FindFirstChild("TerremotoEvent")
-			if evt then evt:FireAllClients() end
+			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+			local evt = eventsFolder and eventsFolder:FindFirstChild("TerremotoEvent")
+			if evt then evt:FireClient(player) end
 		end;
 	};
 

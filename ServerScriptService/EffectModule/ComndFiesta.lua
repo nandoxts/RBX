@@ -2,12 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EffectModule = require(game.ServerScriptService:WaitForChild("EffectModule"))
 
-local fiestaEvent = ReplicatedStorage:FindFirstChild("FiestaEvent")
-if not fiestaEvent then
-	fiestaEvent = Instance.new("RemoteEvent")
-	fiestaEvent.Name = "FiestaEvent"
-	fiestaEvent.Parent = ReplicatedStorage
-end
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local fiestaEvent = eventsFolder:FindFirstChild("FiestaEvent")
 
 -- Función para manejar mensajes del chat
 local function onPlayerChatted(player, message)

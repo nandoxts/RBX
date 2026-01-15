@@ -2,12 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EffectModule = require(game.ServerScriptService:WaitForChild("EffectModule"))
 
-local terremotoEvent = ReplicatedStorage:FindFirstChild("TerremotoEvent")
-if not terremotoEvent then
-	terremotoEvent = Instance.new("RemoteEvent")
-	terremotoEvent.Name = "TerremotoEvent"
-	terremotoEvent.Parent = ReplicatedStorage
-end
+local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+local terremotoEvent = eventsFolder:FindFirstChild("TerremotoEvent")
 
 local function onPlayerChatted(player, message)
 	if message:lower() == "/quake" then
