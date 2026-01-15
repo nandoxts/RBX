@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MemberCard = require(script.Parent.MemberCard)
+local PendingCard = require(script.Parent.PendingCard)
 local ClanSystemConfig = require(ReplicatedStorage.Config.ClanSystemConfig)
 local UI = require(ReplicatedStorage.Core.UI)
 local THEME = require(ReplicatedStorage.Config.ThemeConfig)
@@ -303,11 +304,22 @@ function MembersList:_createCardAt(index)
 			instance = card
 		}
 	else
-		-- Crear card de solicitud pendiente
-		local cardFrame = self:_createPendingCard(positioner, item)
+		-- Crear card de solicitud pendiente usando PendingCard reutilizable
+		local pending = PendingCard.new({
+			userId = item.odI,
+			requestData = item.data,
+			playerRole = self.playerRole,
+			clanData = self.clanData,
+			parent = positioner,
+			screenGui = self.screenGui,
+			onUpdate = function()
+				if self.onUpdate then self.onUpdate() end
+			end
+		})
+
 		self.cards[index] = {
 			positioner = positioner,
-			frame = cardFrame
+			instance = pending
 		}
 	end
 end

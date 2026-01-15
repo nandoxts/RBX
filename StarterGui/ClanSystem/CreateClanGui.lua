@@ -127,7 +127,7 @@ end
 local clanIcon = nil
 if Icon then
 	if _G.ClanSystemIcon then pcall(function() _G.ClanSystemIcon:destroy() end) end
-	clanIcon = Icon.new():setLabel("⚔️"):setOrder(2):setEnabled(true)
+	clanIcon = Icon.new():setLabel("⚔️ CLAN ⚔️ "):setOrder(2):setEnabled(true)
 	_G.ClanSystemIcon = clanIcon
 end
 

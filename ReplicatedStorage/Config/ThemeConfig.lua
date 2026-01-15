@@ -5,76 +5,58 @@
 -- ════════════════════════════════════════════════════════════════
 
 local THEME = {
-	-- ══════════════════════════════════════════════════════════════
-	-- FONDOS - Escala de grises más rica
-	-- ══════════════════════════════════════════════════════════════
-	bg       = Color3.fromRGB(17, 17, 19),      -- Fondo principal
-	panel    = Color3.fromRGB(22, 22, 27),      -- Panel modal
-	head     = Color3.fromRGB(18, 18, 22),      -- Header más oscuro que panel
-	card     = Color3.fromRGB(30, 30, 36),      -- Cards internas
-	elevated = Color3.fromRGB(38, 38, 45),      -- Elementos elevados
-	surface  = Color3.fromRGB(45, 45, 52),      -- Superficies interactivas
+	-- Modern dark background palette
+	bg       = Color3.fromRGB(15, 18, 22),      -- Fondo principal (más profundo)
+	panel    = Color3.fromRGB(22, 26, 32),      -- Paneles
+	head     = Color3.fromRGB(20, 23, 28),      -- Header
+	card     = Color3.fromRGB(28, 32, 40),      -- Cards internas
+	elevated = Color3.fromRGB(34, 38, 46),      -- Elementos elevados
+	surface  = Color3.fromRGB(26, 30, 36),      -- Superficies interactivas
 
-	-- ══════════════════════════════════════════════════════════════
-	-- TEXTOS
-	-- ══════════════════════════════════════════════════════════════
-	text     = Color3.fromRGB(240, 240, 245),   -- Texto principal (casi blanco)
-	muted    = Color3.fromRGB(120, 120, 135),   -- Texto secundario
-	subtle   = Color3.fromRGB(85, 85, 100),     -- Texto muy sutil
+	-- Text colors
+	text     = Color3.fromRGB(236, 240, 241),   -- Texto principal (casi blanco)
+	muted    = Color3.fromRGB(132, 142, 151),   -- Texto secundario
+	subtle   = Color3.fromRGB(95, 100, 110),    -- Texto muy sutil
 
-	-- ══════════════════════════════════════════════════════════════
-	-- ACENTO PRINCIPAL - Azul sofisticado (menos saturado)
-	-- ══════════════════════════════════════════════════════════════
-	accent      = Color3.fromRGB(41, 44, 211),    -- Indigo elegante
-	accentHover = Color3.fromRGB(76, 90, 218),   -- Hover más claro
-	accentMuted = Color3.fromRGB(55, 58, 95),      -- Versión apagada para fondos
+	-- Accent (modern teal)
+	accent      = Color3.fromRGB(0, 171, 157),  -- Teal vibrante
+	accentHover = Color3.fromRGB(64, 216, 201), -- Hover más claro
+	accentMuted = Color3.fromRGB(18, 80, 75),   -- Versión apagada
 
-	-- ══════════════════════════════════════════════════════════════
-	-- BOTONES - Estilo neutral profesional
-	-- ══════════════════════════════════════════════════════════════
-	btnPrimary      = Color3.fromRGB(55, 55, 65),     -- Gris oscuro elegante
-	btnPrimaryHover = Color3.fromRGB(70, 70, 82),     -- Hover sutil
-	btnSecondary    = Color3.fromRGB(40, 40, 48),     -- Botón secundario
-	btnDanger       = Color3.fromRGB(180, 60, 60),    -- Rojo apagado
-	btnDangerHover  = Color3.fromRGB(200, 80, 80),
-	-- Alias históricos usados por UI scripts
-	danger          = Color3.fromRGB(194, 48, 48),
+	-- Buttons
+	btnPrimary      = Color3.fromRGB(12, 160, 140), -- Primary teal
+	btnPrimaryHover = Color3.fromRGB(18, 180, 155),
+	btnSecondary    = Color3.fromRGB(36, 40, 46),   -- Neutral secondary
+	btnDanger       = Color3.fromRGB(222, 93, 119), -- Soft red
+	btnDangerHover  = Color3.fromRGB(235, 110, 135),
+	-- Alias historic
+	danger          = Color3.fromRGB(222, 93, 119),
 
-	-- ══════════════════════════════════════════════════════════════
-	-- ESTADOS - Colores funcionales (menos saturados)
-	-- ══════════════════════════════════════════════════════════════
-	success     = Color3.fromRGB(12, 196, 61),     -- Verde Google (menos neón)
-	successMuted= Color3.fromRGB(35, 75, 45),      -- Fondo verde
-	warn        = Color3.fromRGB(220, 95, 95),     -- Rojo suave
-	warnMuted   = Color3.fromRGB(75, 40, 40),
-	info        = Color3.fromRGB(66, 133, 244),    -- Azul info
-	infoMuted   = Color3.fromRGB(35, 55, 85),
+	-- States
+	success      = Color3.fromRGB(88, 230, 140),   -- Green
+	successMuted = Color3.fromRGB(28, 80, 40),
+	warn         = Color3.fromRGB(255, 165, 80),   -- Orange
+	warnMuted    = Color3.fromRGB(80, 40, 20),
+	info         = Color3.fromRGB(90, 200, 250),   -- Cyan-ish info
+	infoMuted    = Color3.fromRGB(30, 65, 85),
 
-	-- ══════════════════════════════════════════════════════════════
-	-- ELEMENTOS UI
-	-- ══════════════════════════════════════════════════════════════
-	stroke      = Color3.fromRGB(50, 50, 60),     -- Bordes sutiles
-	strokeLight = Color3.fromRGB(65, 65, 78),     -- Borde más visible
-	divider     = Color3.fromRGB(40, 40, 48),     -- Separadores
-	hover       = Color3.fromRGB(70, 70, 82),     -- Color para estados hover
+	-- UI elements
+	stroke      = Color3.fromRGB(40, 44, 52),
+	strokeLight = Color3.fromRGB(60, 66, 78),
+	divider     = Color3.fromRGB(36, 40, 46),
+	hover       = Color3.fromRGB(45, 50, 58),
 
-	-- ══════════════════════════════════════════════════════════════
-	-- AVATAR RING - Para el borde del avatar
-	-- ══════════════════════════════════════════════════════════════
-	avatarRing     = Color3.fromRGB(99, 102, 241),  -- Mismo que accent
-	avatarRingGlow = Color3.fromRGB(99, 102, 241),
+	-- Avatar ring
+	avatarRing     = Color3.fromRGB(0, 171, 157),
+	avatarRingGlow = Color3.fromRGB(64, 216, 201),
 
-	-- ══════════════════════════════════════════════════════════════
-	-- TRANSPARENCIAS RECOMENDADAS
-	-- ══════════════════════════════════════════════════════════════
-	overlayAlpha = 0.6,   -- Para fondos semi-transparentes
-	hoverAlpha   = 0.08,  -- Para efectos hover sutiles
+	-- Transparencies
+	overlayAlpha = 0.5,
+	hoverAlpha   = 0.06,
 
-	-- ══════════════════════════════════════════════════════════════
-	-- TAMAÑOS DE PANEL - Consistencia entre dashboards
-	-- ══════════════════════════════════════════════════════════════
-	panelWidth  = 550,    -- Ancho principal de dashboards
-	panelHeight = 650,    -- Alto principal de dashboards
+	-- Panel sizes
+	panelWidth  = 550,
+	panelHeight = 650,
 }
 
 return THEME

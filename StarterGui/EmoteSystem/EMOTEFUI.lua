@@ -610,7 +610,7 @@ end
 
 local function setActiveByName(nombre)
 	if not nombre then return end
-	
+
 	-- Debouncing: evitar actualizaciones muy frecuentes
 	local now = tick()
 	if now - lastActiveUpdate < activeUpdateDebounce then
@@ -618,10 +618,10 @@ local function setActiveByName(nombre)
 		return
 	end
 	lastActiveUpdate = now
-	
+
 	-- Usar caché primero (muy rápido)
 	local card = CardCache[nombre]
-	
+
 	-- Si no está en caché, buscar y actualizar caché
 	if not card then
 		for _, child in ipairs(ScrollFrame:GetChildren()) do
@@ -632,7 +632,7 @@ local function setActiveByName(nombre)
 			end
 		end
 	end
-	
+
 	-- Aplicar efecto si encontró la tarjeta
 	if card and card.Parent then
 		if ActiveCard and ActiveCard.Parent and ActiveCard ~= card then

@@ -141,7 +141,7 @@ function MemberCard:_build()
 		local kickBtn = UI.button({
 			size = UDim2.new(0, 44, 0, 38),
 			pos = UDim2.new(1, -52, 0.5, -19),
-			bg = Color3.fromRGB(180, 60, 60),
+			bg = THEME.danger,
 			text = "Kick",
 			textSize = 12,
 			z = 107,
@@ -149,7 +149,7 @@ function MemberCard:_build()
 			corner = 8
 		})
 
-		UI.hover(kickBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(200, 80, 80))
+		UI.hover(kickBtn, THEME.danger, THEME.btnDangerHover)
 
 		table.insert(self.connections, kickBtn.MouseButton1Click:Connect(function()
 			self:_confirmKick()

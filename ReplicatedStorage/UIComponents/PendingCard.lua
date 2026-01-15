@@ -124,11 +124,11 @@ function PendingCard:_build()
 	-- Botones de acción
 	if canApprove then
 		local acceptBtn = UI.button({
-			size = UDim2.new(0, 44, 0, 38),
-			pos = UDim2.new(1, -100, 0.5, -19),
+			size = UDim2.new(0, 72, 0, 38),
+			pos = UDim2.new(1, -160, 0.5, -19),
 			bg = THEME.success,
 			text = "Aceptar",
-			textSize = 18,
+			textSize = 12,
 			z = 109,
 			parent = self.frame,
 			corner = 8
@@ -148,11 +148,11 @@ function PendingCard:_build()
 				task.delay(0.25, function()
 					if self.onUpdate then self.onUpdate() end
 				end)
-			else
-				Notify:Error("Error", msg or "No se pudo aceptar", 4)
-				acceptBtn.Text = "Aceptar"
-				acceptBtn.Active = true
-			end
+				else
+					Notify:Error("Error", msg or "No se pudo aceptar", 4)
+					acceptBtn.Text = "Aceptar"
+					acceptBtn.Active = true
+				end
 		end)
 
 		table.insert(self.connections, acceptConn)
@@ -160,17 +160,17 @@ function PendingCard:_build()
 
 	if canReject then
 		local rejectBtn = UI.button({
-			size = UDim2.new(0, 44, 0, 38),
-			pos = UDim2.new(1, -52, 0.5, -19),
-			bg = THEME.warn,
+			size = UDim2.new(0, 72, 0, 38),
+			pos = UDim2.new(1, -80, 0.5, -19),
+			bg = THEME.danger,
 			text = "Rechazar",
-			textSize = 18,
+			textSize = 12,
 			z = 109,
 			parent = self.frame,
 			corner = 8
 		})
 
-		UI.hover(rejectBtn, THEME.warn, THEME.warnMuted)
+		UI.hover(rejectBtn, THEME.danger, THEME.btnDangerHover)
 
 		local rejectConn = rejectBtn.MouseButton1Click:Connect(function()
 			rejectBtn.Text = "..."
@@ -183,11 +183,11 @@ function PendingCard:_build()
 				task.delay(0.25, function()
 					if self.onUpdate then self.onUpdate() end
 				end)
-			else
-				Notify:Error("Error", msg or "No se pudo rechazar", 4)
-				rejectBtn.Text = "Rechazar"
-				rejectBtn.Active = true
-			end
+				else
+					Notify:Error("Error", msg or "No se pudo rechazar", 4)
+					rejectBtn.Text = "Rechazar"
+					rejectBtn.Active = true
+				end
 		end)
 
 		table.insert(self.connections, rejectConn)
