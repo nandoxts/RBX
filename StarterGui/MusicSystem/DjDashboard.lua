@@ -38,7 +38,7 @@ local ResponseCodes = {
 
 -- Mapeo de códigos a mensajes amigables y tipos de notificación
 local ResponseMessages = {
-	[ResponseCodes.SUCCESS] = {type = "success", title = "✓ Éxito"},
+	[ResponseCodes.SUCCESS] = {type = "success", title = "Éxito"},
 	[ResponseCodes.ERROR_INVALID_ID] = {type = "error", title = "ID Inválido"},
 	[ResponseCodes.ERROR_BLACKLISTED] = {type = "error", title = "Audio Bloqueado"},
 	[ResponseCodes.ERROR_DUPLICATE] = {type = "warning", title = "Duplicado"},
@@ -104,6 +104,7 @@ local progressConnection = nil
 -- UI Elements references
 local quickAddBtn, quickInput, qiStroke = nil, nil, nil
 local isAddingToQueue = false -- Flag para prevenir múltiples clicks
+local songsScroll = nil
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
