@@ -1,14 +1,8 @@
 -- ════════════════════════════════════════════════════════════════
--- DJ MUSIC SYSTEM - SERVER SCRIPT v3.1
--- Sistema completo de música con validación avanzada
--- Autor: nandoxts
--- Fecha: 2025-10-19
+-- DJ MUSIC SYSTEM - SERVER SCRIPT 
+-- Sistema completo de música con respuestas síncronas
+-- by ignxts
 --
--- CORRECCIONES APLICADAS v3.1:
--- [SKIP] Prevención de duplicados en la cola
--- [SKIP] Actualización en tiempo real para todos los clientes
--- [SKIP] Feedback específico cuando se intenta agregar duplicado
--- [SKIP] Verificación de duplicados antes de validar en MarketplaceService
 -- ════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════
@@ -16,34 +10,44 @@
 -- ════════════════════════════════════════════════════════════════
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
--- DataStore removed: using config defaults instead of external datastore
 local ServerStorage = game:GetService("ServerStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
-local ContentProvider = game:GetService("ContentProvider")
+-- ContentProvider removed: PreloadAsync was causing slow responses
 
 -- ════════════════════════════════════════════════════════════════
--- CONFIGURACIÓN (desde módulo centralizado)
+-- CONFIGURACIÓN
 -- ════════════════════════════════════════════════════════════════
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
-local AdminConfig = require(game.ServerStorage:WaitForChild("Config"):WaitForChild("CentralAdminConfig"))
 
 -- ════════════════════════════════════════════════════════════════
--- DATABASE
+-- DATABASE & STATE
 -- ════════════════════════════════════════════════════════════════
--- MusicDatabase module not required when using config defaults
-local MusicDB = nil
-
 local musicDatabase = {}
 local playQueue = {}
 local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
--- Cache para evitar múltiples consultas a MarketplaceService
 local productCache = {}
 
 -- ════════════════════════════════════════════════════════════════
--- ADMIN FUNCTIONS (usando MusicConfig)
+-- RESPONSE CODES (para UI sync)
+-- ════════════════════════════════════════════════════════════════
+local ResponseCodes = {
+	SUCCESS = "SUCCESS",
+	ERROR_INVALID_ID = "ERROR_INVALID_ID",
+	ERROR_BLACKLISTED = "ERROR_BLACKLISTED",
+	ERROR_DUPLICATE = "ERROR_DUPLICATE",
+	ERROR_NOT_FOUND = "ERROR_NOT_FOUND",
+	ERROR_NOT_AUDIO = "ERROR_NOT_AUDIO",
+	ERROR_NOT_AUTHORIZED = "ERROR_NOT_AUTHORIZED",
+	ERROR_QUEUE_FULL = "ERROR_QUEUE_FULL",
+	ERROR_PERMISSION = "ERROR_PERMISSION",
+	ERROR_UNKNOWN = "ERROR_UNKNOWN"
+}
+
+-- ════════════════════════════════════════════════════════════════
+-- ADMIN FUNCTIONS
 -- ════════════════════════════════════════════════════════════════
 local function isAdmin(player)
 	return MusicConfig:IsAdmin(player.UserId)
@@ -54,7 +58,7 @@ local function hasPermission(player, action)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- REMOTE EVENTS
+-- REMOTE EVENTS SETUP
 -- ════════════════════════════════════════════════════════════════
 local remotesFolder = ReplicatedStorage:FindFirstChild("MusicRemotes")
 if not remotesFolder then
@@ -63,7 +67,6 @@ if not remotesFolder then
 	remotesFolder.Parent = ReplicatedStorage
 end
 
--- Crear carpetas de organización
 local function getOrCreateFolder(parent, folderName)
 	local folder = parent:FindFirstChild(folderName)
 	if not folder then
@@ -79,10 +82,10 @@ local musicQueueFolder = getOrCreateFolder(remotesFolder, "MusicQueue")
 local musicLibraryFolder = getOrCreateFolder(remotesFolder, "MusicLibrary")
 local uiFolder = getOrCreateFolder(remotesFolder, "UI")
 
--- Crear remotes en sus carpetas correspondientes
+-- Crear remotes incluyendo el nuevo AddToQueueResponse
 local playbackRemotes = {
 	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong", "UpdatePlayback"}},
-	{folder = musicQueueFolder, names = {"AddToQueue", "RemoveFromQueue", "ClearQueue", "MoveInQueue", "UpdateQueue"}},
+	{folder = musicQueueFolder, names = {"AddToQueue", "AddToQueueResponse", "RemoveFromQueue", "RemoveFromQueueResponse", "ClearQueue", "ClearQueueResponse", "MoveInQueue", "UpdateQueue"}},
 	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "RemoveSongFromLibrary", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
 	{folder = uiFolder, names = {"UpdateUI"}}
 }
@@ -116,14 +119,16 @@ local R = {
 	Update = uiFolder:FindFirstChild("UpdateUI"),
 	UpdatePlayback = musicPlaybackFolder:FindFirstChild("UpdatePlayback"),
 	AddToQueue = musicQueueFolder:FindFirstChild("AddToQueue"),
+	AddToQueueResponse = musicQueueFolder:FindFirstChild("AddToQueueResponse"),
 	RemoveFromQueue = musicQueueFolder:FindFirstChild("RemoveFromQueue"),
+	RemoveFromQueueResponse = musicQueueFolder:FindFirstChild("RemoveFromQueueResponse"),
 	ClearQueue = musicQueueFolder:FindFirstChild("ClearQueue"),
+	ClearQueueResponse = musicQueueFolder:FindFirstChild("ClearQueueResponse"),
 	MoveInQueue = musicQueueFolder:FindFirstChild("MoveInQueue"),
 	UpdateQueue = musicQueueFolder:FindFirstChild("UpdateQueue"),
 	GetDJs = musicLibraryFolder:FindFirstChild("GetDJs"),
 	GetSongsByDJ = musicLibraryFolder:FindFirstChild("GetSongsByDJ"),
 	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
-	-- AddSongToDJ removed: feature deprecated/removed
 	RemoveSongFromLibrary = musicLibraryFolder:FindFirstChild("RemoveSongFromLibrary"),
 	RemoveDJ = musicLibraryFolder:FindFirstChild("RemoveDJ"),
 	RenameDJ = musicLibraryFolder:FindFirstChild("RenameDJ"),
@@ -134,14 +139,26 @@ local R = {
 }
 
 -- ════════════════════════════════════════════════════════════════
--- 🆕 FUNCIÓN PARA VERIFICAR DUPLICADOS EN LA COLA
+-- HELPER: Crear respuesta estructurada
+-- ════════════════════════════════════════════════════════════════
+local function createResponse(code, message, data)
+	return {
+		code = code,
+		success = code == ResponseCodes.SUCCESS,
+		message = message,
+		data = data or {},
+		timestamp = os.time()
+	}
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- FUNCIÓN PARA VERIFICAR DUPLICADOS EN LA COLA
 -- ════════════════════════════════════════════════════════════════
 local function isAudioInQueue(audioId)
-	-- Verificar si se permiten duplicados
 	if MusicConfig.LIMITS.AllowDuplicatesInQueue then
 		return false, nil
 	end
-	
+
 	for _, song in ipairs(playQueue) do
 		if song.id == audioId then
 			return true, song
@@ -154,64 +171,57 @@ end
 -- DATABASE FUNCTIONS
 -- ════════════════════════════════════════════════════════════════
 local function saveLibraryToDataStore()
-	-- Data persistence disabled: configuration-driven library only
 	return
 end
 
 local function loadLibraryFromDataStore()
-	-- Initialize musicDatabase from config defaults (no external datastore)
 	musicDatabase = {}
-			for _, djData in ipairs(MusicConfig:GetDJs()) do
-				local songsList = {}
-				for _, s in ipairs(djData.songs or {}) do
-					if type(s) == "number" then
-						local id = s
-						-- Intentar obtener metadata desde MarketplaceService con cache
-						local name = "Audio " .. tostring(id)
-						local artist = ""
-						local duration = 0
-						local verified = false
-						local ok, info = pcall(function()
-							if productCache[id] then return productCache[id] end
-							local res = MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
-							productCache[id] = res
-							return res
-						end)
-						if ok and info and info.AssetTypeId == 3 then
-							name = info.Name or name
-							artist = (info.Creator and info.Creator.Name) or artist
-							duration = info.Playtime or info.PlayTime or duration
-							verified = true
-						end
-						table.insert(songsList, {
-							id = id,
-							name = name,
-							artist = artist,
-							djName = djData.name,
-							duration = duration,
-							verified = verified,
-							addedDate = os.date("%Y-%m-%d"),
-							addedBy = "Config"
-						})
-					elseif type(s) == "table" and s.id then
-						s.djName = s.djName or djData.name
-						s.addedBy = s.addedBy or "Config"
-						s.addedDate = s.addedDate or os.date("%Y-%m-%d")
-						table.insert(songsList, s)
-					end
+	for _, djData in ipairs(MusicConfig:GetDJs()) do
+		local songsList = {}
+		for _, s in ipairs(djData.songs or {}) do
+			if type(s) == "number" then
+				local id = s
+				local name = "Audio " .. tostring(id)
+				local artist = ""
+				local duration = 0
+				local verified = false
+				local ok, info = pcall(function()
+					if productCache[id] then return productCache[id] end
+					local res = MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
+					productCache[id] = res
+					return res
+				end)
+				if ok and info and info.AssetTypeId == 3 then
+					name = info.Name or name
+					artist = (info.Creator and info.Creator.Name) or artist
+					duration = info.Playtime or info.PlayTime or duration
+					verified = true
 				end
-
-				musicDatabase[djData.name] = {
-					cover = djData.cover,
-					userId = djData.userId,
-					songs = songsList
-				}
-				print("[LIBRARY_LOAD] DJ (Config):", djData.name, "| Songs:", #musicDatabase[djData.name].songs)
+				table.insert(songsList, {
+					id = id,
+					name = name,
+					artist = artist,
+					djName = djData.name,
+					duration = duration,
+					verified = verified,
+					addedDate = os.date("%Y-%m-%d"),
+					addedBy = "Config"
+				})
+			elseif type(s) == "table" and s.id then
+				s.djName = s.djName or djData.name
+				s.addedBy = s.addedBy or "Config"
+				s.addedDate = s.addedDate or os.date("%Y-%m-%d")
+				table.insert(songsList, s)
 			end
-	print("[SYSTEM] Library initialized from config defaults | Status: SUCCESS")
-end
+		end
 
--- addSongToDJ removed: adding songs to library via server is deprecated/disabled
+		musicDatabase[djData.name] = {
+			cover = djData.cover,
+			userId = djData.userId,
+			songs = songsList
+		}
+	end
+end
 
 local function removeSongFromLibrary(audioId, adminName)
 	for djName, djData in pairs(musicDatabase) do
@@ -219,7 +229,6 @@ local function removeSongFromLibrary(audioId, adminName)
 			if song.id == audioId then
 				local removedSong = table.remove(djData.songs, i)
 				saveLibraryToDataStore()
-				print("[SONG_REMOVE] Admin:", adminName, "| Song:", removedSong.name, "| DJ:", djName, "| Audio ID:", audioId)
 				return true, djName, removedSong.name
 			end
 		end
@@ -250,11 +259,9 @@ local function removeDJ(djName, adminName)
 	end
 
 	local songCount = #musicDatabase[djName].songs
-
 	musicDatabase[djName] = nil
 	saveLibraryToDataStore()
 
-	print("[DJ_DELETE] Admin:", adminName, "| DJ:", djName, "| Songs removed:", songCount)
 	return true, "DJ deleted: " .. djName .. " (" .. songCount .. " songs)"
 end
 
@@ -284,7 +291,6 @@ local function renameDJ(oldName, newName, adminName)
 
 	saveLibraryToDataStore()
 
-	print("[DJ_RENAME] Admin:", adminName, "| Old name:", oldName, "| New name:", newName)
 	return true, "DJ renamed: " .. oldName .. " → " .. newName
 end
 
@@ -325,9 +331,11 @@ local function getCurrentSong()
 	return nil
 end
 
+-- Forward declaration
+local updateAllClients
+
 local function playSong(index)
 	if #playQueue == 0 then
-		print("[WARNING] Queue is empty | Action: SKIP play")
 		isPlaying = false
 		soundObject:Stop()
 		return
@@ -335,7 +343,7 @@ local function playSong(index)
 
 	index = index or currentSongIndex
 	if index < 1 or index > #playQueue then
-		print("[WARNING] Invalid queue index:", index, "| Queue length:", #playQueue, "| Action: SKIP")
+		warn("[SKIP] Invalid queue index:", index)
 		return
 	end
 
@@ -347,7 +355,6 @@ local function playSong(index)
 	isPlaying = true
 	isPaused = false
 
-	-- Fade-in suave (transición de volumen)
 	soundObject.Volume = 0
 	task.spawn(function()
 		for i = 1, 10 do
@@ -356,9 +363,6 @@ local function playSong(index)
 		end
 	end)
 
-	print("[PLAYBACK_START] Song:", song.name, "| Audio ID:", song.id, "| Queue index:", currentSongIndex, "| Status: PLAYING")
-
-	-- [SKIP] Actualizar TODOS los clientes inmediatamente
 	updateAllClients()
 end
 
@@ -367,7 +371,6 @@ local function pauseSong()
 		soundObject:Pause()
 		isPaused = true
 		isPlaying = false
-		print("[PLAYBACK_PAUSE] Current song:", getCurrentSong().name, "| Status: PAUSED")
 		updateAllClients()
 	end
 end
@@ -377,7 +380,6 @@ local function resumeSong()
 		soundObject:Resume()
 		isPaused = false
 		isPlaying = true
-		print("[PLAYBACK_RESUME] Current song:", getCurrentSong().name, "| Status: PLAYING")
 		updateAllClients()
 	end
 end
@@ -396,7 +398,6 @@ local function nextSong()
 		currentSongIndex = 1
 		isPlaying = false
 		soundObject:Stop()
-		print("[PLAYBACK_QUEUE_END] All songs in queue finished | Status: COMPLETE")
 	else
 		if currentSongIndex > #playQueue then
 			currentSongIndex = 1
@@ -411,18 +412,15 @@ local function stopSong()
 	soundObject:Stop()
 	isPlaying = false
 	isPaused = false
-	print("[PLAYBACK_STOP] Song stopped | Status: STOPPED")
 	updateAllClients()
 end
 
 local function removeFromQueue(index, adminName)
 	if index < 1 or index > #playQueue then
-		warn("[ERROR] Invalid queue index:", index, "| Queue length:", #playQueue, "| Action: SKIP")
-		return
+		return false, "Invalid index"
 	end
 
 	local removedSong = table.remove(playQueue, index)
-	print("[QUEUE_REMOVE] Admin:", adminName, "| Song:", removedSong.name, "| Index:", index, "| Audio ID:", removedSong.id)
 
 	if index == currentSongIndex then
 		if #playQueue == 0 then
@@ -439,30 +437,30 @@ local function removeFromQueue(index, adminName)
 	end
 
 	updateAllClients()
+	return true, removedSong.name
 end
 
 local function clearQueue(adminName)
 	if #playQueue > 0 then
+		local clearedCount = #playQueue
 		if isPlaying and currentSongIndex == 1 then
-			local currentSong = playQueue[1]
-			playQueue = {currentSong}
+			local currentSongData = playQueue[1]
+			playQueue = {currentSongData}
 			currentSongIndex = 1
-			print("[QUEUE_CLEAR] Admin:", adminName, "| Mode: Keep current | Remaining songs: 1")
+			clearedCount = clearedCount - 1
 		else
 			playQueue = {}
 			currentSongIndex = 1
 			stopSong()
-			print("[QUEUE_CLEAR] Admin:", adminName, "| Mode: Full clear | Remaining songs: 0")
 		end
-		updateAllClients()  -- Actualizar toda la UI (incluye la cola)
-		return true
+		updateAllClients()
+		return true, clearedCount
 	end
-	return false
+	return false, 0
 end
 
-
 -- ════════════════════════════════════════════════════════════════
--- [SKIP] ACTUALIZACIÓN MEJORADA - BROADCAST A TODOS LOS CLIENTES
+-- BROADCAST FUNCTIONS
 -- ════════════════════════════════════════════════════════════════
 function updateAllClients()
 	if R.Update then
@@ -477,14 +475,13 @@ function updateAllClients()
 			isPaused = isPaused
 		}
 
-		-- [SKIP] Enviar a TODOS los jugadores conectados
 		for _, player in ipairs(Players:GetPlayers()) do
 			R.Update:FireClient(player, dataPacket)
 		end
 	end
 end
 
-function updateLibrary()
+local function updateLibrary()
 	if R.UpdateLibrary then
 		local djs, stats = getAllDJs()
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -496,7 +493,6 @@ function updateLibrary()
 		end
 	end
 
-	-- También enviar DJs actualizados
 	if R.GetDJs then
 		local djs, stats = getAllDJs()
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -509,13 +505,10 @@ function updateLibrary()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- SERVER EVENTS
+-- SERVER EVENTS - PLAYBACK
 -- ════════════════════════════════════════════════════════════════
-
--- PLAY / PAUSE
 R.Play.OnServerEvent:Connect(function(player)
 	if not MusicConfig:HasPermission(player.UserId, "PlaySong") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: PLAY | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
 
@@ -528,36 +521,41 @@ end)
 
 R.Pause.OnServerEvent:Connect(function(player)
 	if not MusicConfig:HasPermission(player.UserId, "PauseSong") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: PAUSE | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
 	pauseSong()
 end)
 
--- NEXT SONG
 R.Next.OnServerEvent:Connect(function(player)
 	if not MusicConfig:HasPermission(player.UserId, "NextSong") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: NEXT | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
 	nextSong()
 end)
 
--- STOP
 R.Stop.OnServerEvent:Connect(function(player)  
 	if not MusicConfig:HasPermission(player.UserId, "StopSong") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: STOP | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
 	stopSong()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- [SKIP] ADD TO QUEUE - CON PREVENCIÓN DE DUPLICADOS
+-- ADD TO QUEUE - CON RESPUESTA SÍNCRONA
 -- ════════════════════════════════════════════════════════════════
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
+	local function sendResponse(response)
+		if R.AddToQueueResponse then
+			R.AddToQueueResponse:FireClient(player, response)
+		end
+	end
+
+	-- Verificar permisos
 	if not hasPermission(player, "AddToQueue") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: ADD_QUEUE | Reason: Insufficient permissions | Action: SKIP")
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_PERMISSION,
+			"No tienes permiso para añadir canciones"
+			))
 		return 
 	end
 
@@ -565,51 +563,31 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 
 	-- Validar formato de ID
 	if not id or #tostring(id) < 6 or #tostring(id) > 19 then
-		warn("[VALIDATION_ERROR] Invalid Audio ID format | Input:", audioId, "| Required: 6-19 digits | Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Invalid Audio ID (6-19 digits)"
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_INVALID_ID,
+			"ID de audio inválido (debe tener 6-19 dígitos)"
+			))
 		return
 	end
 
-	-- Validar contra blacklist usando MusicConfig
+	-- Validar contra blacklist
 	local valid, validationError = MusicConfig:ValidateAudioId(id)
 	if not valid then
-		warn("[VALIDATION_ERROR] Blacklisted Audio ID | Audio ID:", id, "| Reason:", validationError, "| Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Audio bloqueado: " .. validationError
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_BLACKLISTED,
+			"Audio bloqueado: " .. (validationError or "No permitido")
+			))
 		return
 	end
 
-	-- [SKIP] PRIMERO: Verificar si ya está en la cola (antes de consultar API)
+	-- Verificar duplicados ANTES de consultar API
 	local isDuplicate, existingSong = isAudioInQueue(id)
 	if isDuplicate then
-		warn("[VALIDATION_ERROR] Duplicate song in queue | Song:", existingSong.name, "| Audio ID:", id, "| Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Canción ya en cola"
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_DUPLICATE,
+			"Esta canción ya está en la cola",
+			{songName = existingSong.name}
+			))
 		return
 	end
 
@@ -619,67 +597,31 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	end)
 
 	if not success or not result then
-		warn("[API_ERROR] Audio asset not found | Audio ID:", id, "| Service: MarketplaceService | Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Audio not found"
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_NOT_FOUND,
+			"Audio no encontrado en Roblox"
+			))
 		return
 	end
 
 	if result.AssetTypeId ~= 3 then
-		warn("[VALIDATION_ERROR] Asset type mismatch | Required: 3 (Audio) | Provided:", result.AssetTypeId, "| Audio ID:", id, "| Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Not an audio asset"
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_NOT_AUDIO,
+			"El asset no es un archivo de audio"
+			))
 		return
 	end
 
-	-- Verificar que el asset sea accesible por la experiencia (no privado/restringido)
-	local cpOk, cpErr = pcall(function()
-		ContentProvider:PreloadAsync({"rbxassetid://" .. id})
-	end)
-	if not cpOk then
-		warn("[AUTH_ERROR] Asset not accessible | Audio ID:", id, "| Error:", tostring(cpErr))
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "No autorizado: el recurso no puede usarse en esta experiencia"
-			})
-		end
-		return
-	end
+	-- NOTA: ContentProvider:PreloadAsync removido porque causa delays de varios segundos
+	-- MarketplaceService:GetProductInfo ya valida que el asset existe y es audio
+	-- El audio se cargará automáticamente cuando se reproduzca
 
 	-- Verificar límite de cola
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
-		warn("[VALIDATION_ERROR] Queue full | Limit:", MusicConfig.LIMITS.MaxQueueSize, "| Action: SKIP")
-		if R.Update then
-			local djs, stats = getAllDJs()
-			R.Update:FireClient(player, {
-				library = musicDatabase,
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				error = "Cola llena (máximo " .. MusicConfig.LIMITS.MaxQueueSize .. " canciones)"
-			})
-		end
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_QUEUE_FULL,
+			"Cola llena (máximo " .. MusicConfig.LIMITS.MaxQueueSize .. " canciones)"
+			))
 		return
 	end
 
@@ -694,12 +636,22 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	}
 
 	table.insert(playQueue, songInfo)
-	print("[QUEUE_ADD] Player:", player.Name, "| Song:", songInfo.name, "| Artist:", songInfo.artist, "| Audio ID:", id, "| Queue position:", #playQueue)
 
-	-- [SKIP] Actualizar TODOS los clientes inmediatamente
+	-- Enviar respuesta de éxito
+	sendResponse(createResponse(
+		ResponseCodes.SUCCESS,
+		"Canción añadida a la cola",
+		{
+			songName = songInfo.name,
+			artist = songInfo.artist,
+			position = #playQueue
+		}
+		))
+
+	-- Actualizar TODOS los clientes
 	updateAllClients()
 
-	-- Auto-start
+	-- Auto-start si es la primera canción
 	if not isPlaying and not isPaused and #playQueue == 1 then
 		task.spawn(function()
 			wait(0.3)
@@ -708,25 +660,77 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	end
 end)
 
--- REMOVE FROM QUEUE
+-- ════════════════════════════════════════════════════════════════
+-- REMOVE FROM QUEUE - CON RESPUESTA SÍNCRONA
+-- ════════════════════════════════════════════════════════════════
 R.RemoveFromQueue.OnServerEvent:Connect(function(player, index)
+	local function sendResponse(response)
+		if R.RemoveFromQueueResponse then
+			R.RemoveFromQueueResponse:FireClient(player, response)
+		end
+	end
+
 	if not MusicConfig:HasPermission(player.UserId, "RemoveFromQueue") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE | Reason: Insufficient permissions | Action: SKIP")
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_PERMISSION,
+			"No tienes permiso para eliminar canciones"
+			))
 		return 
 	end
-	removeFromQueue(index, player.Name)
+
+	local success, songName = removeFromQueue(index, player.Name)
+
+	if success then
+		sendResponse(createResponse(
+			ResponseCodes.SUCCESS,
+			"Canción eliminada de la cola",
+			{songName = songName}
+			))
+	else
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_INVALID_ID,
+			"Índice inválido"
+			))
+	end
 end)
 
--- CLEAR QUEUE
+-- ════════════════════════════════════════════════════════════════
+-- CLEAR QUEUE - CON RESPUESTA SÍNCRONA
+-- ════════════════════════════════════════════════════════════════
 R.ClearQueue.OnServerEvent:Connect(function(player)
+	local function sendResponse(response)
+		if R.ClearQueueResponse then
+			R.ClearQueueResponse:FireClient(player, response)
+		end
+	end
+
 	if not MusicConfig:HasPermission(player.UserId, "ClearQueue") then 
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: CLEAR_QUEUE | Reason: Insufficient permissions | Action: SKIP")
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_PERMISSION,
+			"No tienes permiso para limpiar la cola"
+			))
 		return 
 	end
-	clearQueue(player.Name)
+
+	local success, clearedCount = clearQueue(player.Name)
+
+	if success then
+		sendResponse(createResponse(
+			ResponseCodes.SUCCESS,
+			"Cola limpiada",
+			{clearedCount = clearedCount}
+			))
+	else
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_UNKNOWN,
+			"La cola ya está vacía"
+			))
+	end
 end)
 
--- GET DJs
+-- ════════════════════════════════════════════════════════════════
+-- LIBRARY EVENTS
+-- ════════════════════════════════════════════════════════════════
 R.GetDJs.OnServerEvent:Connect(function(player)
 	local djs, stats = getAllDJs()
 	R.GetDJs:FireClient(player, {
@@ -735,7 +739,6 @@ R.GetDJs.OnServerEvent:Connect(function(player)
 	})
 end)
 
--- GET SONGS BY DJ
 R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	local songs = {}
 	if musicDatabase[djName] then
@@ -747,25 +750,18 @@ R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	})
 end)
 
--- SEARCH SONGS
 R.SearchSongs.OnServerEvent:Connect(function(player, searchTerm)
 	local results = searchSongsInLibrary(searchTerm)
 	R.SearchSongs:FireClient(player, {songs = results})
 end)
 
--- ADD SONG TO DJ (para agregar a la biblioteca)
--- AddSongToDJ handler removed: adding songs to library is disabled on server
-
--- REMOVE FROM LIBRARY
 R.RemoveSongFromLibrary.OnServerEvent:Connect(function(player, audioId)
 	if not MusicConfig:HasPermission(player.UserId, "RemoveFromLibrary") then
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE_LIBRARY | Reason: Insufficient permissions | Action: SKIP")
 		return 
 	end
 
 	local id = tonumber(audioId)
 	if not id then
-		warn("[VALIDATION_ERROR] Invalid Audio ID format | Input:", audioId, "| Action: SKIP")
 		return
 	end
 
@@ -776,33 +772,29 @@ R.RemoveSongFromLibrary.OnServerEvent:Connect(function(player, audioId)
 		if R.RemoveSongFromLibrary then
 			R.RemoveSongFromLibrary:FireClient(player, {
 				success = true, 
-				message = "[SUCCESS] Song removed: " .. songName .. " from " .. djName
+				message = "Canción eliminada: " .. songName .. " de " .. djName
 			})
 		end
 	else
 		if R.RemoveSongFromLibrary then
 			R.RemoveSongFromLibrary:FireClient(player, {
 				success = false, 
-				message = "[ERROR] Song not found"
+				message = "Canción no encontrada"
 			})
 		end
 	end
 end)
 
--- GET LIBRARY
 R.GetLibrary.OnServerEvent:Connect(function(player)
 	updateAllClients()
 end)
 
--- REMOVE DJ
 R.RemoveDJ.OnServerEvent:Connect(function(player, djName)
 	if not MusicConfig:HasPermission(player.UserId, "RemoveDJ") then
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: REMOVE_DJ | Reason: Insufficient permissions | Action: SKIP")
 		return
 	end
 
 	if not djName or djName == "" then
-		warn("[VALIDATION_ERROR] Invalid DJ name | Input:", djName, "| Action: SKIP")
 		return
 	end
 
@@ -826,20 +818,16 @@ R.RemoveDJ.OnServerEvent:Connect(function(player, djName)
 	end
 end)
 
--- RENAME DJ
 R.RenameDJ.OnServerEvent:Connect(function(player, oldName, newName)
 	if not MusicConfig:HasPermission(player.UserId, "RenameDJ") then
-		warn("[PERMISSION_DENIED] Player:", player.Name, "| Action: RENAME_DJ | Reason: Insufficient permissions | Action: SKIP")
 		return
 	end
 
 	if not oldName or oldName == "" then
-		warn("[VALIDATION_ERROR] Invalid old DJ name | Input:", oldName, "| Action: SKIP")
 		return
 	end
 
 	if not newName or newName == "" then
-		warn("[VALIDATION_ERROR] Invalid new DJ name | Input:", newName, "| Action: SKIP")
 		return
 	end
 
@@ -870,29 +858,23 @@ end)
 -- ════════════════════════════════════════════════════════════════
 soundObject.Ended:Connect(function()
 	if isPlaying then
-		local currentSong = getCurrentSong()
-		if currentSong then
-			print("[PLAYBACK_END] Song finished | Song:", currentSong.name, "| Audio ID:", currentSong.id, "| Queue index:", currentSongIndex)
-		end
-		
-		-- Fade-out suave antes de cambiar de canción
 		task.spawn(function()
 			for i = 10, 1, -1 do
 				soundObject.Volume = i * 0.1
 				task.wait(0.03)
 			end
 		end)
-		
+
 		task.wait(0.5)
 		nextSong()
 	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- PLAYER EVENTS - Actualizar UI cuando un jugador entra
+-- PLAYER EVENTS
 -- ════════════════════════════════════════════════════════════════
 Players.PlayerAdded:Connect(function(player)
-	task.wait(2) -- Esperar a que el cliente cargue
+	task.wait(2)
 	if R.Update then
 		local djs, stats = getAllDJs()
 		R.Update:FireClient(player, {

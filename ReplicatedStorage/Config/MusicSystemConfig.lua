@@ -141,7 +141,7 @@ function MusicSystemConfig:IsAdmin(userId)
 	-- Si usa sistema externo
 	if self.ADMINS.UseExternalAdminSystem then
 		local success, adminModule = pcall(function()
-			return require(game.ServerStorage:WaitForChild(self.ADMINS.ExternalAdminModule))
+			return require(game.ServerStorage:WaitForChild("Config"):WaitForChild(self.ADMINS.ExternalAdminModule))
 		end)
 		if success and adminModule.isAdmin then
 			return adminModule:isAdmin(userId)

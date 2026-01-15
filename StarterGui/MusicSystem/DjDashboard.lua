@@ -1,15 +1,5 @@
---[[ Music Dashboard - Professional Edition v4
-     • Sistema completo de música con múltiples admins
-	• Tabs: Queue / Library
-     • Control de volumen PERSONAL (no global)
-     • Reproductor en tiempo real con progreso
-     • Layout optimizado y responsive
-     
-     CORRECCIONES APLICADAS v4:
-     1. FIX: Bug de navegación - Ahora resetea el estado de Library al cambiar de tab
-     2. FIX: Posiciones consistentes en djsScroll y songsScroll
-     3. FIX: Se resetea selectedDJ al salir de Library
-     4. Todas las correcciones anteriores de v3 incluidas
+--[[ Music Dashboard - Professional Edition v5
+	by ignxts
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -31,6 +21,36 @@ local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChil
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 
 -- ════════════════════════════════════════════════════════════════
+-- RESPONSE CODES (debe coincidir con el servidor)
+-- ════════════════════════════════════════════════════════════════
+local ResponseCodes = {
+	SUCCESS = "SUCCESS",
+	ERROR_INVALID_ID = "ERROR_INVALID_ID",
+	ERROR_BLACKLISTED = "ERROR_BLACKLISTED",
+	ERROR_DUPLICATE = "ERROR_DUPLICATE",
+	ERROR_NOT_FOUND = "ERROR_NOT_FOUND",
+	ERROR_NOT_AUDIO = "ERROR_NOT_AUDIO",
+	ERROR_NOT_AUTHORIZED = "ERROR_NOT_AUTHORIZED",
+	ERROR_QUEUE_FULL = "ERROR_QUEUE_FULL",
+	ERROR_PERMISSION = "ERROR_PERMISSION",
+	ERROR_UNKNOWN = "ERROR_UNKNOWN"
+}
+
+-- Mapeo de códigos a mensajes amigables y tipos de notificación
+local ResponseMessages = {
+	[ResponseCodes.SUCCESS] = {type = "success", title = "✓ Éxito"},
+	[ResponseCodes.ERROR_INVALID_ID] = {type = "error", title = "ID Inválido"},
+	[ResponseCodes.ERROR_BLACKLISTED] = {type = "error", title = "Audio Bloqueado"},
+	[ResponseCodes.ERROR_DUPLICATE] = {type = "warning", title = "Duplicado"},
+	[ResponseCodes.ERROR_NOT_FOUND] = {type = "error", title = "No Encontrado"},
+	[ResponseCodes.ERROR_NOT_AUDIO] = {type = "error", title = "Tipo Incorrecto"},
+	[ResponseCodes.ERROR_NOT_AUTHORIZED] = {type = "error", title = "No Autorizado"},
+	[ResponseCodes.ERROR_QUEUE_FULL] = {type = "warning", title = "Cola Llena"},
+	[ResponseCodes.ERROR_PERMISSION] = {type = "error", title = "Sin Permiso"},
+	[ResponseCodes.ERROR_UNKNOWN] = {type = "error", title = "Error"}
+}
+
+-- ════════════════════════════════════════════════════════════════
 -- ADMIN CONFIG
 -- ════════════════════════════════════════════════════════════════
 local player = Players.LocalPlayer
@@ -47,9 +67,7 @@ local function isAdminUser(userId)
 	return false
 end
 
--- DEBUG: activar para mostrar controles de admin en este cliente (útil para pruebas)
 local SHOW_ADMIN_UI = false
-
 local isAdmin = isAdminUser(player.UserId) or SHOW_ADMIN_UI
 
 -- ════════════════════════════════════════════════════════════════
@@ -69,7 +87,7 @@ local PANEL_W_PX = THEME.panelWidth or 980
 local PANEL_H_PX = THEME.panelHeight or 620 
 
 -- ════════════════════════════════════════════════════════════════
--- POSICIONES CONSTANTES (para evitar inconsistencias)
+-- POSICIONES CONSTANTES
 -- ════════════════════════════════════════════════════════════════
 local DJS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 8)
 local SONGS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 56)
@@ -82,7 +100,10 @@ local allDJs, selectedDJ = {}, nil
 local currentPage = "Queue"
 local currentSoundObject = nil
 local progressConnection = nil
+
+-- UI Elements references
 local quickAddBtn, quickInput, qiStroke = nil, nil, nil
+local isAddingToQueue = false -- Flag para prevenir múltiples clicks
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -122,14 +143,16 @@ local function getRemote(name)
 		StopSong = "MusicPlayback",
 		UpdatePlayback = "MusicPlayback",
 		AddToQueue = "MusicQueue",
+		AddToQueueResponse = "MusicQueue",
 		RemoveFromQueue = "MusicQueue",
+		RemoveFromQueueResponse = "MusicQueue",
 		ClearQueue = "MusicQueue",
+		ClearQueueResponse = "MusicQueue",
 		MoveInQueue = "MusicQueue",
 		UpdateQueue = "MusicQueue",
 		UpdateUI = "UI",
 		GetDJs = "MusicLibrary",
 		GetSongsByDJ = "MusicLibrary",
-		-- AddSongToDJ removed (admin 'add music' UI eliminated)
 		RemoveSongFromLibrary = "MusicLibrary",
 		RemoveDJ = "MusicLibrary",
 		RenameDJ = "MusicLibrary"
@@ -154,13 +177,107 @@ local function formatTime(seconds)
 end
 
 -- ════════════════════════════════════════════════════════════════
+-- NOTIFICATION HELPER
+-- ════════════════════════════════════════════════════════════════
+local function showNotification(response)
+	local config = ResponseMessages[response.code] or ResponseMessages[ResponseCodes.ERROR_UNKNOWN]
+	local notifyType = config.type
+	local title = config.title
+	local message = response.message or "Operación completada"
+
+	-- Añadir información extra si está disponible
+	if response.data and response.data.songName then
+		message = message .. ": " .. response.data.songName
+	end
+
+	if notifyType == "success" then
+		Notify:Success(title, message, 3)
+	elseif notifyType == "warning" then
+		Notify:Warning(title, message, 3)
+	elseif notifyType == "error" then
+		Notify:Error(title, message, 4)
+	else
+		Notify:Info(title, message, 3)
+	end
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- UI STATE HELPER - Para el botón de añadir
+-- ════════════════════════════════════════════════════════════════
+local function setAddButtonState(state, customMessage)
+	if not quickAddBtn or not quickInput or not qiStroke then return end
+
+	if state == "loading" then
+		isAddingToQueue = true
+		quickAddBtn.Text = "..."
+		quickAddBtn.BackgroundColor3 = THEME.info
+		qiStroke.Color = THEME.info
+		quickAddBtn.AutoButtonColor = false
+
+	elseif state == "success" then
+		isAddingToQueue = false
+		quickInput.Text = ""
+		qiStroke.Color = THEME.success
+		quickAddBtn.Text = "✓ ADDED"
+		quickAddBtn.BackgroundColor3 = THEME.success
+
+		task.delay(2, function()
+			if quickAddBtn and qiStroke then
+				setAddButtonState("default")
+			end
+		end)
+
+	elseif state == "error" then
+		isAddingToQueue = false
+		quickInput.Text = ""
+		qiStroke.Color = THEME.danger
+		quickAddBtn.Text = "ERROR"
+		quickAddBtn.BackgroundColor3 = THEME.danger
+		if customMessage then
+			quickInput.PlaceholderText = customMessage
+		end
+
+		task.delay(3, function()
+			if quickAddBtn and qiStroke then
+				setAddButtonState("default")
+			end
+		end)
+
+	elseif state == "duplicate" then
+		isAddingToQueue = false
+		quickInput.Text = ""
+		qiStroke.Color = Color3.fromRGB(255, 150, 0)
+		quickAddBtn.Text = "DUPLICATE"
+		quickAddBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+		quickInput.PlaceholderText = customMessage or "Song already in queue"
+
+		task.delay(3, function()
+			if quickAddBtn and qiStroke then
+				setAddButtonState("default")
+			end
+		end)
+
+	elseif state == "default" then
+		isAddingToQueue = false
+		qiStroke.Color = THEME.stroke
+		quickInput.PlaceholderText = "Enter Audio ID..."
+		quickAddBtn.Text = "ADD"
+		quickAddBtn.BackgroundColor3 = THEME.accent
+		quickAddBtn.AutoButtonColor = true
+	end
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- REMOTES
 -- ════════════════════════════════════════════════════════════════
 local R = {
 	Next = getRemote("NextSong"),
 	Add = getRemote("AddToQueue"),
+	AddResponse = getRemote("AddToQueueResponse"),
 	Remove = getRemote("RemoveFromQueue"),
+	RemoveResponse = getRemote("RemoveFromQueueResponse"),
 	Clear = getRemote("ClearQueue"),
+	ClearResponse = getRemote("ClearQueueResponse"),
 	Update = getRemote("UpdateUI"),
 	GetDJs = getRemote("GetDJs"),
 	GetSongsByDJ = getRemote("GetSongsByDJ"),
@@ -215,7 +332,7 @@ if Icon then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- MODAL MANAGER - Panel centralizado
+-- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
 local modal = ModalManager.new({
 	screenGui = screenGui,
@@ -620,7 +737,6 @@ end
 local tQueue = createTab("QUEUE")
 local tLibrary = createTab("LIBRARY")
 
-
 local underline = Instance.new("Frame")
 underline.Size = UDim2.new(0, 80, 0, 3)
 underline.Position = UDim2.new(0, 20, 0, header.Size.Y.Offset + 33)
@@ -706,65 +822,100 @@ quickAddBtn.BorderSizePixel = 0
 quickAddBtn.Parent = quickAddFrame
 rounded(quickAddBtn, 6)
 
+-- ════════════════════════════════════════════════════════════════
+-- ADD TO QUEUE - NUEVA LÓGICA CON RESPUESTA SÍNCRONA
+-- ════════════════════════════════════════════════════════════════
 quickAddBtn.MouseButton1Click:Connect(function()
+	-- Prevenir múltiples clicks mientras se procesa
+	if isAddingToQueue then return end
+
 	local aid = quickInput.Text:gsub("%s+", "")
 
+	-- Validación local primero
 	if not isValidAudioId(aid) then
-		Notify:Warning("Audio ID Inválido", "Ingresa un ID válido (6-19 dígitos)", 3)
-		qiStroke.Color = THEME.danger
-		quickInput.Text = ""
-		quickInput.PlaceholderText = "Invalid Audio ID (6-19 digits)"
-		quickAddBtn.Text = "ERROR"
-		quickAddBtn.BackgroundColor3 = THEME.danger
-		task.delay(2, function()
-			if qiStroke and quickInput and quickAddBtn then
-				qiStroke.Color = THEME.stroke
-				quickInput.PlaceholderText = "Enter Audio ID..."
-				quickAddBtn.Text = "ADD"
-				quickAddBtn.BackgroundColor3 = THEME.accent
-			end
-		end)
+		Notify:Warning("ID Inválido", "Ingresa un ID válido (6-19 dígitos)", 3)
+		setAddButtonState("error", "Invalid Audio ID (6-19 digits)")
 		return
 	end
 
-	quickAddBtn.Text = "..."
-	quickAddBtn.BackgroundColor3 = THEME.info
-	qiStroke.Color = THEME.info
+	-- Mostrar estado de carga
+	setAddButtonState("loading")
 
-	local loadingLoop = true
-	task.spawn(function()
-		while loadingLoop and quickAddBtn.Text == "..." do
-			for i = 1, 3 do
-				if not loadingLoop then break end
-				quickAddBtn.Text = string.rep(".", i)
-				task.wait(0.3)
-			end
-		end
-	end)
-
+	-- Enviar al servidor
 	if R.Add then
 		R.Add:FireServer(tonumber(aid))
 	end
-
-	task.delay(5, function()
-		if quickAddBtn.Text:match("%.") then
-			loadingLoop = false
-			quickAddBtn.Text = "TIMEOUT"
-			quickAddBtn.BackgroundColor3 = THEME.warn
-			qiStroke.Color = THEME.warn
-			quickInput.Text = ""
-			task.delay(2, function()
-				if qiStroke and quickInput and quickAddBtn then
-					qiStroke.Color = THEME.stroke
-					quickInput.PlaceholderText = "Enter Audio ID..."
-					quickAddBtn.Text = "ADD"
-					quickAddBtn.BackgroundColor3 = THEME.accent
-				end
-			end)
-		end
-	end)
 end)
 
+-- ════════════════════════════════════════════════════════════════
+-- LISTENER PARA RESPUESTA DE ADD TO QUEUE (SÍNCRONO)
+-- ════════════════════════════════════════════════════════════════
+if R.AddResponse then
+	R.AddResponse.OnClientEvent:Connect(function(response)
+		if not response then return end
+
+		-- Mostrar notificación
+		showNotification(response)
+
+		-- Actualizar UI del Quick Add según el resultado
+		if response.success then
+			setAddButtonState("success")
+		elseif response.code == ResponseCodes.ERROR_DUPLICATE then
+			setAddButtonState("duplicate", response.message)
+		else
+			setAddButtonState("error", response.message)
+		end
+
+		-- También actualizar botones de la Library si estamos ahí
+		if currentPage == "Library" and songsScroll then
+			for _, card in pairs(songsScroll:GetChildren()) do
+				if card:IsA("Frame") then
+					local queueBtn = card:FindFirstChild("QueueButton")
+					if queueBtn and queueBtn.Text == "..." then
+						-- Restaurar el botón
+						if response.success then
+							queueBtn.Text = "EN COLA"
+							queueBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
+							queueBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+							queueBtn.AutoButtonColor = false
+						elseif response.code == ResponseCodes.ERROR_DUPLICATE then
+							queueBtn.Text = "EN COLA"
+							queueBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
+							queueBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+							queueBtn.AutoButtonColor = false
+						else
+							queueBtn.Text = "QUEUE"
+							queueBtn.BackgroundColor3 = THEME.success
+							queueBtn.TextColor3 = Color3.new(1, 1, 1)
+							queueBtn.AutoButtonColor = true
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- LISTENERS PARA OTRAS RESPUESTAS SÍNCRONAS
+-- ════════════════════════════════════════════════════════════════
+if R.RemoveResponse then
+	R.RemoveResponse.OnClientEvent:Connect(function(response)
+		if response then
+			showNotification(response)
+		end
+	end)
+end
+
+if R.ClearResponse then
+	R.ClearResponse.OnClientEvent:Connect(function(response)
+		if response then
+			showNotification(response)
+		end
+	end)
+end
+
+-- Queue Scroll
 local queueScroll = Instance.new("ScrollingFrame")
 local topOffset = 10
 local bottomInset = -12
@@ -853,26 +1004,26 @@ local function drawQueue()
 				end
 			end)
 
-			local gradient = Instance.new("UIGradient")
-			gradient.Color = ColorSequence.new{
+			local gradientEffect = Instance.new("UIGradient")
+			gradientEffect.Color = ColorSequence.new{
 				ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
 				ColorSequenceKeypoint.new(0.3, Color3.fromRGB(48, 52, 70)),
 				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(68, 72, 100)),
 				ColorSequenceKeypoint.new(0.7, Color3.fromRGB(48, 52, 70)),
 				ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 28, 32))
 			}
-			gradient.Rotation = 0
-			gradient.Transparency = NumberSequence.new(0.3)
-			gradient.Offset = Vector2.new(-1, 0)
-			gradient.Parent = card
+			gradientEffect.Rotation = 0
+			gradientEffect.Transparency = NumberSequence.new(0.3)
+			gradientEffect.Offset = Vector2.new(-1, 0)
+			gradientEffect.Parent = card
 
 			task.spawn(function()
 				while card.Parent and isActive do
-					TweenService:Create(gradient, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {
+					TweenService:Create(gradientEffect, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {
 						Offset = Vector2.new(1, 0)
 					}):Play()
 					task.wait(2.5)
-					gradient.Offset = Vector2.new(-1, 0)
+					gradientEffect.Offset = Vector2.new(-1, 0)
 					task.wait(0.5)
 				end
 			end)
@@ -983,7 +1134,7 @@ libraryPage.Parent = holder
 -- DJs Grid
 local djsScroll = Instance.new("ScrollingFrame")
 djsScroll.Size = UDim2.new(1, -24, 1, -16)
-djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
+djsScroll.Position = DJS_SCROLL_DEFAULT_POS
 djsScroll.BackgroundTransparency = 1
 djsScroll.BorderSizePixel = 0
 djsScroll.ScrollBarThickness = 6
@@ -1007,7 +1158,7 @@ end)
 -- Songs scroll
 local songsScroll = Instance.new("ScrollingFrame")
 songsScroll.Size = UDim2.new(1, -24, 1, -64)
-songsScroll.Position = SONGS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
+songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
 songsScroll.BackgroundTransparency = 1
 songsScroll.BorderSizePixel = 0
 songsScroll.ScrollBarThickness = 6
@@ -1041,29 +1192,21 @@ backBtn.Parent = libraryPage
 rounded(backBtn, 8)
 stroked(backBtn, 0.2)
 
--- ════════════════════════════════════════════════════════════════
--- FIX: FUNCIÓN PARA RESETEAR EL ESTADO DE LIBRARY
--- ════════════════════════════════════════════════════════════════
+-- Reset Library State
 local function resetLibraryState()
 	selectedDJ = nil
-
-	-- Cancelar cualquier tween en progreso
-	-- Resetear posiciones a sus valores por defecto SIN animación
 	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
 	djsScroll.Visible = true
 	djsScroll.CanvasPosition = Vector2.new(0, 0)
-
 	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
 	songsScroll.Visible = false
 	songsScroll.CanvasPosition = Vector2.new(0, 0)
-
 	backBtn.Visible = false
 end
 
 backBtn.MouseButton1Click:Connect(function()
 	selectedDJ = nil
 
-	-- Animación de salida para songs
 	TweenService:Create(songsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 		Position = UDim2.new(0, 12, 0, 150)
 	}):Play()
@@ -1071,13 +1214,12 @@ backBtn.MouseButton1Click:Connect(function()
 	task.wait(0.1)
 
 	songsScroll.Visible = false
-	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
+	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
 
 	djsScroll.Visible = true
-	djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE
+	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
 	backBtn.Visible = false
 
-	-- Animación de entrada para DJs
 	djsScroll.Position = UDim2.new(0, 12, 0, 0)
 	TweenService:Create(djsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
 		Position = DJS_SCROLL_DEFAULT_POS
@@ -1186,7 +1328,6 @@ local function drawDJs()
 		clickBtn.MouseButton1Click:Connect(function()
 			selectedDJ = dj.name
 
-			-- Animación de salida para DJs
 			TweenService:Create(djsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				Position = UDim2.new(0, 12, 0, -50)
 			}):Play()
@@ -1194,12 +1335,11 @@ local function drawDJs()
 			task.wait(0.15)
 
 			djsScroll.Visible = false
-			djsScroll.Position = DJS_SCROLL_DEFAULT_POS  -- USAR CONSTANTE para reset
+			djsScroll.Position = DJS_SCROLL_DEFAULT_POS
 
 			songsScroll.Visible = true
 			backBtn.Visible = true
 
-			-- Animación de entrada para Songs
 			songsScroll.Position = UDim2.new(0, 12, 0, 100)
 			TweenService:Create(songsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
 				Position = SONGS_SCROLL_DEFAULT_POS
@@ -1332,12 +1472,15 @@ local function drawSongs(songs)
 			addBtn.TextColor3 = Color3.new(1, 1, 1)
 			addBtn.AutoButtonColor = true
 
+			local isAddingThisSong = false
 			addBtn.MouseButton1Click:Connect(function()
+				if isAddingThisSong then return end
+				isAddingThisSong = true
+
 				if R.Add then 
-					R.Add:FireServer(song.id)
-					Notify:Success("Canción Agregada", "\"" .. song.name .. "\" fue añadida a la cola", 3)
 					addBtn.BackgroundColor3 = THEME.info
 					addBtn.Text = "..."
+					R.Add:FireServer(song.id)
 				end
 			end)
 		end
@@ -1374,7 +1517,6 @@ local function drawSongs(songs)
 	end
 end
 
-
 -- ════════════════════════════════════════════════════════════════
 -- PROGRESS BAR UPDATE
 -- ════════════════════════════════════════════════════════════════
@@ -1405,7 +1547,7 @@ local function updateProgressBar()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- NAVIGATION - FIX PRINCIPAL
+-- NAVIGATION
 -- ════════════════════════════════════════════════════════════════
 local function moveUnderline(btn)
 	if not btn then return end
@@ -1426,12 +1568,7 @@ function showPage(name)
 	local previousPage = currentPage
 	currentPage = name
 
-	-- ════════════════════════════════════════════════════════════════
-	-- FIX: RESETEAR ESTADO DE LIBRARY AL SALIR DE ELLA
-	-- ════════════════════════════════════════════════════════════════
 	if previousPage == "Library" and name ~= "Library" then
-		-- Estábamos en Library y vamos a otra página
-		-- Resetear el estado completamente (sin animaciones)
 		resetLibraryState()
 	end
 
@@ -1449,7 +1586,6 @@ function showPage(name)
 	end
 
 	if name == "Library" then
-		-- Asegurar que el estado esté limpio al entrar
 		resetLibraryState()
 
 		if #allDJs > 0 then
@@ -1477,7 +1613,6 @@ end
 
 wireTab(tQueue, "Queue")
 wireTab(tLibrary, "Library")
-
 
 task.defer(function()
 	task.wait(0.1)
@@ -1544,7 +1679,7 @@ closeBtn.MouseLeave:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- REMOTE UPDATES
+-- REMOTE UPDATES (General UI sync)
 -- ════════════════════════════════════════════════════════════════
 if R.Update then
 	R.Update.OnClientEvent:Connect(function(data)
@@ -1561,51 +1696,7 @@ if R.Update then
 			songTitle.Text = "No song playing"
 		end
 
-		if data.error and quickAddBtn then
-			local isBlocked = data.error == "Canción ya en cola"
-
-			if isBlocked then
-				Notify:Info("Canción Bloqueada", "Esta canción ya está en la cola", 3)
-				qiStroke.Color = Color3.fromRGB(255, 150, 0)
-				quickInput.Text = ""
-				quickInput.PlaceholderText = data.error
-				quickAddBtn.Text = "BLOCKED"
-				quickAddBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
-			else
-				Notify:Error("Error al Agregar", data.error, 3)
-				qiStroke.Color = THEME.danger
-				quickInput.Text = ""
-				quickInput.PlaceholderText = data.error
-				quickAddBtn.Text = "ERROR"
-				quickAddBtn.BackgroundColor3 = THEME.danger
-			end
-
-			task.delay(3, function()
-				if qiStroke and quickInput and quickAddBtn then
-					qiStroke.Color = THEME.stroke
-					quickInput.PlaceholderText = "Enter Audio ID..."
-					quickAddBtn.Text = "ADD"
-					quickAddBtn.BackgroundColor3 = THEME.accent
-				end
-			end)
-
-		elseif quickAddBtn and quickAddBtn.Text == "..." then
-			Notify:Success("Canción Agregada", "La canción ha sido añadida a la cola", 3)
-			quickInput.Text = ""
-			qiStroke.Color = THEME.success
-			quickAddBtn.Text = "ADDED"
-			quickAddBtn.BackgroundColor3 = THEME.success
-
-			task.delay(2, function()
-				if qiStroke and quickInput and quickAddBtn then
-					qiStroke.Color = THEME.stroke
-					quickInput.PlaceholderText = "Enter Audio ID..."
-					quickAddBtn.Text = "ADD"
-					quickAddBtn.BackgroundColor3 = THEME.accent
-				end
-			end)
-		end
-
+		-- Solo redibujar UI, las notificaciones se manejan por AddResponse
 		if currentPage == "Queue" then 
 			drawQueue() 
 		end
@@ -1638,19 +1729,17 @@ if R.GetSongsByDJ then
 	end)
 end
 
--- AddSongToDJ handler removed (admin Add Music UI deleted)
-
 if R.RemoveFromLibrary then
 	R.RemoveFromLibrary.OnClientEvent:Connect(function(response)
 		if response.success then
-			print("Song removed:", response.message)
+			Notify:Success("Eliminado", response.message, 3)
 			if currentPage == "Library" and selectedDJ then
 				if R.GetSongsByDJ then
 					R.GetSongsByDJ:FireServer(selectedDJ)
 				end
 			end
 		else
-			warn("Error removing song:", response.message)
+			Notify:Error("Error", response.message, 3)
 		end
 	end)
 end
@@ -1658,7 +1747,7 @@ end
 if R.RemoveDJ then
 	R.RemoveDJ.OnClientEvent:Connect(function(response)
 		if response.success then
-			print("DJ removed:", response.message)
+			Notify:Success("DJ Eliminado", response.message, 3)
 			selectedDJ = nil
 			if currentPage == "Library" then
 				drawDJs()
@@ -1667,7 +1756,7 @@ if R.RemoveDJ then
 				end
 			end
 		else
-			warn("Error removing DJ:", response.message)
+			Notify:Error("Error", response.message, 3)
 		end
 	end)
 end
@@ -1675,7 +1764,7 @@ end
 if R.RenameDJ then
 	R.RenameDJ.OnClientEvent:Connect(function(response)
 		if response.success then
-			print("DJ renamed:", response.message)
+			Notify:Success("DJ Renombrado", response.message, 3)
 			if selectedDJ == response.oldName then
 				selectedDJ = response.newName
 			end
@@ -1686,7 +1775,7 @@ if R.RenameDJ then
 				end
 			end
 		else
-			warn("Error renaming DJ:", response.message)
+			Notify:Error("Error", response.message, 3)
 		end
 	end)
 end
