@@ -1,6 +1,88 @@
 -- << RETRIEVE FRAMEWORK >>
 local main = _G.HDAdminMain
 local settings = main.settings
+local Players = game:GetService("Players")
+
+local function resolvePlayer(speaker, token)
+	if not token then return nil end
+
+	-- If it's already a Player instance
+	if typeof and typeof(token) == "Instance" and token:IsA("Player") then
+		return token
+	end
+
+	if type(token) == "string" then
+		local s = token:gsub("^@", "")
+		s = s:lower()
+
+		-- Numeric user id
+		local id = tonumber(s)
+		if id then
+			local p = Players:GetPlayerByUserId(id)
+			if p then return p end
+		end
+
+		-- Exact name or display name (case-insensitive)
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p.Name:lower() == s or (p.DisplayName and p.DisplayName:lower() == s) then
+				return p
+			end
+		end
+	end
+
+	return nil
+end
+
+local function resolveTargets(speaker, token)
+	-- Returns "ALL" or an array of Player instances (possibly empty)
+	if not token then
+		return {speaker}
+	end
+
+	-- string tokens (special selectors)
+	if type(token) == "string" then
+		local s = token:gsub("^@", ""):lower()
+		if s == "all" or s == "everyone" or s == "*" then
+			return "ALL"
+		end
+		if s == "others" then
+			local out = {}
+			for _,p in ipairs(Players:GetPlayers()) do
+				if p ~= speaker then table.insert(out, p) end
+			end
+			return out
+		end
+		if s == "me" or s == "self" then
+			return {speaker}
+		end
+	end
+
+	-- table of tokens (list of players or names)
+	if type(token) == "table" then
+		local out = {}
+		for _,v in ipairs(token) do
+			if v then
+				if typeof and typeof(v) == "Instance" and v:IsA("Player") then
+					table.insert(out, v)
+				else
+					local p = resolvePlayer(speaker, v)
+					if p then table.insert(out, p) end
+				end
+			end
+		end
+		return out
+	end
+
+	-- single instance or name
+	if typeof and typeof(token) == "Instance" and token:IsA("Player") then
+		return {token}
+	end
+
+	local p = resolvePlayer(speaker, token)
+	if p then return {p} end
+
+	return {speaker}
+end
 -- << COMMANDS >>
 local module = {
 
@@ -870,14 +952,27 @@ local module = {
 		RankLock = false;
 		Loopable = false;
 		Tags = {"effects"};
-		Description = "Inicia efectos de fiesta para todos los jugadores";
+		Description = "Inicia efectos de fiesta (usa 'all' para todos)";
 		Contributors = {"ignxts"};
-		Args = {};
+		Args = {"Player"};
 		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
 			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
 			local evt = eventsFolder and eventsFolder:FindFirstChild("FiestaEvent")
-			if evt then evt:FireClient(player) end
+			if not evt then return end
+
+			local target = args and args[1]
+			local resolved = resolveTargets(player, target)
+			if resolved == "ALL" then
+				evt:FireAllClients()
+				return
+			end
+
+			for _,p in ipairs(resolved) do
+				if p and p:IsA("Player") then
+					evt:FireClient(p)
+				end
+			end
 		end;
 	};
 
@@ -889,14 +984,27 @@ local module = {
 		RankLock = false;
 		Loopable = false;
 		Tags = {"effects"};
-		Description = "Dispara efecto de pulso/rotación en clientes";
+		Description = "Dispara efecto de pulso/rotación (usa 'all' para todos)";
 		Contributors = {"ignxts"};
-		Args = {};
+		Args = {"Player"};
 		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
 			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
 			local evt = eventsFolder and eventsFolder:FindFirstChild("RotateEffectEvent")
-			if evt then evt:FireClient(player) end
+			if not evt then return end
+
+			local target = args and args[1]
+			local resolved = resolveTargets(player, target)
+			if resolved == "ALL" then
+				evt:FireAllClients()
+				return
+			end
+
+			for _,p in ipairs(resolved) do
+				if p and p:IsA("Player") then
+					evt:FireClient(p)
+				end
+			end
 		end;
 	};
 
@@ -908,14 +1016,27 @@ local module = {
 		RankLock = false;
 		Loopable = false;
 		Tags = {"effects"};
-		Description = "Activa efecto terremoto en todos los clientes";
+		Description = "Activa efecto terremoto (usa 'all' para todos)";
 		Contributors = {"ignxts"};
-		Args = {};
+		Args = {"Player"};
 		Function = function(player, args)
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
 			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
 			local evt = eventsFolder and eventsFolder:FindFirstChild("TerremotoEvent")
-			if evt then evt:FireClient(player) end
+			if not evt then return end
+
+			local target = args and args[1]
+			local resolved = resolveTargets(player, target)
+			if resolved == "ALL" then
+				evt:FireAllClients()
+				return
+			end
+
+			for _,p in ipairs(resolved) do
+				if p and p:IsA("Player") then
+					evt:FireClient(p)
+				end
+			end
 		end;
 	};
 
