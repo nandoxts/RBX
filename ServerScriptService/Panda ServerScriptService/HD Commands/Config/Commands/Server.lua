@@ -860,11 +860,64 @@ local module = {
 			end
 		end;
 	};
-	
-	
-	
-};
 
+	-- Efectos personalizados: fiesta, pulse, terremoto
+	{
+		Name = "fiesta";
+		Aliases = {"fiesta"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Inicia efectos de fiesta para todos los jugadores";
+		Contributors = {"ignxts"};
+		Args = {};
+		Function = function(_, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local evt = ReplicatedStorage:FindFirstChild("FiestaEvent")
+			if evt then evt:FireAllClients() end
+		end;
+	};
+
+	{
+		Name = "pulse";
+		Aliases = {"pulse"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Dispara efecto de pulso/rotación en clientes";
+		Contributors = {"ignxts"};
+		Args = {};
+		Function = function(_, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local evt = ReplicatedStorage:FindFirstChild("RotateEffectEvent")
+			if evt then evt:FireAllClients() end
+		end;
+	};
+
+	{
+		Name = "terremoto";
+		Aliases = {"terremoto", "quake"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Activa efecto terremoto en todos los clientes";
+		Contributors = {"ignxts"};
+		Args = {};
+		Function = function(_, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local evt = ReplicatedStorage:FindFirstChild("TerremotoEvent")
+			if evt then evt:FireAllClients() end
+		end;
+	};
+
+
+};
 
 
 return module

@@ -356,6 +356,9 @@ return{
 		["noclip2"] = "COMMANDS";
 		["noclip"] = "COMMANDS";
 		["to"] = "COMMANDS";
+        ["fiesta"] = "COMMANDS";
+        ["pulse"] = "COMMANDS";
+        ["terremoto"] = "COMMANDS";
 		["invisible"] = "Help Creator";
 		-- FREE
 		["hideGuis"] = "NonAdmin";
