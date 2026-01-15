@@ -309,7 +309,7 @@ function OverheadManager:setupOverhead(char, player)
 	self:configureOverhead(overheadClone, player)
 end
 
-function OverheadManager:configureOverhead(overhead, player)
+function OverheadManager:configureOverhead(overhead, playemoduler)
 	local frame = overhead:FindFirstChild("Frame")
 	if not frame then return end
 
