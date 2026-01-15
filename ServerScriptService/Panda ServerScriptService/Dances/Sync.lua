@@ -10,6 +10,9 @@ local StopAnimationRemote = Remotes.StopAnimation
 
 local SyncData = {}
 
+-- Configuración de transición suave
+local FADE_TIME = 0.3 -- Duración del fade in/out en segundos
+
 local Dances = {}
 local DancesByAssetId = {} -- Mapeo inverso: assetId -> nombre
 
@@ -36,7 +39,7 @@ local Commands = {
 	["Sync"] = function(Plr,SyncPlayer)
 		if SyncData[SyncPlayer]["StoredAnimation"] ~= nil then
 			if SyncData[Plr]["StoredAnimation"] ~= nil then
-				SyncData[Plr]["StoredAnimation"]:Stop()
+				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 				SyncData[Plr]["StoredAnimation"]:Destroy()
 				SyncData[Plr]["StoredAnimation"] = nil
 			end
@@ -48,7 +51,7 @@ local Commands = {
 			if animator then
 				local AnimationTrack = animator:LoadAnimation(Animation)
 
-				AnimationTrack:Play()
+				AnimationTrack:Play(FADE_TIME)
 				AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
 				AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
 
@@ -62,7 +65,7 @@ local Commands = {
 			SyncData[Plr]["SyncDebounce"] = true
 			if SyncData[SyncPlayer]["StoredAnimation"] ~= nil then
 				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop()
+					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 					SyncData[Plr]["StoredAnimation"]:Destroy()
 					SyncData[Plr]["StoredAnimation"] = nil
 				end
@@ -75,7 +78,7 @@ local Commands = {
 				if animator then
 					local AnimationTrack = animator:LoadAnimation(Animation)
 					AnimationTrack.Priority = Enum.AnimationPriority.Action
-					AnimationTrack:Play()
+					AnimationTrack:Play(FADE_TIME)
 					AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
 					AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
 
@@ -87,7 +90,7 @@ local Commands = {
 				end
 			elseif Settings.CopyActualAnimation then
 				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop()
+					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 					SyncData[Plr]["StoredAnimation"]:Destroy()
 					SyncData[Plr]["StoredAnimation"] = nil
 				end
@@ -100,7 +103,7 @@ local Commands = {
 				local AnimTracks1 = animator:GetPlayingAnimationTracks()
 
 				for _,v in pairs(AnimTracks1) do
-					v:Stop()
+					v:Stop(FADE_TIME)
 				end
 
 				local Animation = Plr.Character.Baile
@@ -113,7 +116,7 @@ local Commands = {
 
 					anim = animator:LoadAnimation(Animation)
 					anim.Priority = Enum.AnimationPriority.Action
-					anim:Play()
+					anim:Play(FADE_TIME)
 					anim.TimePosition = v.TimePosition
 					anim:AdjustSpeed(v.Speed)
 
@@ -134,7 +137,7 @@ local Commands = {
 					end
 				end
 				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop()
+					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 					SyncData[Plr]["StoredAnimation"]:Destroy()
 					SyncData[Plr]["StoredAnimation"] = nil
 				end
@@ -146,7 +149,7 @@ local Commands = {
 				if animator then
 					local AnimationTrack = animator:LoadAnimation(Animation)
 					AnimationTrack.Priority = Enum.AnimationPriority.Action
-					AnimationTrack:Play()
+					AnimationTrack:Play(FADE_TIME)
 					AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
 					AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
 					SyncData[Plr]["StoredAnimation"] = AnimationTrack
@@ -162,7 +165,7 @@ local Commands = {
 		if SyncData[Plr]["SyncDebounce"] == true then
 			SyncData[Plr]["SyncDebounce"] = false 
 			if SyncData[Plr]["StoredAnimation"] ~= nil then
-				SyncData[Plr]["StoredAnimation"]:Stop()
+				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 				SyncData[Plr]["StoredAnimation"]:Destroy()
 				SyncData[Plr]["StoredAnimation"] = nil
 			end
@@ -176,7 +179,7 @@ local Commands = {
 			if #SyncData[Plr]["SyncPlayers"] >= 1 then
 				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
 					if SyncData[Player]["StoredAnimation"] ~= nil then
-						SyncData[Player]["StoredAnimation"]:Stop()
+						SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
 						SyncData[Player]["StoredAnimation"]:Destroy()
 						SyncData[Player]["StoredAnimation"] = nil
 
@@ -194,7 +197,7 @@ local Commands = {
 	end;
 	["Reset"] = function(Plr)
 		if SyncData[Plr]["StoredAnimation"] ~= nil then
-			SyncData[Plr]["StoredAnimation"]:Stop()
+			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 			SyncData[Plr]["StoredAnimation"]:Destroy()
 			SyncData[Plr]["StoredAnimation"] = nil
 		end
@@ -202,13 +205,13 @@ local Commands = {
 	["Disconnect"] = function(Plr)
 		for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
 			if SyncData[Player]["StoredAnimation"] ~= nil then
-				SyncData[Player]["StoredAnimation"]:Stop()
+				SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
 				SyncData[Player]["StoredAnimation"]:Destroy()
 				SyncData[Player]["StoredAnimation"] = nil
 			end
 			for Index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
 				if SyncData[SyncPlr]["StoredAnimation"] ~= nil then
-					SyncData[SyncPlr]["StoredAnimation"]:Stop()
+					SyncData[SyncPlr]["StoredAnimation"]:Stop(FADE_TIME)
 					SyncData[SyncPlr]["StoredAnimation"]:Destroy()
 					SyncData[SyncPlr]["StoredAnimation"] = nil
 				end
@@ -237,7 +240,7 @@ local Commands = {
 	end;
 	["Respawn"] = function(Plr)
 		if SyncData[Plr]["StoredAnimation"] ~= nil then
-			SyncData[Plr]["StoredAnimation"]:Stop()
+			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 			SyncData[Plr]["StoredAnimation"]:Destroy()
 			SyncData[Plr]["StoredAnimation"] = nil
 		end
@@ -247,13 +250,13 @@ local Commands = {
 			if #SyncData[Plr]["SyncPlayers"] >= 1 then
 				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
 					if SyncData[Player]["StoredAnimation"] ~= nil then
-						SyncData[Player]["StoredAnimation"]:Stop()
+						SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
 						SyncData[Player]["StoredAnimation"]:Destroy()
 						SyncData[Player]["StoredAnimation"] = nil
 					end
 					for Index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
 						if SyncData[SyncPlr]["StoredAnimation"] ~= nil then
-							SyncData[SyncPlr]["StoredAnimation"]:Stop()
+							SyncData[SyncPlr]["StoredAnimation"]:Stop(FADE_TIME)
 							SyncData[SyncPlr]["StoredAnimation"]:Destroy()
 							SyncData[SyncPlr]["StoredAnimation"] = nil
 						end
@@ -302,16 +305,19 @@ end
 
 local StopAnimation = function(Plr)
 	if SyncData[Plr]["StoredAnimation"] ~= nil then
-		SyncData[Plr]["StoredAnimation"]:Stop()
+		SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
 		SyncData[Plr]["StoredAnimation"]:Destroy()
 		SyncData[Plr]["StoredAnimation"] = nil
 	end
 	SyncData[Plr]["CurrentAnimationName"] = nil
+	NotifyAnimationToClient(Plr, nil) -- Limpiar UI del jugador principal
 	if #SyncData[Plr]["SyncPlayers"] >= 1 then
 		for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
 			Commands.Reset(Player)
+			NotifyAnimationToClient(Player, nil) -- Limpiar UI del jugador sincronizado
 			for index,SyncPlayer in pairs(SyncData[Player]["SyncPlayers"])do
 				Commands.Reset(SyncPlayer)
+				NotifyAnimationToClient(SyncPlayer, nil) -- Limpiar UI de sync anidados
 			end
 		end
 	end
@@ -331,15 +337,17 @@ local PlayAnimation = function(Plr,func,AnimationData)
 		if animator then
 			local AnimationTrack = animator:LoadAnimation(Animation)
 			AnimationTrack.Priority = Enum.AnimationPriority.Action
-			AnimationTrack:Play()
+			AnimationTrack:Play(FADE_TIME)
 			AnimationTrack.TimePosition = 0
 			SyncData[Plr]["StoredAnimation"] = AnimationTrack
 			NotifyAnimationToClient(Plr, AnimationData)
 			if #SyncData[Plr]["SyncPlayers"] >= 1 then
 				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
 					Commands.Sync(Player,Plr)
+					NotifyAnimationToClient(Player, AnimationData) -- Actualizar UI del jugador sincronizado
 					for index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
 						Commands.Sync(SyncPlr,Plr)
+						NotifyAnimationToClient(SyncPlr, AnimationData) -- Actualizar UI de sync anidados
 					end
 				end
 			end
@@ -354,7 +362,7 @@ local PlayAnimation = function(Plr,func,AnimationData)
 			if animator then
 				local AnimationTrack = animator:LoadAnimation(Animation)
 				AnimationTrack.Priority = Enum.AnimationPriority.Action
-				AnimationTrack:Play()
+				AnimationTrack:Play(FADE_TIME)
 				AnimationTrack.TimePosition = SyncData[Plr]["StoredAnimation"].TimePosition
 				AnimationTrack:AdjustSpeed(AnimationData)
 				SyncData[Plr]["StoredAnimation"] = AnimationTrack
