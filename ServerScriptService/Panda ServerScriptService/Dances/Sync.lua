@@ -51,7 +51,7 @@ local Commands = {
 				AnimationTrack:Play()
 				AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
 				AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
-				
+
 				SyncData[Plr]["StoredAnimation"] = AnimationTrack
 
 			end
@@ -69,7 +69,7 @@ local Commands = {
 				local Character = Plr.Character
 				local Humanoid = Character.Humanoid
 				local Animation = Character.Baile
-				
+
 				Animation.AnimationId = SyncData[SyncPlayer]["StoredAnimation"].Animation.AnimationId
 				local animator = Humanoid:FindFirstChild("Animator")
 				if animator then
@@ -78,7 +78,7 @@ local Commands = {
 					AnimationTrack:Play()
 					AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
 					AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
-					
+
 					SyncData[Plr]["StoredAnimation"] = AnimationTrack
 					if not table.find(SyncData[SyncPlayer]["SyncPlayers"],Plr) then
 						table.insert(SyncData[SyncPlayer]["SyncPlayers"],Plr)
@@ -116,7 +116,7 @@ local Commands = {
 					anim:Play()
 					anim.TimePosition = v.TimePosition
 					anim:AdjustSpeed(v.Speed)
-					
+
 				end
 				SyncData[Plr]["StoredAnimation"] = anim
 				if not table.find(SyncData[SyncPlayer]["SyncPlayers"],Plr) then
@@ -179,7 +179,7 @@ local Commands = {
 						SyncData[Player]["StoredAnimation"]:Stop()
 						SyncData[Player]["StoredAnimation"]:Destroy()
 						SyncData[Player]["StoredAnimation"] = nil
-						
+
 						if Plr.Character ~= nil then
 							local SyncOnOff = Plr.Character:FindFirstChild("SyncOnOff")
 							if SyncOnOff then
@@ -242,7 +242,7 @@ local Commands = {
 			SyncData[Plr]["StoredAnimation"] = nil
 		end
 		SyncData[Plr]["SyncDebounce"] = false
-		
+
 		if Settings.ResetAnimationOnRespawn then
 			if #SyncData[Plr]["SyncPlayers"] >= 1 then
 				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
@@ -408,7 +408,7 @@ local CharacterAdded = function(Character)
 	local SyncOnOFf = Instance.new("BoolValue")
 	SyncOnOFf.Name = "SyncOnOff"
 	SyncOnOFf.Parent = Character
-	
+
 	local Plr = Players:GetPlayerFromCharacter(Character)
 	local Humanoid = Character.Humanoid
 	if Humanoid then
@@ -430,7 +430,7 @@ local PlayerAdded = function(Plr)
 	}
 	local charLoadConnection = Plr.CharacterAdded:Connect(CharacterAdded)
 	table.insert(SyncData[Plr]["Connections"], charLoadConnection)
-	
+
 	local Character = Plr.Character
 	if Character then
 		CharacterAdded(Character)

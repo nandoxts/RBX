@@ -1,9 +1,10 @@
 --[[
 	═══════════════════════════════════════════════════════════════════════════════
-	   EMOTES SYSTEM - TABS (Optimizado con gestión de memoria mejorada)
-	   Versión mejorada con slider moderno y animaciones suaves
+	   EMOTES SYSTEM 
 	═══════════════════════════════════════════════════════════════════════════════
 ]]--
+
+-- Autor: ignxts
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN
@@ -714,7 +715,8 @@ local function CrearSeparador(texto, icono, color, orden)
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
-	label.Text = icono .. " " .. texto
+	local labelText = (icono and icono ~= "" and (icono .. " ") or "") .. texto
+	label.Text = labelText
 	label.TextColor3 = color
 	label.TextSize = IsMobile and 9 or 11
 	label.TextXAlignment = Enum.TextXAlignment.Left
@@ -1016,7 +1018,7 @@ local function CargarTodos(filtro)
 			local nombre = EncontrarDatos(id)
 			if pasaFiltro(nombre) then
 				if not hayVisibles then
-					CrearSeparador("TRENDING", "🔥", Theme.Trending, orden)
+					CrearSeparador("TRENDING", nil, Theme.Primary, orden)
 					orden = orden + 1
 					hayVisibles = true
 				end
@@ -1031,7 +1033,7 @@ local function CargarTodos(filtro)
 		for _, v in ipairs(Modulo.Vip) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
 				if not hayVisibles then
-					CrearSeparador("VIP", "👑", Theme.VIP, orden)
+					CrearSeparador("VIP", nil, Theme.Primary, orden)
 					orden = orden + 1
 					hayVisibles = true
 				end
@@ -1046,7 +1048,7 @@ local function CargarTodos(filtro)
 		for _, v in ipairs(Modulo.Recomendado) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
 				if not hayVisibles then
-					CrearSeparador("RECOMENDADOS", "💡", Theme.Recommended, orden)
+					CrearSeparador("RECOMENDADOS", nil, Theme.Primary, orden)
 					orden = orden + 1
 					hayVisibles = true
 				end
@@ -1061,7 +1063,7 @@ local function CargarTodos(filtro)
 		for _, v in ipairs(Modulo.Ids) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
 				if not hayVisibles then
-					CrearSeparador("TODOS", "🎵", Theme.Normal, orden)
+					CrearSeparador("TODOS", nil, Theme.Primary, orden)
 					orden = orden + 1
 					hayVisibles = true
 				end

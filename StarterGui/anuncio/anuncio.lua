@@ -1,4 +1,5 @@
 -- SISTEMA DE ANUNCIOS GLOBALES - LocalScript (StarterGui)
+-- Autor: ignxts
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -136,13 +137,17 @@ userHandle.ZIndex = 102
 userHandle.Parent = nameContainer
 
 -- Check de verificado (Roblox verified badge)
-local verifiedCheck = Instance.new("ImageLabel")
+local verifiedCheck = Instance.new("TextLabel")
 verifiedCheck.Name = "VerifiedCheck"
 verifiedCheck.Size = UDim2.new(0, 18, 0, 18)
 verifiedCheck.BackgroundTransparency = 1
-verifiedCheck.Image = "rbxassetid://102611300733289"
-verifiedCheck.ImageColor3 = COLORS.Verified
-verifiedCheck.LayoutOrder = 2
+verifiedCheck.Text = ""
+verifiedCheck.Font = Enum.Font.GothamBold
+verifiedCheck.TextSize = 16
+verifiedCheck.TextColor3 = COLORS.Verified
+verifiedCheck.TextXAlignment = Enum.TextXAlignment.Left
+verifiedCheck.TextYAlignment = Enum.TextYAlignment.Center
+verifiedCheck.LayoutOrder = 3
 verifiedCheck.ZIndex = 102
 verifiedCheck.Parent = nameContainer
 
