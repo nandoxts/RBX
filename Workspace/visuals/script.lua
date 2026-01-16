@@ -34,12 +34,30 @@ local UI = {
 }
 
 -- Obtener barras del ecualizador
-for i = 1, 16 do
-	local bar = UI.Equalizer:FindFirstChild("Bar" .. i)
-	if bar then
-		table.insert(UI.EqualizerBars, bar)
+-- Obtener barras del ecualizador (incluir variantes y evitar omisiones)
+for _, child in ipairs(UI.Equalizer:GetChildren()) do
+	if child:IsA("GuiObject") then
+		local name = child.Name
+		if name:match("Bar%d+") or name:match("%d+") or name:lower():find("bar") then
+			table.insert(UI.EqualizerBars, child)
+		end
 	end
 end
+
+if #UI.EqualizerBars < 16 then
+	for _, child in ipairs(UI.Equalizer:GetChildren()) do
+		if child:IsA("GuiObject") and not table.find(UI.EqualizerBars, child) then
+			table.insert(UI.EqualizerBars, child)
+		end
+	end
+end
+
+table.sort(UI.EqualizerBars, function(a, b)
+	local na = tonumber(a.Name:match("%d+")) or math.huge
+	local nb = tonumber(b.Name:match("%d+")) or math.huge
+	if na ~= nb then return na < nb end
+	return a.Name < b.Name
+end)
 
 -- Obtener el Glow si existe
 UI.Glow = UI.ProgressFill:FindFirstChild("Glow")
@@ -49,6 +67,36 @@ for _, bar in ipairs(UI.EqualizerBars) do
 	pcall(function()
 		bar.BackgroundColor3 = THEME.accent
 		bar.BorderSizePixel = 0
+	end)
+end
+
+-- Intentar leer color sincronizado desde el servidor (ReplicatedStorage.RainbowColor)
+local rainbowValue = ReplicatedStorage:FindFirstChild("RainbowColor")
+
+local function applyRainbowColorToUI(color)
+	if not color then return end
+	for _, bar in ipairs(UI.EqualizerBars) do
+		pcall(function()
+			bar.BackgroundColor3 = color
+		end)
+		pcall(function()
+			if bar.ImageColor3 then bar.ImageColor3 = color end
+		end)
+	end
+	pcall(function()
+		UI.ProgressFill.BackgroundColor3 = color
+	end)
+	pcall(function()
+		if UI.ProgressFill.ImageColor3 then UI.ProgressFill.ImageColor3 = color end
+	end)
+end
+
+if rainbowValue and rainbowValue:IsA("Color3Value") then
+	-- aplicar inicialmente
+	applyRainbowColorToUI(rainbowValue.Value)
+	-- actualizar cuando cambie
+	rainbowValue.Changed:Connect(function(newVal)
+		applyRainbowColorToUI(newVal)
 	end)
 end
 

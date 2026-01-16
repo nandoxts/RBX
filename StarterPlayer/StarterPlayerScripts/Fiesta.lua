@@ -9,7 +9,8 @@ local camera = workspace.CurrentCamera
 
 local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
 local fiestaEvent = eventsFolder:WaitForChild("FiestaEvent")
-local hueSpeed = 0.01
+-- Reducir efectos: disminuir velocidad de hue, intensidad de bloom/blur y cantidad de giros
+local hueSpeed = 0.004
 
 local function HSVtoRGB(h, s, v)
 	local c = v * s
@@ -38,7 +39,7 @@ local function rotateCameraOnce()
 	local originalType = camera.CameraType
 	local originalCFrame = camera.CFrame
 	camera.CameraType = Enum.CameraType.Scriptable
-	local duration = 1.5
+	local duration = 1.0
 	local startTime = tick()
 	while tick() - startTime < duration do
 		local progress = (tick() - startTime) / duration
@@ -71,9 +72,9 @@ local function startFiestaEffect()
 	local blur = Instance.new("BlurEffect")
 	blur.Parent = Lighting
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.8
-	bloom.Size = 24
-	bloom.Threshold = 1
+	bloom.Intensity = 0.5
+	bloom.Size = 16
+	bloom.Threshold = 1.2
 	bloom.Parent = Lighting
 
 	local hue = 0
@@ -87,16 +88,15 @@ local function startFiestaEffect()
 		end
 		hue = (hue + hueSpeed) % 1
 		colorEffect.TintColor = HSVtoRGB(hue, 1, 1)
-		colorEffect.Saturation = 1
-		blur.Size = 10 + math.sin(tick() * 2) * 6
+		colorEffect.Saturation = 0.8
+		-- reducir oscilación del blur para menos movimiento
+		blur.Size = 6 + math.sin(tick() * 1) * 3
 	end)
 
 	task.spawn(function()
-		for _ = 1,2 do
-			rotateCameraOnce()
-			task.wait(3)
-		end
-		task.wait(1)
+		-- Solo un giro de cámara para reducir mareo/impacto
+		rotateCameraOnce()
+		task.wait(2)
 		stop = true
 		colorEffect:Destroy()
 		blur:Destroy()
