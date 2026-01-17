@@ -6,11 +6,11 @@
 
 local THEME = {
 	-- Modern dark background palette
-	bg       = Color3.fromRGB(15, 18, 22),      -- Fondo principal (más profundo)
-	panel    = Color3.fromRGB(22, 26, 32),      -- Paneles
+	bg       = Color3.fromRGB(13, 15, 19),      -- Fondo principal (más profundo)
+	panel    = Color3.fromRGB(18, 21, 26),      -- Paneles
 	head     = Color3.fromRGB(20, 23, 28),      -- Header
-	card     = Color3.fromRGB(28, 32, 40),      -- Cards internas
-	elevated = Color3.fromRGB(34, 38, 46),      -- Elementos elevados
+	card     = Color3.fromRGB(22, 25, 31),      -- Cards internas
+	elevated = Color3.fromRGB(32, 35, 43),      -- Elementos elevados
 	surface  = Color3.fromRGB(26, 30, 36),      -- Superficies interactivas
 
 	-- Text colors
