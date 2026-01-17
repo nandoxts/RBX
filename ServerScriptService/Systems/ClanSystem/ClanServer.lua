@@ -6,6 +6,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClanData = require(game:GetService("ServerStorage"):WaitForChild("Systems"):WaitForChild("ClanSystem"):WaitForChild("ClanData"))
 local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
+-- ColorEffectsModule usado para mapear nombres a Color3
+local ColorEffects = nil
+pcall(function()
+	ColorEffects = require(game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService"):WaitForChild("Effects"):WaitForChild("ColorEffectsModule"))
+end)
 
 -- ============================================
 -- RATE LIMITING (Simplificado)
@@ -321,8 +326,10 @@ function ClanSystem:ChangeColor(clanId, requesterId, newColor)
 	local ok, err = checkRateLimit(requesterId, "ChangeColor")
 	if not ok then return false, err end
 
-	-- Validación básica del color (espera tabla {r,g,b})
-	if type(newColor) ~= "table" then return false, "Color inválido" end
+	-- Validación básica: aceptar nombre (string) o tabla {r,g,b}
+	if type(newColor) ~= "table" and type(newColor) ~= "string" then
+		return false, "Color inválido"
+	end
 
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
@@ -330,6 +337,25 @@ function ClanSystem:ChangeColor(clanId, requesterId, newColor)
 	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
 	if not requesterData or not hasPermission(requesterData.rol, "cambiar_color") then
 		return false, "Sin permiso"
+	end
+
+	-- Si es nombre (string), buscarlo en ColorEffectsModule y convertir a RGB
+	if type(newColor) == "string" then
+		local name = tostring(newColor):lower():gsub("%s+", "")
+		if not ColorEffects or not ColorEffects.colors then
+			return false, "Módulo de colores no disponible"
+		end
+		local c3 = ColorEffects.colors[name]
+		if not c3 then
+			return false, "Color no disponible: " .. name
+		end
+		newColor = { math.floor(c3.R * 255 + 0.5), math.floor(c3.G * 255 + 0.5), math.floor(c3.B * 255 + 0.5) }
+	elseif type(newColor) == "table" then
+		-- Si es tabla, validar formato RGB (0-255)
+		local ok, msg = Config:ValidateColor(newColor)
+		if not ok then
+			return false, msg or "Color inválido"
+		end
 	end
 
 	-- Usar la validación del config si existe

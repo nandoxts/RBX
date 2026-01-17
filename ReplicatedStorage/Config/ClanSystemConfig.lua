@@ -54,7 +54,7 @@ ClanSystemConfig.RATE_LIMITS = {
 	ChangeTag = 300,
 	ChangeDescription = 30,
 	ChangeLogo = 60,
-	ChangeColor = 60,
+	ChangeColor = 10,
 	DissolveClan = 10,
 	AdminDissolveClan = 10,
 	-- NUEVOS RATE LIMITS PARA SOLICITUDES

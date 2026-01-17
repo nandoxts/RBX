@@ -1140,42 +1140,27 @@ local function createMainView(parent, clanData, playerRole)
 			ConfirmationModal.new({
 				screenGui = screenGui,
 				title = "Cambiar Color",
-				message = "Ingresa nuevo color RGB (r,g,b) 0-255:",
+				message = "Ingresa nombre de color (ej: azul, dorado):",
 				inputText = true,
-				inputPlaceholder = "255,255,255",
-				inputDefault = (clanData and clanData.clanColor) and table.concat(clanData.clanColor, ",") or "255,255,255",
+				inputPlaceholder = "ej: dorado",
+				inputDefault = "",
 				confirmText = "Cambiar",
 				cancelText = "Cancelar",
 				onConfirm = function(input)
-						-- Validación de entrada: formato r,g,b con valores 0-255
-						if not input or input == "" then
-							Notify:Warning("Inválido", "Ingresa un color", 3)
-							return
-						end
-
-						-- Limpiar espacios y mantener solo dígitos y comas
-						input = input:gsub("%s+", ""):gsub("[^%d,]", "")
-
-						local r, g, b = input:match("^(%d+),(%d+),(%d+)$")
-						if not r or not g or not b then
-							Notify:Warning("Inválido", "Formato: r,g,b (ej: 255,128,0)", 3)
-							return
-						end
-
-						r, g, b = tonumber(r), tonumber(g), tonumber(b)
-						if not r or not g or not b then
-							Notify:Warning("Inválido", "Los valores deben ser números", 3)
-							return
-						end
-
-						if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
-							Notify:Warning("Inválido", "Valores entre 0 y 255", 3)
-							return
-						end
-
-					local success, msg = ClanClient:ChangeClanColor({r, g, b})
+					if not input or input == "" then
+						Notify:Warning("Inválido", "Ingresa un nombre de color", 3)
+						return
+					end
+					-- Aceptar solo letras y espacios
+					local name = input:match("^%s*([%a%s]+)%s*$")
+					if not name then
+						Notify:Warning("Inválido", "Solo letras", 3)
+						return
+					end
+					name = name:lower():gsub("%s+", "")
+					local success, msg = ClanClient:ChangeClanColor(name)
 					if success then
-						Notify:Success("Actualizado", "Color cambiado", 4)
+						Notify:Success("Actualizado", msg or "Color cambiado", 4)
 						loadPlayerClan()
 					else
 						Notify:Error("Error", msg or "No se pudo cambiar", 4)
