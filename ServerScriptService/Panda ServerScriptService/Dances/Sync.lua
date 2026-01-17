@@ -1,6 +1,25 @@
+--[[
+    Sistema de Sincronización de Emotes - Versión Mejorada
+    
+    Arquitectura:
+    - Cada jugador puede seguir a UN solo líder (Following)
+    - Cada jugador puede tener MÚLTIPLES seguidores (Followers)
+    - Cuando un líder cambia de animación, TODOS sus seguidores se actualizan
+    - Cuando un líder sigue a otro, sus seguidores heredan la nueva animación
+    
+    Estructura de datos por jugador:
+    {
+        Animation = AnimationTrack | nil,      -- Animación actual
+        AnimationName = string | nil,          -- Nombre del baile actual
+        Following = Player | nil,              -- A quién sigo
+        Followers = {Player},                  -- Quiénes me siguen
+        Connections = {RBXScriptConnection},   -- Conexiones para cleanup
+    }
+]]
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
-local Animaciones =  require(ReplicatedStorage:WaitForChild("Emotes_Sync"):WaitForChild("Emotes_Modules"):WaitForChild("Animaciones"))
+local Animaciones = require(ReplicatedStorage:WaitForChild("Emotes_Sync"):WaitForChild("Emotes_Modules"):WaitForChild("Animaciones"))
 local Settings = require(script.Settings)
 
 local Remotes = ReplicatedStorage:WaitForChild("Emotes_Sync")
@@ -8,609 +27,544 @@ local SyncRemote = Remotes.Sync
 local PlayAnimationRemote = Remotes.PlayAnimation
 local StopAnimationRemote = Remotes.StopAnimation
 
-local SyncData = {}
+-- Configuración
+local FADE_TIME = 0.3
 
--- Configuración de transición suave
-local FADE_TIME = 0.3 -- Duración del fade in/out en segundos
+-- Estado global de sincronización
+local PlayerData = {}
 
-local Dances = {}
-local DancesByAssetId = {} -- Mapeo inverso: assetId -> nombre
+-- Cache de animaciones: nombre -> assetId
+local DanceCache = {}
 
-for _,anim in pairs(Animaciones.Ids) do
-	Dances[anim.Nombre] = "rbxassetid://"..tostring(anim.ID)
-	DancesByAssetId["rbxassetid://"..tostring(anim.ID)] = anim.Nombre
-end
-
-for _,anim in pairs(Animaciones.Recomendado) do
-	Dances[anim.Nombre] = "rbxassetid://"..tostring(anim.ID)
-	DancesByAssetId["rbxassetid://"..tostring(anim.ID)] = anim.Nombre
-end
-
-for _,anim in pairs(Animaciones.Vip) do
-	Dances[anim.Nombre] = "rbxassetid://"..tostring(anim.ID)
-	DancesByAssetId["rbxassetid://"..tostring(anim.ID)] = anim.Nombre
-end
-
-
-
-
-
-local Commands = {
-	["Sync"] = function(Plr,SyncPlayer)
-		if SyncData[SyncPlayer]["StoredAnimation"] ~= nil then
-			if SyncData[Plr]["StoredAnimation"] ~= nil then
-				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-				SyncData[Plr]["StoredAnimation"]:Destroy()
-				SyncData[Plr]["StoredAnimation"] = nil
-			end
-			local Character = Plr.Character
-			local Humanoid = Character.Humanoid
-			local Animation = Character.Baile
-			Animation.AnimationId = SyncData[SyncPlayer]["StoredAnimation"].Animation.AnimationId
-			local animator = Humanoid:FindFirstChild("Animator")
-			if animator then
-				local AnimationTrack = animator:LoadAnimation(Animation)
-
-				AnimationTrack:Play(FADE_TIME)
-				AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
-				AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
-
-				SyncData[Plr]["StoredAnimation"] = AnimationTrack
-
-			end
+-- Inicializar cache de bailes
+local function InitializeDanceCache()
+	local sources = {Animaciones.Ids, Animaciones.Recomendado, Animaciones.Vip}
+	for _, source in ipairs(sources) do
+		for _, anim in pairs(source) do
+			DanceCache[anim.Nombre] = "rbxassetid://" .. tostring(anim.ID)
 		end
-	end;
-	["SetSync"] = function(Plr,SyncPlayer)
-		if SyncData[Plr]["SyncDebounce"] == false then
-			SyncData[Plr]["SyncDebounce"] = true
-			if SyncData[SyncPlayer]["StoredAnimation"] ~= nil then
-				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-					SyncData[Plr]["StoredAnimation"]:Destroy()
-					SyncData[Plr]["StoredAnimation"] = nil
-				end
-				local Character = Plr.Character
-				local Humanoid = Character.Humanoid
-				local Animation = Character.Baile
-
-				Animation.AnimationId = SyncData[SyncPlayer]["StoredAnimation"].Animation.AnimationId
-				local animator = Humanoid:FindFirstChild("Animator")
-				if animator then
-					local AnimationTrack = animator:LoadAnimation(Animation)
-					AnimationTrack.Priority = Enum.AnimationPriority.Action
-					AnimationTrack:Play(FADE_TIME)
-					AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
-					AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
-
-					SyncData[Plr]["StoredAnimation"] = AnimationTrack
-					if not table.find(SyncData[SyncPlayer]["SyncPlayers"],Plr) then
-						table.insert(SyncData[SyncPlayer]["SyncPlayers"],Plr)
-					end
-
-				end
-			elseif Settings.CopyActualAnimation then
-				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-					SyncData[Plr]["StoredAnimation"]:Destroy()
-					SyncData[Plr]["StoredAnimation"] = nil
-				end
-				-- play animation
-				local humanoid = Plr.Character:WaitForChild("Humanoid")
-				local humanoid2 = SyncPlayer.Character:WaitForChild("Humanoid")
-				local animator = humanoid:WaitForChild("Animator")
-				local animator2 = humanoid2:WaitForChild("Animator")
-
-				local AnimTracks1 = animator:GetPlayingAnimationTracks()
-
-				for _,v in pairs(AnimTracks1) do
-					v:Stop(FADE_TIME)
-				end
-
-				local Animation = Plr.Character.Baile
-				local AnimationTracks = animator2:GetPlayingAnimationTracks()
-				local anim
-				local animator = humanoid:WaitForChild("Animator")
-
-				for _, v in pairs(AnimationTracks) do
-					Animation.AnimationId = v.Animation.AnimationId
-
-					anim = animator:LoadAnimation(Animation)
-					anim.Priority = Enum.AnimationPriority.Action
-					anim:Play(FADE_TIME)
-					anim.TimePosition = v.TimePosition
-					anim:AdjustSpeed(v.Speed)
-
-				end
-				SyncData[Plr]["StoredAnimation"] = anim
-				if not table.find(SyncData[SyncPlayer]["SyncPlayers"],Plr) then
-					table.insert(SyncData[SyncPlayer]["SyncPlayers"],Plr)
-				end
-
-			end
-		elseif SyncData[Plr]["SyncDebounce"] == true then
-			if SyncData[SyncPlayer]["StoredAnimation"] ~= nil then
-				for i,PlayerTable in pairs(SyncData)do
-					for Index,v in pairs(PlayerTable["SyncPlayers"])do
-						if v == Plr then
-							table.remove(PlayerTable["SyncPlayers"],Index)
-						end
-					end
-				end
-				if SyncData[Plr]["StoredAnimation"]  ~= nil then
-					SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-					SyncData[Plr]["StoredAnimation"]:Destroy()
-					SyncData[Plr]["StoredAnimation"] = nil
-				end
-				local Character = Plr.Character
-				local Humanoid = Character.Humanoid
-				local Animation = Character.Baile
-				Animation.AnimationId = SyncData[SyncPlayer]["StoredAnimation"].Animation.AnimationId
-				local animator = Humanoid:FindFirstChild("Animator")
-				if animator then
-					local AnimationTrack = animator:LoadAnimation(Animation)
-					AnimationTrack.Priority = Enum.AnimationPriority.Action
-					AnimationTrack:Play(FADE_TIME)
-					AnimationTrack.TimePosition = SyncData[SyncPlayer]["StoredAnimation"].TimePosition
-					AnimationTrack:AdjustSpeed(SyncData[SyncPlayer]["StoredAnimation"].Speed)
-					SyncData[Plr]["StoredAnimation"] = AnimationTrack
-					if not table.find(SyncData[SyncPlayer]["SyncPlayers"],Plr) then
-						table.insert(SyncData[SyncPlayer]["SyncPlayers"],Plr)
-					end
-
-				end
-			end
-		end
-	end;
-	["Unsync"] = function(Plr)
-		if SyncData[Plr]["SyncDebounce"] == true then
-			SyncData[Plr]["SyncDebounce"] = false 
-			if SyncData[Plr]["StoredAnimation"] ~= nil then
-				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-				SyncData[Plr]["StoredAnimation"]:Destroy()
-				SyncData[Plr]["StoredAnimation"] = nil
-			end
-			for i,PlayerTable in pairs(SyncData)do
-				for Index,v in pairs(PlayerTable["SyncPlayers"])do
-					if v == Plr then
-						table.remove(PlayerTable["SyncPlayers"],Index)
-					end
-				end
-			end
-			if #SyncData[Plr]["SyncPlayers"] >= 1 then
-				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-					if SyncData[Player]["StoredAnimation"] ~= nil then
-						SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
-						SyncData[Player]["StoredAnimation"]:Destroy()
-						SyncData[Player]["StoredAnimation"] = nil
-
-						if Plr.Character ~= nil then
-							local SyncOnOff = Plr.Character:FindFirstChild("SyncOnOff")
-							if SyncOnOff then
-								SyncOnOff.Value = false
-							end
-						end	
-					end
-				end
-			end
-
-		end
-	end;
-	["Reset"] = function(Plr)
-		if SyncData[Plr]["StoredAnimation"] ~= nil then
-			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-			SyncData[Plr]["StoredAnimation"]:Destroy()
-			SyncData[Plr]["StoredAnimation"] = nil
-		end
-	end;
-	["Disconnect"] = function(Plr)
-		for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-			if SyncData[Player]["StoredAnimation"] ~= nil then
-				SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
-				SyncData[Player]["StoredAnimation"]:Destroy()
-				SyncData[Player]["StoredAnimation"] = nil
-			end
-			for Index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
-				if SyncData[SyncPlr]["StoredAnimation"] ~= nil then
-					SyncData[SyncPlr]["StoredAnimation"]:Stop(FADE_TIME)
-					SyncData[SyncPlr]["StoredAnimation"]:Destroy()
-					SyncData[SyncPlr]["StoredAnimation"] = nil
-				end
-			end
-			SyncData[Player]["SyncDebounce"] = false
-
-		end
-		for i,PlayerTable in pairs(SyncData)do
-			for Index,v in pairs(PlayerTable["SyncPlayers"])do
-				if v == Plr then
-					table.remove(PlayerTable["SyncPlayers"],Index)
-				end
-			end
-		end
-		for Index, Connection in pairs(SyncData[Plr]["Connections"]) do
-			if Connection then
-				Connection:Disconnect()
-				Connection = nil
-			end
-		end
-		SyncData[Plr]["Connections"] = nil
-		SyncData[Plr]["StoredAnimation"] = nil
-		SyncData[Plr]["SyncPlayers"] = nil
-		SyncData[Plr]["SyncDebounce"] = nil
-		SyncData[Plr] = nil
-	end;
-	["Respawn"] = function(Plr)
-		if SyncData[Plr]["StoredAnimation"] ~= nil then
-			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-			SyncData[Plr]["StoredAnimation"]:Destroy()
-			SyncData[Plr]["StoredAnimation"] = nil
-		end
-		SyncData[Plr]["SyncDebounce"] = false
-
-		if Settings.ResetAnimationOnRespawn then
-			if #SyncData[Plr]["SyncPlayers"] >= 1 then
-				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-					if SyncData[Player]["StoredAnimation"] ~= nil then
-						SyncData[Player]["StoredAnimation"]:Stop(FADE_TIME)
-						SyncData[Player]["StoredAnimation"]:Destroy()
-						SyncData[Player]["StoredAnimation"] = nil
-					end
-					for Index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
-						if SyncData[SyncPlr]["StoredAnimation"] ~= nil then
-							SyncData[SyncPlr]["StoredAnimation"]:Stop(FADE_TIME)
-							SyncData[SyncPlr]["StoredAnimation"]:Destroy()
-							SyncData[SyncPlr]["StoredAnimation"] = nil
-						end
-					end
-					SyncData[Player]["SyncDebounce"] = false
-
-				end
-			end
-			SyncData[Plr]["SyncPlayers"] = {}
-		end
-		for i,PlayerTable in pairs(SyncData)do
-			for Index,v in pairs(PlayerTable["SyncPlayers"])do
-				if v == Plr then
-					table.remove(PlayerTable["SyncPlayers"],Index)
-				end
-			end
-		end
-	end;
-}
-
-local function GetPlr(Plr)
-	if Plr ~= "" then
-		Plr = Plr.Name:lower()
-		for _, player in ipairs(Players:GetPlayers()) do
-			if Plr == player.Name:lower():sub(1, #Plr) then
-				return player
-			end
-		end
-		return nil
 	end
 end
+InitializeDanceCache()
 
-local NotifyAnimationToClient = function(Plr, animationName)
-	if animationName then
-		SyncData[Plr]["CurrentAnimationName"] = animationName
-		pcall(function()
-			PlayAnimationRemote:FireClient(Plr, "playAnim", animationName)
-		end)
-	else
-		SyncData[Plr]["CurrentAnimationName"] = nil
-		pcall(function()
-			StopAnimationRemote:FireClient(Plr)
-		end)
-	end
+--------------------------------------------------------------------------------
+-- UTILIDADES
+--------------------------------------------------------------------------------
+
+-- Validar que un jugador existe y tiene datos
+local function IsValidPlayer(player)
+	return player 
+		and player.Parent == Players 
+		and PlayerData[player] ~= nil
 end
 
-local StopAnimation = function(Plr)
-	if SyncData[Plr]["StoredAnimation"] ~= nil then
-		SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-		SyncData[Plr]["StoredAnimation"]:Destroy()
-		SyncData[Plr]["StoredAnimation"] = nil
+-- Validar que un jugador puede bailar (tiene Character, Humanoid, etc.)
+local function CanAnimate(player)
+	if not IsValidPlayer(player) then return false end
+
+	local character = player.Character
+	if not character then return false end
+
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return false end
+
+	local animator = humanoid:FindFirstChild("Animator")
+	if not animator then return false end
+
+	local baileAnim = character:FindFirstChild("Baile")
+	if not baileAnim then return false end
+
+	return true
+end
+
+-- Obtener el líder raíz de una cadena de sincronización
+-- Si A sigue a B y B sigue a C, el líder raíz de A es C
+local function GetRootLeader(player)
+	if not IsValidPlayer(player) then return nil end
+
+	local visited = {}
+	local current = player
+
+	while current and PlayerData[current] and PlayerData[current].Following do
+		-- Prevenir loops infinitos
+		if visited[current] then
+			warn("[EmotesSync] Loop detectado en cadena de sincronización")
+			return current
+		end
+		visited[current] = true
+		current = PlayerData[current].Following
 	end
-	SyncData[Plr]["CurrentAnimationName"] = nil
-	NotifyAnimationToClient(Plr, nil) -- Limpiar UI del jugador principal
-	if #SyncData[Plr]["SyncPlayers"] >= 1 then
-		for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-			Commands.Reset(Player)
-			NotifyAnimationToClient(Player, nil) -- Limpiar UI del jugador sincronizado
-			for index,SyncPlayer in pairs(SyncData[Player]["SyncPlayers"])do
-				Commands.Reset(SyncPlayer)
-				NotifyAnimationToClient(SyncPlayer, nil) -- Limpiar UI de sync anidados
+
+	return current
+end
+
+-- Obtener TODOS los seguidores de un jugador (recursivamente)
+local function GetAllFollowers(player, visited)
+	visited = visited or {}
+	local allFollowers = {}
+
+	if not IsValidPlayer(player) or visited[player] then 
+		return allFollowers 
+	end
+	visited[player] = true
+
+	local data = PlayerData[player]
+	if not data or not data.Followers then return allFollowers end
+
+	for _, follower in ipairs(data.Followers) do
+		if IsValidPlayer(follower) and not visited[follower] then
+			table.insert(allFollowers, follower)
+			-- Obtener seguidores de este seguidor también
+			local subFollowers = GetAllFollowers(follower, visited)
+			for _, subFollower in ipairs(subFollowers) do
+				table.insert(allFollowers, subFollower)
 			end
+		end
+	end
+
+	return allFollowers
+end
+
+-- Copiar tabla de manera segura (shallow copy)
+local function ShallowCopy(tbl)
+	local copy = {}
+	for i, v in ipairs(tbl) do
+		copy[i] = v
+	end
+	return copy
+end
+
+-- Remover un elemento de un array de manera segura
+local function SafeRemoveFromArray(array, element)
+	for i = #array, 1, -1 do
+		if array[i] == element then
+			table.remove(array, i)
 		end
 	end
 end
 
-local PlayAnimation = function(Plr,func,AnimationData)
-	if func == "playAnim" and AnimationData and Dances[AnimationData] ~= nil then
-		-- Guardar los seguidores antes de cualquier operación
-		local myFollowers = {}
-		if SyncData[Plr] and SyncData[Plr]["SyncPlayers"] then
-			for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
-				table.insert(myFollowers, follower)
-			end
-		end
+-- Buscar jugador por nombre parcial
+local function FindPlayerByName(partialName)
+	if not partialName or partialName == "" then return nil end
 
-		-- Si está sincronizado con alguien, desincronizarse de ese líder
-		if SyncData[Plr]["SyncDebounce"] == true then
-			SyncData[Plr]["SyncDebounce"] = false
-
-			-- Remover de la lista de seguidores de otros líderes
-			for i, PlayerTable in pairs(SyncData) do
-				if i ~= Plr then
-					for Index, v in pairs(PlayerTable["SyncPlayers"]) do
-						if v == Plr then
-							table.remove(PlayerTable["SyncPlayers"], Index)
-							break
-						end
-					end
-				end
-			end
-
-			-- Actualizar SyncOnOff
-			if Plr.Character and Plr.Character:FindFirstChild("SyncOnOff") then
-				Plr.Character.SyncOnOff.Value = false
-			end
-		end
-
-		-- Restaurar la lista de seguidores
-		SyncData[Plr]["SyncPlayers"] = myFollowers
-
-		-- Detener animación actual si existe
-		if SyncData[Plr]["StoredAnimation"] then
-			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-			SyncData[Plr]["StoredAnimation"]:Destroy()
-			SyncData[Plr]["StoredAnimation"] = nil
-		end
-
-		local Character = Plr.Character
-		local Humanoid = Character.Humanoid
-		local Animation = Character.Baile
-		Animation.AnimationId = Dances[AnimationData]
-		local animator = Humanoid:FindFirstChild("Animator")
-		if animator then
-			local AnimationTrack = animator:LoadAnimation(Animation)
-			AnimationTrack.Priority = Enum.AnimationPriority.Action
-			AnimationTrack:Play(FADE_TIME)
-			AnimationTrack.TimePosition = 0
-			SyncData[Plr]["StoredAnimation"] = AnimationTrack
-			NotifyAnimationToClient(Plr, AnimationData)
-
-			-- Actualizar a los seguidores con el nuevo baile
-			if #myFollowers >= 1 then
-				for _, Player in pairs(myFollowers) do
-					if Player and SyncData[Player] then
-						Commands.Sync(Player, Plr)
-						NotifyAnimationToClient(Player, AnimationData)
-						-- Actualizar seguidores anidados
-						if SyncData[Player]["SyncPlayers"] then
-							for _, SyncPlr in pairs(SyncData[Player]["SyncPlayers"]) do
-								Commands.Sync(SyncPlr, Plr)
-								NotifyAnimationToClient(SyncPlr, AnimationData)
-							end
-						end
-					end
-				end
-			end
-		end	
-	elseif func == "speed" then
-		if SyncData[Plr]["StoredAnimation"] ~= nil then
-			local Character = Plr.Character
-			local Humanoid = Character.Humanoid
-			local Animation = Character.Baile
-			Animation.AnimationId =  SyncData[Plr]["StoredAnimation"].Animation.AnimationId
-			local animator = Humanoid:FindFirstChild("Animator")
-			if animator then
-				local AnimationTrack = animator:LoadAnimation(Animation)
-				AnimationTrack.Priority = Enum.AnimationPriority.Action
-				AnimationTrack:Play(FADE_TIME)
-				AnimationTrack.TimePosition = SyncData[Plr]["StoredAnimation"].TimePosition
-				AnimationTrack:AdjustSpeed(AnimationData)
-				SyncData[Plr]["StoredAnimation"] = AnimationTrack
-				if #SyncData[Plr]["SyncPlayers"] >= 1 then
-					for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-						Commands.Sync(Player,Plr)
-						for index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
-							Commands.Sync(SyncPlr,Plr)
-						end
-					end
-				end
-			end	
-
+	partialName = partialName:lower()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Name:lower():sub(1, #partialName) == partialName then
+			return player
 		end
 	end
+	return nil
 end
 
-local SyncAction = function(Plr,action,Name)
-	if action == "sync" then
-		local PlayerSync = GetPlr(Name)
-		if PlayerSync then
-			if Plr ~= PlayerSync then
-				if Plr and Plr.Character and Plr.Character.SyncOnOff then
-					-- Guardar los seguidores actuales (ellos siguen siendo seguidores de Plr)
-					local myFollowers = {}
-					if SyncData[Plr] and SyncData[Plr]["SyncPlayers"] then
-						for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
-							table.insert(myFollowers, follower)
-						end
-					end
+--------------------------------------------------------------------------------
+-- SISTEMA DE ANIMACIONES
+--------------------------------------------------------------------------------
 
-					-- Detener la animación actual del jugador
-					if SyncData[Plr]["StoredAnimation"] ~= nil then
-						SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-						SyncData[Plr]["StoredAnimation"]:Destroy()
-						SyncData[Plr]["StoredAnimation"] = nil
-					end
-					SyncData[Plr]["CurrentAnimationName"] = nil
+-- Notificar al cliente sobre cambio de animación
+local function NotifyClient(player, animationName)
+	if not IsValidPlayer(player) then return end
 
-					-- Restaurar la lista de seguidores (NO la limpiamos)
-					SyncData[Plr]["SyncPlayers"] = myFollowers
+	PlayerData[player].AnimationName = animationName
 
-					-- Sincronizar al jugador con el objetivo
-					Plr.Character.SyncOnOff.Value = true
-					Commands.SetSync(Plr, PlayerSync)
-
-					-- Notificar al cliente qué animación está sincronizada
-					local syncedAnimName = SyncData[PlayerSync]["CurrentAnimationName"]
-					if syncedAnimName then
-						NotifyAnimationToClient(Plr, syncedAnimName)
-					end
-
-					-- Actualizar a los seguidores de Plr con la nueva animación
-					-- Ellos siguen a Plr (su líder original), reciben lo que Plr tenga
-					if #myFollowers > 0 and SyncData[Plr]["StoredAnimation"] then
-						for _, follower in pairs(myFollowers) do
-							if follower and follower.Character and SyncData[follower] then
-								-- Detener animación actual del seguidor
-								if SyncData[follower]["StoredAnimation"] ~= nil then
-									SyncData[follower]["StoredAnimation"]:Stop(FADE_TIME)
-									SyncData[follower]["StoredAnimation"]:Destroy()
-									SyncData[follower]["StoredAnimation"] = nil
-								end
-
-								-- Sincronizar seguidor con su líder (Plr), NO con PlayerSync
-								local Character = follower.Character
-								local Humanoid = Character:FindFirstChild("Humanoid")
-								local Animation = Character:FindFirstChild("Baile")
-
-								if Humanoid and Animation and SyncData[Plr]["StoredAnimation"] then
-									Animation.AnimationId = SyncData[Plr]["StoredAnimation"].Animation.AnimationId
-									local animator = Humanoid:FindFirstChild("Animator")
-									if animator then
-										local AnimationTrack = animator:LoadAnimation(Animation)
-										AnimationTrack.Priority = Enum.AnimationPriority.Action
-										AnimationTrack:Play(FADE_TIME)
-										AnimationTrack.TimePosition = SyncData[Plr]["StoredAnimation"].TimePosition
-										AnimationTrack:AdjustSpeed(SyncData[Plr]["StoredAnimation"].Speed)
-
-										SyncData[follower]["StoredAnimation"] = AnimationTrack
-
-										-- Notificar al seguidor
-										if syncedAnimName then
-											NotifyAnimationToClient(follower, syncedAnimName)
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	elseif action == "unsync" then
-		if Plr and Plr.Character and Plr.Character.SyncOnOff then
-			Plr.Character.SyncOnOff.Value = false
-
-			-- Detener solo la animación del jugador
-			if SyncData[Plr]["StoredAnimation"] ~= nil then
-				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
-				SyncData[Plr]["StoredAnimation"]:Destroy()
-				SyncData[Plr]["StoredAnimation"] = nil
-			end
-			SyncData[Plr]["SyncDebounce"] = false
-
-			-- Remover de la lista de seguidores de otros líderes
-			for i, PlayerTable in pairs(SyncData) do
-				if i ~= Plr then -- No tocar su propia lista de seguidores
-					for Index, v in pairs(PlayerTable["SyncPlayers"]) do
-						if v == Plr then
-							table.remove(PlayerTable["SyncPlayers"], Index)
-							break
-						end
-					end
-				end
-			end
-
-			NotifyAnimationToClient(Plr, nil)
-
-			-- Los seguidores de Plr también pierden la animación porque su líder dejó de bailar
-			if SyncData[Plr]["SyncPlayers"] and #SyncData[Plr]["SyncPlayers"] >= 1 then
-				for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
-					if follower and SyncData[follower] then
-						if SyncData[follower]["StoredAnimation"] ~= nil then
-							SyncData[follower]["StoredAnimation"]:Stop(FADE_TIME)
-							SyncData[follower]["StoredAnimation"]:Destroy()
-							SyncData[follower]["StoredAnimation"] = nil
-						end
-						NotifyAnimationToClient(follower, nil)
-					end
-				end
-			end
-		end
-	end
-end
-
-local PlayerRemoving = function(Plr)
-	Commands.Disconnect(Plr)
-end
-
-local CharacterAdded = function(Character)
-	local Animation = Instance.new("Animation")
-	Animation.Name = "Baile"
-	Animation.Parent = Character
-	local SyncOnOFf = Instance.new("BoolValue")
-	SyncOnOFf.Name = "SyncOnOff"
-	SyncOnOFf.Parent = Character
-
-	local Plr = Players:GetPlayerFromCharacter(Character)
-	local Humanoid = Character.Humanoid
-	if Humanoid then
-		local connectiondie
-		connectiondie = Humanoid.Died:Connect(function()
-			Commands.Respawn(Plr)
-			connectiondie:Disconnect()
-		end)
-	end
-end
-
-local PlayerAdded = function(Plr)
-	SyncData[Plr] = {
-		["Connections"] = {};
-		["StoredAnimation"] = nil;
-		["SyncPlayers"] = {};
-		["SyncDebounce"] = false;
-		["CurrentAnimationName"] = nil;
-	}
-	local charLoadConnection = Plr.CharacterAdded:Connect(CharacterAdded)
-	table.insert(SyncData[Plr]["Connections"], charLoadConnection)
-
-	local Character = Plr.Character
-	if Character then
-		CharacterAdded(Character)
-	end
-	local playerChattedConnection = Plr.Chatted:Connect(function(Msg)
-		local Args = Msg:split(" ")
-		if Args[1] ~= nil and  Args[1]:lower() == "sync" then
-			if Args[2] ~= nil then
-				local PlayerSync = GetPlr(Args[2])
-				if PlayerSync then
-					if Plr ~= PlayerSync then
-						if Plr and Plr.Character and Plr.Character.SyncOnOff then
-							Plr.Character.SyncOnOff.Value = true
-							Commands.SetSync(Plr,PlayerSync)
-						end
-					end
-				end
-			end
-		elseif Args[1] ~= nil and Args[1]:lower() == "unsync" then
-			if Plr and Plr.Character and Plr.Character.SyncOnOff then
-				Plr.Character.SyncOnOff.Value = false
-				Commands.Unsync(Plr)
-			end
+	pcall(function()
+		if animationName then
+			PlayAnimationRemote:FireClient(player, "playAnim", animationName)
+		else
+			StopAnimationRemote:FireClient(player)
 		end
 	end)
-	table.insert(SyncData[Plr]["Connections"], playerChattedConnection)
 end
 
---Event Handlers--
-Players.PlayerAdded:Connect(PlayerAdded)
-Players.PlayerRemoving:Connect(PlayerRemoving)
-PlayAnimationRemote.OnServerEvent:Connect(PlayAnimation)
-StopAnimationRemote.OnServerEvent:Connect(StopAnimation)
-SyncRemote.OnServerEvent:Connect(SyncAction)
+-- Detener la animación de un jugador
+local function StopPlayerAnimation(player)
+	if not IsValidPlayer(player) then return end
 
-for _,Player in pairs(Players:GetPlayers())do
-	PlayerAdded(Player)
+	local data = PlayerData[player]
+	if data.Animation then
+		pcall(function()
+			data.Animation:Stop(FADE_TIME)
+			data.Animation:Destroy()
+		end)
+		data.Animation = nil
+	end
+	data.AnimationName = nil
+end
+
+-- Reproducir una animación en un jugador específico
+local function PlayAnimationOnPlayer(player, animationId, animationName, timePosition, speed)
+	if not CanAnimate(player) then return false end
+
+	timePosition = timePosition or 0
+	speed = speed or 1
+
+	local data = PlayerData[player]
+	local character = player.Character
+	local humanoid = character.Humanoid
+	local animator = humanoid.Animator
+	local baileAnim = character.Baile
+
+	-- Detener animación actual
+	StopPlayerAnimation(player)
+
+	-- Configurar y reproducir nueva animación
+	baileAnim.AnimationId = animationId
+
+	local track = animator:LoadAnimation(baileAnim)
+	track.Priority = Enum.AnimationPriority.Action
+	track:Play(FADE_TIME)
+	track.TimePosition = timePosition
+	track:AdjustSpeed(speed)
+
+	data.Animation = track
+	data.AnimationName = animationName
+
+	return true
+end
+
+-- Propagar animación a todos los seguidores de un jugador
+local function PropagateAnimationToFollowers(leader)
+	if not IsValidPlayer(leader) then return end
+
+	local leaderData = PlayerData[leader]
+	if not leaderData.Animation then return end
+
+	local animationId = leaderData.Animation.Animation.AnimationId
+	local animationName = leaderData.AnimationName
+	local timePosition = leaderData.Animation.TimePosition
+	local speed = leaderData.Animation.Speed
+
+	-- Obtener TODOS los seguidores (incluyendo seguidores de seguidores)
+	local allFollowers = GetAllFollowers(leader)
+
+	for _, follower in ipairs(allFollowers) do
+		if CanAnimate(follower) then
+			PlayAnimationOnPlayer(follower, animationId, animationName, timePosition, speed)
+			NotifyClient(follower, animationName)
+		end
+	end
+end
+
+-- Detener animaciones de todos los seguidores
+local function StopFollowersAnimations(leader)
+	if not IsValidPlayer(leader) then return end
+
+	local allFollowers = GetAllFollowers(leader)
+
+	for _, follower in ipairs(allFollowers) do
+		StopPlayerAnimation(follower)
+		NotifyClient(follower, nil)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- SISTEMA DE SINCRONIZACIÓN
+--------------------------------------------------------------------------------
+
+-- Dejar de seguir a un líder
+local function Unfollow(player)
+	if not IsValidPlayer(player) then return end
+
+	local data = PlayerData[player]
+	local currentLeader = data.Following
+
+	if currentLeader and IsValidPlayer(currentLeader) then
+		-- Remover de la lista de seguidores del líder anterior
+		SafeRemoveFromArray(PlayerData[currentLeader].Followers, player)
+	end
+
+	data.Following = nil
+
+	-- Actualizar indicador visual
+	if player.Character and player.Character:FindFirstChild("SyncOnOff") then
+		player.Character.SyncOnOff.Value = false
+	end
+end
+
+-- Seguir a un nuevo líder
+local function Follow(follower, leader)
+	if not IsValidPlayer(follower) or not IsValidPlayer(leader) then return false end
+	if follower == leader then return false end
+
+	-- Prevenir loops: no puedo seguir a alguien que me sigue (directa o indirectamente)
+	local allMyFollowers = GetAllFollowers(follower)
+	for _, f in ipairs(allMyFollowers) do
+		if f == leader then
+			warn("[EmotesSync] No se puede seguir a un seguidor propio")
+			return false
+		end
+	end
+
+	-- Guardar mis seguidores actuales antes de cambiar
+	local myFollowers = ShallowCopy(PlayerData[follower].Followers)
+
+	-- Dejar de seguir al líder anterior si existe
+	Unfollow(follower)
+
+	-- Establecer nuevo líder
+	local followerData = PlayerData[follower]
+	followerData.Following = leader
+
+	-- Agregar a la lista de seguidores del nuevo líder
+	if not table.find(PlayerData[leader].Followers, follower) then
+		table.insert(PlayerData[leader].Followers, follower)
+	end
+
+	-- Restaurar mis seguidores (ellos me siguen a mí, no al nuevo líder)
+	followerData.Followers = myFollowers
+
+	-- Actualizar indicador visual
+	if follower.Character and follower.Character:FindFirstChild("SyncOnOff") then
+		follower.Character.SyncOnOff.Value = true
+	end
+
+	-- Obtener la animación del líder raíz
+	local rootLeader = GetRootLeader(leader)
+	if rootLeader and IsValidPlayer(rootLeader) then
+		local rootData = PlayerData[rootLeader]
+		if rootData.Animation then
+			local animId = rootData.Animation.Animation.AnimationId
+			local animName = rootData.AnimationName
+			local timePos = rootData.Animation.TimePosition
+			local speed = rootData.Animation.Speed
+
+			-- Aplicar animación al nuevo seguidor
+			if PlayAnimationOnPlayer(follower, animId, animName, timePos, speed) then
+				NotifyClient(follower, animName)
+			end
+
+			-- Propagar a todos mis seguidores también
+			for _, myFollower in ipairs(myFollowers) do
+				if CanAnimate(myFollower) then
+					PlayAnimationOnPlayer(myFollower, animId, animName, timePos, speed)
+					NotifyClient(myFollower, animName)
+
+					-- Y a los seguidores de mis seguidores
+					local subFollowers = GetAllFollowers(myFollower)
+					for _, subFollower in ipairs(subFollowers) do
+						if CanAnimate(subFollower) then
+							PlayAnimationOnPlayer(subFollower, animId, animName, timePos, speed)
+							NotifyClient(subFollower, animName)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return true
+end
+
+--------------------------------------------------------------------------------
+-- HANDLERS DE EVENTOS
+--------------------------------------------------------------------------------
+
+-- Reproducir animación (desde cliente)
+local function OnPlayAnimation(player, action, animationData)
+	if not IsValidPlayer(player) then return end
+
+	if action == "playAnim" and animationData and DanceCache[animationData] then
+		-- Guardar mis seguidores
+		local myFollowers = ShallowCopy(PlayerData[player].Followers)
+
+		-- Si estoy siguiendo a alguien, dejar de seguir
+		-- (porque ahora YO soy el que elige el baile)
+		Unfollow(player)
+
+		-- Restaurar mis seguidores
+		PlayerData[player].Followers = myFollowers
+
+		-- Reproducir la animación
+		local animId = DanceCache[animationData]
+		if PlayAnimationOnPlayer(player, animId, animationData, 0, 1) then
+			NotifyClient(player, animationData)
+
+			-- Propagar a TODOS mis seguidores
+			PropagateAnimationToFollowers(player)
+		end
+
+	elseif action == "speed" and type(animationData) == "number" then
+		local data = PlayerData[player]
+		if data.Animation then
+			local animId = data.Animation.Animation.AnimationId
+			local animName = data.AnimationName
+			local timePos = data.Animation.TimePosition
+
+			-- Recrear animación con nueva velocidad
+			if PlayAnimationOnPlayer(player, animId, animName, timePos, animationData) then
+				-- Propagar cambio de velocidad a seguidores
+				PropagateAnimationToFollowers(player)
+			end
+		end
+	end
+end
+
+-- Detener animación (desde cliente)
+local function OnStopAnimation(player)
+	if not IsValidPlayer(player) then return end
+
+	-- Detener mi animación
+	StopPlayerAnimation(player)
+	NotifyClient(player, nil)
+
+	-- Detener animaciones de todos mis seguidores
+	StopFollowersAnimations(player)
+end
+
+-- Acción de sincronización (desde cliente)
+local function OnSyncAction(player, action, targetName)
+	if not IsValidPlayer(player) then return end
+
+	if action == "sync" then
+		local targetPlayer = FindPlayerByName(targetName)
+		if targetPlayer and IsValidPlayer(targetPlayer) and player ~= targetPlayer then
+			Follow(player, targetPlayer)
+		end
+
+	elseif action == "unsync" then
+		-- Guardar seguidores antes de desincronizar
+		local myFollowers = ShallowCopy(PlayerData[player].Followers)
+
+		-- Dejar de seguir
+		Unfollow(player)
+
+		-- Detener mi animación
+		StopPlayerAnimation(player)
+		NotifyClient(player, nil)
+
+		-- Restaurar seguidores y detener sus animaciones
+		PlayerData[player].Followers = myFollowers
+		StopFollowersAnimations(player)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- MANEJO DE JUGADORES
+--------------------------------------------------------------------------------
+
+local function OnCharacterAdded(character)
+	-- Crear instancias necesarias
+	local animation = Instance.new("Animation")
+	animation.Name = "Baile"
+	animation.Parent = character
+
+	local syncIndicator = Instance.new("BoolValue")
+	syncIndicator.Name = "SyncOnOff"
+	syncIndicator.Parent = character
+
+	-- Manejar muerte del personaje
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player or not PlayerData[player] then return end
+
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if humanoid then
+		local diedConnection
+		diedConnection = humanoid.Died:Connect(function()
+			if diedConnection then
+				diedConnection:Disconnect()
+			end
+
+			if not IsValidPlayer(player) then return end
+
+			-- Detener animación al morir
+			StopPlayerAnimation(player)
+			PlayerData[player].Following = nil
+
+			if Settings.ResetAnimationOnRespawn then
+				-- Notificar a seguidores que ya no hay animación
+				StopFollowersAnimations(player)
+
+				-- Remover de la lista de seguidores de otros
+				for otherPlayer, data in pairs(PlayerData) do
+					if otherPlayer ~= player and data.Followers then
+						SafeRemoveFromArray(data.Followers, player)
+					end
+				end
+
+				-- Limpiar seguidores
+				PlayerData[player].Followers = {}
+			end
+		end)
+
+		table.insert(PlayerData[player].Connections, diedConnection)
+	end
+end
+
+local function OnPlayerAdded(player)
+	-- Inicializar datos del jugador
+	PlayerData[player] = {
+		Animation = nil,
+		AnimationName = nil,
+		Following = nil,
+		Followers = {},
+		Connections = {},
+	}
+
+	-- Conexión para cuando se agrega el personaje
+	local charConnection = player.CharacterAdded:Connect(OnCharacterAdded)
+	table.insert(PlayerData[player].Connections, charConnection)
+
+	-- Si ya tiene personaje, inicializarlo
+	if player.Character then
+		OnCharacterAdded(player.Character)
+	end
+
+	-- Manejar comandos de chat
+	local chatConnection = player.Chatted:Connect(function(message)
+		local args = message:split(" ")
+		local command = args[1] and args[1]:lower()
+
+		if command == "sync" and args[2] then
+			local targetPlayer = FindPlayerByName(args[2])
+			if targetPlayer and player ~= targetPlayer then
+				Follow(player, targetPlayer)
+			end
+		elseif command == "unsync" then
+			OnSyncAction(player, "unsync", nil)
+		end
+	end)
+	table.insert(PlayerData[player].Connections, chatConnection)
+end
+
+local function OnPlayerRemoving(player)
+	if not PlayerData[player] then return end
+
+	-- Detener mi animación y notificar seguidores
+	StopPlayerAnimation(player)
+	StopFollowersAnimations(player)
+
+	-- Dejar de seguir a mi líder
+	Unfollow(player)
+
+	-- Remover de la lista de seguidores de otros jugadores
+	for otherPlayer, data in pairs(PlayerData) do
+		if otherPlayer ~= player and data.Followers then
+			SafeRemoveFromArray(data.Followers, player)
+		end
+	end
+
+	-- Desconectar todas las conexiones
+	for _, connection in ipairs(PlayerData[player].Connections) do
+		if connection then
+			pcall(function() connection:Disconnect() end)
+		end
+	end
+
+	-- Limpiar datos
+	PlayerData[player] = nil
+end
+
+--------------------------------------------------------------------------------
+-- INICIALIZACIÓN
+--------------------------------------------------------------------------------
+
+-- Conectar eventos
+Players.PlayerAdded:Connect(OnPlayerAdded)
+Players.PlayerRemoving:Connect(OnPlayerRemoving)
+PlayAnimationRemote.OnServerEvent:Connect(OnPlayAnimation)
+StopAnimationRemote.OnServerEvent:Connect(OnStopAnimation)
+SyncRemote.OnServerEvent:Connect(OnSyncAction)
+
+-- Inicializar jugadores existentes
+for _, player in ipairs(Players:GetPlayers()) do
+	OnPlayerAdded(player)
 end
