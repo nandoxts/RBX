@@ -11,7 +11,7 @@
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local Config = {
-	PC_Ancho = 180,
+	PC_Ancho = 200,
 	PC_Alto = 380,
 	PC_MargenIzquierdo = 5,
 	PC_OffsetVertical = 40,
@@ -49,6 +49,7 @@ local AnadirFav = Remotos:WaitForChild("AnadirFav")
 local ObtenerTrending = Remotos:WaitForChild("ObtenerTrending")
 local PlayAnimationRemote = RemotesSync:FindFirstChild("PlayAnimation")
 local StopAnimationRemote = RemotesSync:FindFirstChild("StopAnimation")
+local SyncRemote = RemotesSync:FindFirstChild("Sync")
 
 -- Las funciones setActiveByName y clearActive se definen DESPUÉS de ScrollFrame
 
@@ -74,10 +75,12 @@ local Theme = {
 	TextSecondary = THEME_CONFIG.muted,
 	TextMuted = THEME_CONFIG.subtle,
 	Border = THEME_CONFIG.stroke,
-	Trending = Color3.fromRGB(255, 140, 0),
-	VIP = Color3.fromRGB(180, 100, 255),
-	Recommended = Color3.fromRGB(0, 200, 255),
-	Normal = Color3.fromRGB(150, 150, 150),
+	-- Todos los tipos usan el mismo color del tema
+	Card = THEME_CONFIG.elevated,
+	Trending = THEME_CONFIG.elevated,
+	VIP = THEME_CONFIG.elevated,
+	Recommended = THEME_CONFIG.elevated,
+	Normal = THEME_CONFIG.elevated,
 }
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -94,6 +97,7 @@ local DanceActivated = nil
 local ActiveCard = nil
 local tieneVIP = false
 local TabActual = "Todos"
+local IsSynced = false -- Estado de sincronización
 
 -- Gestión de memoria
 local CardConnections = {}
@@ -132,7 +136,7 @@ local function CreateStroke(parent, color, thickness, transparency)
 end
 
 local function GetCardHeight()
-	return IsMobile and 28 or 38
+	return IsMobile and 32 or 42
 end
 
 local function EncontrarDatos(BaileId)
@@ -232,14 +236,14 @@ local function AplicarEfectoActivo(card)
 	local cardHeight = GetCardHeight()
 
 	if border then
-		TrackTween(card, Tween(border, 0.3, {Transparency = 0, Thickness = 3}))
+		TrackTween(card, Tween(border, 0.3, {Transparency = 0, Thickness = 2}))
 	end
 
 	if overlay then
-		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.85}))
+		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.8}))
 	end
 
-	TrackTween(card, Tween(card, 0.25, {Size = UDim2.new(1, 6, 0, cardHeight + 4)}, Enum.EasingStyle.Back))
+	TrackTween(card, Tween(card, 0.25, {Size = UDim2.new(1, 4, 0, cardHeight + 2)}, Enum.EasingStyle.Back))
 end
 
 local function RemoverEfectoActivo(card)
@@ -299,7 +303,7 @@ CreateStroke(MainFrame, Theme.Border, 1, 0.5)
 
 local TabsContainer = Instance.new("Frame")
 TabsContainer.Name = "TabsContainer"
-TabsContainer.Size = UDim2.new(1, -16, 0, IsMobile and 24 or 30)
+TabsContainer.Size = UDim2.new(1, -16, 0, IsMobile and 28 or 34)
 TabsContainer.Position = UDim2.new(0, 8, 0, 8)
 TabsContainer.BackgroundColor3 = Theme.BackgroundSecondary
 TabsContainer.BorderSizePixel = 0
@@ -323,7 +327,7 @@ TabTodos.BackgroundTransparency = 1
 TabTodos.Font = Enum.Font.GothamBold
 TabTodos.Text = "Todos"
 TabTodos.TextColor3 = Theme.TextPrimary
-TabTodos.TextSize = IsMobile and 12 or 14
+TabTodos.TextSize = IsMobile and 14 or 16
 TabTodos.ZIndex = 3
 TabTodos.Parent = TabsContainer
 
@@ -335,11 +339,11 @@ TabFavoritos.BackgroundTransparency = 1
 TabFavoritos.Font = Enum.Font.GothamBold
 TabFavoritos.Text = "Favoritos"
 TabFavoritos.TextColor3 = Theme.TextSecondary
-TabFavoritos.TextSize = IsMobile and 12 or 14
+TabFavoritos.TextSize = IsMobile and 14 or 16
 TabFavoritos.ZIndex = 3
 TabFavoritos.Parent = TabsContainer
 
-local posY = IsMobile and 36 or 42
+local posY = IsMobile and 40 or 46
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- BÚSQUEDA (ARREGLADA - sin desbordamiento de texto)
@@ -351,7 +355,7 @@ local SearchContainer, SearchBox
 if mostrarBusqueda then
 	SearchContainer = Instance.new("Frame")
 	SearchContainer.Name = "SearchContainer"
-	SearchContainer.Size = UDim2.new(1, -16, 0, IsMobile and 26 or 32)
+	SearchContainer.Size = UDim2.new(1, -16, 0, IsMobile and 30 or 36)
 	SearchContainer.Position = UDim2.new(0, 8, 0, posY)
 	SearchContainer.BackgroundColor3 = Theme.BackgroundSecondary
 	SearchContainer.BorderSizePixel = 0
@@ -399,7 +403,7 @@ if mostrarBusqueda then
 	SearchBox.PlaceholderColor3 = Theme.TextMuted
 	SearchBox.Text = ""
 	SearchBox.TextColor3 = Theme.TextPrimary
-	SearchBox.TextSize = IsMobile and 11 or 13
+	SearchBox.TextSize = IsMobile and 13 or 15
 	SearchBox.TextXAlignment = Enum.TextXAlignment.Left
 	SearchBox.TextTruncate = Enum.TextTruncate.AtEnd
 	SearchBox.ClearTextOnFocus = false
@@ -417,7 +421,7 @@ if mostrarBusqueda then
 		Tween(SearchHandle, 0.2, {BackgroundColor3 = Theme.TextMuted, BackgroundTransparency = 0.3})
 	end))
 
-	posY = posY + (IsMobile and 30 or 36)
+	posY = posY + (IsMobile and 34 or 40)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -431,7 +435,7 @@ local speedValues = {0.01, 0.05, 0.3, 0.5, 0.7, 1, 1.3, 1.6, 1.9, 2.2, 2.5}
 if mostrarSlider then
 	local SliderSection = Instance.new("Frame")
 	SliderSection.Name = "SliderSection"
-	SliderSection.Size = UDim2.new(1, -16, 0, IsMobile and 26 or 30)
+	SliderSection.Size = UDim2.new(1, -16, 0, IsMobile and 30 or 34)
 	SliderSection.Position = UDim2.new(0, 8, 0, posY)
 	SliderSection.BackgroundColor3 = Theme.BackgroundSecondary
 	SliderSection.BorderSizePixel = 0
@@ -490,7 +494,7 @@ if mostrarSlider then
 	SpeedValue.Font = Enum.Font.GothamBold
 	SpeedValue.Text = "1.00x"
 	SpeedValue.TextColor3 = Theme.TextPrimary
-	SpeedValue.TextSize = IsMobile and 8 or 9
+	SpeedValue.TextSize = IsMobile and 10 or 11
 	SpeedValue.ZIndex = 5
 	SpeedValue.Visible = false
 	SpeedValue.Parent = SliderKnob
@@ -555,7 +559,7 @@ if mostrarSlider then
 
 	UpdateSlider(0.5)
 
-	posY = posY + (IsMobile and 30 or 34)
+	posY = posY + (IsMobile and 34 or 38)
 else
 	posY = posY + 4
 end
@@ -571,6 +575,99 @@ ContentArea.Position = UDim2.new(0, 8, 0, posY)
 ContentArea.BackgroundTransparency = 1
 ContentArea.ClipsDescendants = true
 ContentArea.Parent = MainFrame
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- OVERLAY DE SINCRONIZACIÓN
+-- ════════════════════════════════════════════════════════════════════════════════
+
+local SyncOverlay = Instance.new("TextButton")
+SyncOverlay.Name = "SyncOverlay"
+SyncOverlay.Size = UDim2.new(1, 0, 1, 0)
+SyncOverlay.Position = UDim2.new(0, 0, 0, 0)
+SyncOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+SyncOverlay.BackgroundTransparency = 0.3
+SyncOverlay.BorderSizePixel = 0
+SyncOverlay.Text = ""
+SyncOverlay.AutoButtonColor = false
+SyncOverlay.ZIndex = 10
+SyncOverlay.Visible = false
+SyncOverlay.Parent = ContentArea
+
+-- Texto del overlay
+local SyncText = Instance.new("TextLabel")
+SyncText.Name = "SyncText"
+SyncText.Size = UDim2.new(1, -20, 0, 60)
+SyncText.Position = UDim2.new(0, 10, 0.5, -30)
+SyncText.BackgroundTransparency = 1
+SyncText.Font = Enum.Font.GothamBold
+SyncText.Text = "Estás sincronizado\n\nHaz click para\ndesincronizarte"
+SyncText.TextColor3 = Theme.TextPrimary
+SyncText.TextSize = IsMobile and 13 or 16
+SyncText.TextWrapped = true
+SyncText.ZIndex = 11
+SyncText.Parent = SyncOverlay
+
+-- Función para mostrar/ocultar el overlay
+local function SetSyncOverlay(synced)
+	IsSynced = synced
+	if synced then
+		SyncOverlay.Visible = true
+		SyncOverlay.BackgroundTransparency = 1
+		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
+	else
+		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
+		if t then
+			t.Completed:Connect(function()
+				SyncOverlay.Visible = false
+			end)
+		end
+	end
+end
+
+-- Click en el overlay para desincronizarse
+SyncOverlay.MouseButton1Click:Connect(function()
+	if SyncRemote then
+		SyncRemote:FireServer("unsync")
+		SetSyncOverlay(false)
+		NotificationSystem:Success("Sync", "Te has desincronizado", 2)
+	end
+end)
+
+-- Hover en el overlay
+SyncOverlay.MouseEnter:Connect(function()
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.15})
+	Tween(SyncText, 0.15, {TextColor3 = Theme.Primary})
+end)
+
+SyncOverlay.MouseLeave:Connect(function()
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.3})
+	Tween(SyncText, 0.15, {TextColor3 = Theme.TextPrimary})
+end)
+
+-- Escuchar cambios en SyncOnOff del personaje
+local function SetupSyncListener()
+	local character = Jugador.Character
+	if character then
+		local syncValue = character:FindFirstChild("SyncOnOff")
+		if syncValue then
+			SetSyncOverlay(syncValue.Value)
+			TrackGlobalConnection(syncValue:GetPropertyChangedSignal("Value"):Connect(function()
+				SetSyncOverlay(syncValue.Value)
+			end))
+		end
+	end
+end
+
+TrackGlobalConnection(Jugador.CharacterAdded:Connect(function(character)
+	task.wait(0.5) -- Esperar a que se cree SyncOnOff
+	SetupSyncListener()
+end))
+
+-- Configurar listener inicial
+task.spawn(function()
+	task.wait(1)
+	SetupSyncListener()
+end)
 
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Name = "ScrollFrame"
@@ -687,7 +784,7 @@ EmptyMessage.BackgroundTransparency = 1
 EmptyMessage.Font = Enum.Font.GothamMedium
 EmptyMessage.Text = "Sin favoritos\nToca ★ en cualquier baile"
 EmptyMessage.TextColor3 = Theme.TextMuted
-EmptyMessage.TextSize = IsMobile and 11 or 13
+EmptyMessage.TextSize = IsMobile and 13 or 15
 EmptyMessage.Visible = false
 EmptyMessage.LayoutOrder = 999
 EmptyMessage.Parent = ScrollFrame
@@ -705,7 +802,7 @@ end
 local function CrearSeparador(texto, icono, color, orden)
 	local separator = Instance.new("Frame")
 	separator.Name = "Sep_" .. texto
-	separator.Size = UDim2.new(1, 0, 0, IsMobile and 16 or 22)
+	separator.Size = UDim2.new(1, 0, 0, IsMobile and 18 or 24)
 	separator.BackgroundTransparency = 1
 	separator.LayoutOrder = orden
 	separator:SetAttribute("Entry", true)
@@ -718,7 +815,7 @@ local function CrearSeparador(texto, icono, color, orden)
 	local labelText = (icono and icono ~= "" and (icono .. " ") or "") .. texto
 	label.Text = labelText
 	label.TextColor3 = color
-	label.TextSize = IsMobile and 9 or 11
+	label.TextSize = IsMobile and 11 or 13
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = separator
 
@@ -726,7 +823,7 @@ local function CrearSeparador(texto, icono, color, orden)
 end
 
 local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
-	local cardColor = Theme[tipo] or Theme.Normal
+	local cardColor = Theme.Card -- Color uniforme para todas las tarjetas
 	local esFavorito = EstaEnFavoritos(id)
 	local esVIPBloqueado = esVIP and not tieneVIP
 	local cardHeight = GetCardHeight()
@@ -747,20 +844,14 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 
 	CreateCorner(card, IsMobile and 5 or 8)
 
-	-- Gradient negro
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, cardColor),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
-	})
-	gradient.Rotation = 180
-	gradient.Parent = card
+	-- Borde sutil para definir la tarjeta
+	CreateStroke(card, Theme.Border, 1, 0.7)
 
 	-- Overlay para efecto activo
 	local activeOverlay = Instance.new("Frame")
 	activeOverlay.Name = "ActiveOverlay"
 	activeOverlay.Size = UDim2.new(1, 0, 1, 0)
-	activeOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	activeOverlay.BackgroundColor3 = Theme.Primary
 	activeOverlay.BackgroundTransparency = 1
 	activeOverlay.BorderSizePixel = 0
 	activeOverlay.ZIndex = 2
@@ -770,7 +861,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	-- Borde activo
 	local activeBorder = Instance.new("UIStroke")
 	activeBorder.Name = "ActiveBorder"
-	activeBorder.Color = Color3.fromRGB(255, 255, 255)
+	activeBorder.Color = Theme.Primary
 	activeBorder.Thickness = 2
 	activeBorder.Transparency = 1
 	activeBorder.Parent = card
@@ -783,8 +874,8 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = nombre
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextSize = IsMobile and 10 or 13
+	nameLabel.TextColor3 = Theme.TextPrimary
+	nameLabel.TextSize = IsMobile and 12 or 15
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	nameLabel.ZIndex = 3
@@ -806,7 +897,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	favBtn.BackgroundTransparency = 1
 	favBtn.Text = esFavorito and "★" or "☆"
 	favBtn.TextColor3 = esFavorito and Theme.Warning or Color3.fromRGB(120, 120, 120)
-	favBtn.TextSize = IsMobile and 14 or 18
+	favBtn.TextSize = IsMobile and 16 or 20
 	favBtn.Font = Enum.Font.GothamBold
 	favBtn.ZIndex = 5
 	favBtn.Parent = favContainer
@@ -817,19 +908,24 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	-- Hover en tarjeta
 	TrackConnection(card, card.MouseEnter:Connect(function()
 		if not isProcessingFav then
-			Tween(card, 0.15, {BackgroundColor3 = cardColor:Lerp(Color3.fromRGB(255,255,255), 0.15)})
+			Tween(card, 0.15, {BackgroundColor3 = Theme.Card:Lerp(Theme.Primary, 0.15)})
 		end
 	end))
 
 	TrackConnection(card, card.MouseLeave:Connect(function()
 		if not isProcessingFav then
-			Tween(card, 0.15, {BackgroundColor3 = cardColor})
+			Tween(card, 0.15, {BackgroundColor3 = Theme.Card})
 		end
 	end))
 
 	-- Click tarjeta (reproducir baile)
 	TrackConnection(card, card.MouseButton1Click:Connect(function()
 		if isProcessingFav then return end
+
+		-- Bloquear si está sincronizado
+		if IsSynced then
+			return
+		end
 
 		if esVIPBloqueado then
 			NotificationSystem:Warning("VIP", "Necesitas VIP para este baile", 3)
@@ -861,7 +957,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 		isProcessingFav = true
 
 		-- Animación de feedback inmediato
-		Tween(favBtn, 0.1, {TextSize = IsMobile and 18 or 22})
+		Tween(favBtn, 0.1, {TextSize = IsMobile and 20 or 24})
 
 		local success, status = pcall(function()
 			return AnadirFav:InvokeServer(id)
@@ -869,7 +965,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 
 		if not success then
 			isProcessingFav = false
-			Tween(favBtn, 0.15, {TextSize = IsMobile and 14 or 18})
+			Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
 			NotificationSystem:Error("Error", "Error de conexión", 2)
 			return
 		end
@@ -880,7 +976,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			card:SetAttribute("IsFavorite", true)
 
 			-- Animación suave de estrella
-			Tween(favBtn, 0.15, {TextSize = IsMobile and 14 or 18})
+			Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
 			favBtn.Text = "★"
 			Tween(favBtn, 0.2, {TextColor3 = Theme.Warning})
 
@@ -910,7 +1006,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 				-- Animación de salida suave
 				favBtn.Text = "☆"
 				Tween(favBtn, 0.1, {TextColor3 = Color3.fromRGB(120, 120, 120)})
-				Tween(favBtn, 0.15, {TextSize = IsMobile and 14 or 18})
+				Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
 
 				-- Limpiar conexiones ANTES de animar
 				CleanupCard(card)
@@ -943,7 +1039,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 				end)
 			else
 				-- Solo actualizar visual en tab Todos
-				Tween(favBtn, 0.15, {TextSize = IsMobile and 14 or 18})
+				Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
 				favBtn.Text = "☆"
 				Tween(favBtn, 0.2, {TextColor3 = Color3.fromRGB(120, 120, 120)})
 
@@ -1179,7 +1275,6 @@ end
 
 local Icono = Icon.new()
 Icono:setOrder(2)
-Icono:setLabel("Bailes!!")
 Icono:setImage("127784597936941")
 Icono:disableStateOverlay(false)
 Icono.selected:Connect(function() ToggleGUI(true) end)

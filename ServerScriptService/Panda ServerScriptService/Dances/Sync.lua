@@ -325,10 +325,46 @@ end
 
 local PlayAnimation = function(Plr,func,AnimationData)
 	if func == "playAnim" and AnimationData and Dances[AnimationData] ~= nil then
-		Commands.Unsync(Plr)
-		if SyncData[Plr]["StoredAnimation"] then
-			StopAnimation(Plr)
+		-- Guardar los seguidores antes de cualquier operación
+		local myFollowers = {}
+		if SyncData[Plr] and SyncData[Plr]["SyncPlayers"] then
+			for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
+				table.insert(myFollowers, follower)
+			end
 		end
+
+		-- Si está sincronizado con alguien, desincronizarse de ese líder
+		if SyncData[Plr]["SyncDebounce"] == true then
+			SyncData[Plr]["SyncDebounce"] = false
+
+			-- Remover de la lista de seguidores de otros líderes
+			for i, PlayerTable in pairs(SyncData) do
+				if i ~= Plr then
+					for Index, v in pairs(PlayerTable["SyncPlayers"]) do
+						if v == Plr then
+							table.remove(PlayerTable["SyncPlayers"], Index)
+							break
+						end
+					end
+				end
+			end
+
+			-- Actualizar SyncOnOff
+			if Plr.Character and Plr.Character:FindFirstChild("SyncOnOff") then
+				Plr.Character.SyncOnOff.Value = false
+			end
+		end
+
+		-- Restaurar la lista de seguidores
+		SyncData[Plr]["SyncPlayers"] = myFollowers
+
+		-- Detener animación actual si existe
+		if SyncData[Plr]["StoredAnimation"] then
+			SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
+			SyncData[Plr]["StoredAnimation"]:Destroy()
+			SyncData[Plr]["StoredAnimation"] = nil
+		end
+
 		local Character = Plr.Character
 		local Humanoid = Character.Humanoid
 		local Animation = Character.Baile
@@ -341,13 +377,20 @@ local PlayAnimation = function(Plr,func,AnimationData)
 			AnimationTrack.TimePosition = 0
 			SyncData[Plr]["StoredAnimation"] = AnimationTrack
 			NotifyAnimationToClient(Plr, AnimationData)
-			if #SyncData[Plr]["SyncPlayers"] >= 1 then
-				for _,Player in pairs(SyncData[Plr]["SyncPlayers"])do
-					Commands.Sync(Player,Plr)
-					NotifyAnimationToClient(Player, AnimationData) -- Actualizar UI del jugador sincronizado
-					for index,SyncPlr in pairs(SyncData[Player]["SyncPlayers"])do
-						Commands.Sync(SyncPlr,Plr)
-						NotifyAnimationToClient(SyncPlr, AnimationData) -- Actualizar UI de sync anidados
+
+			-- Actualizar a los seguidores con el nuevo baile
+			if #myFollowers >= 1 then
+				for _, Player in pairs(myFollowers) do
+					if Player and SyncData[Player] then
+						Commands.Sync(Player, Plr)
+						NotifyAnimationToClient(Player, AnimationData)
+						-- Actualizar seguidores anidados
+						if SyncData[Player]["SyncPlayers"] then
+							for _, SyncPlr in pairs(SyncData[Player]["SyncPlayers"]) do
+								Commands.Sync(SyncPlr, Plr)
+								NotifyAnimationToClient(SyncPlr, AnimationData)
+							end
+						end
 					end
 				end
 			end
@@ -381,18 +424,77 @@ local PlayAnimation = function(Plr,func,AnimationData)
 end
 
 local SyncAction = function(Plr,action,Name)
-	StopAnimation(Plr)
 	if action == "sync" then
 		local PlayerSync = GetPlr(Name)
 		if PlayerSync then
 			if Plr ~= PlayerSync then
 				if Plr and Plr.Character and Plr.Character.SyncOnOff then
+					-- Guardar los seguidores actuales (ellos siguen siendo seguidores de Plr)
+					local myFollowers = {}
+					if SyncData[Plr] and SyncData[Plr]["SyncPlayers"] then
+						for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
+							table.insert(myFollowers, follower)
+						end
+					end
+
+					-- Detener la animación actual del jugador
+					if SyncData[Plr]["StoredAnimation"] ~= nil then
+						SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
+						SyncData[Plr]["StoredAnimation"]:Destroy()
+						SyncData[Plr]["StoredAnimation"] = nil
+					end
+					SyncData[Plr]["CurrentAnimationName"] = nil
+
+					-- Restaurar la lista de seguidores (NO la limpiamos)
+					SyncData[Plr]["SyncPlayers"] = myFollowers
+
+					-- Sincronizar al jugador con el objetivo
 					Plr.Character.SyncOnOff.Value = true
-					Commands.SetSync(Plr,PlayerSync)
+					Commands.SetSync(Plr, PlayerSync)
+
 					-- Notificar al cliente qué animación está sincronizada
 					local syncedAnimName = SyncData[PlayerSync]["CurrentAnimationName"]
 					if syncedAnimName then
 						NotifyAnimationToClient(Plr, syncedAnimName)
+					end
+
+					-- Actualizar a los seguidores de Plr con la nueva animación
+					-- Ellos siguen a Plr (su líder original), reciben lo que Plr tenga
+					if #myFollowers > 0 and SyncData[Plr]["StoredAnimation"] then
+						for _, follower in pairs(myFollowers) do
+							if follower and follower.Character and SyncData[follower] then
+								-- Detener animación actual del seguidor
+								if SyncData[follower]["StoredAnimation"] ~= nil then
+									SyncData[follower]["StoredAnimation"]:Stop(FADE_TIME)
+									SyncData[follower]["StoredAnimation"]:Destroy()
+									SyncData[follower]["StoredAnimation"] = nil
+								end
+
+								-- Sincronizar seguidor con su líder (Plr), NO con PlayerSync
+								local Character = follower.Character
+								local Humanoid = Character:FindFirstChild("Humanoid")
+								local Animation = Character:FindFirstChild("Baile")
+
+								if Humanoid and Animation and SyncData[Plr]["StoredAnimation"] then
+									Animation.AnimationId = SyncData[Plr]["StoredAnimation"].Animation.AnimationId
+									local animator = Humanoid:FindFirstChild("Animator")
+									if animator then
+										local AnimationTrack = animator:LoadAnimation(Animation)
+										AnimationTrack.Priority = Enum.AnimationPriority.Action
+										AnimationTrack:Play(FADE_TIME)
+										AnimationTrack.TimePosition = SyncData[Plr]["StoredAnimation"].TimePosition
+										AnimationTrack:AdjustSpeed(SyncData[Plr]["StoredAnimation"].Speed)
+
+										SyncData[follower]["StoredAnimation"] = AnimationTrack
+
+										-- Notificar al seguidor
+										if syncedAnimName then
+											NotifyAnimationToClient(follower, syncedAnimName)
+										end
+									end
+								end
+							end
+						end
 					end
 				end
 			end
@@ -400,7 +502,42 @@ local SyncAction = function(Plr,action,Name)
 	elseif action == "unsync" then
 		if Plr and Plr.Character and Plr.Character.SyncOnOff then
 			Plr.Character.SyncOnOff.Value = false
-			Commands.Unsync(Plr)
+
+			-- Detener solo la animación del jugador
+			if SyncData[Plr]["StoredAnimation"] ~= nil then
+				SyncData[Plr]["StoredAnimation"]:Stop(FADE_TIME)
+				SyncData[Plr]["StoredAnimation"]:Destroy()
+				SyncData[Plr]["StoredAnimation"] = nil
+			end
+			SyncData[Plr]["SyncDebounce"] = false
+
+			-- Remover de la lista de seguidores de otros líderes
+			for i, PlayerTable in pairs(SyncData) do
+				if i ~= Plr then -- No tocar su propia lista de seguidores
+					for Index, v in pairs(PlayerTable["SyncPlayers"]) do
+						if v == Plr then
+							table.remove(PlayerTable["SyncPlayers"], Index)
+							break
+						end
+					end
+				end
+			end
+
+			NotifyAnimationToClient(Plr, nil)
+
+			-- Los seguidores de Plr también pierden la animación porque su líder dejó de bailar
+			if SyncData[Plr]["SyncPlayers"] and #SyncData[Plr]["SyncPlayers"] >= 1 then
+				for _, follower in pairs(SyncData[Plr]["SyncPlayers"]) do
+					if follower and SyncData[follower] then
+						if SyncData[follower]["StoredAnimation"] ~= nil then
+							SyncData[follower]["StoredAnimation"]:Stop(FADE_TIME)
+							SyncData[follower]["StoredAnimation"]:Destroy()
+							SyncData[follower]["StoredAnimation"] = nil
+						end
+						NotifyAnimationToClient(follower, nil)
+					end
+				end
+			end
 		end
 	end
 end
