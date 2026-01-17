@@ -86,7 +86,6 @@ ClanSystemConfig.ROLES = {
 			cambiar_tag = true,
 			cambiar_logo = true,
 			disolver_clan = true,
-			ver_estadisticas = true,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
@@ -99,7 +98,6 @@ ClanSystemConfig.ROLES = {
 			cambiar_descripcion = true,
 			cambiar_nombre = true,
 			cambiar_logo = true,
-			ver_estadisticas = true,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
@@ -109,14 +107,12 @@ ClanSystemConfig.ROLES = {
 			invitar = true,
 			expulsar = true,
 			cambiar_descripcion = true,
-			ver_estadisticas = false,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
 			ver_solicitudes = true
 		},
 		miembro = {
-			ver_estadisticas = false,
 			-- MIEMBROS NO PUEDEN GESTIONAR SOLICITUDES
 			aprobar_solicitudes = false,
 			rechazar_solicitudes = false,
