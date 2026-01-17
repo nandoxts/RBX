@@ -769,6 +769,14 @@ local function createMainView(parent, clanData, playerRole)
 	contentPadding.PaddingRight = UDim.new(0, 4)
 	contentPadding.Parent = scrollFrame
 
+	-- Contador dinámico de LayoutOrder
+	local currentLayoutOrder = 0
+
+	local function getNextOrder()
+		currentLayoutOrder = currentLayoutOrder + 1
+		return currentLayoutOrder
+	end
+
 	-- ══════════════════════════════════════════════════════════════
 	-- CARD DE INFO DEL CLAN (Rediseñada - banner completo)
 	-- ══════════════════════════════════════════════════════════════
@@ -782,7 +790,7 @@ local function createMainView(parent, clanData, playerRole)
 		strokeA = 0.6,
 		clips = true
 	})
-	infoCard.LayoutOrder = 1
+	infoCard.LayoutOrder = getNextOrder()
 
 	-- Banner con logo de fondo - CUBRE TODA LA CARD
 	local bannerImage = Instance.new("ImageLabel")
@@ -794,7 +802,7 @@ local function createMainView(parent, clanData, playerRole)
 	bannerImage.ImageTransparency = 0.4
 	bannerImage.ZIndex = 104
 	bannerImage.Parent = infoCard
-	UI.rounded(bannerImage, 12) -- Borde redondeado
+	UI.rounded(bannerImage, 12)
 
 	local bannerGradient = Instance.new("UIGradient")
 	bannerGradient.Color = ColorSequence.new{
@@ -804,7 +812,7 @@ local function createMainView(parent, clanData, playerRole)
 	bannerGradient.Rotation = 90
 	bannerGradient.Parent = bannerImage
 
-	-- Logo/Emoji - MÁS GRANDE y mejor posicionado
+	-- Logo/Emoji
 	local logoFrame = UI.frame({
 		size = UDim2.new(0, 74, 0, 74),
 		pos = UDim2.new(0, 16, 0, 24),
@@ -844,7 +852,7 @@ local function createMainView(parent, clanData, playerRole)
 		clanData.clanColor[3] or 255
 	) or THEME.accent
 
-	-- Contar miembros (para usar después)
+	-- Contar miembros
 	local membersCount = 0
 	if clanData.miembros_data then
 		for _ in pairs(clanData.miembros_data) do
@@ -852,7 +860,7 @@ local function createMainView(parent, clanData, playerRole)
 		end
 	end
 
-	-- Nombre del clan - ALINEADO A LA DERECHA DEL LOGO
+	-- Nombre del clan
 	UI.label({
 		size = UDim2.new(1, -110, 0, 26),
 		pos = UDim2.new(0, 100, 0, 30),
@@ -878,7 +886,7 @@ local function createMainView(parent, clanData, playerRole)
 		parent = infoCard
 	})
 
-	-- Rol del jugador - A LA DERECHA
+	-- Rol del jugador
 	local roleData = ClanSystemConfig.ROLES.Visual[playerRole] or ClanSystemConfig.ROLES.Visual["miembro"]
 	local roleColor = roleData.color
 	local roleDisplay = roleData.display
@@ -895,7 +903,7 @@ local function createMainView(parent, clanData, playerRole)
 		parent = infoCard
 	})
 
-	-- Descripción - MÁS GRANDE
+	-- Descripción
 	UI.label({
 		size = UDim2.new(1, -32, 0, 36),
 		pos = UDim2.new(0, 16, 0, 108),
@@ -921,7 +929,7 @@ local function createMainView(parent, clanData, playerRole)
 		subtitle = membersCount .. " miembros en el clan",
 		showAvatarPreview = true
 	})
-	membersCard.LayoutOrder = 2
+	membersCard.LayoutOrder = getNextOrder()
 
 	-- Mostrar preview de avatares (primeros 3 miembros)
 	if membersAvatarPreview and clanData.miembros_data then
@@ -967,10 +975,9 @@ local function createMainView(parent, clanData, playerRole)
 
 	-- Card: Pendientes (solo si puede gestionar)
 	local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
-	local pendingCard, pendingBtn, pendingSubtitle, pendingDot
 
 	if canManageRequests then
-		pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({
+		local pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({
 			size = UDim2.new(1, -8, 0, 60),
 			parent = scrollFrame,
 			icon = "📩",
@@ -978,7 +985,7 @@ local function createMainView(parent, clanData, playerRole)
 			subtitle = "Cargando...",
 			showNotification = true
 		})
-		pendingCard.LayoutOrder = 3
+		pendingCard.LayoutOrder = getNextOrder()
 
 		Memory.track(pendingBtn.MouseButton1Click:Connect(function()
 			navigateTo("pending")
@@ -987,122 +994,146 @@ local function createMainView(parent, clanData, playerRole)
 		-- Cargar conteo de pendientes en segundo plano
 		task.spawn(function()
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-			local count = #requests
+			local requestCount = #requests
 			if pendingSubtitle and pendingSubtitle.Parent then
-				pendingSubtitle.Text = count > 0 and (count .. " solicitudes pendientes") or "No hay solicitudes"
+				pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes"
 			end
 			if pendingDot and pendingDot.Parent then
-				pendingDot.Visible = count > 0
+				pendingDot.Visible = requestCount > 0
 			end
 		end)
 	end
 
 	-- ══════════════════════════════════════════════════════════════
-	-- BOTONES DE ACCIÓN (Editar / Salir)
+	-- BOTONES DE EDICIÓN (Se adaptan según permisos)
 	-- ══════════════════════════════════════════════════════════════
-	local canEdit = ClanSystemConfig.ROLES.Permissions[playerRole] and ClanSystemConfig.ROLES.Permissions[playerRole].cambiar_nombre or false
+	local permissions = ClanSystemConfig.ROLES.Permissions[playerRole] or {}
+	local canEditName = permissions.cambiar_nombre or false
+	local canEditTag = permissions.cambiar_tag or (playerRole == "owner") -- Solo owner puede cambiar tag
+	local canChangeColor = permissions.cambiar_color or false
 
-	if canEdit then
-		-- Botón EDITAR NOMBRE - sin fondo, 100% ancho
-		local btnEditName = UI.button({
+	-- Contenedor para NOMBRE y TAG en la misma línea (si tiene ambos permisos)
+	if canEditName or canEditTag then
+		local editRowContainer = UI.frame({
 			size = UDim2.new(1, -8, 0, 42),
-			bg = THEME.surface,
-			text = "EDITAR NOMBRE",
-			color = THEME.text,
-			textSize = 13,
-			font = Enum.Font.GothamBold,
+			bgT = 1,
 			z = 104,
-			parent = scrollFrame,
-			corner = 10
+			parent = scrollFrame
 		})
-		btnEditName.LayoutOrder = 4
-		UI.hover(btnEditName, THEME.surface, THEME.stroke)
+		editRowContainer.LayoutOrder = getNextOrder()
 
-		-- Botón EDITAR TAG - sin fondo, 100% ancho
-		local btnEditTag = UI.button({
-			size = UDim2.new(1, -8, 0, 42),
-			bg = THEME.surface,
-			text = "EDITAR TAG",
-			color = THEME.text,
-			textSize = 13,
-			font = Enum.Font.GothamBold,
-			z = 104,
-			parent = scrollFrame,
-			corner = 10
-		})
-		btnEditTag.LayoutOrder = 5
-		UI.hover(btnEditTag, THEME.surface, THEME.stroke)
+		local rowLayout = Instance.new("UIListLayout")
+		rowLayout.FillDirection = Enum.FillDirection.Horizontal
+		rowLayout.Padding = UDim.new(0, 8)
+		rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		rowLayout.Parent = editRowContainer
 
-		Memory.track(btnEditName.MouseButton1Click:Connect(function()
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Cambiar Nombre",
-				message = "Ingresa el nuevo nombre:",
-				inputText = true,
-				inputPlaceholder = "Nuevo nombre",
-				inputDefault = clanData.clanName,
-				confirmText = "Cambiar",
-				cancelText = "Cancelar",
-				onConfirm = function(newName)
-					if newName and #newName >= 3 then
-						local success, msg = ClanClient:ChangeClanName(newName)
-						if success then
-							Notify:Success("Actualizado", "Nombre cambiado", 4)
-							loadPlayerClan()
-						else
-							Notify:Error("Error", msg or "No se pudo cambiar", 4)
-						end
-					else
-						Notify:Warning("Inválido", "Mínimo 3 caracteres", 3)
-					end
-				end
+		-- Calcular ancho de botones
+		local buttonCount = (canEditName and 1 or 0) + (canEditTag and 1 or 0)
+		local buttonWidth = buttonCount == 2 and UDim2.new(0.5, -4, 1, 0) or UDim2.new(1, 0, 1, 0)
+
+		-- Botón EDITAR NOMBRE
+		if canEditName then
+			local btnEditName = UI.button({
+				size = buttonWidth,
+				bg = THEME.surface,
+				text = "EDITAR NOMBRE",
+				color = THEME.text,
+				textSize = 12,
+				font = Enum.Font.GothamBold,
+				z = 105,
+				parent = editRowContainer,
+				corner = 10
 			})
-		end))
+			btnEditName.LayoutOrder = 1
+			UI.hover(btnEditName, THEME.surface, THEME.stroke)
 
-		Memory.track(btnEditTag.MouseButton1Click:Connect(function()
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Cambiar TAG",
-				message = "Ingresa el nuevo TAG (2-5 caracteres):",
-				inputText = true,
-				inputPlaceholder = "Ej: XYZ",
-				inputDefault = clanData.clanTag,
-				confirmText = "Cambiar",
-				cancelText = "Cancelar",
-				onConfirm = function(newTag)
-					newTag = newTag and newTag:upper() or ""
-					if #newTag >= 2 and #newTag <= 5 then
-						local success, msg = ClanClient:ChangeClanTag(newTag)
-						if success then
-							Notify:Success("Actualizado", "TAG cambiado", 4)
-							loadPlayerClan()
+			Memory.track(btnEditName.MouseButton1Click:Connect(function()
+				ConfirmationModal.new({
+					screenGui = screenGui,
+					title = "Cambiar Nombre",
+					message = "Ingresa el nuevo nombre:",
+					inputText = true,
+					inputPlaceholder = "Nuevo nombre",
+					inputDefault = clanData.clanName,
+					confirmText = "Cambiar",
+					cancelText = "Cancelar",
+					onConfirm = function(newName)
+						if newName and #newName >= 3 then
+							local success, msg = ClanClient:ChangeClanName(newName)
+							if success then
+								Notify:Success("Actualizado", "Nombre cambiado", 4)
+								loadPlayerClan()
+							else
+								Notify:Error("Error", msg or "No se pudo cambiar", 4)
+							end
 						else
-							Notify:Error("Error", msg or "No se pudo cambiar", 4)
+							Notify:Warning("Inválido", "Mínimo 3 caracteres", 3)
 						end
-					else
-						Notify:Warning("Inválido", "Entre 2 y 5 caracteres", 3)
 					end
-				end
+				})
+			end))
+		end
+
+		-- Botón EDITAR TAG
+		if canEditTag then
+			local btnEditTag = UI.button({
+				size = buttonWidth,
+				bg = THEME.surface,
+				text = "EDITAR TAG",
+				color = THEME.text,
+				textSize = 12,
+				font = Enum.Font.GothamBold,
+				z = 105,
+				parent = editRowContainer,
+				corner = 10
 			})
-		end))
+			btnEditTag.LayoutOrder = 2
+			UI.hover(btnEditTag, THEME.surface, THEME.stroke)
+
+			Memory.track(btnEditTag.MouseButton1Click:Connect(function()
+				ConfirmationModal.new({
+					screenGui = screenGui,
+					title = "Cambiar TAG",
+					message = "Ingresa el nuevo TAG (2-5 caracteres):",
+					inputText = true,
+					inputPlaceholder = "Ej: XYZ",
+					inputDefault = clanData.clanTag,
+					confirmText = "Cambiar",
+					cancelText = "Cancelar",
+					onConfirm = function(newTag)
+						newTag = newTag and newTag:upper() or ""
+						if #newTag >= 2 and #newTag <= 5 then
+							local success, msg = ClanClient:ChangeClanTag(newTag)
+							if success then
+								Notify:Success("Actualizado", "TAG cambiado", 4)
+								loadPlayerClan()
+							else
+								Notify:Error("Error", msg or "No se pudo cambiar", 4)
+							end
+						else
+							Notify:Warning("Inválido", "Entre 2 y 5 caracteres", 3)
+						end
+					end
+				})
+			end))
+		end
 	end
 
-	-- Botón EDITAR COLOR (solo si tiene permiso cambiar_color)
-	local canChangeColor = ClanSystemConfig.ROLES.Permissions[playerRole] and ClanSystemConfig.ROLES.Permissions[playerRole].cambiar_color or false
-
+	-- Botón EDITAR COLOR (línea completa separada)
 	if canChangeColor then
 		local btnEditColor = UI.button({
 			size = UDim2.new(1, -8, 0, 42),
 			bg = THEME.surface,
 			text = "EDITAR COLOR",
 			color = THEME.text,
-			textSize = 13,
+			textSize = 12,
 			font = Enum.Font.GothamBold,
 			z = 104,
 			parent = scrollFrame,
 			corner = 10
 		})
-		btnEditColor.LayoutOrder = 5
+		btnEditColor.LayoutOrder = getNextOrder()
 		UI.hover(btnEditColor, THEME.surface, THEME.stroke)
 
 		Memory.track(btnEditColor.MouseButton1Click:Connect(function()
@@ -1116,29 +1147,47 @@ local function createMainView(parent, clanData, playerRole)
 				confirmText = "Cambiar",
 				cancelText = "Cancelar",
 				onConfirm = function(input)
-					local r,g,b = input and input:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
-					if not r then
-						Notify:Warning("Inválido","Formato r,g,b",3)
-						return
-					end
-					r,g,b = tonumber(r), tonumber(g), tonumber(b)
-					if not (r and g and b) or r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
-						Notify:Warning("Inválido","Valores entre 0 y 255",3)
-						return
-					end
+						-- Validación de entrada: formato r,g,b con valores 0-255
+						if not input or input == "" then
+							Notify:Warning("Inválido", "Ingresa un color", 3)
+							return
+						end
+
+						-- Limpiar espacios y mantener solo dígitos y comas
+						input = input:gsub("%s+", ""):gsub("[^%d,]", "")
+
+						local r, g, b = input:match("^(%d+),(%d+),(%d+)$")
+						if not r or not g or not b then
+							Notify:Warning("Inválido", "Formato: r,g,b (ej: 255,128,0)", 3)
+							return
+						end
+
+						r, g, b = tonumber(r), tonumber(g), tonumber(b)
+						if not r or not g or not b then
+							Notify:Warning("Inválido", "Los valores deben ser números", 3)
+							return
+						end
+
+						if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
+							Notify:Warning("Inválido", "Valores entre 0 y 255", 3)
+							return
+						end
+
 					local success, msg = ClanClient:ChangeClanColor({r, g, b})
 					if success then
-						Notify:Success("Actualizado","Color cambiado",4)
+						Notify:Success("Actualizado", "Color cambiado", 4)
 						loadPlayerClan()
 					else
-						Notify:Error("Error", msg or "No se pudo cambiar",4)
+						Notify:Error("Error", msg or "No se pudo cambiar", 4)
 					end
 				end
 			})
 		end))
 	end
 
-	-- Botón de salir/disolver - SIN EMOJIS
+	-- ══════════════════════════════════════════════════════════════
+	-- BOTÓN SALIR / DISOLVER (siempre al final)
+	-- ══════════════════════════════════════════════════════════════
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
 	local actionBtn = UI.button({
 		size = UDim2.new(1, -8, 0, 44),
@@ -1151,8 +1200,7 @@ local function createMainView(parent, clanData, playerRole)
 		parent = scrollFrame,
 		corner = 8
 	})
-	-- LayoutOrder dinámico: después de botones de editar si existen, sino después de las cards
-	actionBtn.LayoutOrder = canEdit and 6 or 4
+	actionBtn.LayoutOrder = getNextOrder()
 
 	UI.hover(actionBtn, THEME.warn, THEME.btnDanger)
 
@@ -1202,7 +1250,6 @@ local function createMainView(parent, clanData, playerRole)
 
 	return mainView
 end
-
 -- ════════════════════════════════════════════════════════════════
 -- FUNCIÓN: Crear vista de miembros
 -- ════════════════════════════════════════════════════════════════
