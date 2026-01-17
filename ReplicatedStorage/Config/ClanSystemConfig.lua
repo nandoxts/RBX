@@ -54,6 +54,7 @@ ClanSystemConfig.RATE_LIMITS = {
 	ChangeTag = 300,
 	ChangeDescription = 30,
 	ChangeLogo = 60,
+	ChangeColor = 60,
 	DissolveClan = 10,
 	AdminDissolveClan = 10,
 	-- NUEVOS RATE LIMITS PARA SOLICITUDES
@@ -85,6 +86,7 @@ ClanSystemConfig.ROLES = {
 			cambiar_nombre = true,
 			cambiar_tag = true,
 			cambiar_logo = true,
+			cambiar_color = true,
 			disolver_clan = true,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
@@ -98,6 +100,7 @@ ClanSystemConfig.ROLES = {
 			cambiar_descripcion = true,
 			cambiar_nombre = true,
 			cambiar_logo = true,
+			cambiar_color = false,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
@@ -107,6 +110,7 @@ ClanSystemConfig.ROLES = {
 			invitar = true,
 			expulsar = true,
 			cambiar_descripcion = true,
+			cambiar_color = false,
 			-- NUEVOS PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
@@ -117,6 +121,7 @@ ClanSystemConfig.ROLES = {
 			aprobar_solicitudes = false,
 			rechazar_solicitudes = false,
 			ver_solicitudes = false
+			,cambiar_color = false
 		}
 	},
 
@@ -312,6 +317,23 @@ function ClanSystemConfig:ValidateTag(tag)
 		return false, "TAG muy largo (máximo " .. self.LIMITS.MaxTagLength .. " caracteres)"
 	end
 
+	return true
+end
+
+-- Validar color RGB (tabla {r,g,b} con valores 0-255)
+function ClanSystemConfig:ValidateColor(color)
+	if type(color) ~= "table" then
+		return false, "Color inválido: se espera una tabla {r,g,b}"
+	end
+	if #color ~= 3 then
+		return false, "Color inválido: se esperan 3 componentes RGB"
+	end
+	for i = 1, 3 do
+		local v = color[i]
+		if type(v) ~= "number" or v < 0 or v > 255 then
+			return false, "Color inválido: cada componente debe ser número entre 0 y 255"
+		end
+	end
 	return true
 end
 

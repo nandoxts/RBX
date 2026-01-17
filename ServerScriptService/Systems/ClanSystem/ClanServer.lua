@@ -316,6 +316,39 @@ function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
 	return success, success and "Logo actualizado" or result
 end
 
+function ClanSystem:ChangeColor(clanId, requesterId, newColor)
+	-- Rate limit
+	local ok, err = checkRateLimit(requesterId, "ChangeColor")
+	if not ok then return false, err end
+
+	-- Validación básica del color (espera tabla {r,g,b})
+	if type(newColor) ~= "table" then return false, "Color inválido" end
+
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then return false, "Clan no encontrado" end
+
+	local requesterData = clanData.miembros_data and clanData.miembros_data[tostring(requesterId)]
+	if not requesterData or not hasPermission(requesterData.rol, "cambiar_color") then
+		return false, "Sin permiso"
+	end
+
+	-- Usar la validación del config si existe
+	local valid, vmsg = (Config.ValidateColor and Config:ValidateColor(newColor)) or (type(newColor) == "table")
+	if valid ~= true then
+		return false, vmsg or "Color inválido"
+	end
+
+	local success, result = ClanData:UpdateClan(clanId, {clanColor = newColor})
+	if success then
+		-- Actualizar atributos de miembros para reflejar cambio (si existe la función)
+		pcall(function()
+			updateAllMembersAttributes(result)
+		end)
+	end
+
+	return success, success and "Color actualizado" or result
+end
+
 -- ============================================
 -- DISOLVER / SALIR
 -- ============================================
@@ -406,6 +439,7 @@ local ChangeClanNameEvent = createRemoteFunction("ChangeClanName")
 local ChangeClanTagEvent = createRemoteFunction("ChangeClanTag")
 local ChangeClanDescEvent = createRemoteFunction("ChangeClanDescription")
 local ChangeClanLogoEvent = createRemoteFunction("ChangeClanLogo")
+local ChangeClanColorEvent = createRemoteFunction("ChangeClanColor")
 local DissolveEvent = createRemoteFunction("DissolveClan")
 local LeaveClanEvent = createRemoteFunction("LeaveClan")
 local AdminDissolveClanEvent = createRemoteFunction("AdminDissolveClan")
@@ -477,6 +511,10 @@ end
 
 ChangeClanLogoEvent.OnServerInvoke = function(player, clanId, newLogoId)
 	return ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
+end
+
+ChangeClanColorEvent.OnServerInvoke = function(player, clanId, newColor)
+    return ClanSystem:ChangeColor(clanId, player.UserId, newColor)
 end
 
 DissolveEvent.OnServerInvoke = function(player, clanId)

@@ -1087,6 +1087,57 @@ local function createMainView(parent, clanData, playerRole)
 		end))
 	end
 
+	-- Botón EDITAR COLOR (solo si tiene permiso cambiar_color)
+	local canChangeColor = ClanSystemConfig.ROLES.Permissions[playerRole] and ClanSystemConfig.ROLES.Permissions[playerRole].cambiar_color or false
+
+	if canChangeColor then
+		local btnEditColor = UI.button({
+			size = UDim2.new(1, -8, 0, 42),
+			bg = THEME.surface,
+			text = "EDITAR COLOR",
+			color = THEME.text,
+			textSize = 13,
+			font = Enum.Font.GothamBold,
+			z = 104,
+			parent = scrollFrame,
+			corner = 10
+		})
+		btnEditColor.LayoutOrder = 5
+		UI.hover(btnEditColor, THEME.surface, THEME.stroke)
+
+		Memory.track(btnEditColor.MouseButton1Click:Connect(function()
+			ConfirmationModal.new({
+				screenGui = screenGui,
+				title = "Cambiar Color",
+				message = "Ingresa nuevo color RGB (r,g,b) 0-255:",
+				inputText = true,
+				inputPlaceholder = "255,255,255",
+				inputDefault = (clanData and clanData.clanColor) and table.concat(clanData.clanColor, ",") or "255,255,255",
+				confirmText = "Cambiar",
+				cancelText = "Cancelar",
+				onConfirm = function(input)
+					local r,g,b = input and input:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+					if not r then
+						Notify:Warning("Inválido","Formato r,g,b",3)
+						return
+					end
+					r,g,b = tonumber(r), tonumber(g), tonumber(b)
+					if not (r and g and b) or r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 then
+						Notify:Warning("Inválido","Valores entre 0 y 255",3)
+						return
+					end
+					local success, msg = ClanClient:ChangeClanColor({r, g, b})
+					if success then
+						Notify:Success("Actualizado","Color cambiado",4)
+						loadPlayerClan()
+					else
+						Notify:Error("Error", msg or "No se pudo cambiar",4)
+					end
+				end
+			})
+		end))
+	end
+
 	-- Botón de salir/disolver - SIN EMOJIS
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
 	local actionBtn = UI.button({
