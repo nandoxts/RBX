@@ -161,9 +161,9 @@ local header = UI.frame({
 })
 
 local headerGradient = Instance.new("UIGradient")
-headerGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, THEME.elevated),
-	ColorSequenceKeypoint.new(1, THEME.card)
+	headerGradient.Color = ColorSequence.new{
+ 	ColorSequenceKeypoint.new(0, THEME.panel),
+ 	ColorSequenceKeypoint.new(1, THEME.card)
 }
 headerGradient.Rotation = 90
 headerGradient.Parent = header
@@ -235,8 +235,8 @@ local underline = UI.frame({
 -- CONTENT AREA
 -- ════════════════════════════════════════════════════════════════
 local contentArea = UI.frame({
-	name = "ContentArea", size = UDim2.new(1, -40, 1, -125), pos = UDim2.new(0, 20, 0, 106),
-	bg = THEME.elevated, z = 101, parent = panel, corner = 10, stroke = true, strokeA = 0.6, clips = true
+	name = "ContentArea", size = UDim2.new(1, -20, 1, -125), pos = UDim2.new(0, 10, 0, 106),
+	bgT = 1, z = 101, parent = panel, corner = 10, clips = true
 })
 
 local pageLayout = Instance.new("UIPageLayout")
@@ -257,7 +257,7 @@ local pageTuClan = UI.frame({name = "TuClan", size = UDim2.fromScale(1, 1), bgT 
 pageTuClan.LayoutOrder = 1
 
 local tuClanContainer = UI.frame({
-	name = "Container", size = UDim2.new(1, -30, 1, -30), pos = UDim2.new(0, 15, 0, 15),
+	name = "Container", size = UDim2.new(1, -20, 1, -20), pos = UDim2.new(0, 10, 0, 10),
 	bgT = 1, z = 102, parent = pageTuClan
 })
 
