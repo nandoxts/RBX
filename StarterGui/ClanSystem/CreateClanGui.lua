@@ -269,25 +269,18 @@ tabPages["TuClan"] = pageTuClan
 local pageDisponibles = UI.frame({name = "Disponibles", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageDisponibles.LayoutOrder = 2
 
-local searchBar = UI.frame({
-	size = UDim2.new(1, -20, 0, 36), pos = UDim2.new(0, 10, 0, 10),
-	bg = THEME.surface, z = 103, parent = pageDisponibles, corner = 8, stroke = true, strokeA = 0.6
-})
+local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
 
-local searchInput = Instance.new("TextBox")
-searchInput.Size = UDim2.new(1, -20, 1, 0)
-searchInput.Position = UDim2.new(0, 36, 0, 0)
-searchInput.BackgroundTransparency = 1
-searchInput.Text = ""
-searchInput.PlaceholderText = "Buscar clanes..."
-searchInput.PlaceholderColor3 = THEME.subtle
-searchInput.TextColor3 = THEME.text
-searchInput.TextSize = 13
-searchInput.Font = Enum.Font.Gotham
-searchInput.TextXAlignment = Enum.TextXAlignment.Left
-searchInput.ClearTextOnFocus = false
-searchInput.ZIndex = 104
-searchInput.Parent = searchBar
+-- Reemplazar solo el buscador por el componente moderno
+local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {
+	placeholder = "Buscar clanes...",
+	size = UDim2.new(1, -20, 0, 36),
+	z = 104,
+	name = "BuscarClanes"
+})
+searchContainer.Position = UDim2.new(0, 10, 0, 10)
+-- Registrar cleanup para que Memory.cleanup lo destruya al cerrar
+Memory.track({Disconnect = searchCleanup})
 
 local clansScroll = Instance.new("ScrollingFrame")
 clansScroll.Size = UDim2.new(1, -20, 1, -56)
@@ -1198,7 +1191,7 @@ local function createMainView(parent, clanData, playerRole)
 		if playerRole == "owner" then
 			ConfirmationModal.new({
 				screenGui = screenGui,
-				title = "⚠️ Disolver Clan",
+				title = "Disolver Clan",
 				message = "¿Disolver \"" .. clanData.clanName .. "\"?\n\nEsta acción es IRREVERSIBLE.",
 				confirmText = "Disolver",
 				cancelText = "Cancelar",

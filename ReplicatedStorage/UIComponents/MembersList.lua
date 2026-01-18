@@ -114,41 +114,17 @@ function MembersList:_build()
 		parent = self.parent
 	})
 
-	-- Buscador
-	self.searchFrame = UI.frame({
+	-- Buscador (usar componente SearchModern)
+	local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
+	local searchContainer, searchInput = SearchModern.new(self.mainFrame, {
+		placeholder = self.searchPlaceholder,
 		size = UDim2.new(1, 0, 0, 36),
-		bg = THEME.surface,
 		z = 106,
-		parent = self.mainFrame,
-		corner = 8,
-		stroke = true,
-		strokeA = 0.6
+		inputName = (self.mode == "members" and "SearchMembersInput") or "SearchPendingInput"
 	})
-
-	UI.label({
-		size = UDim2.new(0, 32, 1, 0),
-		pos = UDim2.new(0, 4, 0, 0),
-		text = "🔍",
-		textSize = 14,
-		alignX = Enum.TextXAlignment.Center,
-		z = 107,
-		parent = self.searchFrame
-	})
-
-	self.searchInput = Instance.new("TextBox")
-	self.searchInput.Size = UDim2.new(1, -44, 1, 0)
-	self.searchInput.Position = UDim2.new(0, 38, 0, 0)
-	self.searchInput.BackgroundTransparency = 1
-	self.searchInput.Text = ""
-	self.searchInput.PlaceholderText = self.searchPlaceholder
-	self.searchInput.PlaceholderColor3 = THEME.subtle
-	self.searchInput.TextColor3 = THEME.text
-	self.searchInput.TextSize = 13
-	self.searchInput.Font = Enum.Font.Gotham
-	self.searchInput.TextXAlignment = Enum.TextXAlignment.Left
-	self.searchInput.ClearTextOnFocus = false
-	self.searchInput.ZIndex = 107
-	self.searchInput.Parent = self.searchFrame
+	-- Asegurar posición coherente
+	searchContainer.Position = UDim2.new(0, 0, 0, 0)
+	self.searchInput = searchInput
 
 	local searchDebounce = false
 	table.insert(self.connections, self.searchInput:GetPropertyChangedSignal("Text"):Connect(function()
