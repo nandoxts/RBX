@@ -202,15 +202,20 @@ navPadding.PaddingTop = UDim.new(0, 6)
 navPadding.Parent = tabNav
 
 local function createTab(text)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 90, 0, 24)
+	local btn = UI.button({
+		size = UDim2.new(0, 90, 0, 24),
+		bg = THEME.panel,
+		text = text,
+		color = THEME.muted,
+		textSize = 13,
+		font = Enum.Font.GothamBold,
+		z = 101,
+		parent = tabNav,
+		corner = 0,
+	})
+	-- Mantener transparencia visual como antes (solo texto visible)
 	btn.BackgroundTransparency = 1
-	btn.Text = text
-	btn.TextColor3 = THEME.muted
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 13
 	btn.AutoButtonColor = false
-	btn.Parent = tabNav
 	return btn
 end
 
