@@ -625,39 +625,77 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		return
 	end
 
-	-- AGREGAR A LA COLA
-	local songInfo = {
-		id = id,
-		name = result.Name or ("Audio " .. id),
-		artist = result.Creator.Name or "Unknown",
-		userId = player.UserId,
-		requestedBy = player.Name,
-		addedAt = os.time()
-	}
+	-- Validar permisos de acceso al asset usando Sound temporal
+	local tempSound = Instance.new("Sound")
+	tempSound.SoundId = "rbxassetid://" .. id
+	tempSound.Parent = workspace
 
-	table.insert(playQueue, songInfo)
+	local loaded = false
+	local finished = false
 
-	-- Enviar respuesta de éxito
-	sendResponse(createResponse(
-		ResponseCodes.SUCCESS,
-		"Canción añadida a la cola",
-		{
-			songName = songInfo.name,
-			artist = songInfo.artist,
-			position = #playQueue
+	local function cleanup()
+		if tempSound then
+			tempSound:Destroy()
+			tempSound = nil
+		end
+	end
+
+	tempSound.Loaded:Connect(function()
+		loaded = true
+		finished = true
+		cleanup()
+
+		-- AGREGAR A LA COLA
+		local songInfo = {
+			id = id,
+			name = result.Name or ("Audio " .. id),
+			artist = result.Creator.Name or "Unknown",
+			userId = player.UserId,
+			requestedBy = player.Name,
+			addedAt = os.time()
 		}
+
+		table.insert(playQueue, songInfo)
+
+		-- Enviar respuesta de éxito
+		sendResponse(createResponse(
+			ResponseCodes.SUCCESS,
+			"Canción añadida a la cola",
+			{
+				songName = songInfo.name,
+				artist = songInfo.artist,
+				position = #playQueue
+			}
 		))
 
-	-- Actualizar TODOS los clientes
-	updateAllClients()
+		-- Actualizar TODOS los clientes
+		updateAllClients()
 
-	-- Auto-start si es la primera canción
-	if not isPlaying and not isPaused and #playQueue == 1 then
-		task.spawn(function()
-			wait(0.3)
-			playSong(1)
-		end)
-	end
+		-- Auto-start si es la primera canción
+		if not isPlaying and not isPaused and #playQueue == 1 then
+			task.spawn(function()
+				wait(0.3)
+				playSong(1)
+			end)
+		end
+	end)
+
+	-- Timeout de 3 segundos
+	task.delay(3, function()
+		if not finished then
+			finished = true
+			cleanup()
+			sendResponse(createResponse(
+				ResponseCodes.ERROR_NOT_AUTHORIZED,
+				"No tienes permiso para reproducir este audio"
+			))
+		end
+	end)
+
+	-- Intentar cargar
+	pcall(function()
+		tempSound:LoadAsync()
+	end)
 end)
 
 -- ════════════════════════════════════════════════════════════════
