@@ -1,6 +1,6 @@
 --[[
-    Sistema de Sincronización de Emotes - Versión Mejorada
-    
+    Sistema de Sincronización de Emotes
+	-- by ignxts
     Arquitectura:
     - Cada jugador puede seguir a UN solo líder (Following)
     - Cada jugador puede tener MÚLTIPLES seguidores (Followers)
@@ -411,11 +411,18 @@ local function OnStopAnimation(player)
 end
 
 -- Acción de sincronización (desde cliente)
-local function OnSyncAction(player, action, targetName)
+local function OnSyncAction(player, action, target)
 	if not IsValidPlayer(player) then return end
 
 	if action == "sync" then
-		local targetPlayer = FindPlayerByName(targetName)
+		-- El cliente puede enviar un Player object o un string (nombre)
+		local targetPlayer
+		if typeof(target) == "Instance" and target:IsA("Player") then
+			targetPlayer = target
+		elseif typeof(target) == "string" then
+			targetPlayer = FindPlayerByName(target)
+		end
+
 		if targetPlayer and IsValidPlayer(targetPlayer) and player ~= targetPlayer then
 			Follow(player, targetPlayer)
 		end
@@ -568,3 +575,4 @@ SyncRemote.OnServerEvent:Connect(OnSyncAction)
 for _, player in ipairs(Players:GetPlayers()) do
 	OnPlayerAdded(player)
 end
+
