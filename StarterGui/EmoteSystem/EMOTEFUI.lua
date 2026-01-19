@@ -12,9 +12,9 @@
 
 local Config = {
 	PC_Ancho = 200,
-	PC_Alto = 380,
+	PC_Alto = 400,
 	PC_MargenIzquierdo = 5,
-	PC_OffsetVertical = 40,
+	PC_OffsetVertical = 50,
 
 	Movil_Ancho = 150,
 	Movil_Alto = 250,
