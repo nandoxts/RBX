@@ -25,9 +25,6 @@ ClanSystemConfig.DATABASE = {
 	UseDataStore = true,
 	ClanStoreName = "ClansData_v2",
 	PlayerClanStoreName = "PlayerClans_v1",
-	AuditStoreName = "AdminAudit_v1",
-	CooldownStoreName = "ClanCooldowns_v1",
-	AutoSaveInterval = 300, -- 5 minutos
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -143,7 +140,7 @@ ClanSystemConfig.ROLES = {
 			color = Color3.fromRGB(255, 215, 0),
 			icon = "👑",
 			priority = 4,
-			canManage = {"lider", "colider", "miembro"}
+			canManage = {"owner", "lider", "colider", "miembro"}
 		},
 		lider = {
 			display = "Líder",

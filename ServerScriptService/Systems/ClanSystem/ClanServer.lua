@@ -115,12 +115,10 @@ local function updateAllMembersAttributes(clanData)
 end
 
 -- ============================================
--- SISTEMA DE CLANES
+-- VALIDACIONES Y FUNCIONES LOCALES
 -- ============================================
-local ClanSystem = {}
 
--- CREAR CLAN (con emoji y color)
-function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc, clanEmoji, clanColor)
+local function validateAndCreateClan(ownerId, clanName, clanTag, clanLogo, clanDesc, clanEmoji, clanColor)
 	local allowed, err = checkRateLimit(ownerId, "CreateClan")
 	if not allowed then return false, nil, err end
 
@@ -135,20 +133,8 @@ function ClanSystem:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc, c
 	return success, clanId, result
 end
 
-function ClanSystem:GetClanData(clanId)
-	return ClanData:GetClan(clanId)
-end
-
-function ClanSystem:GetPlayerClan(userId)
-	return ClanData:GetPlayerClan(userId)
-end
-
-function ClanSystem:GetAllClans()
-	return ClanData:GetAllClans()
-end
-
 -- INVITAR JUGADOR
-function ClanSystem:InvitePlayer(clanId, inviterId, targetUserId)
+local function validateInvitePlayer(clanId, inviterId, targetUserId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 
@@ -162,7 +148,7 @@ function ClanSystem:InvitePlayer(clanId, inviterId, targetUserId)
 end
 
 -- EXPULSAR JUGADOR
-function ClanSystem:KickPlayer(clanId, kickerId, targetUserId)
+local function validateKickPlayer(clanId, kickerId, targetUserId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 	if kickerId == targetUserId then return false, "No puedes expulsarte" end
@@ -182,7 +168,7 @@ function ClanSystem:KickPlayer(clanId, kickerId, targetUserId)
 end
 
 -- CAMBIAR ROL
-function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
+local function validateChangeRole(clanId, requesterId, targetUserId, newRole)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 
@@ -192,7 +178,6 @@ function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
 	if not requesterData then return false, "No eres miembro" end
 	if not targetData then return false, "Usuario no es miembro" end
 
-	-- Verificar permisos según el nuevo rol
 	local permiso = "cambiar_lideres"
 	if newRole == "colider" then permiso = "cambiar_colideres" end
 
@@ -205,15 +190,11 @@ function ClanSystem:ChangeRole(clanId, requesterId, targetUserId, newRole)
 	return success, success and "Rol actualizado" or result
 end
 
--- ============================================
--- SOLICITUDES DE UNIÓN
--- ============================================
-
-function ClanSystem:RequestJoinClan(clanId, playerId)
+-- VALIDACIONES DE SOLICITUDES
+local function validateRequestJoinClan(clanId, playerId)
 	local allowed, err = checkRateLimit(playerId, "RequestJoinClan")
 	if not allowed then return false, err end
 
-	-- Verificar solicitudes pendientes
 	local pending = ClanData:GetUserPendingRequests(playerId)
 	if #pending > 0 then
 		return false, "Ya tienes solicitud pendiente en '" .. pending[1].clanName .. "'"
@@ -222,44 +203,8 @@ function ClanSystem:RequestJoinClan(clanId, playerId)
 	return ClanData:RequestJoinClan(clanId, playerId)
 end
 
-function ClanSystem:ApproveJoinRequest(clanId, approverId, targetUserId)
-	local allowed, err = checkRateLimit(approverId, "ApproveJoinRequest")
-	if not allowed then return false, err end
-
-	local success, result = ClanData:ApproveJoinRequest(clanId, approverId, targetUserId)
-	if success then updatePlayerAttributes(targetUserId) end
-	return success, result
-end
-
-function ClanSystem:RejectJoinRequest(clanId, rejectorId, targetUserId)
-	local allowed, err = checkRateLimit(rejectorId, "RejectJoinRequest")
-	if not allowed then return false, err end
-	return ClanData:RejectJoinRequest(clanId, rejectorId, targetUserId)
-end
-
-function ClanSystem:CancelJoinRequest(clanId, playerId)
-	local allowed, err = checkRateLimit(playerId, "CancelJoinRequest")
-	if not allowed then return false, err end
-	return ClanData:CancelJoinRequest(clanId, playerId)
-end
-
-function ClanSystem:CancelAllJoinRequests(playerId)
-	local allowed, err = checkRateLimit(playerId, "CancelJoinRequest")
-	if not allowed then return false, err end
-	return ClanData:CancelAllJoinRequests(playerId)
-end
-
-function ClanSystem:GetJoinRequests(clanId, requesterId)
-	local allowed = checkRateLimit(requesterId, "GetJoinRequests")
-	if not allowed then return {} end
-	return ClanData:GetJoinRequests(clanId, requesterId)
-end
-
--- ============================================
--- EDICIÓN DEL CLAN
--- ============================================
-
-function ClanSystem:ChangeName(clanId, requesterId, newName)
+-- VALIDACIONES DE EDICIÓN
+local function validateChangeName(clanId, requesterId, newName)
 	if not newName or newName == "" then return false, "Nombre vacío" end
 
 	local clanData = ClanData:GetClan(clanId)
@@ -275,7 +220,7 @@ function ClanSystem:ChangeName(clanId, requesterId, newName)
 	return success, success and "Nombre actualizado" or result
 end
 
-function ClanSystem:ChangeTag(clanId, requesterId, newTag)
+local function validateChangeTag(clanId, requesterId, newTag)
 	if not newTag or #newTag < 2 or #newTag > 5 then
 		return false, "TAG debe tener 2-5 caracteres"
 	end
@@ -293,7 +238,7 @@ function ClanSystem:ChangeTag(clanId, requesterId, newTag)
 	return success, success and "TAG actualizado" or result
 end
 
-function ClanSystem:ChangeDescription(clanId, requesterId, newDesc)
+local function validateChangeDescription(clanId, requesterId, newDesc)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 
@@ -306,7 +251,7 @@ function ClanSystem:ChangeDescription(clanId, requesterId, newDesc)
 	return success, success and "Descripción actualizada" or result
 end
 
-function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
+local function validateChangeLogo(clanId, requesterId, newLogoId)
 	if not newLogoId or newLogoId == "" then return false, "Logo inválido" end
 
 	local clanData = ClanData:GetClan(clanId)
@@ -321,12 +266,10 @@ function ClanSystem:ChangeLogo(clanId, requesterId, newLogoId)
 	return success, success and "Logo actualizado" or result
 end
 
-function ClanSystem:ChangeColor(clanId, requesterId, newColor)
-	-- Rate limit
+local function validateChangeColor(clanId, requesterId, newColor)
 	local ok, err = checkRateLimit(requesterId, "ChangeColor")
 	if not ok then return false, err end
 
-	-- Validación básica: aceptar nombre (string) o tabla {r,g,b}
 	if type(newColor) ~= "table" and type(newColor) ~= "string" then
 		return false, "Color inválido"
 	end
@@ -339,7 +282,6 @@ function ClanSystem:ChangeColor(clanId, requesterId, newColor)
 		return false, "Sin permiso"
 	end
 
-	-- Si es nombre (string), buscarlo en ColorEffectsModule y convertir a RGB
 	if type(newColor) == "string" then
 		local name = tostring(newColor):lower():gsub("%s+", "")
 		if not ColorEffects or not ColorEffects.colors then
@@ -351,22 +293,14 @@ function ClanSystem:ChangeColor(clanId, requesterId, newColor)
 		end
 		newColor = { math.floor(c3.R * 255 + 0.5), math.floor(c3.G * 255 + 0.5), math.floor(c3.B * 255 + 0.5) }
 	elseif type(newColor) == "table" then
-		-- Si es tabla, validar formato RGB (0-255)
 		local ok, msg = Config:ValidateColor(newColor)
 		if not ok then
 			return false, msg or "Color inválido"
 		end
 	end
 
-	-- Usar la validación del config si existe
-	local valid, vmsg = (Config.ValidateColor and Config:ValidateColor(newColor)) or (type(newColor) == "table")
-	if valid ~= true then
-		return false, vmsg or "Color inválido"
-	end
-
 	local success, result = ClanData:UpdateClan(clanId, {clanColor = newColor})
 	if success then
-		-- Actualizar atributos de miembros para reflejar cambio (si existe la función)
 		pcall(function()
 			updateAllMembersAttributes(result)
 		end)
@@ -375,11 +309,7 @@ function ClanSystem:ChangeColor(clanId, requesterId, newColor)
 	return success, success and "Color actualizado" or result
 end
 
--- ============================================
--- DISOLVER / SALIR
--- ============================================
-
-function ClanSystem:DissolveClan(clanId, requesterId)
+local function validateDissolveClan(clanId, requesterId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 	if clanData.owner ~= requesterId then return false, "Solo el owner puede disolver" end
@@ -395,18 +325,12 @@ function ClanSystem:DissolveClan(clanId, requesterId)
 	return success, success and "Clan disuelto" or err
 end
 
-function ClanSystem:AdminDissolveClan(adminId, clanId)
+local function validateAdminDissolveClan(adminId, clanId)
 	local allowed, err = checkRateLimit(adminId, "AdminDissolveClan")
 	if not allowed then return false, err end
 
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
-
-	local adminName = Players:GetNameFromUserIdAsync(adminId)
-	ClanData:LogAdminAction(adminId, adminName, "delete_clan", clanId, clanData.clanName, {
-		memberCount = clanData.miembros and #clanData.miembros or 0,
-		ownerUserId = clanData.owner
-	})
 
 	local members = clanData.miembros_data
 	local success, err = ClanData:DissolveClan(clanId)
@@ -419,7 +343,7 @@ function ClanSystem:AdminDissolveClan(adminId, clanId)
 	return success, success and "Clan disuelto por admin" or err
 end
 
-function ClanSystem:LeaveClan(clanId, requesterId)
+local function validateLeaveClan(clanId, requesterId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
 	if clanData.owner == requesterId then
@@ -498,15 +422,15 @@ end)
 -- HANDLERS
 -- ============================================
 
--- CREAR CLAN (con emoji y color)
+-- HANDLERS
 CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, clanDesc, customOwnerId, clanEmoji, clanColor)
 	local ownerId = player.UserId
 	if customOwnerId and isAdmin(player.UserId) then
 		ownerId = customOwnerId
 	end
 
-	local success, clanId, result = ClanSystem:CreateClan(
-		clanName, ownerId, clanTag, clanLogo, clanDesc, clanEmoji, clanColor
+	local success, clanId, result = validateAndCreateClan(
+		ownerId, clanName, clanTag, clanLogo, clanDesc, clanEmoji, clanColor
 	)
 
 	if success then
@@ -516,52 +440,52 @@ CreateClanEvent.OnServerInvoke = function(player, clanName, clanTag, clanLogo, c
 end
 
 InvitePlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
-	return ClanSystem:InvitePlayer(clanId, player.UserId, targetPlayerId)
+	return validateInvitePlayer(clanId, player.UserId, targetPlayerId)
 end
 
 KickPlayerEvent.OnServerInvoke = function(player, clanId, targetPlayerId)
-	return ClanSystem:KickPlayer(clanId, player.UserId, targetPlayerId)
+	return validateKickPlayer(clanId, player.UserId, targetPlayerId)
 end
 
 ChangeRoleEvent.OnServerInvoke = function(player, clanId, targetPlayerId, newRole)
-	return ClanSystem:ChangeRole(clanId, player.UserId, targetPlayerId, newRole)
+	return validateChangeRole(clanId, player.UserId, targetPlayerId, newRole)
 end
 
 ChangeClanNameEvent.OnServerInvoke = function(player, clanId, newName)
-	return ClanSystem:ChangeName(clanId, player.UserId, newName)
+	return validateChangeName(clanId, player.UserId, newName)
 end
 
 ChangeClanTagEvent.OnServerInvoke = function(player, clanId, newTag)
-	return ClanSystem:ChangeTag(clanId, player.UserId, newTag)
+	return validateChangeTag(clanId, player.UserId, newTag)
 end
 
 ChangeClanDescEvent.OnServerInvoke = function(player, clanId, newDesc)
-	return ClanSystem:ChangeDescription(clanId, player.UserId, newDesc)
+	return validateChangeDescription(clanId, player.UserId, newDesc)
 end
 
 ChangeClanLogoEvent.OnServerInvoke = function(player, clanId, newLogoId)
-	return ClanSystem:ChangeLogo(clanId, player.UserId, newLogoId)
+	return validateChangeLogo(clanId, player.UserId, newLogoId)
 end
 
 ChangeClanColorEvent.OnServerInvoke = function(player, clanId, newColor)
-    return ClanSystem:ChangeColor(clanId, player.UserId, newColor)
+	return validateChangeColor(clanId, player.UserId, newColor)
 end
 
 DissolveEvent.OnServerInvoke = function(player, clanId)
-	return ClanSystem:DissolveClan(clanId, player.UserId)
+	return validateDissolveClan(clanId, player.UserId)
 end
 
 AdminDissolveClanEvent.OnServerInvoke = function(player, clanId)
 	if not isAdmin(player.UserId) then return false, "No autorizado" end
-	return ClanSystem:AdminDissolveClan(player.UserId, clanId)
+	return validateAdminDissolveClan(player.UserId, clanId)
 end
 
 LeaveClanEvent.OnServerInvoke = function(player, clanId)
-	return ClanSystem:LeaveClan(clanId, player.UserId)
+	return validateLeaveClan(clanId, player.UserId)
 end
 
 GetClanDataEvent.OnServerEvent:Connect(function(player, clanId)
-	GetClanDataEvent:FireClient(player, ClanSystem:GetClanData(clanId))
+	GetClanDataEvent:FireClient(player, ClanData:GetClan(clanId))
 end)
 
 GetClansListFunction.OnServerInvoke = function(player)
@@ -576,36 +500,48 @@ GetClansListFunction.OnServerInvoke = function(player)
 end
 
 GetPlayerClanFunction.OnServerInvoke = function(player)
-	local playerClan = ClanSystem:GetPlayerClan(player.UserId)
+	local playerClan = ClanData:GetPlayerClan(player.UserId)
 	if playerClan and playerClan.clanId then
-		return ClanSystem:GetClanData(playerClan.clanId)
+		return ClanData:GetClan(playerClan.clanId)
 	end
 	return nil
 end
 
--- HANDLERS PARA SOLICITUDES
 RequestJoinClanEvent.OnServerInvoke = function(player, clanId)
-	return ClanSystem:RequestJoinClan(clanId, player.UserId)
+	return validateRequestJoinClan(clanId, player.UserId)
 end
 
 ApproveJoinRequestEvent.OnServerInvoke = function(player, clanId, targetUserId)
-	return ClanSystem:ApproveJoinRequest(clanId, player.UserId, targetUserId)
+	local allowed, err = checkRateLimit(player.UserId, "ApproveJoinRequest")
+	if not allowed then return false, err end
+
+	local success, result = ClanData:ApproveJoinRequest(clanId, player.UserId, targetUserId)
+	if success then updatePlayerAttributes(targetUserId) end
+	return success, result
 end
 
 RejectJoinRequestEvent.OnServerInvoke = function(player, clanId, targetUserId)
-	return ClanSystem:RejectJoinRequest(clanId, player.UserId, targetUserId)
+	local allowed, err = checkRateLimit(player.UserId, "RejectJoinRequest")
+	if not allowed then return false, err end
+	return ClanData:RejectJoinRequest(clanId, player.UserId, targetUserId)
 end
 
 GetJoinRequestsEvent.OnServerInvoke = function(player, clanId)
-	return ClanSystem:GetJoinRequests(clanId, player.UserId)
+	local allowed = checkRateLimit(player.UserId, "GetJoinRequests")
+	if not allowed then return {} end
+	return ClanData:GetJoinRequests(clanId, player.UserId)
 end
 
 CancelJoinRequestEvent.OnServerInvoke = function(player, clanId)
-	return ClanSystem:CancelJoinRequest(clanId, player.UserId)
+	local allowed, err = checkRateLimit(player.UserId, "CancelJoinRequest")
+	if not allowed then return false, err end
+	return ClanData:CancelJoinRequest(clanId, player.UserId)
 end
 
 CancelAllJoinRequestsEvent.OnServerInvoke = function(player)
-	return ClanSystem:CancelAllJoinRequests(player.UserId)
+	local allowed, err = checkRateLimit(player.UserId, "CancelJoinRequest")
+	if not allowed then return false, err end
+	return ClanData:CancelAllJoinRequests(player.UserId)
 end
 
 GetUserPendingRequestsEvent.OnServerInvoke = function(player)
@@ -651,11 +587,6 @@ end
 -- INICIALIZACIÓN
 -- ============================================
 task.spawn(function()
-	-- MIGRACIÓN: Pasar de estructura vieja a nueva (sin perder datos)
-	print("[ClanServer] Iniciando migración de datos...")
-	ClanData:StartMigration()
-	print("[ClanServer] Migración completada ✅")
-
 	-- Limpiar registros huérfanos
 	for _, defaultClan in ipairs(Config.DEFAULT_CLANS or {}) do
 		ClanData:GetPlayerClan(defaultClan.ownerId)
