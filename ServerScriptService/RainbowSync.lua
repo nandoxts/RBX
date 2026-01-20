@@ -9,6 +9,7 @@ local RainbowSync = {}
 -- ═══════════════════════════════════════════════════════════════════
 local CONFIG = {
 	speed = 0.5,
+	updateInterval = 0.05, -- Actualizar cada 50ms en lugar de cada frame (mejor performance)
 
 	-- Blacklist GLOBAL: estos nombres NUNCA se tocan
 	-- Sin "/" = solo ese nombre | Con "/" = toda la carpeta y su contenido
@@ -82,6 +83,7 @@ local state = {
 	progress = 0,
 	colorIndex = 1,
 	colors = CONFIG.rainbowColors,
+	lastColor = CONFIG.rainbowColors[1], -- Cache del último color
 }
 
 local registry = {} -- { instance = originalData }
@@ -285,11 +287,11 @@ end
 -- LOOP PRINCIPAL (Optimizado)
 -- ═══════════════════════════════════════════════════════════════════
 local function startUpdateLoop(rainbowValue)
-	local updateInterval = 1/30 -- 30 FPS para colores (suficiente para visual)
+	local updateInterval = CONFIG.updateInterval or 0.05 -- 20 FPS para colores (suficiente + menos lag)
 	local accumulator = 0
 
 	RunService.Heartbeat:Connect(function(dt)
-		accumulator += dt
+		accumulator = accumulator + dt
 		if accumulator < updateInterval then return end
 		accumulator = 0
 
@@ -301,7 +303,7 @@ local function startUpdateLoop(rainbowValue)
 		end
 
 		-- Calcular color
-		state.progress += dt / CONFIG.speed
+		state.progress = state.progress + dt / CONFIG.speed
 		if state.progress >= 1 then
 			state.progress = 0
 			state.colorIndex = state.colorIndex % #state.colors + 1
@@ -311,13 +313,18 @@ local function startUpdateLoop(rainbowValue)
 		local nextIdx = state.colorIndex % #state.colors + 1
 		local lerpedColor = current:Lerp(state.colors[nextIdx], state.progress)
 
-		-- Aplicar a todas las instancias registradas
-		for instance, original in pairs(registry) do
-			applyColor(instance, lerpedColor, original)
-		end
+		-- Solo actualizar si el color cambió
+		if lerpedColor ~= state.lastColor then
+			state.lastColor = lerpedColor
+			
+			-- Aplicar a todas las instancias registradas
+			for instance, original in pairs(registry) do
+				applyColor(instance, lerpedColor, original)
+			end
 
-		-- Actualizar valor compartido
-		pcall(function() rainbowValue.Value = lerpedColor end)
+			-- Actualizar valor compartido
+			pcall(function() rainbowValue.Value = lerpedColor end)
+		end
 	end)
 end
 
@@ -356,7 +363,7 @@ function RainbowSync.Init()
 
 	-- Contar instancias registradas
 	local count = 0
-	for _ in pairs(registry) do count += 1 end
+	for _ in pairs(registry) do count = count + 1 end
 	print("RainbowSync: Inicializado con", count, "instancias")
 end
 
