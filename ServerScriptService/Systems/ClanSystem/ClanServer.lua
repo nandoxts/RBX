@@ -186,8 +186,14 @@ local function validateChangeRole(clanId, requesterId, targetUserId, newRole)
 	end
 
 	local success, result = ClanData:ChangeRole(clanId, targetUserId, newRole)
-	if success then updatePlayerAttributes(targetUserId) end
-	return success, success and "Rol actualizado" or result
+	if success then
+		updatePlayerAttributes(targetUserId)
+		local roleConfig = Config.ROLES.Visual[newRole]
+		local roleDisplay = roleConfig and (roleConfig.icon .. " " .. roleConfig.display) or newRole
+		local userName = targetData.nombre or "Usuario"
+		return true, userName .. " ha pasado a ser " .. roleDisplay
+	end
+	return false, result
 end
 
 -- VALIDACIONES DE SOLICITUDES
@@ -500,10 +506,25 @@ GetClansListFunction.OnServerInvoke = function(player)
 end
 
 GetPlayerClanFunction.OnServerInvoke = function(player)
-	local playerClan = ClanData:GetPlayerClan(player.UserId)
-	if playerClan and playerClan.clanId then
-		return ClanData:GetClan(playerClan.clanId)
+	-- Reintentos para esperar a que los datos estén listos
+	local maxRetries = 10
+	local retries = 0
+	
+	while retries < maxRetries do
+		local playerClan = ClanData:GetPlayerClan(player.UserId)
+		if playerClan and playerClan.clanId then
+			return ClanData:GetClan(playerClan.clanId)
+		end
+		
+		-- Si no encontró el clan pero es un owner de clan por defecto, intentar de nuevo
+		if retries < maxRetries - 1 then
+			task.wait(0.1)
+			retries = retries + 1
+		else
+			break
+		end
 	end
+	
 	return nil
 end
 

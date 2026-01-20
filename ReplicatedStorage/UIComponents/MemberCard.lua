@@ -224,7 +224,7 @@ function MemberCard:_changeRole(newRole)
 		onConfirm = function()
 			local success, msg = ClanClient:ChangePlayerRole(self.userId, newRole)
 			if success then
-				Notify:Success("Rol actualizado", "Ahora es " .. roleConfig.display, 4)
+				Notify:Success("Rol actualizado", msg or "Rol actualizado exitosamente", 4)
 				if self.onUpdate then self.onUpdate() end
 			else
 				Notify:Error("Error", msg or "No se pudo cambiar el rol", 4)

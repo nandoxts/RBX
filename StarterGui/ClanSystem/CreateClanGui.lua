@@ -98,6 +98,98 @@ function Memory.destroyChildren(parent, exceptClass)
 	end
 end
 
+-- Helper: Crear scroll frame reutilizable
+local function setupScroll(parent, options)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = options.size or UDim2.new(1, -20, 1, -60)
+	scroll.Position = options.pos or UDim2.new(0, 10, 0, 58)
+	scroll.BackgroundTransparency = 1
+	scroll.ScrollBarThickness = 4
+	scroll.ScrollBarImageColor3 = THEME.accent
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ZIndex = options.z or 103
+	scroll.Parent = parent
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, options.padding or 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = scroll
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+	end)
+
+	return scroll
+end
+
+-- Helper: Crear selector de items (emoji o color)
+local function createSelector(items, config)
+	local container = UI.frame({
+		size = config.size or UDim2.new(1, 0, 0, 36),
+		pos = config.pos or UDim2.new(0, 0, 0, 0),
+		bg = THEME.surface,
+		z = config.z or 105,
+		parent = config.parent,
+		corner = 8
+	})
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, config.spacing or 4)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Parent = container
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 6)
+	pad.Parent = container
+
+	local buttons, selectedIdx = {}, 1
+	local indicators = {}
+	
+	for i, item in ipairs(items) do
+		local btn = UI.frame({
+			size = UDim2.new(0, config.itemSize or 28, 0, config.itemSize or 28),
+			bg = i == 1 and THEME.accent or THEME.card,
+			z = config.z and config.z + 1 or 106,
+			parent = container,
+			corner = config.itemCorner or 6
+		})
+
+		if config.isEmoji then
+			UI.label({size = UDim2.new(1, 0, 1, 0), text = item, textSize = 16, alignX = Enum.TextXAlignment.Center, z = config.z and config.z + 2 or 107, parent = btn})
+			indicators[i] = nil
+		else
+			btn.BackgroundColor3 = Color3.fromRGB(item[1], item[2], item[3])
+			indicators[i] = UI.frame({size = UDim2.new(1, -6, 1, -6), pos = UDim2.new(0, 3, 0, 3), bgT = 1, z = config.z and config.z + 2 or 107, parent = btn, corner = 4, stroke = true, strokeA = i == 1 and 0 or 1, strokeC = Color3.new(1, 1, 1)})
+		end
+
+		local clickBtn = Instance.new("TextButton")
+		clickBtn.Size = UDim2.new(1, 0, 1, 0)
+		clickBtn.BackgroundTransparency = 1
+		clickBtn.Text = ""
+		clickBtn.ZIndex = config.z and config.z + 3 or 108
+		clickBtn.Parent = btn
+
+		buttons[i] = btn
+		Memory.track(clickBtn.MouseButton1Click:Connect(function()
+			selectedIdx = i
+			for j, b in ipairs(buttons) do
+				if config.isEmoji then
+					b.BackgroundColor3 = j == i and THEME.accent or THEME.card
+				else
+					if indicators[j] then
+						local stroke = indicators[j]:FindFirstChildOfClass("UIStroke")
+						if stroke then stroke.Transparency = j == i and 0 or 1 end
+					end
+				end
+			end
+			if config.onSelect then config.onSelect(i) end
+		end))
+	end
+
+	return container, function() return selectedIdx end
+end
+
 UI.setTrack(Memory.track)
 
 -- ════════════════════════════════════════════════════════════════
@@ -282,25 +374,7 @@ searchContainer.Position = UDim2.new(0, 10, 0, 10)
 -- Registrar cleanup para que Memory.cleanup lo destruya al cerrar
 Memory.track({Disconnect = searchCleanup})
 
-local clansScroll = Instance.new("ScrollingFrame")
-clansScroll.Size = UDim2.new(1, -20, 1, -56)
-clansScroll.Position = UDim2.new(0, 10, 0, 52)
-clansScroll.BackgroundTransparency = 1
-clansScroll.ScrollBarThickness = 4
-clansScroll.ScrollBarImageColor3 = THEME.accent
-clansScroll.ScrollBarImageTransparency = 0.3
-clansScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-clansScroll.ZIndex = 103
-clansScroll.Parent = pageDisponibles
-
-local listLayout = Instance.new("UIListLayout")
-listLayout.Padding = UDim.new(0, 8)
-listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-listLayout.Parent = clansScroll
-
-listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	clansScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
-end)
+local clansScroll = setupScroll(pageDisponibles, {size = UDim2.new(1, -20, 1, -56), pos = UDim2.new(0, 10, 0, 52), padding = 8, z = 103})
 
 local searchDebounce = false
 searchInput:GetPropertyChangedSignal("Text"):Connect(function()
@@ -355,102 +429,33 @@ end)
 -- EMOJI SELECTOR
 UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 324), text = "EMOJI DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
 
-local emojiFrame = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 342), bg = THEME.surface, z = 105, parent = createCard, corner = 8})
-
-local emojiLayout = Instance.new("UIListLayout")
-emojiLayout.FillDirection = Enum.FillDirection.Horizontal
-emojiLayout.Padding = UDim.new(0, 4)
-emojiLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-emojiLayout.Parent = emojiFrame
-
-local emojiPad = Instance.new("UIPadding")
-emojiPad.PaddingLeft = UDim.new(0, 6)
-emojiPad.Parent = emojiFrame
-
-local emojiButtons = {}
-for i, emoji in ipairs(CLAN_EMOJIS) do
-	-- Frame base para el emoji
-	local emojiContainer = UI.frame({
-		size = UDim2.new(0, 28, 0, 28),
-		bg = i == 1 and THEME.accent or THEME.card,
-		z = 106,
-		parent = emojiFrame,
-		corner = 6
-	})
-
-	-- Label del emoji
-	UI.label({
-		size = UDim2.new(1, 0, 1, 0),
-		text = emoji,
-		textSize = 16,
-		alignX = Enum.TextXAlignment.Center,
-		z = 107,
-		parent = emojiContainer
-	})
-
-	-- Botón transparente para capturar clicks
-	local clickBtn = Instance.new("TextButton")
-	clickBtn.Size = UDim2.new(1, 0, 1, 0)
-	clickBtn.BackgroundTransparency = 1
-	clickBtn.Text = ""
-	clickBtn.ZIndex = 108
-	clickBtn.Parent = emojiContainer
-
-	emojiButtons[i] = emojiContainer
-
-	Memory.track(clickBtn.MouseButton1Click:Connect(function()
-		selectedEmojiIndex = i
-		for j, btn in ipairs(emojiButtons) do
-			btn.BackgroundColor3 = j == i and THEME.accent or THEME.card
-		end
-	end))
-end
+local emojiFrame, getEmojiIndex = createSelector(CLAN_EMOJIS, {
+	size = UDim2.new(1, 0, 0, 36),
+	pos = UDim2.new(0, 0, 0, 342),
+	parent = createCard,
+	isEmoji = true,
+	itemSize = 28,
+	spacing = 4,
+	onSelect = function(idx) selectedEmojiIndex = idx end
+})
 
 -- COLOR SELECTOR
 UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 388), text = "COLOR DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
 
-local colorFrame = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 406), bg = THEME.surface, z = 105, parent = createCard, corner = 8})
-
-local colorLayout = Instance.new("UIListLayout")
-colorLayout.FillDirection = Enum.FillDirection.Horizontal
-colorLayout.Padding = UDim.new(0, 6)
-colorLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-colorLayout.Parent = colorFrame
-
-local colorPad = Instance.new("UIPadding")
-colorPad.PaddingLeft = UDim.new(0, 6)
-colorPad.Parent = colorFrame
-
-local colorButtons = {}
+local colorItems = {}
 for i, colorData in ipairs(CLAN_COLORS) do
-	local c = colorData.color
-	local colorBtn = UI.frame({
-		size = UDim2.new(0, 28, 0, 28),
-		bg = Color3.fromRGB(c[1], c[2], c[3]), z = 106, parent = colorFrame, corner = 6
-	})
-
-	local selectIndicator = UI.frame({
-		size = UDim2.new(1, -6, 1, -6), pos = UDim2.new(0, 3, 0, 3),
-		bgT = 1, z = 107, parent = colorBtn, corner = 4, stroke = true, strokeA = i == 1 and 0 or 1, strokeC = Color3.new(1, 1, 1)
-	})
-
-	colorButtons[i] = {btn = colorBtn, indicator = selectIndicator}
-
-	local clickBtn = Instance.new("TextButton")
-	clickBtn.Size = UDim2.new(1, 0, 1, 0)
-	clickBtn.BackgroundTransparency = 1
-	clickBtn.Text = ""
-	clickBtn.ZIndex = 108
-	clickBtn.Parent = colorBtn
-
-	Memory.track(clickBtn.MouseButton1Click:Connect(function()
-		selectedColorIndex = i
-		for j, data in ipairs(colorButtons) do
-			local stroke = data.indicator:FindFirstChildOfClass("UIStroke")
-			if stroke then stroke.Transparency = j == i and 0 or 1 end
-		end
-	end))
+	table.insert(colorItems, colorData.color)
 end
+
+local colorFrame, getColorIndex = createSelector(colorItems, {
+	size = UDim2.new(1, 0, 0, 36),
+	pos = UDim2.new(0, 0, 0, 406),
+	parent = createCard,
+	isEmoji = false,
+	itemSize = 28,
+	spacing = 6,
+	onSelect = function(idx) selectedColorIndex = idx end
+})
 
 -- OWNER ID (Admin only)
 local inputOwnerId = UI.input("ID DEL OWNER (Opcional - Solo Admin)", "Ej: 123456789", 452, createCard)
@@ -482,25 +487,7 @@ if isAdmin then
 		color = THEME.warn, textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader
 	})
 
-	adminClansScroll = Instance.new("ScrollingFrame")
-	adminClansScroll.Size = UDim2.new(1, -20, 1, -60)
-	adminClansScroll.Position = UDim2.new(0, 10, 0, 58)
-	adminClansScroll.BackgroundTransparency = 1
-	adminClansScroll.ScrollBarThickness = 4
-	adminClansScroll.ScrollBarImageColor3 = THEME.accent
-	adminClansScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-	adminClansScroll.ZIndex = 103
-	adminClansScroll.Parent = pageAdmin
-
-	local adminListLayout = Instance.new("UIListLayout")
-	adminListLayout.Padding = UDim.new(0, 8)
-	adminListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	adminListLayout.Parent = adminClansScroll
-
-	adminListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		adminClansScroll.CanvasSize = UDim2.new(0, 0, 0, adminListLayout.AbsoluteContentSize.Y + 10)
-	end)
-
+	adminClansScroll = setupScroll(pageAdmin, {z = 103})
 	tabPages["Admin"] = pageAdmin
 end
 
@@ -1270,7 +1257,10 @@ local function createMembersView(parent, clanData, playerRole)
 		clanData = clanData,
 		playerRole = playerRole,
 		onUpdate = function()
-			loadPlayerClan()
+			-- Volver a main view con animación (sin recarga completa)
+			if currentView ~= "main" then
+				navigateTo("main")
+			end
 		end
 	})
 
@@ -1327,12 +1317,34 @@ local function createPendingView(parent, clanData, playerRole)
 			playerRole = playerRole,
 			requests = requests,
 			onUpdate = function()
-				loadPlayerClan()
+				-- Volver a main view con animación (sin recarga completa)
+				if currentView ~= "main" then
+					navigateTo("main")
+				end
 			end
 		})
 	end)
 
 	return pendingView
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- FUNCIÓN: Actualizar datos del clan SIN destruir UI
+-- ════════════════════════════════════════════════════════════════
+local function updateClanData()
+	task.spawn(function()
+		local newClanData = ClanClient:GetPlayerClan()
+		if newClanData then
+			cachedClanData = newClanData
+			-- Actualizar referencia en MembersList si existe
+			if membersListInstance then
+				membersListInstance:updateClanData(newClanData)
+			end
+			if pendingListInstance then
+				pendingListInstance:updateClanData(newClanData)
+			end
+		end
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1741,7 +1753,7 @@ ClanClient.onClansUpdated = function(clans)
 
 	if currentPage == "Disponibles" then task.defer(loadClansFromServer)
 	elseif currentPage == "Admin" and isAdmin then task.defer(loadAdminClans)
-	elseif currentPage == "TuClan" then task.defer(loadPlayerClan)
+	elseif currentPage == "TuClan" then task.defer(updateClanData) -- Actualiza sin destruir UI
 	end
 end
 
