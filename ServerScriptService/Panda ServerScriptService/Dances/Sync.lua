@@ -112,6 +112,7 @@ local function GetAllFollowers(player, visited)
 	if not data or not data.Followers then return allFollowers end
 
 	for _, follower in ipairs(data.Followers) do
+		-- Validar que el seguidor siga siendo válido
 		if IsValidPlayer(follower) and not visited[follower] then
 			table.insert(allFollowers, follower)
 			-- Obtener seguidores de este seguidor también
@@ -199,9 +200,14 @@ local function PlayAnimationOnPlayer(player, animationId, animationName, timePos
 
 	local data = PlayerData[player]
 	local character = player.Character
-	local humanoid = character.Humanoid
-	local animator = humanoid.Animator
-	local baileAnim = character.Baile
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then return false end
+	
+	local animator = humanoid:FindFirstChild("Animator")
+	if not animator then return false end
+	
+	local baileAnim = character:FindFirstChild("Baile")
+	if not baileAnim then return false end
 
 	-- Detener animación actual
 	StopPlayerAnimation(player)
@@ -221,25 +227,33 @@ local function PlayAnimationOnPlayer(player, animationId, animationName, timePos
 	return true
 end
 
--- Propagar animación a todos los seguidores de un jugador
-local function PropagateAnimationToFollowers(leader)
-	if not IsValidPlayer(leader) then return end
+-- Obtener followers válidos de un jugador
+local function GetValidFollowers(player)
+	if not IsValidPlayer(player) then return {} end
 
-	local leaderData = PlayerData[leader]
-	if not leaderData.Animation then return end
+	local validFollowers = {}
+	for _, follower in ipairs(PlayerData[player].Followers) do
+		if IsValidPlayer(follower) then
+			table.insert(validFollowers, follower)
+		end
+	end
+	return validFollowers
+end
 
-	local animationId = leaderData.Animation.Animation.AnimationId
-	local animationName = leaderData.AnimationName
-	local timePosition = leaderData.Animation.TimePosition
-	local speed = leaderData.Animation.Speed
+-- Propagar animación a una cadena de followers recursivamente
+local function PropagateToFollowerChain(followers, animId, animName, timePos, speed)
+	for _, follower in ipairs(followers) do
+		if IsValidPlayer(follower) and CanAnimate(follower) then
+			if follower.Character and follower.Character.Parent then
+				PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
+				NotifyClient(follower, animName)
 
-	-- Obtener TODOS los seguidores (incluyendo seguidores de seguidores)
-	local allFollowers = GetAllFollowers(leader)
-
-	for _, follower in ipairs(allFollowers) do
-		if CanAnimate(follower) then
-			PlayAnimationOnPlayer(follower, animationId, animationName, timePosition, speed)
-			NotifyClient(follower, animationName)
+				-- Propagar a subfollowers
+				local subFollowers = GetAllFollowers(follower)
+				if #subFollowers > 0 then
+					PropagateToFollowerChain(subFollowers, animId, animName, timePos, speed)
+				end
+			end
 		end
 	end
 end
@@ -251,8 +265,11 @@ local function StopFollowersAnimations(leader)
 	local allFollowers = GetAllFollowers(leader)
 
 	for _, follower in ipairs(allFollowers) do
-		StopPlayerAnimation(follower)
-		NotifyClient(follower, nil)
+		-- Validar que el seguidor sigue siendo válido
+		if IsValidPlayer(follower) and CanAnimate(follower) then
+			StopPlayerAnimation(follower)
+			NotifyClient(follower, nil)
+		end
 	end
 end
 
@@ -277,6 +294,8 @@ local function Unfollow(player)
 	-- Actualizar indicador visual
 	if player.Character and player.Character:FindFirstChild("SyncOnOff") then
 		player.Character.SyncOnOff.Value = false
+		-- Limpiar nombre del líder al desincronizarse
+		player.Character:SetAttribute("SyncedPlayerName", nil)
 	end
 end
 
@@ -294,11 +313,14 @@ local function Follow(follower, leader)
 		end
 	end
 
-	-- Guardar mis seguidores actuales antes de cambiar
-	local myFollowers = ShallowCopy(PlayerData[follower].Followers)
+	-- Guardar mis seguidores válidos antes de cambiar
+	local myFollowers = GetValidFollowers(follower)
 
 	-- Dejar de seguir al líder anterior si existe
 	Unfollow(follower)
+
+	-- Validar nuevamente que el líder sigue siendo válido
+	if not IsValidPlayer(leader) then return false end
 
 	-- Establecer nuevo líder
 	local followerData = PlayerData[follower]
@@ -315,6 +337,8 @@ local function Follow(follower, leader)
 	-- Actualizar indicador visual
 	if follower.Character and follower.Character:FindFirstChild("SyncOnOff") then
 		follower.Character.SyncOnOff.Value = true
+		-- Enviar nombre del líder al cliente
+		follower.Character:SetAttribute("SyncedPlayerName", leader.Name)
 	end
 
 	-- Obtener la animación del líder raíz
@@ -332,21 +356,9 @@ local function Follow(follower, leader)
 				NotifyClient(follower, animName)
 			end
 
-			-- Propagar a todos mis seguidores también
-			for _, myFollower in ipairs(myFollowers) do
-				if CanAnimate(myFollower) then
-					PlayAnimationOnPlayer(myFollower, animId, animName, timePos, speed)
-					NotifyClient(myFollower, animName)
-
-					-- Y a los seguidores de mis seguidores
-					local subFollowers = GetAllFollowers(myFollower)
-					for _, subFollower in ipairs(subFollowers) do
-						if CanAnimate(subFollower) then
-							PlayAnimationOnPlayer(subFollower, animId, animName, timePos, speed)
-							NotifyClient(subFollower, animName)
-						end
-					end
-				end
+			-- Propagar a todos mis seguidores usando el helper
+			if #myFollowers > 0 then
+				PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
 			end
 		end
 	end
@@ -363,8 +375,8 @@ local function OnPlayAnimation(player, action, animationData)
 	if not IsValidPlayer(player) then return end
 
 	if action == "playAnim" and animationData and DanceCache[animationData] then
-		-- Guardar mis seguidores
-		local myFollowers = ShallowCopy(PlayerData[player].Followers)
+		-- Guardar mis seguidores válidos antes de cambiar
+		local myFollowers = GetValidFollowers(player)
 
 		-- Si estoy siguiendo a alguien, dejar de seguir
 		-- (porque ahora YO soy el que elige el baile)
@@ -378,8 +390,10 @@ local function OnPlayAnimation(player, action, animationData)
 		if PlayAnimationOnPlayer(player, animId, animationData, 0, 1) then
 			NotifyClient(player, animationData)
 
-			-- Propagar a TODOS mis seguidores
-			PropagateAnimationToFollowers(player)
+			-- Propagar a todos mis seguidores
+			if IsValidPlayer(player) and #myFollowers > 0 then
+				PropagateToFollowerChain(myFollowers, animId, animationData, 0, 1)
+			end
 		end
 
 	elseif action == "speed" and type(animationData) == "number" then
@@ -392,7 +406,10 @@ local function OnPlayAnimation(player, action, animationData)
 			-- Recrear animación con nueva velocidad
 			if PlayAnimationOnPlayer(player, animId, animName, timePos, animationData) then
 				-- Propagar cambio de velocidad a seguidores
-				PropagateAnimationToFollowers(player)
+				local followers = GetValidFollowers(player)
+				if #followers > 0 then
+					PropagateToFollowerChain(followers, animId, animName, timePos, animationData)
+				end
 			end
 		end
 	end
@@ -428,8 +445,8 @@ local function OnSyncAction(player, action, target)
 		end
 
 	elseif action == "unsync" then
-		-- Guardar seguidores antes de desincronizar
-		local myFollowers = ShallowCopy(PlayerData[player].Followers)
+		-- Guardar seguidores válidos antes de desincronizar
+		local myFollowers = GetValidFollowers(player)
 
 		-- Dejar de seguir
 		Unfollow(player)
@@ -462,38 +479,67 @@ local function OnCharacterAdded(character)
 	local player = Players:GetPlayerFromCharacter(character)
 	if not player or not PlayerData[player] then return end
 
-	local humanoid = character:WaitForChild("Humanoid", 5)
-	if humanoid then
-		local diedConnection
-		diedConnection = humanoid.Died:Connect(function()
-			if diedConnection then
-				diedConnection:Disconnect()
-			end
-
-			if not IsValidPlayer(player) then return end
-
-			-- Detener animación al morir
-			StopPlayerAnimation(player)
-			PlayerData[player].Following = nil
-
-			if Settings.ResetAnimationOnRespawn then
-				-- Notificar a seguidores que ya no hay animación
-				StopFollowersAnimations(player)
-
-				-- Remover de la lista de seguidores de otros
-				for otherPlayer, data in pairs(PlayerData) do
-					if otherPlayer ~= player and data.Followers then
-						SafeRemoveFromArray(data.Followers, player)
-					end
+	-- Usar spawn para no bloquear si Humanoid tarda
+	task.spawn(function()
+		local humanoid = character:FindFirstChild("Humanoid")
+		
+		-- Si no hay Humanoid inmediatamente, esperar máximo 1 segundo
+		if not humanoid then
+			humanoid = character:WaitForChild("Humanoid", 1)
+		end
+		
+		if humanoid then
+			local diedConnection
+			diedConnection = humanoid.Died:Connect(function()
+				-- Desconectar de inmediato
+				if diedConnection then
+					diedConnection:Disconnect()
+					diedConnection = nil
 				end
 
-				-- Limpiar seguidores
-				PlayerData[player].Followers = {}
-			end
-		end)
+				-- Validar jugador sigue siendo válido
+				if not IsValidPlayer(player) then return end
+				if not PlayerData[player] then return end
 
-		table.insert(PlayerData[player].Connections, diedConnection)
-	end
+				-- Detener animación al morir
+				StopPlayerAnimation(player)
+				
+				-- Guardar seguidores antes de limpiar
+				local myFollowers = ShallowCopy(PlayerData[player].Followers)
+				
+				-- Dejar de seguir a líder
+				if PlayerData[player].Following then
+					Unfollow(player)
+				end
+
+				if Settings.ResetAnimationOnRespawn then
+					-- Notificar a seguidores que ya no hay animación
+					StopFollowersAnimations(player)
+
+					-- Remover de la lista de seguidores de otros (incluir referencias stale)
+					for otherPlayer, data in pairs(PlayerData) do
+						if otherPlayer ~= player and data and data.Followers then
+							SafeRemoveFromArray(data.Followers, player)
+						end
+					end
+
+					-- Limpiar seguidores
+					PlayerData[player].Followers = {}
+				else
+					-- Incluso sin ResetAnimationOnRespawn, limpiar referencias stale
+					for otherPlayer, data in pairs(PlayerData) do
+						if otherPlayer ~= player and data and data.Followers then
+							SafeRemoveFromArray(data.Followers, player)
+						end
+					end
+				end
+			end)
+
+			if PlayerData[player] then
+				table.insert(PlayerData[player].Connections, diedConnection)
+			end
+		end
+	end)
 end
 
 local function OnPlayerAdded(player)

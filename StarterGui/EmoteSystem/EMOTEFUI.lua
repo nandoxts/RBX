@@ -103,6 +103,7 @@ local IsSynced = false -- Estado de sincronización
 local CardConnections = {}
 local ActiveTweens = {}
 local GlobalConnections = {}
+local SyncOnOffConnection = nil -- Conexión específica para SyncOnOff
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- UTILIDADES
@@ -596,23 +597,24 @@ SyncOverlay.Parent = ContentArea
 -- Texto del overlay
 local SyncText = Instance.new("TextLabel")
 SyncText.Name = "SyncText"
-SyncText.Size = UDim2.new(1, -20, 0, 60)
-SyncText.Position = UDim2.new(0, 10, 0.5, -30)
+SyncText.Size = UDim2.new(1, -20, 0, 40)
+SyncText.Position = UDim2.new(0, 10, 0.5, -20)
 SyncText.BackgroundTransparency = 1
 SyncText.Font = Enum.Font.GothamBold
-SyncText.Text = "Estás sincronizado\n\nHaz click para\ndesincronizarte"
+SyncText.Text = "Haz click para\ndesincronizarte"
 SyncText.TextColor3 = Theme.TextPrimary
-SyncText.TextSize = IsMobile and 13 or 16
+SyncText.TextSize = IsMobile and 11 or 13
 SyncText.TextWrapped = true
 SyncText.ZIndex = 11
 SyncText.Parent = SyncOverlay
 
 -- Función para mostrar/ocultar el overlay
-local function SetSyncOverlay(synced)
+local function SetSyncOverlay(synced, syncedPlayerName)
 	IsSynced = synced
 	if synced then
 		SyncOverlay.Visible = true
 		SyncOverlay.BackgroundTransparency = 1
+		SyncText.Text = "Sync: " .. (syncedPlayerName or "Desconocido") .. "\n\nHaz click para\ndesincronizarte"
 		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
 	else
 		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
@@ -647,25 +649,44 @@ end)
 -- Escuchar cambios en SyncOnOff del personaje
 local function SetupSyncListener()
 	local character = Jugador.Character
-	if character then
-		local syncValue = character:FindFirstChild("SyncOnOff")
-		if syncValue then
-			SetSyncOverlay(syncValue.Value)
-			TrackGlobalConnection(syncValue:GetPropertyChangedSignal("Value"):Connect(function()
-				SetSyncOverlay(syncValue.Value)
-			end))
-		end
+	if not character then return end
+	
+	local syncValue = character:FindFirstChild("SyncOnOff")
+	if not syncValue then return end
+	
+	-- Desconectar conexión anterior si existe
+	if SyncOnOffConnection then
+		pcall(function()
+			SyncOnOffConnection:Disconnect()
+		end)
+		SyncOnOffConnection = nil
 	end
+	
+	-- Obtener nombre del jugador sincronizado (el servidor lo envía como atributo)
+	local function GetSyncedPlayerName()
+		return character:GetAttribute("SyncedPlayerName") or "Desconocido"
+	end
+	
+	-- Crear nueva conexión con el nuevo SyncOnOff
+	local syncedName = GetSyncedPlayerName()
+	SetSyncOverlay(syncValue.Value, syncedName)
+	SyncOnOffConnection = syncValue:GetPropertyChangedSignal("Value"):Connect(function()
+		-- Validar que el character aún existe antes de actualizar
+		if Jugador.Character and Jugador.Character:FindFirstChild("SyncOnOff") then
+			local updatedName = GetSyncedPlayerName()
+			SetSyncOverlay(syncValue.Value, updatedName)
+		end
+	end)
 end
 
 TrackGlobalConnection(Jugador.CharacterAdded:Connect(function(character)
-	task.wait(0.5) -- Esperar a que se cree SyncOnOff
+	task.wait(0.1) -- Esperar menos tiempo, más rápido
 	SetupSyncListener()
 end))
 
 -- Configurar listener inicial
 task.spawn(function()
-	task.wait(1)
+	task.wait(0.5)
 	SetupSyncListener()
 end)
 
@@ -1286,6 +1307,15 @@ Icono.deselected:Connect(function() ToggleGUI(false) end)
 
 ScreenGui.Destroying:Connect(function()
 	CleanupAllCards()
+	
+	-- Desconectar SyncOnOff
+	if SyncOnOffConnection then
+		pcall(function()
+			SyncOnOffConnection:Disconnect()
+		end)
+	end
+	
+	-- Desconectar todas las conexiones globales
 	for _, conn in ipairs(GlobalConnections) do
 		if conn then
 			pcall(function() conn:Disconnect() end)

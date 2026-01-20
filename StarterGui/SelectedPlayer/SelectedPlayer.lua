@@ -260,10 +260,12 @@ local function updatePlayerInfo(targetPlayer)
 end
 
 -- ============================================
--- ANIMACIONES DE GUI
+-- LISTENER PARA MUERTE DEL JUGADOR SELECCIONADO (Definido después de toggleGui)
 -- ============================================
 
-local function toggleGui(visible, targetPlayer)
+local setupTargetDeathListener, monitorTargetCharacter
+
+local function toggleGui_Internal(visible, targetPlayer)
 	if targetPlayer then
 		currentTarget = targetPlayer
 		updatePlayerInfo(targetPlayer)
@@ -271,6 +273,9 @@ local function toggleGui(visible, targetPlayer)
 		if targetPlayer.Character then
 			attachHighlight(targetPlayer)
 		end
+
+		-- Monitorear muerte del jugador seleccionado
+		monitorTargetCharacter(targetPlayer)
 
 		if UserGamePass then UserGamePass.Visible = false end
 		if GiftUserGamePass then GiftUserGamePass.Visible = false end
@@ -302,6 +307,50 @@ local function toggleGui(visible, targetPlayer)
 	end
 
 	clearGamepassCache()
+end
+
+-- Alias para mantener compatibilidad
+toggleGui = toggleGui_Internal
+
+function setupTargetDeathListener(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+	
+	local character = targetPlayer.Character
+	local humanoid = character:FindFirstChild("Humanoid")
+	
+	if humanoid then
+		local deathConnection
+		deathConnection = humanoid.Died:Connect(function()
+			if deathConnection then
+				deathConnection:Disconnect()
+			end
+			
+			-- Si el jugador seleccionado muere, cerrar panel
+			if currentTarget == targetPlayer then
+				toggleGui(false)
+				currentTarget = LocalPlayer
+			end
+		end)
+	end
+end
+
+-- Monitorear cambios de Character del target
+local targetCharacterConnection
+function monitorTargetCharacter(targetPlayer)
+	if targetCharacterConnection then
+		targetCharacterConnection:Disconnect()
+	end
+	
+	if targetPlayer then
+		targetCharacterConnection = targetPlayer.CharacterAdded:Connect(function(newCharacter)
+			-- Cuando reaparece, limpiar old listeners y crear nuevos
+			task.wait(0.1)
+			setupTargetDeathListener(targetPlayer)
+		end)
+		
+		-- Setup listener inicial
+		setupTargetDeathListener(targetPlayer)
+	end
 end
 
 local function animatePanel(panel, open)
