@@ -1308,6 +1308,28 @@ local function createPendingView(parent, clanData, playerRole)
 			pendingListInstance = nil
 		end
 
+		-- Función helper para recrear la lista
+		local function recreatePendingList()
+			local updatedRequests = ClanClient:GetJoinRequests(clanData.clanId) or {}
+			
+			-- Destruir la instancia anterior
+			if pendingListInstance then
+				pendingListInstance:destroy()
+				pendingListInstance = nil
+			end
+			
+			-- Recrear la lista con datos actualizados
+			pendingListInstance = MembersList.new({
+				parent = listContainer,
+				screenGui = screenGui,
+				mode = "pending",
+				clanData = clanData,
+				playerRole = playerRole,
+				requests = updatedRequests,
+				onUpdate = recreatePendingList -- Llamar recursivamente
+			})
+		end
+
 		-- Crear MembersList en modo "pending"
 		pendingListInstance = MembersList.new({
 			parent = listContainer,
@@ -1316,12 +1338,7 @@ local function createPendingView(parent, clanData, playerRole)
 			clanData = clanData,
 			playerRole = playerRole,
 			requests = requests,
-			onUpdate = function()
-				-- Volver a main view con animación (sin recarga completa)
-				if currentView ~= "main" then
-					navigateTo("main")
-				end
-			end
+			onUpdate = recreatePendingList
 		})
 	end)
 
