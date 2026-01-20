@@ -483,38 +483,4 @@ function MembersList:destroy()
 	end
 end
 
--- Actualizar datos del clan sin destruir la UI principal
-function MembersList:updateClanData(newClanData)
-	if not newClanData then return end
-	self.clanData = newClanData
-	-- Rebuildar la lista con nuevos datos
-	self:_refreshList()
-end
-
--- Refrescar solo la lista, mantener frame principal
-function MembersList:_refreshList()
-	-- Limpiar cartas anteriores
-	for _, card in pairs(self.cards) do
-		if card.positioner then card.positioner:Destroy() end
-		if card.instance and card.instance.destroy then
-			card.instance:destroy()
-		elseif card.frame then
-			card.frame:Destroy()
-		end
-	end
-	self.cards = {}
-	
-	-- Reconstruir items desde nuevos datos
-	self:_prepareItems()
-	self.filteredItems = self.items
-	
-	-- Actualizar scroll height
-	local totalHeight = math.max(60, #self.items * (CARD_HEIGHT + CARD_PADDING))
-	self.scroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-	self.container.Size = UDim2.new(1, -4, 0, totalHeight)
-	
-	-- Mostrar cards visibles
-	self:_updateVisibleCards()
-end
-
 return MembersList

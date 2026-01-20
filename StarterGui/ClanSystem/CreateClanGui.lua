@@ -1346,22 +1346,11 @@ local function createPendingView(parent, clanData, playerRole)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Actualizar datos del clan SIN destruir UI
+-- FUNCIÓN: Refrescar tab "Mi Clan" completamente
 -- ════════════════════════════════════════════════════════════════
 local function updateClanData()
-	task.spawn(function()
-		local newClanData = ClanClient:GetPlayerClan()
-		if newClanData then
-			cachedClanData = newClanData
-			-- Actualizar referencia en MembersList si existe
-			if membersListInstance then
-				membersListInstance:updateClanData(newClanData)
-			end
-			if pendingListInstance then
-				pendingListInstance:updateClanData(newClanData)
-			end
-		end
-	end)
+	-- Recarga completa de la tab para sincronizar todos los cambios
+	loadPlayerClan()
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1379,10 +1368,6 @@ loadPlayerClan = function()
 	end
 	Memory.cleanup()
 	Memory.destroyChildren(tuClanContainer)
-
-	-- Reset de estado
-	currentView = "main"
-	views = { main = nil, members = nil, pending = nil }
 
 	-- Mostrar loading
 	local loadingFrame = UI.loading(tuClanContainer)
