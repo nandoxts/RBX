@@ -212,7 +212,7 @@ end
 
 local function resolveColor(token)
 	if not token or token == "" then
-		return ColorEffects.defaultStaticColor
+		return Color3.new(1, 0, 0) -- Rojo por defecto
 	end
 
 	local key = string.lower(token)
@@ -228,7 +228,7 @@ local function resolveColor(token)
 		return Color3.new(r, g, b)
 	end
 
-	return ColorEffects.defaultStaticColor
+	return Color3.new(1, 0, 0) -- Rojo por defecto si no encuentra el color
 end
 
 -----------------------------------------------------------------------------------
@@ -807,7 +807,7 @@ Players.PlayerAdded:Connect(function(player)
 
 			-- Función helper para parsear y aplicar efectos con soporte a target
 			local function applyEffectWithTarget(effectType, input, commandKey)
-				if not input or not checkCooldown(player, commandKey) then return end
+				if not input then return end
 				
 				local parts = {}
 				for part in string.gmatch(input, "%S+") do
