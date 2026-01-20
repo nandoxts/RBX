@@ -481,6 +481,10 @@ local CancelJoinRequestEvent = createRemoteFunction("CancelJoinRequest")
 local CancelAllJoinRequestsEvent = createRemoteFunction("CancelAllJoinRequests")
 local GetUserPendingRequestsEvent = createRemoteFunction("GetUserPendingRequests")
 
+-- Múltiples Owners
+local AddOwnerEvent = createRemoteFunction("AddOwner")
+local RemoveOwnerEvent = createRemoteFunction("RemoveOwner")
+
 -- RemoteEvents
 local GetClanDataEvent = createRemoteEvent("GetClanData")
 local ClansUpdatedEvent = createRemoteEvent("ClansUpdated")
@@ -608,10 +612,50 @@ GetUserPendingRequestsEvent.OnServerInvoke = function(player)
 	return ClanData:GetUserPendingRequests(player.UserId)
 end
 
+-- HANDLERS PARA MÚLTIPLES OWNERS
+AddOwnerEvent.OnServerInvoke = function(player, clanId, targetUserId)
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then return false, "Clan no encontrado" end
+	
+	local playerData = clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)]
+	if not playerData or not Config:HasPermission(playerData.rol, "agregar_owner") then
+		return false, "Sin permiso"
+	end
+	
+	local success, msg = ClanData:AddOwner(clanId, targetUserId)
+	if success then
+		updatePlayerAttributes(targetUserId)
+		ClansUpdatedEvent:FireAllClients(ClanData:GetAllClans())
+	end
+	return success, msg
+end
+
+RemoveOwnerEvent.OnServerInvoke = function(player, clanId, targetUserId)
+	local clanData = ClanData:GetClan(clanId)
+	if not clanData then return false, "Clan no encontrado" end
+	
+	local playerData = clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)]
+	if not playerData or not Config:HasPermission(playerData.rol, "remover_owner") then
+		return false, "Sin permiso"
+	end
+	
+	local success, msg = ClanData:RemoveOwner(clanId, targetUserId)
+	if success then
+		updatePlayerAttributes(targetUserId)
+		ClansUpdatedEvent:FireAllClients(ClanData:GetAllClans())
+	end
+	return success, msg
+end
+
 -- ============================================
 -- INICIALIZACIÓN
 -- ============================================
 task.spawn(function()
+	-- MIGRACIÓN: Pasar de estructura vieja a nueva (sin perder datos)
+	print("[ClanServer] Iniciando migración de datos...")
+	ClanData:StartMigration()
+	print("[ClanServer] Migración completada ✅")
+
 	-- Limpiar registros huérfanos
 	for _, defaultClan in ipairs(Config.DEFAULT_CLANS or {}) do
 		ClanData:GetPlayerClan(defaultClan.ownerId)

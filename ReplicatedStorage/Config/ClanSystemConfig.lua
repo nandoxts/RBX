@@ -88,10 +88,13 @@ ClanSystemConfig.ROLES = {
 			cambiar_logo = true,
 			cambiar_color = true,
 			disolver_clan = true,
-			-- NUEVOS PERMISOS PARA SOLICITUDES
+			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
-			ver_solicitudes = true
+			ver_solicitudes = true,
+			-- NUEVOS PERMISOS PARA MÚLTIPLES OWNERS
+			agregar_owner = true,
+			remover_owner = true
 		},
 		colider = {
 			invitar = true,
@@ -101,27 +104,35 @@ ClanSystemConfig.ROLES = {
 			cambiar_nombre = true,
 			cambiar_logo = true,
 			cambiar_color = false,
-			-- NUEVOS PERMISOS PARA SOLICITUDES
+			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
-			ver_solicitudes = true
+			ver_solicitudes = true,
+			-- NO puede cambiar owners
+			agregar_owner = false,
+			remover_owner = false
 		},
 		lider = {
 			invitar = true,
 			expulsar = true,
 			cambiar_descripcion = true,
 			cambiar_color = false,
-			-- NUEVOS PERMISOS PARA SOLICITUDES
+			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
-			ver_solicitudes = true
+			ver_solicitudes = true,
+			-- NO puede cambiar owners
+			agregar_owner = false,
+			remover_owner = false
 		},
 		miembro = {
 			-- MIEMBROS NO PUEDEN GESTIONAR SOLICITUDES
 			aprobar_solicitudes = false,
 			rechazar_solicitudes = false,
-			ver_solicitudes = false
-			,cambiar_color = false
+			ver_solicitudes = false,
+			cambiar_color = false,
+			agregar_owner = false,
+			remover_owner = false
 		}
 	},
 

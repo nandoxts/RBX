@@ -91,6 +91,8 @@ local function ensureInitialized()
 		getRemote("CancelJoinRequest")
 		getRemote("CancelAllJoinRequests")
 		getRemote("GetUserPendingRequests")
+		getRemote("AddOwner")
+		getRemote("RemoveOwner")
 	end)
 
 	initialized = true
@@ -152,8 +154,8 @@ end
 function ClanClient:GetClansList()
 	ensureInitialized()
 
-	-- Cache de 3 segundos
-	if clansListCache and (tick() - clansListCacheTime) < 3 then
+	-- Cache de 5 segundos (más eficiente)
+	if clansListCache and (tick() - clansListCacheTime) < 5 then
 		return clansListCache
 	end
 
@@ -430,5 +432,30 @@ task.spawn(function()
 		end)
 	end
 end)
+
+-- ════════════════════════════════════════════════════════════════
+-- MÚLTIPLES OWNERS
+-- ════════════════════════════════════════════════════════════════
+function ClanClient:AddOwner(targetUserId)
+	local allowed, err = checkThrottle("ChangeRole")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("AddOwner")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(self.currentClanId, targetUserId)
+end
+
+function ClanClient:RemoveOwner(targetUserId)
+	local allowed, err = checkThrottle("ChangeRole")
+	if not allowed then return false, err end
+	if not self.currentClanId then return false, "No estás en un clan" end
+
+	local remote = getRemote("RemoveOwner")
+	if not remote then return false, "Función no disponible" end
+
+	return remote:InvokeServer(self.currentClanId, targetUserId)
+end
 
 return ClanClient
