@@ -1,12 +1,18 @@
 --[[
-	Clan System UI - COMPLETO Y OPTIMIZADO
+	Clan System UI - VERSIÓN OPTIMIZADA COMPLETA
 	- Gestión de solicitudes de unión
 	- Cambio de roles (owner/colider/lider)
 	- Emoji y color del clan
-	by ignxts
+	
+	Optimizaciones aplicadas:
+	- Estado centralizado
+	- CardFactory genérica
+	- withLoading wrapper
+	- Validador reutilizable
+	- ClanActions helper
+	
+	by ignxts (optimizado)
 ]]
-
--- Autor: ignxts
 
 -- ════════════════════════════════════════════════════════════════
 -- SERVICES
@@ -14,7 +20,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 -- ════════════════════════════════════════════════════════════════
 -- MODULES
@@ -27,78 +32,349 @@ local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitFo
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 local MembersList = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("MembersList"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
+local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
 
 -- ════════════════════════════════════════════════════════════════
--- CONFIG
+-- CONFIG CENTRALIZADA
 -- ════════════════════════════════════════════════════════════════
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local R_PANEL = 12
-local ENABLE_BLUR, BLUR_SIZE = true, 14
-local PANEL_W_PX = THEME.panelWidth or 980
-local PANEL_H_PX = THEME.panelHeight or 620
-
-local ADMIN_IDS = ClanSystemConfig.ADMINS.AdminUserIds
-local isAdmin = table.find(ADMIN_IDS, player.UserId) ~= nil
-
--- Colores predefinidos para clanes
-local CLAN_COLORS = {
-	{name = "Dorado", color = {255, 215, 0}},
-	{name = "Rojo", color = {255, 69, 0}},
-	{name = "Morado", color = {128, 0, 128}},
-	{name = "Azul", color = {0, 122, 255}},
-	{name = "Verde", color = {34, 177, 76}},
-	{name = "Rosa", color = {255, 105, 180}},
-	{name = "Cian", color = {0, 255, 255}},
-	{name = "Blanco", color = {255, 255, 255}},
+local CONFIG = {
+	panel = { 
+		width = THEME.panelWidth or 980, 
+		height = THEME.panelHeight or 620, 
+		corner = 12 
+	},
+	blur = { enabled = true, size = 14 },
+	cooldown = 1.5,
+	colors = {
+		{name = "Dorado", rgb = {255, 215, 0}},
+		{name = "Rojo", rgb = {255, 69, 0}},
+		{name = "Morado", rgb = {128, 0, 128}},
+		{name = "Azul", rgb = {0, 122, 255}},
+		{name = "Verde", rgb = {34, 177, 76}},
+		{name = "Rosa", rgb = {255, 105, 180}},
+		{name = "Cian", rgb = {0, 255, 255}},
+		{name = "Blanco", rgb = {255, 255, 255}},
+	},
+	emojis = {"🔱", "⚔️", "🛡️", "👑", "💀", "🔥", "😈", "🦁", "🐉", "⭐", "💎", "🎯"}
 }
 
--- Emojis disponibles
-local CLAN_EMOJIS = {"🔱", "⚔️", "🛡️", "👑", "💀", "🔥", "😈", "🦁", "🐉", "⭐", "💎", "🎯"}
+local isAdmin = table.find(ClanSystemConfig.ADMINS.AdminUserIds, player.UserId) ~= nil
 
 -- ════════════════════════════════════════════════════════════════
--- STATE
+-- ESTADO CENTRALIZADO
 -- ════════════════════════════════════════════════════════════════
-local currentPage = "TuClan"
-local availableClans = {}
-local isUpdating = false
-local lastUpdateTime = 0
-local UPDATE_COOLDOWN = 1.5
-local selectedColorIndex = 1
-local selectedEmojiIndex = 1
+local State = {
+	currentPage = "TuClan",
+	currentView = "main",
+	lastView = "main",
+	isUpdating = false,
+	lastUpdateTime = 0,
+	selectedColor = 1,
+	selectedEmoji = 1,
+	viewsCreated = false,
+	availableClans = {},
+	cache = { clanData = nil, playerRole = nil },
+	views = { main = nil, members = nil, pending = nil },
+	instances = { membersList = nil, pendingList = nil }
+}
 
 -- ════════════════════════════════════════════════════════════════
--- GESTIÓN DE MEMORIA
+-- MEMORY MANAGER
 -- ════════════════════════════════════════════════════════════════
-local activeConnections = {}
+local Memory = { connections = {}, loadingFrames = {} }
 
-local Memory = {}
-
-function Memory.track(conn)
-	if conn then table.insert(activeConnections, conn) end
+function Memory:track(conn)
+	if conn then table.insert(self.connections, conn) end
 	return conn
 end
 
-function Memory.cleanup()
-	for i, conn in ipairs(activeConnections) do
+function Memory:cleanup()
+	for i, conn in ipairs(self.connections) do
 		if conn then pcall(function() conn:Disconnect() end) end
-		activeConnections[i] = nil
+		self.connections[i] = nil
 	end
-	activeConnections = {}
+	self.connections = {}
+	self:cleanupLoading()
+end
+
+function Memory:cleanupLoading()
+	for _, frame in ipairs(self.loadingFrames) do
+		if frame and frame.Parent then frame:Destroy() end
+	end
+	self.loadingFrames = {}
 	UI.cleanupLoading()
 end
 
-function Memory.destroyChildren(parent, exceptClass)
+function Memory:destroyChildren(parent, except)
 	if not parent then return end
 	for _, child in ipairs(parent:GetChildren()) do
-		if not exceptClass or not child:IsA(exceptClass) then
-			child:Destroy()
-		end
+		if not except or not child:IsA(except) then child:Destroy() end
 	end
 end
 
--- Helper: Crear scroll frame reutilizable
+UI.setTrack(function(conn) return Memory:track(conn) end)
+
+-- ════════════════════════════════════════════════════════════════
+-- ASYNC WRAPPER CON LOADING
+-- ════════════════════════════════════════════════════════════════
+local function withLoading(container, asyncFn, onComplete)
+	local loadingFrame = UI.loading(container)
+	table.insert(Memory.loadingFrames, loadingFrame)
+	
+	task.spawn(function()
+		local results = {asyncFn()}
+		Memory:cleanupLoading()
+		Memory:destroyChildren(container, "UIListLayout")
+		if onComplete then onComplete(table.unpack(results)) end
+	end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- VALIDADOR
+-- ════════════════════════════════════════════════════════════════
+local Validator = {
+	rules = {
+		clanName = { min = 3, msg = "Nombre inválido - Mínimo 3 caracteres" },
+		clanTag = { min = 2, max = 5, msg = "TAG inválido - Entre 2 y 5 caracteres" },
+		ownerId = { isNumber = true, positive = true, msg = "ID inválido - Debe ser un número positivo" }
+	}
+}
+
+function Validator:check(field, value)
+	local rule = self.rules[field]
+	if not rule then return true end
+	
+	if rule.isNumber then
+		local num = tonumber(value)
+		if value ~= "" and (not num or (rule.positive and num <= 0)) then
+			Notify:Warning("Validación", rule.msg, 3)
+			return false
+		end
+		return true
+	end
+	
+	local len = #(value or "")
+	if rule.min and len < rule.min then Notify:Warning("Validación", rule.msg, 3) return false end
+	if rule.max and len > rule.max then Notify:Warning("Validación", rule.msg, 3) return false end
+	return true
+end
+
+function Validator:validateClanCreation(name, tag, ownerId)
+	return self:check("clanName", name) and self:check("clanTag", tag) and self:check("ownerId", ownerId)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- MODAL HELPERS
+-- ════════════════════════════════════════════════════════════════
+local function showModal(gui, opts)
+	ConfirmationModal.new({
+		screenGui = gui,
+		title = opts.title,
+		message = opts.message,
+		inputText = opts.input ~= nil,
+		inputPlaceholder = opts.inputPlaceholder,
+		inputDefault = opts.inputDefault,
+		confirmText = opts.confirm or "Confirmar",
+		cancelText = opts.cancel or "Cancelar",
+		confirmColor = opts.confirmColor,
+		onConfirm = function(value)
+			if opts.validate and not opts.validate(value) then return end
+			local success, msg = opts.action(value)
+			if success then
+				Notify:Success(opts.successTitle or "Éxito", msg or opts.successMsg, 4)
+				if opts.onSuccess then opts.onSuccess() end
+			else
+				Notify:Error("Error", msg or opts.errorMsg or "Operación fallida", 4)
+			end
+		end
+	})
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- CLAN ACTIONS (Reduce modals repetitivos)
+-- ════════════════════════════════════════════════════════════════
+local ClanActions = {}
+
+function ClanActions:editName(gui, clanData, onSuccess)
+	showModal(gui, {
+		title = "Cambiar Nombre", message = "Ingresa el nuevo nombre:",
+		input = true, inputPlaceholder = "Nuevo nombre", inputDefault = clanData.clanName,
+		confirm = "Cambiar",
+		validate = function(v) return Validator:check("clanName", v) end,
+		action = function(v) return ClanClient:ChangeClanName(v) end,
+		successTitle = "Actualizado", successMsg = "Nombre cambiado",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:editTag(gui, clanData, onSuccess)
+	showModal(gui, {
+		title = "Cambiar TAG", message = "Ingresa el nuevo TAG (2-5 caracteres):",
+		input = true, inputPlaceholder = "Ej: XYZ", inputDefault = clanData.clanTag,
+		confirm = "Cambiar",
+		validate = function(v) return Validator:check("clanTag", (v or ""):upper()) end,
+		action = function(v) return ClanClient:ChangeClanTag(v:upper()) end,
+		successTitle = "Actualizado", successMsg = "TAG cambiado",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:editColor(gui, onSuccess)
+	showModal(gui, {
+		title = "Cambiar Color", message = "Ingresa nombre de color (ej: azul, dorado):",
+		input = true, inputPlaceholder = "ej: dorado", inputDefault = "",
+		confirm = "Cambiar",
+		validate = function(v) 
+			if not v or v == "" then Notify:Warning("Inválido", "Ingresa un nombre de color", 3) return false end
+			return true 
+		end,
+		action = function(v) return ClanClient:ChangeClanColor(v:lower():gsub("%s+", "")) end,
+		successTitle = "Actualizado", successMsg = "Color cambiado",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:leave(gui, onSuccess)
+	showModal(gui, {
+		title = "Salir del Clan", message = "¿Estás seguro de que quieres salir?",
+		confirm = "Salir",
+		action = function() return ClanClient:LeaveClan() end,
+		successTitle = "Abandonado", successMsg = "Has salido del clan",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:dissolve(gui, clanName, onSuccess)
+	showModal(gui, {
+		title = "Disolver Clan", 
+		message = string.format('¿Disolver "%s"?\n\nEsta acción es IRREVERSIBLE.', clanName),
+		confirm = "Disolver", confirmColor = THEME.btnDanger,
+		action = function() return ClanClient:DissolveClan() end,
+		successTitle = "Clan Disuelto", successMsg = "El clan ha sido eliminado",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:adminDelete(gui, clanData, onSuccess)
+	showModal(gui, {
+		title = "Eliminar Clan",
+		message = string.format('¿Eliminar "%s"?', clanData.clanName or "Sin nombre"),
+		confirm = "Eliminar", confirmColor = THEME.btnDanger,
+		action = function() return ClanClient:AdminDissolveClan(clanData.clanId) end,
+		successTitle = "Eliminado", successMsg = "Clan eliminado",
+		onSuccess = onSuccess
+	})
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- NAVEGACIÓN
+-- ════════════════════════════════════════════════════════════════
+local Navigation = { tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) }
+
+function Navigation:animate(fromView, toView, direction)
+	local outPos = direction == "forward" and UDim2.new(-1, 0, 0, 0) or UDim2.new(1, 0, 0, 0)
+	local inPos = direction == "forward" and UDim2.new(1, 0, 0, 0) or UDim2.new(-1, 0, 0, 0)
+	
+	if fromView then TweenService:Create(fromView, self.tweenInfo, {Position = outPos}):Play() end
+	if toView then
+		toView.Position = inPos
+		toView.Visible = true
+		TweenService:Create(toView, self.tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
+	end
+	
+	if fromView then
+		task.delay(0.3, function()
+			if fromView.Parent and State.currentView ~= self:getViewName(fromView) then
+				fromView.Visible = false
+			end
+		end)
+	end
+end
+
+function Navigation:getViewName(frame)
+	if not frame then return nil end
+	return frame.Name == "MainView" and "main" or frame.Name:lower():gsub("view", "")
+end
+
+function Navigation:goto(viewName)
+	if State.currentView == viewName then return end
+	self:animate(State.views[State.currentView], State.views[viewName], viewName == "main" and "back" or "forward")
+	State.currentView = viewName
+	State.lastView = viewName
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- SELECTOR GENÉRICO (Emoji/Color)
+-- ════════════════════════════════════════════════════════════════
+local function createSelector(items, config)
+	local container = UI.frame({
+		size = config.size or UDim2.new(1, 0, 0, 36),
+		pos = config.pos, bg = THEME.surface, z = config.z or 105,
+		parent = config.parent, corner = 8
+	})
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, config.spacing or 4)
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Parent = container
+
+	Instance.new("UIPadding", container).PaddingLeft = UDim.new(0, 6)
+
+	local selectedIdx, buttons = 1, {}
+
+	local function updateSelection(newIdx)
+		selectedIdx = newIdx
+		for j, data in ipairs(buttons) do
+			local isSelected = j == newIdx
+			if config.isEmoji then
+				data.frame.BackgroundColor3 = isSelected and THEME.accent or THEME.card
+			else
+				local stroke = data.indicator and data.indicator:FindFirstChildOfClass("UIStroke")
+				if stroke then stroke.Transparency = isSelected and 0 or 1 end
+			end
+		end
+		if config.onSelect then config.onSelect(newIdx) end
+	end
+
+	for i, item in ipairs(items) do
+		local itemSize = config.itemSize or 28
+		local isColor = not config.isEmoji
+		local btn = UI.frame({
+			size = UDim2.new(0, itemSize, 0, itemSize),
+			bg = config.isEmoji and (i == 1 and THEME.accent or THEME.card) or Color3.fromRGB(item[1], item[2], item[3]),
+			z = (config.z or 105) + 1, parent = container, corner = config.itemCorner or 6
+		})
+
+		local indicator = nil
+		if config.isEmoji then
+			UI.label({size = UDim2.new(1, 0, 1, 0), text = item, textSize = 16, alignX = Enum.TextXAlignment.Center, z = (config.z or 105) + 2, parent = btn})
+		else
+			indicator = UI.frame({
+				size = UDim2.new(1, -6, 1, -6), pos = UDim2.new(0, 3, 0, 3), bgT = 1,
+				z = (config.z or 105) + 2, parent = btn, corner = 4,
+				stroke = true, strokeA = i == 1 and 0 or 1, strokeC = Color3.new(1, 1, 1)
+			})
+		end
+
+		local clickBtn = Instance.new("TextButton")
+		clickBtn.Size, clickBtn.BackgroundTransparency, clickBtn.Text = UDim2.new(1, 0, 1, 0), 1, ""
+		clickBtn.ZIndex = (config.z or 105) + 3
+		clickBtn.Parent = btn
+
+		buttons[i] = {frame = btn, indicator = indicator}
+		Memory:track(clickBtn.MouseButton1Click:Connect(function() updateSelection(i) end))
+	end
+
+	return container, function() return selectedIdx end
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- SCROLL FRAME HELPER
+-- ════════════════════════════════════════════════════════════════
 local function setupScroll(parent, options)
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Size = options.size or UDim2.new(1, -20, 1, -60)
@@ -122,75 +398,56 @@ local function setupScroll(parent, options)
 	return scroll
 end
 
--- Helper: Crear selector de items (emoji o color)
-local function createSelector(items, config)
-	local container = UI.frame({
-		size = config.size or UDim2.new(1, 0, 0, 36),
-		pos = config.pos or UDim2.new(0, 0, 0, 0),
-		bg = THEME.surface,
-		z = config.z or 105,
-		parent = config.parent,
-		corner = 8
+-- ════════════════════════════════════════════════════════════════
+-- CARD FACTORY
+-- ════════════════════════════════════════════════════════════════
+local function createNavCard(config)
+	local card = UI.frame({
+		size = config.size or UDim2.new(1, 0, 0, 60),
+		pos = config.pos, bg = THEME.card, z = 104,
+		parent = config.parent, corner = 10, stroke = true, strokeA = 0.6
 	})
 
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.Padding = UDim.new(0, config.spacing or 4)
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Parent = container
+	UI.label({size = UDim2.new(0, 40, 0, 40), pos = UDim2.new(0, 12, 0.5, -20), text = config.icon or "👥", textSize = 22, alignX = Enum.TextXAlignment.Center, z = 105, parent = card})
+	UI.label({size = UDim2.new(1, -120, 0, 20), pos = UDim2.new(0, 60, 0, 12), text = config.title or "Título", color = THEME.text, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 105, parent = card})
+	
+	local subtitleLabel = UI.label({name = "Subtitle", size = UDim2.new(1, -120, 0, 16), pos = UDim2.new(0, 60, 0, 32), text = config.subtitle or "", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Left, z = 105, parent = card})
+	UI.label({size = UDim2.new(0, 30, 1, 0), pos = UDim2.new(1, -40, 0, 0), text = "›", color = THEME.muted, textSize = 24, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 105, parent = card})
 
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 6)
-	pad.Parent = container
-
-	local buttons, selectedIdx = {}, 1
-	local indicators = {}
-
-	for i, item in ipairs(items) do
-		local btn = UI.frame({
-			size = UDim2.new(0, config.itemSize or 28, 0, config.itemSize or 28),
-			bg = i == 1 and THEME.accent or THEME.card,
-			z = config.z and config.z + 1 or 106,
-			parent = container,
-			corner = config.itemCorner or 6
-		})
-
-		if config.isEmoji then
-			UI.label({size = UDim2.new(1, 0, 1, 0), text = item, textSize = 16, alignX = Enum.TextXAlignment.Center, z = config.z and config.z + 2 or 107, parent = btn})
-			indicators[i] = nil
-		else
-			btn.BackgroundColor3 = Color3.fromRGB(item[1], item[2], item[3])
-			indicators[i] = UI.frame({size = UDim2.new(1, -6, 1, -6), pos = UDim2.new(0, 3, 0, 3), bgT = 1, z = config.z and config.z + 2 or 107, parent = btn, corner = 4, stroke = true, strokeA = i == 1 and 0 or 1, strokeC = Color3.new(1, 1, 1)})
-		end
-
-		local clickBtn = Instance.new("TextButton")
-		clickBtn.Size = UDim2.new(1, 0, 1, 0)
-		clickBtn.BackgroundTransparency = 1
-		clickBtn.Text = ""
-		clickBtn.ZIndex = config.z and config.z + 3 or 108
-		clickBtn.Parent = btn
-
-		buttons[i] = btn
-		Memory.track(clickBtn.MouseButton1Click:Connect(function()
-			selectedIdx = i
-			for j, b in ipairs(buttons) do
-				if config.isEmoji then
-					b.BackgroundColor3 = j == i and THEME.accent or THEME.card
-				else
-					if indicators[j] then
-						local stroke = indicators[j]:FindFirstChildOfClass("UIStroke")
-						if stroke then stroke.Transparency = j == i and 0 or 1 end
-					end
-				end
-			end
-			if config.onSelect then config.onSelect(i) end
-		end))
+	local notificationDot = nil
+	if config.showNotification then
+		notificationDot = UI.frame({name = "NotificationDot", size = UDim2.new(0, 10, 0, 10), pos = UDim2.new(1, -50, 0, 10), bg = THEME.btnDanger, z = 106, parent = card, corner = 5})
+		notificationDot.Visible = false
 	end
 
-	return container, function() return selectedIdx end
+	local avatarPreview = nil
+	if config.showAvatarPreview then
+		avatarPreview = UI.frame({name = "AvatarPreview", size = UDim2.new(0, 70, 0, 28), pos = UDim2.new(1, -115, 0.5, -14), bgT = 1, z = 105, parent = card})
+	end
+
+	UI.hover(card, THEME.card, THEME.hover)
+
+	local clickBtn = Instance.new("TextButton")
+	clickBtn.Size, clickBtn.BackgroundTransparency, clickBtn.Text, clickBtn.ZIndex = UDim2.new(1, 0, 1, 0), 1, "", 107
+	clickBtn.Parent = card
+
+	return card, clickBtn, subtitleLabel, notificationDot, avatarPreview
 end
 
-UI.setTrack(Memory.track)
+-- ════════════════════════════════════════════════════════════════
+-- VIEW HEADER CON BACK BUTTON
+-- ════════════════════════════════════════════════════════════════
+local function createViewHeader(parent, title, onBack)
+	local header = UI.frame({size = UDim2.new(1, 0, 0, 44), bg = THEME.surface, z = 106, parent = parent, corner = 10})
+
+	local backBtn = UI.button({size = UDim2.new(0, 36, 0, 36), pos = UDim2.new(0, 4, 0.5, -18), bg = THEME.card, text = "‹", color = THEME.text, textSize = 22, font = Enum.Font.GothamBold, z = 107, parent = header, corner = 8})
+	UI.hover(backBtn, THEME.card, THEME.accent)
+	Memory:track(backBtn.MouseButton1Click:Connect(onBack))
+
+	UI.label({size = UDim2.new(1, -90, 1, 0), pos = UDim2.new(0, 48, 0, 0), text = title, color = THEME.text, textSize = 15, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 107, parent = header})
+
+	return header
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- FORWARD DECLARATIONS
@@ -208,7 +465,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 -- ════════════════════════════════════════════════════════════════
--- TOPBAR BUTTON
+-- TOPBAR BUTTON (Icon de HDAdmin)
 -- ════════════════════════════════════════════════════════════════
 task.wait(1)
 
@@ -231,11 +488,11 @@ end
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "ClanPanel",
-	panelWidth = PANEL_W_PX,
-	panelHeight = PANEL_H_PX,
-	cornerRadius = R_PANEL,
-	enableBlur = ENABLE_BLUR,
-	blurSize = BLUR_SIZE,
+	panelWidth = CONFIG.panel.width,
+	panelHeight = CONFIG.panel.height,
+	cornerRadius = CONFIG.panel.corner,
+	enableBlur = CONFIG.blur.enabled,
+	blurSize = CONFIG.blur.size,
 	onOpen = function() if clanIcon then clanIcon:select() end end,
 	onClose = function() if clanIcon then clanIcon:deselect() end end
 })
@@ -247,34 +504,22 @@ local tabPages = {}
 -- ════════════════════════════════════════════════════════════════
 -- HEADER
 -- ════════════════════════════════════════════════════════════════
-local header = UI.frame({
-	name = "Header", size = UDim2.new(1, 0, 0, 60),
-	bg = THEME.head or Color3.fromRGB(22, 22, 28), z = 101, parent = panel, corner = 12
-})
+local header = UI.frame({name = "Header", size = UDim2.new(1, 0, 0, 60), bg = THEME.head or Color3.fromRGB(22, 22, 28), z = 101, parent = panel, corner = 12})
 
 local headerGradient = Instance.new("UIGradient")
-headerGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, THEME.panel),
-	ColorSequenceKeypoint.new(1, THEME.card)
-}
+headerGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, THEME.panel), ColorSequenceKeypoint.new(1, THEME.card)}
 headerGradient.Rotation = 90
 headerGradient.Parent = header
 
-UI.label({
-	size = UDim2.new(1, -100, 0, 60), pos = UDim2.new(0, 20, 0, 0),
-	text = "CLANES", textSize = 20, font = Enum.Font.GothamBold, z = 102, parent = header
-})
+UI.label({size = UDim2.new(1, -100, 0, 60), pos = UDim2.new(0, 20, 0, 0), text = "CLANES", textSize = 20, font = Enum.Font.GothamBold, z = 102, parent = header})
 
-local closeBtn = UI.button({
-	name = "CloseBtn", size = UDim2.new(0, 36, 0, 36), pos = UDim2.new(1, -50, 0.5, -18),
-	bg = THEME.card, text = "×", color = THEME.muted, textSize = 22, z = 103, parent = header, corner = 8
-})
+local closeBtn = UI.button({name = "CloseBtn", size = UDim2.new(0, 36, 0, 36), pos = UDim2.new(1, -50, 0.5, -18), bg = THEME.card, text = "×", color = THEME.muted, textSize = 22, z = 103, parent = header, corner = 8})
 UI.stroked(closeBtn, 0.4)
 
-Memory.track(closeBtn.MouseEnter:Connect(function()
+Memory:track(closeBtn.MouseEnter:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 60, 60), TextColor3 = Color3.new(1, 1, 1)}):Play()
 end))
-Memory.track(closeBtn.MouseLeave:Connect(function()
+Memory:track(closeBtn.MouseLeave:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.card, TextColor3 = THEME.muted}):Play()
 end))
 
@@ -294,18 +539,7 @@ navPadding.PaddingTop = UDim.new(0, 6)
 navPadding.Parent = tabNav
 
 local function createTab(text)
-	local btn = UI.button({
-		size = UDim2.new(0, 90, 0, 24),
-		bg = THEME.panel,
-		text = text,
-		color = THEME.muted,
-		textSize = 13,
-		font = Enum.Font.GothamBold,
-		z = 101,
-		parent = tabNav,
-		corner = 0,
-	})
-	-- Mantener transparencia visual como antes (solo texto visible)
+	local btn = UI.button({size = UDim2.new(0, 90, 0, 24), bg = THEME.panel, text = text, color = THEME.muted, textSize = 13, font = Enum.Font.GothamBold, z = 101, parent = tabNav, corner = 0})
 	btn.BackgroundTransparency = 1
 	btn.AutoButtonColor = false
 	return btn
@@ -318,18 +552,12 @@ if isAdmin then
 	tabButtons["Admin"] = createTab("ADMIN")
 end
 
-local underline = UI.frame({
-	size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, 20, 0, 93),
-	bg = THEME.accent, z = 102, parent = panel, corner = 2
-})
+local underline = UI.frame({size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, 20, 0, 93), bg = THEME.accent, z = 102, parent = panel, corner = 2})
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT AREA
 -- ════════════════════════════════════════════════════════════════
-local contentArea = UI.frame({
-	name = "ContentArea", size = UDim2.new(1, -20, 1, -125), pos = UDim2.new(0, 10, 0, 106),
-	bgT = 1, z = 101, parent = panel, corner = 10, clips = true
-})
+local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -20, 1, -125), pos = UDim2.new(0, 10, 0, 106), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
 
 local pageLayout = Instance.new("UIPageLayout")
 pageLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -347,12 +575,7 @@ pageLayout.Parent = contentArea
 -- ════════════════════════════════════════════════════════════════
 local pageTuClan = UI.frame({name = "TuClan", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageTuClan.LayoutOrder = 1
-
-local tuClanContainer = UI.frame({
-	name = "Container", size = UDim2.new(1, -20, 1, -20), pos = UDim2.new(0, 10, 0, 10),
-	bgT = 1, z = 102, parent = pageTuClan
-})
-
+local tuClanContainer = UI.frame({name = "Container", size = UDim2.new(1, -20, 1, -20), pos = UDim2.new(0, 10, 0, 10), bgT = 1, z = 102, parent = pageTuClan})
 tabPages["TuClan"] = pageTuClan
 
 -- ════════════════════════════════════════════════════════════════
@@ -361,18 +584,9 @@ tabPages["TuClan"] = pageTuClan
 local pageDisponibles = UI.frame({name = "Disponibles", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageDisponibles.LayoutOrder = 2
 
-local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
-
--- Reemplazar solo el buscador por el componente moderno
-local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {
-	placeholder = "Buscar clanes...",
-	size = UDim2.new(1, -20, 0, 36),
-	z = 104,
-	name = "BuscarClanes"
-})
+local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {placeholder = "Buscar clanes...", size = UDim2.new(1, -20, 0, 36), z = 104, name = "BuscarClanes"})
 searchContainer.Position = UDim2.new(0, 10, 0, 10)
--- Registrar cleanup para que Memory.cleanup lo destruya al cerrar
-Memory.track({Disconnect = searchCleanup})
+Memory:track({Disconnect = searchCleanup})
 
 local clansScroll = setupScroll(pageDisponibles, {size = UDim2.new(1, -20, 1, -56), pos = UDim2.new(0, 10, 0, 52), padding = 8, z = 103})
 
@@ -381,7 +595,7 @@ searchInput:GetPropertyChangedSignal("Text"):Connect(function()
 	if searchDebounce then return end
 	searchDebounce = true
 	task.delay(0.4, function()
-		if currentPage == "Disponibles" then loadClansFromServer(searchInput.Text) end
+		if State.currentPage == "Disponibles" then loadClansFromServer(searchInput.Text) end
 		searchDebounce = false
 	end)
 end)
@@ -389,7 +603,7 @@ end)
 tabPages["Disponibles"] = pageDisponibles
 
 -- ════════════════════════════════════════════════════════════════
--- PAGE: CREAR (CON EMOJI Y COLOR)
+-- PAGE: CREAR (ADMIN)
 -- ════════════════════════════════════════════════════════════════
 local pageCrear = UI.frame({name = "Crear", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageCrear.LayoutOrder = 3
@@ -404,15 +618,11 @@ createScroll.CanvasSize = UDim2.new(0, 0, 0, 620)
 createScroll.ZIndex = 103
 createScroll.Parent = pageCrear
 
-local createCard = UI.frame({
-	size = UDim2.new(1, 0, 0, 600), bg = THEME.card, z = 104, parent = createScroll, corner = 12, stroke = true, strokeA = 0.6
-})
+local createCard = UI.frame({size = UDim2.new(1, 0, 0, 600), bg = THEME.card, z = 104, parent = createScroll, corner = 12, stroke = true, strokeA = 0.6})
 
 local createPadding = Instance.new("UIPadding")
-createPadding.PaddingTop = UDim.new(0, 18)
-createPadding.PaddingBottom = UDim.new(0, 18)
-createPadding.PaddingLeft = UDim.new(0, 18)
-createPadding.PaddingRight = UDim.new(0, 18)
+createPadding.PaddingTop, createPadding.PaddingBottom = UDim.new(0, 18), UDim.new(0, 18)
+createPadding.PaddingLeft, createPadding.PaddingRight = UDim.new(0, 18), UDim.new(0, 18)
 createPadding.Parent = createCard
 
 UI.label({size = UDim2.new(1, 0, 0, 20), text = "Crear Nuevo Clan", color = THEME.accent, textSize = 15, font = Enum.Font.GothamBold, z = 105, parent = createCard})
@@ -422,48 +632,19 @@ local inputTag = UI.input("TAG DEL CLAN (2-5 caracteres)", "Ej: FGT", 106, creat
 local inputDesc = UI.input("DESCRIPCIÓN", "Describe tu clan...", 172, createCard, true)
 local inputLogo = UI.input("LOGO (Asset ID - Opcional)", "rbxassetid://123456789", 258, createCard)
 
-inputTag:GetPropertyChangedSignal("Text"):Connect(function()
-	inputTag.Text = string.upper(inputTag.Text)
-end)
+inputTag:GetPropertyChangedSignal("Text"):Connect(function() inputTag.Text = string.upper(inputTag.Text) end)
 
--- EMOJI SELECTOR
 UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 324), text = "EMOJI DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
+local _, getEmojiIndex = createSelector(CONFIG.emojis, {size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 342), parent = createCard, isEmoji = true, itemSize = 28, spacing = 4, onSelect = function(idx) State.selectedEmoji = idx end})
 
-local emojiFrame, getEmojiIndex = createSelector(CLAN_EMOJIS, {
-	size = UDim2.new(1, 0, 0, 36),
-	pos = UDim2.new(0, 0, 0, 342),
-	parent = createCard,
-	isEmoji = true,
-	itemSize = 28,
-	spacing = 4,
-	onSelect = function(idx) selectedEmojiIndex = idx end
-})
-
--- COLOR SELECTOR
 UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 388), text = "COLOR DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
-
 local colorItems = {}
-for i, colorData in ipairs(CLAN_COLORS) do
-	table.insert(colorItems, colorData.color)
-end
+for _, c in ipairs(CONFIG.colors) do table.insert(colorItems, c.rgb) end
+local _, getColorIndex = createSelector(colorItems, {size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 406), parent = createCard, isEmoji = false, itemSize = 28, spacing = 6, onSelect = function(idx) State.selectedColor = idx end})
 
-local colorFrame, getColorIndex = createSelector(colorItems, {
-	size = UDim2.new(1, 0, 0, 36),
-	pos = UDim2.new(0, 0, 0, 406),
-	parent = createCard,
-	isEmoji = false,
-	itemSize = 28,
-	spacing = 6,
-	onSelect = function(idx) selectedColorIndex = idx end
-})
-
--- OWNER ID (Admin only)
 local inputOwnerId = UI.input("ID DEL OWNER (Opcional - Solo Admin)", "Ej: 123456789", 452, createCard)
 
-local btnCrear = UI.button({
-	size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 528),
-	bg = THEME.accent, text = "CREAR CLAN", textSize = 13, z = 105, parent = createCard, corner = 8, hover = true
-})
+local btnCrear = UI.button({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 528), bg = THEME.accent, text = "CREAR CLAN", textSize = 13, z = 105, parent = createCard, corner = 8, hover = true})
 
 tabPages["Crear"] = pageCrear
 
@@ -476,453 +657,84 @@ if isAdmin then
 	pageAdmin = UI.frame({name = "Admin", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 	pageAdmin.LayoutOrder = 4
 
-	local adminHeader = UI.frame({
-		size = UDim2.new(1, -20, 0, 40), pos = UDim2.new(0, 10, 0, 10),
-		bg = THEME.warnMuted, z = 103, parent = pageAdmin, corner = 8, stroke = true, strokeA = 0.5, strokeC = THEME.btnDanger
-	})
-
-	UI.label({
-		size = UDim2.new(1, -16, 1, 0), pos = UDim2.new(0, 8, 0, 0),
-		text = "⚠ Panel de Administrador - Acciones irreversibles",
-		color = THEME.warn, textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader
-	})
+	local adminHeader = UI.frame({size = UDim2.new(1, -20, 0, 40), pos = UDim2.new(0, 10, 0, 10), bg = THEME.warnMuted, z = 103, parent = pageAdmin, corner = 8, stroke = true, strokeA = 0.5, strokeC = THEME.btnDanger})
+	UI.label({size = UDim2.new(1, -16, 1, 0), pos = UDim2.new(0, 8, 0, 0), text = "⚠ Panel de Administrador - Acciones irreversibles", color = THEME.warn, textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader})
 
 	adminClansScroll = setupScroll(pageAdmin, {z = 103})
 	tabPages["Admin"] = pageAdmin
 end
 
 -- ════════════════════════════════════════════════════════════════
--- FUNCIONES DE CARGA - SISTEMA DE NAVEGACIÓN JERÁRQUICA OPTIMIZADO
--- ════════════════════════════════════════════════════════════════
-
--- Variables de estado para navegación
-local currentView = "main" -- "main", "members", "pending", "config"
-local cachedClanData = nil
-local cachedPlayerRole = nil
-local viewsCreated = false
-local membersListInstance = nil
-local lastViewBeforeTabSwitch = "main" -- Guardar última vista para restaurar
-
--- Referencias a vistas (se crean una vez y se reutilizan)
-local views = {
-	main = nil,
-	members = nil,
-	pending = nil
-}
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Animación de transición entre vistas
--- ════════════════════════════════════════════════════════════════
-local function animateViewTransition(fromView, toView, direction)
-	local tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-	-- direction: "forward" (main->detail) o "back" (detail->main)
-	if direction == "forward" then
-		-- Vista actual sale hacia la izquierda
-		if fromView then
-			TweenService:Create(fromView, tweenInfo, {Position = UDim2.new(-1, 0, 0, 0)}):Play()
-		end
-		-- Nueva vista entra desde la derecha
-		if toView then
-			toView.Position = UDim2.new(1, 0, 0, 0)
-			toView.Visible = true
-			TweenService:Create(toView, tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
-		end
-	else -- "back"
-		-- Vista actual sale hacia la derecha
-		if fromView then
-			TweenService:Create(fromView, tweenInfo, {Position = UDim2.new(1, 0, 0, 0)}):Play()
-		end
-		-- Vista principal entra desde la izquierda
-		if toView then
-			toView.Position = UDim2.new(-1, 0, 0, 0)
-			toView.Visible = true
-			TweenService:Create(toView, tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
-		end
-	end
-
-	-- Ocultar vista anterior después de la animación
-	if fromView then
-		task.delay(0.3, function()
-			if fromView and fromView.Parent and currentView ~= (fromView.Name == "MainView" and "main" or fromView.Name:lower():gsub("view", "")) then
-				fromView.Visible = false
-			end
-		end)
-	end
-end
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Navegar a una vista
--- ════════════════════════════════════════════════════════════════
-local function navigateTo(viewName)
-	if currentView == viewName then return end
-
-	local fromViewFrame = views[currentView]
-	local toViewFrame = views[viewName]
-
-	local direction = (viewName == "main") and "back" or "forward"
-
-	animateViewTransition(fromViewFrame, toViewFrame, direction)
-	currentView = viewName
-	lastViewBeforeTabSwitch = viewName -- Guardar para restaurar luego
-end
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Crear botón de navegación estilo card
--- ════════════════════════════════════════════════════════════════
-local function createNavCard(config)
-	local card = UI.frame({
-		size = config.size or UDim2.new(1, 0, 0, 60),
-		pos = config.pos or UDim2.new(0, 0, 0, 0),
-		bg = THEME.card,
-		z = 104,
-		parent = config.parent,
-		corner = 10,
-		stroke = true,
-		strokeA = 0.6
-	})
-
-	-- Icono
-	UI.label({
-		size = UDim2.new(0, 40, 0, 40),
-		pos = UDim2.new(0, 12, 0.5, -20),
-		text = config.icon or "👥",
-		textSize = 22,
-		alignX = Enum.TextXAlignment.Center,
-		z = 105,
-		parent = card
-	})
-
-	-- Título
-	UI.label({
-		size = UDim2.new(1, -120, 0, 20),
-		pos = UDim2.new(0, 60, 0, 12),
-		text = config.title or "Título",
-		color = THEME.text,
-		textSize = 14,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Left,
-		z = 105,
-		parent = card
-	})
-
-	-- Subtítulo/contador
-	local subtitleLabel = UI.label({
-		name = "Subtitle",
-		size = UDim2.new(1, -120, 0, 16),
-		pos = UDim2.new(0, 60, 0, 32),
-		text = config.subtitle or "",
-		color = THEME.muted,
-		textSize = 11,
-		alignX = Enum.TextXAlignment.Left,
-		z = 105,
-		parent = card
-	})
-
-	-- Flecha de navegación
-	UI.label({
-		size = UDim2.new(0, 30, 1, 0),
-		pos = UDim2.new(1, -40, 0, 0),
-		text = "›",
-		color = THEME.muted,
-		textSize = 24,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Center,
-		z = 105,
-		parent = card
-	})
-
-	-- Indicador de notificación (punto rojo)
-	local notificationDot = nil
-	if config.showNotification then
-		notificationDot = UI.frame({
-			name = "NotificationDot",
-			size = UDim2.new(0, 10, 0, 10),
-			pos = UDim2.new(1, -50, 0, 10),
-			bg = THEME.btnDanger,
-			z = 106,
-			parent = card,
-			corner = 5
-		})
-		notificationDot.Visible = false
-	end
-
-	-- Preview de avatares (opcional)
-	local avatarPreview = nil
-	if config.showAvatarPreview then
-		avatarPreview = UI.frame({
-			name = "AvatarPreview",
-			size = UDim2.new(0, 70, 0, 28),
-			pos = UDim2.new(1, -115, 0.5, -14),
-			bgT = 1,
-			z = 105,
-			parent = card
-		})
-	end
-
-	-- Hover effect
-	UI.hover(card, THEME.card, THEME.hover)
-
-	-- Hacer clickeable
-	local clickBtn = Instance.new("TextButton")
-	clickBtn.Size = UDim2.new(1, 0, 1, 0)
-	clickBtn.BackgroundTransparency = 1
-	clickBtn.Text = ""
-	clickBtn.ZIndex = 107
-	clickBtn.Parent = card
-
-	return card, clickBtn, subtitleLabel, notificationDot, avatarPreview
-end
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Crear header con botón de retroceso
--- ════════════════════════════════════════════════════════════════
-local function createViewHeader(parent, title, onBack)
-	local headerFrame = UI.frame({
-		size = UDim2.new(1, 0, 0, 44),
-		bg = THEME.surface,
-		z = 106,
-		parent = parent,
-		corner = 10
-	})
-
-	-- Botón de retroceso
-	local backBtn = UI.button({
-		size = UDim2.new(0, 36, 0, 36),
-		pos = UDim2.new(0, 4, 0.5, -18),
-		bg = THEME.card,
-		text = "‹",
-		color = THEME.text,
-		textSize = 22,
-		font = Enum.Font.GothamBold,
-		z = 107,
-		parent = headerFrame,
-		corner = 8
-	})
-
-	UI.hover(backBtn, THEME.card, THEME.accent)
-
-	Memory.track(backBtn.MouseButton1Click:Connect(function()
-		if onBack then onBack() end
-	end))
-
-	-- Título
-	UI.label({
-		size = UDim2.new(1, -90, 1, 0),
-		pos = UDim2.new(0, 48, 0, 0),
-		text = title,
-		color = THEME.text,
-		textSize = 15,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Left,
-		z = 107,
-		parent = headerFrame
-	})
-
-	return headerFrame
-end
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Crear vista principal del clan
+-- CREAR VISTA PRINCIPAL DEL CLAN
 -- ════════════════════════════════════════════════════════════════
 local function createMainView(parent, clanData, playerRole)
-	local mainView = UI.frame({
-		name = "MainView",
-		size = UDim2.new(1, 0, 1, 0),
-		bgT = 1,
-		z = 103,
-		parent = parent,
-		clips = true
-	})
+	local mainView = UI.frame({name = "MainView", size = UDim2.new(1, 0, 1, 0), bgT = 1, z = 103, parent = parent, clips = true})
 
 	local scrollFrame = Instance.new("ScrollingFrame")
-	scrollFrame.Size = UDim2.new(1, 0, 1, 0)
-	scrollFrame.BackgroundTransparency = 1
-	scrollFrame.ScrollBarThickness = 3
-	scrollFrame.ScrollBarImageColor3 = THEME.accent
-	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scrollFrame.ZIndex = 103
+	scrollFrame.Size, scrollFrame.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+	scrollFrame.ScrollBarThickness, scrollFrame.ScrollBarImageColor3 = 3, THEME.accent
+	scrollFrame.CanvasSize, scrollFrame.ZIndex = UDim2.new(0, 0, 0, 0), 103
 	scrollFrame.Parent = mainView
 
 	local contentLayout = Instance.new("UIListLayout")
-	contentLayout.Padding = UDim.new(0, 12)
-	contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	contentLayout.Padding, contentLayout.SortOrder = UDim.new(0, 12), Enum.SortOrder.LayoutOrder
 	contentLayout.Parent = scrollFrame
 
 	local contentPadding = Instance.new("UIPadding")
-	contentPadding.PaddingTop = UDim.new(0, 8)
-	contentPadding.PaddingBottom = UDim.new(0, 8)
-	contentPadding.PaddingLeft = UDim.new(0, 4)
-	contentPadding.PaddingRight = UDim.new(0, 4)
+	contentPadding.PaddingTop, contentPadding.PaddingBottom = UDim.new(0, 8), UDim.new(0, 8)
+	contentPadding.PaddingLeft, contentPadding.PaddingRight = UDim.new(0, 4), UDim.new(0, 4)
 	contentPadding.Parent = scrollFrame
 
-	-- Contador dinámico de LayoutOrder
-	local currentLayoutOrder = 0
+	local layoutOrder = 0
+	local function nextOrder() layoutOrder = layoutOrder + 1 return layoutOrder end
 
-	local function getNextOrder()
-		currentLayoutOrder = currentLayoutOrder + 1
-		return currentLayoutOrder
-	end
+	-- INFO CARD
+	local infoCard = UI.frame({size = UDim2.new(1, -8, 0, 160), bg = THEME.card, z = 104, parent = scrollFrame, corner = 12, stroke = true, strokeA = 0.6, clips = true})
+	infoCard.LayoutOrder = nextOrder()
 
-	-- ══════════════════════════════════════════════════════════════
-	-- CARD DE INFO DEL CLAN (Rediseñada - banner completo)
-	-- ══════════════════════════════════════════════════════════════
-	local infoCard = UI.frame({
-		size = UDim2.new(1, -8, 0, 160),
-		bg = THEME.card,
-		z = 104,
-		parent = scrollFrame,
-		corner = 12,
-		stroke = true,
-		strokeA = 0.6,
-		clips = true
-	})
-	infoCard.LayoutOrder = getNextOrder()
-
-	-- Banner con logo de fondo - CUBRE TODA LA CARD
 	local bannerImage = Instance.new("ImageLabel")
-	bannerImage.Size = UDim2.new(1, 0, 1, 0)
-	bannerImage.Position = UDim2.new(0, 0, 0, 0)
-	bannerImage.BackgroundTransparency = 1
+	bannerImage.Size, bannerImage.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
 	bannerImage.Image = clanData.clanLogo or ""
-	bannerImage.ScaleType = Enum.ScaleType.Crop
-	bannerImage.ImageTransparency = 0.4
-	bannerImage.ZIndex = 104
+	bannerImage.ScaleType, bannerImage.ImageTransparency, bannerImage.ZIndex = Enum.ScaleType.Crop, 0.4, 104
 	bannerImage.Parent = infoCard
 	UI.rounded(bannerImage, 12)
 
 	local bannerGradient = Instance.new("UIGradient")
-	bannerGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.new(0.06, 0.06, 0.08)),
-		ColorSequenceKeypoint.new(1, Color3.new(0.1, 0.1, 0.12))
-	}
+	bannerGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.new(0.06, 0.06, 0.08)), ColorSequenceKeypoint.new(1, Color3.new(0.1, 0.1, 0.12))}
 	bannerGradient.Rotation = 90
 	bannerGradient.Parent = bannerImage
 
-	-- Logo/Emoji
-	local logoFrame = UI.frame({
-		size = UDim2.new(0, 74, 0, 74),
-		pos = UDim2.new(0, 16, 0, 24),
-		bg = THEME.surface,
-		z = 106,
-		parent = infoCard,
-		corner = 37,
-		stroke = true,
-		strokeA = 0.3
-	})
+	local logoFrame = UI.frame({size = UDim2.new(0, 74, 0, 74), pos = UDim2.new(0, 16, 0, 24), bg = THEME.surface, z = 106, parent = infoCard, corner = 37, stroke = true, strokeA = 0.3})
 
 	if clanData.clanLogo and clanData.clanLogo ~= "" and clanData.clanLogo ~= "rbxassetid://0" then
 		local logoImg = Instance.new("ImageLabel")
-		logoImg.Size = UDim2.new(1, -8, 1, -8)
-		logoImg.Position = UDim2.new(0, 4, 0, 4)
-		logoImg.BackgroundTransparency = 1
-		logoImg.Image = clanData.clanLogo
-		logoImg.ScaleType = Enum.ScaleType.Fit
-		logoImg.ZIndex = 107
+		logoImg.Size, logoImg.Position = UDim2.new(1, -8, 1, -8), UDim2.new(0, 4, 0, 4)
+		logoImg.BackgroundTransparency, logoImg.Image = 1, clanData.clanLogo
+		logoImg.ScaleType, logoImg.ZIndex = Enum.ScaleType.Fit, 107
 		logoImg.Parent = logoFrame
 		UI.rounded(logoImg, 33)
 	else
-		UI.label({
-			size = UDim2.new(1, 0, 1, 0),
-			text = clanData.clanEmoji or "⚔️",
-			textSize = 36,
-			alignX = Enum.TextXAlignment.Center,
-			z = 107,
-			parent = logoFrame
-		})
+		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.clanEmoji or "⚔️", textSize = 36, alignX = Enum.TextXAlignment.Center, z = 107, parent = logoFrame})
 	end
 
-	-- Color del clan
-	local clanColor = clanData.clanColor and Color3.fromRGB(
-		clanData.clanColor[1] or 255, 
-		clanData.clanColor[2] or 255, 
-		clanData.clanColor[3] or 255
-	) or THEME.accent
-
-	-- Contar miembros
+	local clanColor = clanData.clanColor and Color3.fromRGB(clanData.clanColor[1] or 255, clanData.clanColor[2] or 255, clanData.clanColor[3] or 255) or THEME.accent
 	local membersCount = 0
-	if clanData.miembros_data then
-		for _ in pairs(clanData.miembros_data) do
-			membersCount = membersCount + 1
-		end
-	end
+	if clanData.miembros_data then for _ in pairs(clanData.miembros_data) do membersCount = membersCount + 1 end end
 
-	-- Nombre del clan
-	UI.label({
-		size = UDim2.new(1, -110, 0, 26),
-		pos = UDim2.new(0, 100, 0, 30),
-		text = (clanData.clanEmoji or "") .. " " .. (clanData.clanName or "Clan"),
-		color = clanColor,
-		textSize = 18,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Left,
-		z = 106,
-		parent = infoCard
-	})
+	UI.label({size = UDim2.new(1, -110, 0, 26), pos = UDim2.new(0, 100, 0, 30), text = (clanData.clanEmoji or "") .. " " .. (clanData.clanName or "Clan"), color = clanColor, textSize = 18, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
+	UI.label({size = UDim2.new(0, 80, 0, 20), pos = UDim2.new(0, 100, 0, 56), text = "[" .. (clanData.clanTag or "TAG") .. "]", color = THEME.accent, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
-	-- Tag del clan
-	UI.label({
-		size = UDim2.new(0, 80, 0, 20),
-		pos = UDim2.new(0, 100, 0, 56),
-		text = "[" .. (clanData.clanTag or "TAG") .. "]",
-		color = THEME.accent,
-		textSize = 14,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Left,
-		z = 106,
-		parent = infoCard
-	})
-
-	-- Rol del jugador
 	local roleData = ClanSystemConfig.ROLES.Visual[playerRole] or ClanSystemConfig.ROLES.Visual["miembro"]
-	local roleColor = roleData.color
-	local roleDisplay = roleData.display
+	UI.label({size = UDim2.new(0, 100, 0, 20), pos = UDim2.new(1, -116, 0, 56), text = roleData.display, color = roleData.color, textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Right, z = 106, parent = infoCard})
+	UI.label({size = UDim2.new(1, -32, 0, 36), pos = UDim2.new(0, 16, 0, 108), text = clanData.descripcion or "Sin descripción", color = THEME.muted, textSize = 13, wrap = true, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
-	UI.label({
-		size = UDim2.new(0, 100, 0, 20),
-		pos = UDim2.new(1, -116, 0, 56),
-		text = roleDisplay,
-		color = roleColor,
-		textSize = 13,
-		font = Enum.Font.GothamBold,
-		alignX = Enum.TextXAlignment.Right,
-		z = 106,
-		parent = infoCard
-	})
+	-- NAV CARDS
+	local membersCard, membersBtn, membersSubtitle, _, membersAvatarPreview = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "👥", title = "MIEMBROS", subtitle = membersCount .. " miembros en el clan", showAvatarPreview = true})
+	membersCard.LayoutOrder = nextOrder()
 
-	-- Descripción
-	UI.label({
-		size = UDim2.new(1, -32, 0, 36),
-		pos = UDim2.new(0, 16, 0, 108),
-		text = clanData.descripcion or "Sin descripción",
-		color = THEME.muted,
-		textSize = 13,
-		wrap = true,
-		alignX = Enum.TextXAlignment.Left,
-		z = 106,
-		parent = infoCard
-	})
-
-	-- ══════════════════════════════════════════════════════════════
-	-- BOTONES DE NAVEGACIÓN (Cards clickeables)
-	-- ══════════════════════════════════════════════════════════════
-
-	-- Card: Miembros
-	local membersCard, membersBtn, membersSubtitle, _, membersAvatarPreview = createNavCard({
-		size = UDim2.new(1, -8, 0, 60),
-		parent = scrollFrame,
-		icon = "👥",
-		title = "MIEMBROS",
-		subtitle = membersCount .. " miembros en el clan",
-		showAvatarPreview = true
-	})
-	membersCard.LayoutOrder = getNextOrder()
-
-	-- Mostrar preview de avatares (primeros 3 miembros)
 	if membersAvatarPreview and clanData.miembros_data then
 		local avatarLayout = Instance.new("UIListLayout")
-		avatarLayout.FillDirection = Enum.FillDirection.Horizontal
-		avatarLayout.Padding = UDim.new(0, -8)
+		avatarLayout.FillDirection, avatarLayout.Padding = Enum.FillDirection.Horizontal, UDim.new(0, -8)
 		avatarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		avatarLayout.Parent = membersAvatarPreview
 
@@ -931,635 +743,310 @@ local function createMainView(parent, clanData, playerRole)
 			if count >= 3 then break end
 			local odINum = tonumber(odI)
 			if odINum and odINum > 0 then
-				local miniAvatar = UI.frame({
-					size = UDim2.new(0, 26, 0, 26),
-					bg = THEME.surface,
-					z = 106,
-					parent = membersAvatarPreview,
-					corner = 13
-				})
-
+				local miniAvatar = UI.frame({size = UDim2.new(0, 26, 0, 26), bg = THEME.surface, z = 106, parent = membersAvatarPreview, corner = 13})
 				local avatarImg = Instance.new("ImageLabel")
-				avatarImg.Size = UDim2.new(1, -4, 1, -4)
-				avatarImg.Position = UDim2.new(0, 2, 0, 2)
+				avatarImg.Size, avatarImg.Position = UDim2.new(1, -4, 1, -4), UDim2.new(0, 2, 0, 2)
 				avatarImg.BackgroundTransparency = 1
-				avatarImg.Image = string.format(
-					"https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=48&height=48&format=png",
-					odINum
-				)
+				avatarImg.Image = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=48&height=48&format=png", odINum)
 				avatarImg.ZIndex = 107
 				avatarImg.Parent = miniAvatar
 				UI.rounded(avatarImg, 11)
-
 				count = count + 1
 			end
 		end
 	end
 
-	Memory.track(membersBtn.MouseButton1Click:Connect(function()
-		navigateTo("members")
-	end))
+	Memory:track(membersBtn.MouseButton1Click:Connect(function() Navigation:goto("members") end))
 
-	-- Card: Pendientes (solo si puede gestionar)
 	local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 
 	if canManageRequests then
-		local pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({
-			size = UDim2.new(1, -8, 0, 60),
-			parent = scrollFrame,
-			icon = "📩",
-			title = "SOLICITUDES",
-			subtitle = "Cargando...",
-			showNotification = true
-		})
-		pendingCard.LayoutOrder = getNextOrder()
+		local pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "📩", title = "SOLICITUDES", subtitle = "Cargando...", showNotification = true})
+		pendingCard.LayoutOrder = nextOrder()
 
-		Memory.track(pendingBtn.MouseButton1Click:Connect(function()
-			navigateTo("pending")
-		end))
+		Memory:track(pendingBtn.MouseButton1Click:Connect(function() Navigation:goto("pending") end))
 
-		-- Cargar conteo de pendientes en segundo plano
 		task.spawn(function()
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
 			local requestCount = #requests
-			if pendingSubtitle and pendingSubtitle.Parent then
-				pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes"
-			end
-			if pendingDot and pendingDot.Parent then
-				pendingDot.Visible = requestCount > 0
-			end
+			if pendingSubtitle and pendingSubtitle.Parent then pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes" end
+			if pendingDot and pendingDot.Parent then pendingDot.Visible = requestCount > 0 end
 		end)
 	end
 
-	-- ══════════════════════════════════════════════════════════════
-	-- BOTONES DE EDICIÓN (Se adaptan según permisos)
-	-- ══════════════════════════════════════════════════════════════
+	-- EDIT BUTTONS
 	local permissions = ClanSystemConfig.ROLES.Permissions[playerRole] or {}
-	local canEditName = permissions.cambiar_nombre or false
-	local canEditTag = permissions.cambiar_tag or (playerRole == "owner") -- Solo owner puede cambiar tag
+	local canEditName, canEditTag = permissions.cambiar_nombre or false, permissions.cambiar_tag or (playerRole == "owner")
 	local canChangeColor = permissions.cambiar_color or false
 
-	-- Contenedor para NOMBRE y TAG en la misma línea (si tiene ambos permisos)
 	if canEditName or canEditTag then
-		local editRowContainer = UI.frame({
-			size = UDim2.new(1, -8, 0, 42),
-			bgT = 1,
-			z = 104,
-			parent = scrollFrame
-		})
-		editRowContainer.LayoutOrder = getNextOrder()
+		local editRowContainer = UI.frame({size = UDim2.new(1, -8, 0, 42), bgT = 1, z = 104, parent = scrollFrame})
+		editRowContainer.LayoutOrder = nextOrder()
 
 		local rowLayout = Instance.new("UIListLayout")
-		rowLayout.FillDirection = Enum.FillDirection.Horizontal
-		rowLayout.Padding = UDim.new(0, 8)
+		rowLayout.FillDirection, rowLayout.Padding = Enum.FillDirection.Horizontal, UDim.new(0, 8)
 		rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		rowLayout.Parent = editRowContainer
 
-		-- Calcular ancho de botones
 		local buttonCount = (canEditName and 1 or 0) + (canEditTag and 1 or 0)
 		local buttonWidth = buttonCount == 2 and UDim2.new(0.5, -4, 1, 0) or UDim2.new(1, 0, 1, 0)
 
-		-- Botón EDITAR NOMBRE
 		if canEditName then
-			local btnEditName = UI.button({
-				size = buttonWidth,
-				bg = THEME.surface,
-				text = "EDITAR NOMBRE",
-				color = THEME.text,
-				textSize = 12,
-				font = Enum.Font.GothamBold,
-				z = 105,
-				parent = editRowContainer,
-				corner = 10
-			})
+			local btnEditName = UI.button({size = buttonWidth, bg = THEME.surface, text = "EDITAR NOMBRE", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
 			btnEditName.LayoutOrder = 1
 			UI.hover(btnEditName, THEME.surface, THEME.stroke)
-
-			Memory.track(btnEditName.MouseButton1Click:Connect(function()
-				ConfirmationModal.new({
-					screenGui = screenGui,
-					title = "Cambiar Nombre",
-					message = "Ingresa el nuevo nombre:",
-					inputText = true,
-					inputPlaceholder = "Nuevo nombre",
-					inputDefault = clanData.clanName,
-					confirmText = "Cambiar",
-					cancelText = "Cancelar",
-					onConfirm = function(newName)
-						if newName and #newName >= 3 then
-							local success, msg = ClanClient:ChangeClanName(newName)
-							if success then
-								Notify:Success("Actualizado", "Nombre cambiado", 4)
-								loadPlayerClan()
-							else
-								Notify:Error("Error", msg or "No se pudo cambiar", 4)
-							end
-						else
-							Notify:Warning("Inválido", "Mínimo 3 caracteres", 3)
-						end
-					end
-				})
-			end))
+			Memory:track(btnEditName.MouseButton1Click:Connect(function() ClanActions:editName(screenGui, clanData, loadPlayerClan) end))
 		end
 
-		-- Botón EDITAR TAG
 		if canEditTag then
-			local btnEditTag = UI.button({
-				size = buttonWidth,
-				bg = THEME.surface,
-				text = "EDITAR TAG",
-				color = THEME.text,
-				textSize = 12,
-				font = Enum.Font.GothamBold,
-				z = 105,
-				parent = editRowContainer,
-				corner = 10
-			})
+			local btnEditTag = UI.button({size = buttonWidth, bg = THEME.surface, text = "EDITAR TAG", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
 			btnEditTag.LayoutOrder = 2
 			UI.hover(btnEditTag, THEME.surface, THEME.stroke)
-
-			Memory.track(btnEditTag.MouseButton1Click:Connect(function()
-				ConfirmationModal.new({
-					screenGui = screenGui,
-					title = "Cambiar TAG",
-					message = "Ingresa el nuevo TAG (2-5 caracteres):",
-					inputText = true,
-					inputPlaceholder = "Ej: XYZ",
-					inputDefault = clanData.clanTag,
-					confirmText = "Cambiar",
-					cancelText = "Cancelar",
-					onConfirm = function(newTag)
-						newTag = newTag and newTag:upper() or ""
-						if #newTag >= 2 and #newTag <= 5 then
-							local success, msg = ClanClient:ChangeClanTag(newTag)
-							if success then
-								Notify:Success("Actualizado", "TAG cambiado", 4)
-								loadPlayerClan()
-							else
-								Notify:Error("Error", msg or "No se pudo cambiar", 4)
-							end
-						else
-							Notify:Warning("Inválido", "Entre 2 y 5 caracteres", 3)
-						end
-					end
-				})
-			end))
+			Memory:track(btnEditTag.MouseButton1Click:Connect(function() ClanActions:editTag(screenGui, clanData, loadPlayerClan) end))
 		end
 	end
 
-	-- Botón EDITAR COLOR (línea completa separada)
 	if canChangeColor then
-		local btnEditColor = UI.button({
-			size = UDim2.new(1, -8, 0, 42),
-			bg = THEME.surface,
-			text = "EDITAR COLOR",
-			color = THEME.text,
-			textSize = 12,
-			font = Enum.Font.GothamBold,
-			z = 104,
-			parent = scrollFrame,
-			corner = 10
-		})
-		btnEditColor.LayoutOrder = getNextOrder()
+		local btnEditColor = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.surface, text = "EDITAR COLOR", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
+		btnEditColor.LayoutOrder = nextOrder()
 		UI.hover(btnEditColor, THEME.surface, THEME.stroke)
-
-		Memory.track(btnEditColor.MouseButton1Click:Connect(function()
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Cambiar Color",
-				message = "Ingresa nombre de color (ej: azul, dorado):",
-				inputText = true,
-				inputPlaceholder = "ej: dorado",
-				inputDefault = "",
-				confirmText = "Cambiar",
-				cancelText = "Cancelar",
-				onConfirm = function(input)
-					if not input or input == "" then
-						Notify:Warning("Inválido", "Ingresa un nombre de color", 3)
-						return
-					end
-					-- Aceptar solo letras y espacios
-					local name = input:match("^%s*([%a%s]+)%s*$")
-					if not name then
-						Notify:Warning("Inválido", "Solo letras", 3)
-						return
-					end
-					name = name:lower():gsub("%s+", "")
-					local success, msg = ClanClient:ChangeClanColor(name)
-					if success then
-						Notify:Success("Actualizado", msg or "Color cambiado", 4)
-						loadPlayerClan()
-					else
-						Notify:Error("Error", msg or "No se pudo cambiar", 4)
-					end
-				end
-			})
-		end))
+		Memory:track(btnEditColor.MouseButton1Click:Connect(function() ClanActions:editColor(screenGui, loadPlayerClan) end))
 	end
 
-	-- ══════════════════════════════════════════════════════════════
-	-- BOTÓN SALIR / DISOLVER (siempre al final)
-	-- ══════════════════════════════════════════════════════════════
+	-- LEAVE/DISSOLVE BUTTON
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
-	local actionBtn = UI.button({
-		size = UDim2.new(1, -8, 0, 44),
-		bg = THEME.warn,
-		text = actionBtnText,
-		color = Color3.new(1, 1, 1),
-		textSize = 13,
-		font = Enum.Font.GothamBold,
-		z = 104,
-		parent = scrollFrame,
-		corner = 8
-	})
-	actionBtn.LayoutOrder = getNextOrder()
-
+	local actionBtn = UI.button({size = UDim2.new(1, -8, 0, 44), bg = THEME.warn, text = actionBtnText, color = Color3.new(1, 1, 1), textSize = 13, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 8})
+	actionBtn.LayoutOrder = nextOrder()
 	UI.hover(actionBtn, THEME.warn, THEME.btnDanger)
 
-	Memory.track(actionBtn.MouseButton1Click:Connect(function()
+	Memory:track(actionBtn.MouseButton1Click:Connect(function()
 		if playerRole == "owner" then
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Disolver Clan",
-				message = "¿Disolver \"" .. clanData.clanName .. "\"?\n\nEsta acción es IRREVERSIBLE.",
-				confirmText = "Disolver",
-				cancelText = "Cancelar",
-				confirmColor = THEME.btnDanger,
-				onConfirm = function()
-					local success, msg = ClanClient:DissolveClan()
-					if success then
-						Notify:Success("Clan Disuelto", "El clan ha sido eliminado", 4)
-						loadPlayerClan()
-					else
-						Notify:Error("Error", msg or "No se pudo disolver", 3)
-					end
-				end
-			})
+			ClanActions:dissolve(screenGui, clanData.clanName, loadPlayerClan)
 		else
-			ConfirmationModal.new({
-				screenGui = screenGui,
-				title = "Salir del Clan",
-				message = "¿Estás seguro de que quieres salir?",
-				confirmText = "Salir",
-				cancelText = "Cancelar",
-				onConfirm = function()
-					local success, msg = ClanClient:LeaveClan()
-					if success then
-						Notify:Success("Abandonado", "Has salido del clan", 4)
-						loadPlayerClan()
-					else
-						Notify:Error("Error", msg or "No se pudo salir", 3)
-					end
-				end
-			})
+			ClanActions:leave(screenGui, loadPlayerClan)
 		end
 	end))
 
-	-- Actualizar canvas size
 	contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
 	end)
 
 	return mainView
 end
+
 -- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Crear vista de miembros
+-- CREAR VISTA DE MIEMBROS
 -- ════════════════════════════════════════════════════════════════
 local function createMembersView(parent, clanData, playerRole)
-	local membersView = UI.frame({
-		name = "MembersView",
-		size = UDim2.new(1, 0, 1, 0),
-		pos = UDim2.new(1, 0, 0, 0),
-		bgT = 1,
-		z = 103,
-		parent = parent,
-		clips = true
-	})
+	local membersView = UI.frame({name = "MembersView", size = UDim2.new(1, 0, 1, 0), pos = UDim2.new(1, 0, 0, 0), bgT = 1, z = 103, parent = parent, clips = true})
 	membersView.Visible = false
 
-	-- Header con botón de retroceso
-	createViewHeader(membersView, "👥 MIEMBROS", function()
-		navigateTo("main")
-	end)
+	createViewHeader(membersView, "👥 MIEMBROS", function() Navigation:goto("main") end)
 
-	-- Contenedor de la lista
-	local listContainer = UI.frame({
-		size = UDim2.new(1, -8, 1, -56),
-		pos = UDim2.new(0, 4, 0, 52),
-		bgT = 1,
-		z = 104,
-		parent = membersView
-	})
+	local listContainer = UI.frame({size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = membersView})
 
-	-- Crear instancia de MembersList
-	membersListInstance = MembersList.new({
-		parent = listContainer,
-		screenGui = screenGui,
-		mode = "members",
-		clanData = clanData,
-		playerRole = playerRole,
-		onUpdate = function()
-			-- Volver a main view con animación (sin recarga completa)
-			if currentView ~= "main" then
-				navigateTo("main")
-			end
+	local function loadMembersList()
+		if State.instances.membersList then 
+			State.instances.membersList:destroy() 
+			State.instances.membersList = nil 
 		end
-	})
+
+		-- Mostrar loading suave
+		Memory:destroyChildren(listContainer, "UIListLayout")
+		local loadingFrame = UI.loading(listContainer)
+		table.insert(Memory.loadingFrames, loadingFrame)
+
+		-- Recargar datos del servidor
+		task.spawn(function()
+			local updatedClanData = ClanClient:GetPlayerClan()
+			
+			-- Limpiar loading
+			Memory:cleanupLoading()
+			Memory:destroyChildren(listContainer, "UIListLayout")
+			
+			if updatedClanData then
+				State.cache.clanData = updatedClanData
+				-- Marcar para recrear main la próxima vez que se vea
+				State.viewsCreated = false
+				
+				-- Verificar si el jugador sigue en el clan
+				local stillInClan = updatedClanData.miembros_data and updatedClanData.miembros_data[tostring(player.UserId)] ~= nil
+				
+				if stillInClan then
+					-- Recrear la lista con datos actualizados (sin salir de la vista)
+					State.instances.membersList = MembersList.new({
+						parent = listContainer, 
+						screenGui = screenGui, 
+						mode = "members",
+						clanData = updatedClanData, 
+						playerRole = playerRole,
+						onUpdate = loadMembersList
+					})
+				else
+					-- Si fue expulsado, volver a main
+					Navigation:goto("main")
+					loadPlayerClan()
+				end
+			else
+				-- Si no hay clan, volver a main
+				Navigation:goto("main")
+				loadPlayerClan()
+			end
+		end)
+	end
+
+	-- Cargar lista inicial
+	loadMembersList()
 
 	return membersView
 end
 
 -- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Crear vista de pendientes (usando MembersList reutilizable)
+-- CREAR VISTA DE PENDIENTES
 -- ════════════════════════════════════════════════════════════════
-local pendingListInstance = nil
-
 local function createPendingView(parent, clanData, playerRole)
-	local pendingView = UI.frame({
-		name = "PendingView",
-		size = UDim2.new(1, 0, 1, 0),
-		pos = UDim2.new(1, 0, 0, 0),
-		bgT = 1,
-		z = 103,
-		parent = parent,
-		clips = true
-	})
+	local pendingView = UI.frame({name = "PendingView", size = UDim2.new(1, 0, 1, 0), pos = UDim2.new(1, 0, 0, 0), bgT = 1, z = 103, parent = parent, clips = true})
 	pendingView.Visible = false
 
-	-- Header con botón de retroceso
-	createViewHeader(pendingView, "📩 SOLICITUDES", function()
-		navigateTo("main")
-	end)
+	createViewHeader(pendingView, "📩 SOLICITUDES", function() Navigation:goto("main") end)
 
-	-- Contenedor para la lista
-	local listContainer = UI.frame({
-		size = UDim2.new(1, -8, 1, -56),
-		pos = UDim2.new(0, 4, 0, 52),
-		bgT = 1,
-		z = 104,
-		parent = pendingView
-	})
+	local listContainer = UI.frame({size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = pendingView})
 
-	-- Cargar solicitudes y crear lista
-	task.spawn(function()
-		local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-
-		-- Limpiar instancia anterior si existe
-		if pendingListInstance then
-			pendingListInstance:destroy()
-			pendingListInstance = nil
+	local function loadPendingRequests()
+		if State.instances.pendingList then 
+			State.instances.pendingList:destroy() 
+			State.instances.pendingList = nil 
 		end
 
-		-- Función helper para recrear la lista
-		local function recreatePendingList()
-			local updatedRequests = ClanClient:GetJoinRequests(clanData.clanId) or {}
+		-- Mostrar loading mientras se obtienen los datos
+		Memory:destroyChildren(listContainer, "UIListLayout")
+		local loadingFrame = UI.loading(listContainer)
+		table.insert(Memory.loadingFrames, loadingFrame)
 
-			-- Destruir la instancia anterior
-			if pendingListInstance then
-				pendingListInstance:destroy()
-				pendingListInstance = nil
+		task.spawn(function()
+			-- Obtener datos actualizados del servidor
+			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
+			
+			-- Limpiar loading
+			Memory:cleanupLoading()
+			Memory:destroyChildren(listContainer, "UIListLayout")
+
+			-- Si ya no hay solicitudes, actualizar el contador en main silenciosamente
+			if #requests == 0 then
+				-- Actualizar el cache para que main se actualice la próxima vez que se muestre
+				local updatedClanData = ClanClient:GetPlayerClan()
+				if updatedClanData then
+					State.cache.clanData = updatedClanData
+					-- Marcar para recrear main la próxima vez
+					State.viewsCreated = false
+				end
 			end
 
-			-- Recrear la lista con datos actualizados
-			pendingListInstance = MembersList.new({
-				parent = listContainer,
-				screenGui = screenGui,
+			-- Crear la lista con los datos actualizados
+			State.instances.pendingList = MembersList.new({
+				parent = listContainer, 
+				screenGui = screenGui, 
 				mode = "pending",
-				clanData = clanData,
-				playerRole = playerRole,
-				requests = updatedRequests,
-				onUpdate = recreatePendingList -- Llamar recursivamente
+				clanData = clanData, 
+				playerRole = playerRole, 
+				requests = requests,
+				onUpdate = loadPendingRequests
 			})
-		end
+		end)
+	end
 
-		-- Crear MembersList en modo "pending"
-		pendingListInstance = MembersList.new({
-			parent = listContainer,
-			screenGui = screenGui,
-			mode = "pending",
-			clanData = clanData,
-			playerRole = playerRole,
-			requests = requests,
-			onUpdate = recreatePendingList
-		})
-	end)
+	-- Cargar solicitudes inicialmente
+	loadPendingRequests()
 
 	return pendingView
 end
 
 -- ════════════════════════════════════════════════════════════════
--- FUNCIÓN: Refrescar tab "Mi Clan" completamente
--- ════════════════════════════════════════════════════════════════
-local function updateClanData()
-	-- Recarga completa de la tab para sincronizar todos los cambios
-	loadPlayerClan()
-end
-
--- ════════════════════════════════════════════════════════════════
--- FUNCIÓN PRINCIPAL: Cargar clan del jugador
+-- LOAD PLAYER CLAN
 -- ════════════════════════════════════════════════════════════════
 loadPlayerClan = function()
-	-- Solo recrear vistas si no existen o si se cambió de tab
-	local shouldRecreate = not viewsCreated or not views.main or not views.main.Parent
+	-- Limpiar vistas existentes para forzar actualización completa
+	if State.instances.membersList then State.instances.membersList:destroy() State.instances.membersList = nil end
+	if State.instances.pendingList then State.instances.pendingList:destroy() State.instances.pendingList = nil end
 
-	if shouldRecreate then
-		-- Limpiar instancias anteriores solo si vamos a recrear
-		if membersListInstance then
-			membersListInstance:destroy()
-			membersListInstance = nil
-		end
-		if pendingListInstance then
-			pendingListInstance:destroy()
-			pendingListInstance = nil
-		end
+	Memory:destroyChildren(tuClanContainer)
 
-		-- Limpiar solo el contenedor, NO las conexiones globales
-		Memory.destroyChildren(tuClanContainer)
-
-		-- Mostrar loading
-		local loadingFrame = UI.loading(tuClanContainer)
-
-		task.spawn(function()
-			local clanData = ClanClient:GetPlayerClan()
-
-			-- Limpiar loading
-			UI.cleanupLoading()
-			if loadingFrame and loadingFrame.Parent then loadingFrame:Destroy() end
-			Memory.destroyChildren(tuClanContainer)
-
-			if clanData then
-				-- Guardar en caché
-				cachedClanData = clanData
-
-				-- Obtener rol del jugador
-				local playerRole = "miembro"
-				if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
-					playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
-				end
-				cachedPlayerRole = playerRole
-
-				-- Crear las 3 vistas (se crean una vez)
-				views.main = createMainView(tuClanContainer, clanData, playerRole)
-				views.members = createMembersView(tuClanContainer, clanData, playerRole)
-
-				local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
-				if canManageRequests then
-					views.pending = createPendingView(tuClanContainer, clanData, playerRole)
-				end
-
-				viewsCreated = true
-				currentView = "main"
-
-				-- Restaurar vista anterior si volvimos de otra tab
-				local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or "main"
-
-				-- Ocultar todas las vistas
-				if views.main then views.main.Visible = false end
-				if views.members then views.members.Visible = false end
-				if views.pending then views.pending.Visible = false end
-
-				-- Mostrar la vista correcta
-				if viewToShow == "members" and views.members then
-					views.members.Position = UDim2.new(0, 0, 0, 0)
-					views.members.Visible = true
-					currentView = "members"
-				elseif viewToShow == "pending" and views.pending then
-					views.pending.Position = UDim2.new(0, 0, 0, 0)
-					views.pending.Visible = true
-					currentView = "pending"
-				else
-					views.main.Position = UDim2.new(0, 0, 0, 0)
-					views.main.Visible = true
-					currentView = "main"
-				end
-
-				-- Resetear para la próxima vez
-				lastViewBeforeTabSwitch = "main"
-
-			else
-				viewsCreated = false
-				-- No tiene clan - mostrar mensaje
-				local noClanCard = UI.frame({
-					size = UDim2.new(0, 280, 0, 140),
-					pos = UDim2.new(0.5, -140, 0.5, -70),
-					bg = THEME.card,
-					z = 103,
-					parent = tuClanContainer,
-					corner = 12,
-					stroke = true,
-					strokeA = 0.6
-				})
-
-				UI.label({
-					size = UDim2.new(1, 0, 0, 40),
-					pos = UDim2.new(0, 0, 0, 30),
-					text = "⚔️",
-					textSize = 32,
-					alignX = Enum.TextXAlignment.Center,
-					z = 104,
-					parent = noClanCard
-				})
-
-				UI.label({
-					size = UDim2.new(1, -20, 0, 20),
-					pos = UDim2.new(0, 10, 0, 75),
-					text = "No perteneces a ningún clan",
-					textSize = 13,
-					font = Enum.Font.GothamBold,
-					alignX = Enum.TextXAlignment.Center,
-					z = 104,
-					parent = noClanCard
-				})
-
-				UI.label({
-					size = UDim2.new(1, -20, 0, 16),
-					pos = UDim2.new(0, 10, 0, 100),
-					text = "Explora clanes en 'Disponibles'",
-					color = THEME.muted,
-					textSize = 11,
-					alignX = Enum.TextXAlignment.Center,
-					z = 104,
-					parent = noClanCard
-				})
-
-				-- Mostrar mensaje sin animación
-				noClanCard.Position = UDim2.new(0.5, -140, 0.5, -70)
+	withLoading(tuClanContainer, function()
+		return ClanClient:GetPlayerClan()
+	end, function(clanData)
+		if clanData then
+			State.cache.clanData = clanData
+			local playerRole = "miembro"
+			if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
+				playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
 			end
-		end)
-	else
-		-- Las vistas ya existen, solo mostrar la correcta
-		local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or currentView
+			State.cache.playerRole = playerRole
 
-		-- Ocultar todas
-		if views.main then views.main.Visible = false end
-		if views.members then views.members.Visible = false end
-		if views.pending then views.pending.Visible = false end
+			State.views.main = createMainView(tuClanContainer, clanData, playerRole)
+			State.views.members = createMembersView(tuClanContainer, clanData, playerRole)
 
-		-- Mostrar la correcta
-		if viewToShow == "members" and views.members then
-			views.members.Visible = true
-			currentView = "members"
-		elseif viewToShow == "pending" and views.pending then
-			views.pending.Visible = true
-			currentView = "pending"
+			local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
+			if canManageRequests then
+				State.views.pending = createPendingView(tuClanContainer, clanData, playerRole)
+			end
+
+			State.viewsCreated = true
+			State.currentView = "main"
+
+			local viewToShow = State.lastView ~= "main" and State.lastView or "main"
+
+			for _, v in pairs(State.views) do if v then v.Visible = false end end
+
+			if viewToShow == "members" and State.views.members then
+				State.views.members.Position = UDim2.new(0, 0, 0, 0)
+				State.views.members.Visible = true
+				State.currentView = "members"
+			elseif viewToShow == "pending" and State.views.pending then
+				State.views.pending.Position = UDim2.new(0, 0, 0, 0)
+				State.views.pending.Visible = true
+				State.currentView = "pending"
+			else
+				State.views.main.Position = UDim2.new(0, 0, 0, 0)
+				State.views.main.Visible = true
+				State.currentView = "main"
+			end
+
+			State.lastView = "main"
 		else
-			views.main.Visible = true
-			currentView = "main"
+			State.viewsCreated = false
+			local noClanCard = UI.frame({size = UDim2.new(0, 280, 0, 140), pos = UDim2.new(0.5, -140, 0.5, -70), bg = THEME.card, z = 103, parent = tuClanContainer, corner = 12, stroke = true, strokeA = 0.6})
+			UI.label({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 30), text = "⚔️", textSize = 32, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			UI.label({size = UDim2.new(1, -20, 0, 20), pos = UDim2.new(0, 10, 0, 75), text = "No perteneces a ningún clan", textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			UI.label({size = UDim2.new(1, -20, 0, 16), pos = UDim2.new(0, 10, 0, 100), text = "Explora clanes en 'Disponibles'", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
 		end
-
-		lastViewBeforeTabSwitch = "main"
-	end
+	end)
 end
 
--- Función: Crear entrada de clan
+-- ════════════════════════════════════════════════════════════════
+-- CREATE CLAN ENTRY
+-- ════════════════════════════════════════════════════════════════
 createClanEntry = function(clanData, pendingList)
-	local entry = UI.frame({
-		name = "ClanEntry_" .. (clanData.clanId or "unknown"),
-		size = UDim2.new(1, 0, 0, 85), bg = THEME.card, z = 104, parent = clansScroll, corner = 10, stroke = true, strokeA = 0.6
-	})
+	local entry = UI.frame({name = "ClanEntry_" .. (clanData.clanId or "unknown"), size = UDim2.new(1, 0, 0, 85), bg = THEME.card, z = 104, parent = clansScroll, corner = 10, stroke = true, strokeA = 0.6})
 
 	local logoContainer = UI.frame({size = UDim2.new(0, 60, 0, 60), pos = UDim2.new(0, 12, 0.5, -30), bgT = 1, z = 105, parent = entry, corner = 10})
 
 	if clanData.clanLogo and clanData.clanLogo ~= "" and clanData.clanLogo ~= "rbxassetid://0" then
 		local logo = Instance.new("ImageLabel")
-		logo.Size = UDim2.new(1, 0, 1, 0)
-		logo.BackgroundTransparency = 1
-		logo.Image = clanData.clanLogo
-		logo.ScaleType = Enum.ScaleType.Fit
-		logo.ZIndex = 106
+		logo.Size, logo.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+		logo.Image, logo.ScaleType, logo.ZIndex = clanData.clanLogo, Enum.ScaleType.Fit, 106
 		logo.Parent = logoContainer
 		UI.rounded(logo, 8)
 	else
-		UI.label({
-			size = UDim2.new(1, 0, 1, 0), text = clanData.clanEmoji or "⚔️",
-			textSize = 30, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer
-		})
+		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.clanEmoji or "⚔️", textSize = 30, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer})
 	end
 
 	local clanColor = clanData.clanColor and Color3.fromRGB(clanData.clanColor[1] or 255, clanData.clanColor[2] or 255, clanData.clanColor[3] or 255) or THEME.accent
 
-	UI.label({
-		size = UDim2.new(1, -180, 0, 18), pos = UDim2.new(0, 85, 0, 12),
-		text = (clanData.clanEmoji or "") .. " " .. string.upper(clanData.clanName or "CLAN"),
-		color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry
-	})
+	UI.label({size = UDim2.new(1, -180, 0, 18), pos = UDim2.new(0, 85, 0, 12), text = (clanData.clanEmoji or "") .. " " .. string.upper(clanData.clanName or "CLAN"), color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -180, 0, 26), pos = UDim2.new(0, 85, 0, 32), text = clanData.descripcion or "Sin descripción", color = THEME.subtle, textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -180, 0, 28), pos = UDim2.new(0, 85, 0, 54), text = string.format("%d MIEMBROS [%s]", clanData.miembros_count or 0, clanData.clanTag or "?"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left})
 
-	UI.label({
-		size = UDim2.new(1, -180, 0, 26), pos = UDim2.new(0, 85, 0, 32),
-		text = clanData.descripcion or "Sin descripción", color = THEME.subtle,
-		textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry
-	})
-
-	UI.label({
-		size = UDim2.new(1, -180, 0, 28), pos = UDim2.new(0, 85, 0, 54),
-		text = string.format("%d MIEMBROS [%s]", clanData.miembros_count or 0, clanData.clanTag or "?"),
-		color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left
-	})
-
-	local joinBtn = UI.button({
-		size = UDim2.new(0, 75, 0, 30), pos = UDim2.new(1, -87, 0.5, -15),
-		bg = THEME.accent, text = "UNIRSE", textSize = 11, z = 106, parent = entry, corner = 6
-	})
+	local joinBtn = UI.button({size = UDim2.new(0, 75, 0, 30), pos = UDim2.new(1, -87, 0.5, -15), bg = THEME.accent, text = "UNIRSE", textSize = 11, z = 106, parent = entry, corner = 6})
 
 	local isPlayerMember = clanData.isPlayerMember or false
 	local isPending = false
@@ -1570,19 +1057,16 @@ createClanEntry = function(clanData, pendingList)
 	end
 
 	if isPlayerMember then
-		joinBtn.Text = "MIEMBRO"
-		joinBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
-		joinBtn.Active = false
+		joinBtn.Text, joinBtn.BackgroundColor3, joinBtn.Active = "MIEMBRO", Color3.fromRGB(60, 100, 60), false
 	elseif isPending then
-		joinBtn.Text = "PENDIENTE"
-		joinBtn.BackgroundColor3 = Color3.fromRGB(220, 180, 60)
-		Memory.track(joinBtn.MouseButton1Click:Connect(function()
+		joinBtn.Text, joinBtn.BackgroundColor3 = "PENDIENTE", Color3.fromRGB(220, 180, 60)
+		Memory:track(joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:CancelAllJoinRequests()
 			if success then Notify:Success("Cancelado", msg or "Solicitud cancelada", 5) end
 		end))
 	else
 		UI.hover(joinBtn, THEME.accent, UI.brighten(THEME.accent, 1.15))
-		Memory.track(joinBtn.MouseButton1Click:Connect(function()
+		Memory:track(joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:RequestJoinClan(clanData.clanId)
 			if success then Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
 			else Notify:Error("Error", msg or "No se pudo enviar", 5) end
@@ -1593,32 +1077,28 @@ createClanEntry = function(clanData, pendingList)
 	return entry
 end
 
--- Función: Cargar clanes desde el servidor
+-- ════════════════════════════════════════════════════════════════
+-- LOAD CLANS FROM SERVER
+-- ════════════════════════════════════════════════════════════════
 loadClansFromServer = function(filtro)
 	local now = tick()
-	if isUpdating or (now - lastUpdateTime) < UPDATE_COOLDOWN then return end
-	isUpdating = true
-	lastUpdateTime = now
+	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
+	State.isUpdating = true
+	State.lastUpdateTime = now
 
 	filtro = filtro or ""
 	local filtroLower = filtro:lower()
-	local pendingList = ClanClient:GetUserPendingRequests()
 
-	Memory.destroyChildren(clansScroll, "UIListLayout")
+	Memory:destroyChildren(clansScroll, "UIListLayout")
 
-	local loadingContainer = UI.loading(clansScroll)
+	withLoading(clansScroll, function()
+		return ClanClient:GetClansList(), ClanClient:GetUserPendingRequests()
+	end, function(clans, pendingList)
+		State.availableClans = clans or {}
 
-	task.spawn(function()
-		local clans = ClanClient:GetClansList()
-
-		UI.cleanupLoading()
-		if loadingContainer and loadingContainer.Parent then loadingContainer:Destroy() end
-
-		availableClans = clans or {}
-
-		if #availableClans > 0 then
+		if #State.availableClans > 0 then
 			local hayResultados = false
-			for _, clanData in ipairs(availableClans) do
+			for _, clanData in ipairs(State.availableClans) do
 				local nombre = (clanData.clanName or ""):lower()
 				local tag = (clanData.clanTag or ""):lower()
 
@@ -1635,40 +1115,29 @@ loadClansFromServer = function(filtro)
 			UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
 		end
 
-		isUpdating = false
+		State.isUpdating = false
 	end)
 end
 
--- Función: Cargar clanes en admin
+-- ════════════════════════════════════════════════════════════════
+-- LOAD ADMIN CLANS
+-- ════════════════════════════════════════════════════════════════
 loadAdminClans = function()
 	if not isAdmin or not adminClansScroll then return end
 
 	local now = tick()
-	if isUpdating or (now - lastUpdateTime) < UPDATE_COOLDOWN then return end
-	isUpdating = true
-	lastUpdateTime = now
+	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
+	State.isUpdating = true
+	State.lastUpdateTime = now
 
-	-- Solo destruir si no hay loading
-	local hasLoading = false
-	for _, child in ipairs(adminClansScroll:GetChildren()) do
-		if child.Name == "Frame" then hasLoading = true break end
-	end
-	if not hasLoading then
-		Memory.destroyChildren(adminClansScroll, "UIListLayout")
-	end
+	Memory:destroyChildren(adminClansScroll, "UIListLayout")
 
-	local loadingContainer = UI.loading(adminClansScroll)
-
-	task.spawn(function()
-		local clans = ClanClient:GetClansList()
-
-		UI.cleanupLoading()
-		if loadingContainer and loadingContainer.Parent then loadingContainer:Destroy() end
-		Memory.destroyChildren(adminClansScroll, "UIListLayout")
-
+	withLoading(adminClansScroll, function()
+		return ClanClient:GetClansList()
+	end, function(clans)
 		if not clans or #clans == 0 then
 			UI.label({size = UDim2.new(1, 0, 0, 50), text = "No hay clanes registrados", color = THEME.muted, textSize = 12, alignX = Enum.TextXAlignment.Center, z = 104, parent = adminClansScroll})
-			isUpdating = false
+			State.isUpdating = false
 			return
 		end
 
@@ -1678,99 +1147,61 @@ loadAdminClans = function()
 			UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.clanEmoji or "") .. " " .. (clanData.clanName or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
 			UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.miembros_count or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
 
-			local deleteBtn = UI.button({
-				size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16),
-				bg = Color3.fromRGB(160, 50, 50), text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = Color3.fromRGB(200, 70, 70)
-			})
-
+			local deleteBtn = UI.button({size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16), bg = Color3.fromRGB(160, 50, 50), text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = Color3.fromRGB(200, 70, 70)})
 			UI.hover(entry, THEME.card, Color3.fromRGB(40, 40, 50))
 
-			Memory.track(deleteBtn.MouseButton1Click:Connect(function()
-				ConfirmationModal.new({
-					screenGui = screenGui, title = "Eliminar Clan",
-					message = "¿Eliminar \"" .. (clanData.clanName or "Sin nombre") .. "\"?",
-					confirmText = "Eliminar", cancelText = "Cancelar",
-					onConfirm = function()
-						local success, msg = ClanClient:AdminDissolveClan(clanData.clanId)
-						if success then Notify:Success("Eliminado", msg or "Clan eliminado", 4)
-						else Notify:Error("Error", msg or "No se pudo eliminar", 4) end
-					end
-				})
+			Memory:track(deleteBtn.MouseButton1Click:Connect(function()
+				ClanActions:adminDelete(screenGui, clanData, loadAdminClans)
 			end))
 		end
 
-		isUpdating = false
-	end) -- Cierre de task.spawn
+		State.isUpdating = false
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- TAB SWITCHING (Optimizado - no destruir innecesariamente)
+-- TAB SWITCHING
 -- ════════════════════════════════════════════════════════════════
+local tabPositions = isAdmin and { TuClan = 20, Disponibles = 122, Crear = 224, Admin = 326 } or { TuClan = 20, Disponibles = 122 }
+
 switchTab = function(tabName)
-	-- Si regresamos a TuClan, guardar vista actual para restaurar
-	if currentPage == "TuClan" and currentView ~= "main" then
-		lastViewBeforeTabSwitch = currentView
+	if State.currentPage == "TuClan" and State.currentView ~= "main" then
+		State.lastView = State.currentView
 	end
 
-	-- Solo limpiar si cambiamos DESDE TuClan hacia otra tab
-	if currentPage == "TuClan" and tabName ~= "TuClan" then
-		-- Guardar estado antes de limpiar
-		lastViewBeforeTabSwitch = currentView
-		-- NO destruir vistas, solo ocultar
-		if views.main then views.main.Visible = false end
-		if views.members then views.members.Visible = false end
-		if views.pending then views.pending.Visible = false end
+	if State.currentPage == "TuClan" and tabName ~= "TuClan" then
+		State.lastView = State.currentView
+		for _, v in pairs(State.views) do if v then v.Visible = false end end
 	end
 
-	-- Solo cleanup de conexiones NO relacionadas con vistas de clan
-	if tabName ~= currentPage then
-		-- Limpiar solo conexiones globales, no las de vistas
-		local tempConnections = {}
-		for i, conn in ipairs(activeConnections) do
-			-- Mantener conexiones si están relacionadas con vistas
-			if not (conn and typeof(conn) == "table" and conn.Disconnect) then
-				table.insert(tempConnections, conn)
-			end
-		end
-		activeConnections = tempConnections
-	end
-
-	currentPage = tabName
+	State.currentPage = tabName
 
 	for name, btn in pairs(tabButtons) do
 		TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = (name == tabName) and THEME.accent or THEME.muted}):Play()
 	end
 
-	local positions = isAdmin and { TuClan = 20, Disponibles = 122, Crear = 224, Admin = 326 } or { TuClan = 20, Disponibles = 122 }
-	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, positions[tabName] or 20, 0, 93)}):Play()
+	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, tabPositions[tabName] or 20, 0, 93)}):Play()
 
-	-- LIMPIAR contenido solo si no es TuClan o si TuClan no está inicializado
 	if tabName == "TuClan" then
-		-- No limpiar si ya hay vistas creadas, solo recargar datos
-		if not viewsCreated then
-			Memory.destroyChildren(tuClanContainer)
+		if not State.viewsCreated then
+			Memory:destroyChildren(tuClanContainer)
 			UI.loading(tuClanContainer)
 		end
 	elseif tabName == "Disponibles" then
-		Memory.destroyChildren(clansScroll, "UIListLayout")
+		Memory:destroyChildren(clansScroll, "UIListLayout")
 		UI.loading(clansScroll)
 	elseif tabName == "Admin" and isAdmin and adminClansScroll then
-		Memory.destroyChildren(adminClansScroll, "UIListLayout")
+		Memory:destroyChildren(adminClansScroll, "UIListLayout")
 		UI.loading(adminClansScroll)
 	end
 
 	local pageFrame = contentArea:FindFirstChild(tabName)
 	if pageFrame then pageLayout:JumpTo(pageFrame) end
 
-	-- Cargar datos
 	task.delay(0.05, function()
-		if tabName == "TuClan" then 
-			loadPlayerClan()
-		elseif tabName == "Disponibles" then 
-			loadClansFromServer()
-		elseif tabName == "Admin" and isAdmin then 
-			loadAdminClans()
-		end
+		if tabName == "TuClan" then loadPlayerClan()
+		elseif tabName == "Disponibles" then loadClansFromServer()
+		elseif tabName == "Admin" and isAdmin then loadAdminClans() end
 	end)
 end
 
@@ -1787,30 +1218,19 @@ local function openUI()
 	switchTab("TuClan")
 end
 
-local function closeUI() 
-	-- Limpiar todo al cerrar
-	Memory.cleanup()
+local function closeUI()
+	Memory:cleanup()
 
-	-- Resetear estado de navegación
-	viewsCreated = false
-	currentView = "main"
-	lastViewBeforeTabSwitch = "main"
+	State.viewsCreated = false
+	State.currentView = "main"
+	State.lastView = "main"
 
-	-- Destruir vistas
-	if membersListInstance then
-		membersListInstance:destroy()
-		membersListInstance = nil
-	end
-	if pendingListInstance then
-		pendingListInstance:destroy()
-		pendingListInstance = nil
-	end
+	if State.instances.membersList then State.instances.membersList:destroy() State.instances.membersList = nil end
+	if State.instances.pendingList then State.instances.pendingList:destroy() State.instances.pendingList = nil end
 
-	views.main = nil
-	views.members = nil
-	views.pending = nil
+	State.views.main, State.views.members, State.views.pending = nil, nil, nil
 
-	modal:close() 
+	modal:close()
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1823,13 +1243,11 @@ btnCrear.MouseButton1Click:Connect(function()
 	local clanTag = inputTag.Text:upper()
 	local clanDesc = inputDesc.Text ~= "" and inputDesc.Text or "Sin descripción"
 	local clanLogo = inputLogo.Text ~= "" and inputLogo.Text or ""
-	local clanEmoji = CLAN_EMOJIS[selectedEmojiIndex] or "⚔️"
-	local clanColor = CLAN_COLORS[selectedColorIndex].color
+	local clanEmoji = CONFIG.emojis[State.selectedEmoji] or "⚔️"
+	local clanColor = CONFIG.colors[State.selectedColor].rgb
 	local customOwnerId = inputOwnerId.Text ~= "" and tonumber(inputOwnerId.Text) or nil
 
-	if #clanName < 3 then Notify:Warning("Nombre inválido", "Mínimo 3 caracteres", 3) return end
-	if #clanTag < 2 or #clanTag > 5 then Notify:Warning("TAG inválido", "Entre 2 y 5 caracteres", 3) return end
-	if customOwnerId and customOwnerId <= 0 then Notify:Warning("ID inválido", "ID debe ser válido", 3) return end
+	if not Validator:validateClanCreation(clanName, clanTag, inputOwnerId.Text) then return end
 
 	btnCrear.Text = "Creando..."
 
@@ -1837,11 +1255,7 @@ btnCrear.MouseButton1Click:Connect(function()
 
 	if success then
 		Notify:Success("Clan Creado", msg or "Clan creado exitosamente", 5)
-		inputNombre.Text = ""
-		inputTag.Text = ""
-		inputDesc.Text = ""
-		inputLogo.Text = ""
-		inputOwnerId.Text = ""
+		inputNombre.Text, inputTag.Text, inputDesc.Text, inputLogo.Text, inputOwnerId.Text = "", "", "", "", ""
 		task.delay(0.5, function() switchTab("TuClan") end)
 	else
 		Notify:Error("Error", msg or "No se pudo crear el clan", 5)
@@ -1850,6 +1264,9 @@ btnCrear.MouseButton1Click:Connect(function()
 	btnCrear.Text = "CREAR CLAN"
 end)
 
+-- ════════════════════════════════════════════════════════════════
+-- ICON BINDING (Botón para abrir el modal)
+-- ════════════════════════════════════════════════════════════════
 if clanIcon then
 	clanIcon:bindEvent("selected", openUI)
 	clanIcon:bindEvent("deselected", closeUI)
@@ -1864,12 +1281,11 @@ ClanClient.onClansUpdated = function(clans)
 	if listenerDebounce then return end
 
 	listenerDebounce = true
-	task.delay(UPDATE_COOLDOWN, function() listenerDebounce = false end)
+	task.delay(CONFIG.cooldown, function() listenerDebounce = false end)
 
-	if currentPage == "Disponibles" then task.defer(loadClansFromServer)
-	elseif currentPage == "Admin" and isAdmin then task.defer(loadAdminClans)
-	elseif currentPage == "TuClan" then task.defer(updateClanData) -- Actualiza sin destruir UI
-	end
+	if State.currentPage == "Disponibles" then task.defer(loadClansFromServer)
+	elseif State.currentPage == "Admin" and isAdmin then task.defer(loadAdminClans)
+	elseif State.currentPage == "TuClan" then task.defer(loadPlayerClan) end
 end
 
 task.spawn(function() ClanClient:GetPlayerClan() end)

@@ -145,14 +145,16 @@ function PendingCard:_build()
 				Notify:Success("Aceptado", (self.requestData.nombre or "Usuario") .. " se unió al clan", 4)
 				-- Animar y remover
 				TweenService:Create(self.frame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-				task.delay(0.25, function()
-					if self.onUpdate then self.onUpdate() end
-				end)
-				else
-					Notify:Error("Error", msg or "No se pudo aceptar", 4)
-					acceptBtn.Text = "Aceptar"
-					acceptBtn.Active = true
+				-- Esperar a que termine la animación antes de actualizar
+				task.wait(0.25)
+				if self.onUpdate then 
+					self.onUpdate() 
 				end
+			else
+				Notify:Error("Error", msg or "No se pudo aceptar", 4)
+				acceptBtn.Text = "Aceptar"
+				acceptBtn.Active = true
+			end
 		end)
 
 		table.insert(self.connections, acceptConn)
@@ -180,14 +182,16 @@ function PendingCard:_build()
 			if success then
 				Notify:Success("Rechazado", "Solicitud rechazada", 4)
 				TweenService:Create(self.frame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-				task.delay(0.25, function()
-					if self.onUpdate then self.onUpdate() end
-				end)
-				else
-					Notify:Error("Error", msg or "No se pudo rechazar", 4)
-					rejectBtn.Text = "Rechazar"
-					rejectBtn.Active = true
+				-- Esperar a que termine la animación antes de actualizar
+				task.wait(0.25)
+				if self.onUpdate then 
+					self.onUpdate() 
 				end
+			else
+				Notify:Error("Error", msg or "No se pudo rechazar", 4)
+				rejectBtn.Text = "Rechazar"
+				rejectBtn.Active = true
+			end
 		end)
 
 		table.insert(self.connections, rejectConn)
