@@ -62,6 +62,84 @@ local CONFIG = {
 			Color3.fromRGB(255, 69, 0),
 			Color3.fromRGB(178, 34, 52),
 		},
+		purpura = {
+			Color3.fromRGB(138, 43, 226),
+			Color3.fromRGB(75, 0, 130),
+			Color3.fromRGB(186, 85, 211),
+			Color3.fromRGB(147, 51, 234),
+		},
+		naranja = {
+			Color3.fromRGB(255, 165, 0),
+			Color3.fromRGB(255, 69, 0),
+			Color3.fromRGB(255, 140, 0),
+			Color3.fromRGB(255, 99, 0),
+		},
+		rosa = {
+			Color3.fromRGB(255, 20, 147),
+			Color3.fromRGB(219, 39, 119),
+			Color3.fromRGB(255, 105, 180),
+			Color3.fromRGB(238, 130, 238),
+		},
+		cian = {
+			Color3.fromRGB(0, 255, 255),
+			Color3.fromRGB(0, 206, 209),
+			Color3.fromRGB(72, 209, 204),
+			Color3.fromRGB(64, 224, 208),
+		},
+		dorado = {
+			Color3.fromRGB(255, 215, 0),
+			Color3.fromRGB(218, 165, 32),
+			Color3.fromRGB(255, 200, 0),
+			Color3.fromRGB(184, 134, 11),
+		},
+		fuego = {
+			Color3.fromRGB(255, 69, 0),
+			Color3.fromRGB(255, 140, 0),
+			Color3.fromRGB(255, 215, 0),
+			Color3.fromRGB(255, 0, 0),
+		},
+		oceano = {
+			Color3.fromRGB(0, 105, 148),
+			Color3.fromRGB(0, 191, 255),
+			Color3.fromRGB(64, 224, 208),
+			Color3.fromRGB(0, 255, 127),
+		},
+		neon = {
+			Color3.fromRGB(57, 255, 20),
+			Color3.fromRGB(255, 0, 255),
+			Color3.fromRGB(0, 255, 255),
+			Color3.fromRGB(255, 20, 147),
+		},
+		pastel = {
+			Color3.fromRGB(255, 179, 186),
+			Color3.fromRGB(255, 223, 186),
+			Color3.fromRGB(255, 255, 186),
+			Color3.fromRGB(186, 255, 201),
+		},
+		gris = {
+			Color3.fromRGB(192, 192, 192),
+			Color3.fromRGB(128, 128, 128),
+			Color3.fromRGB(169, 169, 169),
+			Color3.fromRGB(211, 211, 211),
+		},
+		arcoiris_suave = {
+			Color3.fromRGB(255, 182, 193),
+			Color3.fromRGB(255, 218, 185),
+			Color3.fromRGB(173, 255, 47),
+			Color3.fromRGB(176, 224, 230),
+		},
+		playa = {
+			Color3.fromRGB(255, 215, 0),
+			Color3.fromRGB(255, 165, 0),
+			Color3.fromRGB(72, 209, 204),
+			Color3.fromRGB(0, 191, 255),
+		},
+		vibrante = {
+			Color3.fromRGB(255, 0, 127),
+			Color3.fromRGB(0, 255, 127),
+			Color3.fromRGB(127, 0, 255),
+			Color3.fromRGB(255, 127, 0),
+		},
 	},
 	rainbowColors = {
 		Color3.fromRGB(255, 0, 0),
@@ -271,6 +349,18 @@ local function setupRemotes()
 		RainbowSync.SetMode(mode, themeName)
 	end)
 
+	-- RemoteFunction para obtener temas disponibles
+	local getThemesFunction = ReplicatedStorage:FindFirstChild("GetAvailableThemes")
+	if not getThemesFunction then
+		getThemesFunction = Instance.new("BindableFunction")
+		getThemesFunction.Name = "GetAvailableThemes"
+		getThemesFunction.Parent = ReplicatedStorage
+	end
+
+	getThemesFunction.OnInvoke = function()
+		return RainbowSync.GetAvailableThemes()
+	end
+
 	-- Color3Value para clientes
 	local rainbowValue = ReplicatedStorage:FindFirstChild("RainbowColor")
 	if not rainbowValue then
@@ -309,6 +399,11 @@ local function startUpdateLoop(rainbowValue)
 			state.colorIndex = state.colorIndex % #state.colors + 1
 		end
 
+		-- Protección: asegurar que state.colors tiene datos
+		if not state.colors or #state.colors == 0 then
+			state.colors = CONFIG.rainbowColors -- Fallback
+		end
+
 		local current = state.colors[state.colorIndex]
 		local nextIdx = state.colorIndex % #state.colors + 1
 		local lerpedColor = current:Lerp(state.colors[nextIdx], state.progress)
@@ -316,7 +411,7 @@ local function startUpdateLoop(rainbowValue)
 		-- Solo actualizar si el color cambió
 		if lerpedColor ~= state.lastColor then
 			state.lastColor = lerpedColor
-			
+
 			-- Aplicar a todas las instancias registradas
 			for instance, original in pairs(registry) do
 				applyColor(instance, lerpedColor, original)
