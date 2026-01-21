@@ -145,7 +145,7 @@ local function createSelector(items, config)
 
 	local buttons, selectedIdx = {}, 1
 	local indicators = {}
-	
+
 	for i, item in ipairs(items) do
 		local btn = UI.frame({
 			size = UDim2.new(0, config.itemSize or 28, 0, config.itemSize or 28),
@@ -253,9 +253,9 @@ local header = UI.frame({
 })
 
 local headerGradient = Instance.new("UIGradient")
-	headerGradient.Color = ColorSequence.new{
- 	ColorSequenceKeypoint.new(0, THEME.panel),
- 	ColorSequenceKeypoint.new(1, THEME.card)
+headerGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, THEME.panel),
+	ColorSequenceKeypoint.new(1, THEME.card)
 }
 headerGradient.Rotation = 90
 headerGradient.Parent = header
@@ -1313,13 +1313,13 @@ local function createPendingView(parent, clanData, playerRole)
 		-- Función helper para recrear la lista
 		local function recreatePendingList()
 			local updatedRequests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-			
+
 			-- Destruir la instancia anterior
 			if pendingListInstance then
 				pendingListInstance:destroy()
 				pendingListInstance = nil
 			end
-			
+
 			-- Recrear la lista con datos actualizados
 			pendingListInstance = MembersList.new({
 				parent = listContainer,
@@ -1361,7 +1361,7 @@ end
 loadPlayerClan = function()
 	-- Solo recrear vistas si no existen o si se cambió de tab
 	local shouldRecreate = not viewsCreated or not views.main or not views.main.Parent
-	
+
 	if shouldRecreate then
 		-- Limpiar instancias anteriores solo si vamos a recrear
 		if membersListInstance then
@@ -1372,7 +1372,7 @@ loadPlayerClan = function()
 			pendingListInstance:destroy()
 			pendingListInstance = nil
 		end
-		
+
 		-- Limpiar solo el contenedor, NO las conexiones globales
 		Memory.destroyChildren(tuClanContainer)
 
@@ -1406,18 +1406,18 @@ loadPlayerClan = function()
 				if canManageRequests then
 					views.pending = createPendingView(tuClanContainer, clanData, playerRole)
 				end
-				
+
 				viewsCreated = true
 				currentView = "main"
 
 				-- Restaurar vista anterior si volvimos de otra tab
 				local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or "main"
-				
+
 				-- Ocultar todas las vistas
 				if views.main then views.main.Visible = false end
 				if views.members then views.members.Visible = false end
 				if views.pending then views.pending.Visible = false end
-				
+
 				-- Mostrar la vista correcta
 				if viewToShow == "members" and views.members then
 					views.members.Position = UDim2.new(0, 0, 0, 0)
@@ -1432,7 +1432,7 @@ loadPlayerClan = function()
 					views.main.Visible = true
 					currentView = "main"
 				end
-				
+
 				-- Resetear para la próxima vez
 				lastViewBeforeTabSwitch = "main"
 
@@ -1489,12 +1489,12 @@ loadPlayerClan = function()
 	else
 		-- Las vistas ya existen, solo mostrar la correcta
 		local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or currentView
-		
+
 		-- Ocultar todas
 		if views.main then views.main.Visible = false end
 		if views.members then views.members.Visible = false end
 		if views.pending then views.pending.Visible = false end
-		
+
 		-- Mostrar la correcta
 		if viewToShow == "members" and views.members then
 			views.members.Visible = true
@@ -1506,7 +1506,7 @@ loadPlayerClan = function()
 			views.main.Visible = true
 			currentView = "main"
 		end
-		
+
 		lastViewBeforeTabSwitch = "main"
 	end
 end
@@ -1711,7 +1711,7 @@ switchTab = function(tabName)
 	if currentPage == "TuClan" and currentView ~= "main" then
 		lastViewBeforeTabSwitch = currentView
 	end
-	
+
 	-- Solo limpiar si cambiamos DESDE TuClan hacia otra tab
 	if currentPage == "TuClan" and tabName ~= "TuClan" then
 		-- Guardar estado antes de limpiar
@@ -1721,7 +1721,7 @@ switchTab = function(tabName)
 		if views.members then views.members.Visible = false end
 		if views.pending then views.pending.Visible = false end
 	end
-	
+
 	-- Solo cleanup de conexiones NO relacionadas con vistas de clan
 	if tabName ~= currentPage then
 		-- Limpiar solo conexiones globales, no las de vistas
@@ -1734,7 +1734,7 @@ switchTab = function(tabName)
 		end
 		activeConnections = tempConnections
 	end
-	
+
 	currentPage = tabName
 
 	for name, btn in pairs(tabButtons) do
@@ -1790,12 +1790,12 @@ end
 local function closeUI() 
 	-- Limpiar todo al cerrar
 	Memory.cleanup()
-	
+
 	-- Resetear estado de navegación
 	viewsCreated = false
 	currentView = "main"
 	lastViewBeforeTabSwitch = "main"
-	
+
 	-- Destruir vistas
 	if membersListInstance then
 		membersListInstance:destroy()
@@ -1805,11 +1805,11 @@ local function closeUI()
 		pendingListInstance:destroy()
 		pendingListInstance = nil
 	end
-	
+
 	views.main = nil
 	views.members = nil
 	views.pending = nil
-	
+
 	modal:close() 
 end
 
