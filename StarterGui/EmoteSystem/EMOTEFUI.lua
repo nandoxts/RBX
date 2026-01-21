@@ -14,7 +14,7 @@ local Config = {
 	PC_Ancho = 200,
 	PC_Alto = 400,
 	PC_MargenIzquierdo = 5,
-	PC_OffsetVertical = 50,
+	PC_OffsetVertical = 70,
 
 	Movil_Ancho = 150,
 	Movil_Alto = 250,
@@ -650,10 +650,10 @@ end)
 local function SetupSyncListener()
 	local character = Jugador.Character
 	if not character then return end
-	
+
 	local syncValue = character:FindFirstChild("SyncOnOff")
 	if not syncValue then return end
-	
+
 	-- Desconectar conexión anterior si existe
 	if SyncOnOffConnection then
 		pcall(function()
@@ -661,12 +661,12 @@ local function SetupSyncListener()
 		end)
 		SyncOnOffConnection = nil
 	end
-	
+
 	-- Obtener nombre del jugador sincronizado (el servidor lo envía como atributo)
 	local function GetSyncedPlayerName()
 		return character:GetAttribute("SyncedPlayerName") or "Desconocido"
 	end
-	
+
 	-- Crear nueva conexión con el nuevo SyncOnOff
 	local syncedName = GetSyncedPlayerName()
 	SetSyncOverlay(syncValue.Value, syncedName)
@@ -1307,14 +1307,14 @@ Icono.deselected:Connect(function() ToggleGUI(false) end)
 
 ScreenGui.Destroying:Connect(function()
 	CleanupAllCards()
-	
+
 	-- Desconectar SyncOnOff
 	if SyncOnOffConnection then
 		pcall(function()
 			SyncOnOffConnection:Disconnect()
 		end)
 	end
-	
+
 	-- Desconectar todas las conexiones globales
 	for _, conn in ipairs(GlobalConnections) do
 		if conn then

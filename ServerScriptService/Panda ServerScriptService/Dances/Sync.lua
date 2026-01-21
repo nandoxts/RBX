@@ -202,10 +202,10 @@ local function PlayAnimationOnPlayer(player, animationId, animationName, timePos
 	local character = player.Character
 	local humanoid = character:FindFirstChild("Humanoid")
 	if not humanoid then return false end
-	
+
 	local animator = humanoid:FindFirstChild("Animator")
 	if not animator then return false end
-	
+
 	local baileAnim = character:FindFirstChild("Baile")
 	if not baileAnim then return false end
 
@@ -466,7 +466,26 @@ end
 --------------------------------------------------------------------------------
 
 local function OnCharacterAdded(character)
-	-- Crear instancias necesarias
+	-- Obtener player ANTES de cualquier otra cosa
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player or not PlayerData[player] then return end
+
+	-- LIMPIAR SINCRONIZACIÓN DEL CHARACTER ANTERIOR INMEDIATAMENTE
+	-- Esto asegura que si el jugador es seguidor de alguien, se quite
+	-- de su lista de seguidores cuando hace respawn/LoadCharacter
+	if PlayerData[player].Following then
+		Unfollow(player)
+	end
+	
+	-- Limpiar referencias stale en TODOS los demás jugadores
+	-- (previene que la animación se propague al nuevo character)
+	for otherPlayer, data in pairs(PlayerData) do
+		if otherPlayer ~= player and data and data.Followers then
+			SafeRemoveFromArray(data.Followers, player)
+		end
+	end
+
+	-- Crear instancias necesarias en el nuevo character
 	local animation = Instance.new("Animation")
 	animation.Name = "Baile"
 	animation.Parent = character
@@ -475,19 +494,15 @@ local function OnCharacterAdded(character)
 	syncIndicator.Name = "SyncOnOff"
 	syncIndicator.Parent = character
 
-	-- Manejar muerte del personaje
-	local player = Players:GetPlayerFromCharacter(character)
-	if not player or not PlayerData[player] then return end
-
 	-- Usar spawn para no bloquear si Humanoid tarda
 	task.spawn(function()
 		local humanoid = character:FindFirstChild("Humanoid")
-		
+
 		-- Si no hay Humanoid inmediatamente, esperar máximo 1 segundo
 		if not humanoid then
 			humanoid = character:WaitForChild("Humanoid", 1)
 		end
-		
+
 		if humanoid then
 			local diedConnection
 			diedConnection = humanoid.Died:Connect(function()
@@ -503,35 +518,29 @@ local function OnCharacterAdded(character)
 
 				-- Detener animación al morir
 				StopPlayerAnimation(player)
-				
+
 				-- Guardar seguidores antes de limpiar
 				local myFollowers = ShallowCopy(PlayerData[player].Followers)
-				
+
 				-- Dejar de seguir a líder
 				if PlayerData[player].Following then
 					Unfollow(player)
+				end
+
+				-- SIEMPRE limpiar referencias stale en TODOS los casos
+				-- (esto previene que se propague animaciones al respawnear)
+				for otherPlayer, data in pairs(PlayerData) do
+					if otherPlayer ~= player and data and data.Followers then
+						SafeRemoveFromArray(data.Followers, player)
+					end
 				end
 
 				if Settings.ResetAnimationOnRespawn then
 					-- Notificar a seguidores que ya no hay animación
 					StopFollowersAnimations(player)
 
-					-- Remover de la lista de seguidores de otros (incluir referencias stale)
-					for otherPlayer, data in pairs(PlayerData) do
-						if otherPlayer ~= player and data and data.Followers then
-							SafeRemoveFromArray(data.Followers, player)
-						end
-					end
-
 					-- Limpiar seguidores
 					PlayerData[player].Followers = {}
-				else
-					-- Incluso sin ResetAnimationOnRespawn, limpiar referencias stale
-					for otherPlayer, data in pairs(PlayerData) do
-						if otherPlayer ~= player and data and data.Followers then
-							SafeRemoveFromArray(data.Followers, player)
-						end
-					end
 				end
 			end)
 
