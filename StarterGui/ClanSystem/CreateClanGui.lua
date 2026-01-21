@@ -501,6 +501,7 @@ local cachedClanData = nil
 local cachedPlayerRole = nil
 local viewsCreated = false
 local membersListInstance = nil
+local lastViewBeforeTabSwitch = "main" -- Guardar última vista para restaurar
 
 -- Referencias a vistas (se crean una vez y se reutilizan)
 local views = {
@@ -563,6 +564,7 @@ local function navigateTo(viewName)
 
 	animateViewTransition(fromViewFrame, toViewFrame, direction)
 	currentView = viewName
+	lastViewBeforeTabSwitch = viewName -- Guardar para restaurar luego
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1357,102 +1359,156 @@ end
 -- FUNCIÓN PRINCIPAL: Cargar clan del jugador
 -- ════════════════════════════════════════════════════════════════
 loadPlayerClan = function()
-	-- Limpiar instancias anteriores
-	if membersListInstance then
-		membersListInstance:destroy()
-		membersListInstance = nil
-	end
-	if pendingListInstance then
-		pendingListInstance:destroy()
-		pendingListInstance = nil
-	end
-	Memory.cleanup()
-	Memory.destroyChildren(tuClanContainer)
-
-	-- Mostrar loading
-	local loadingFrame = UI.loading(tuClanContainer)
-
-	task.spawn(function()
-		local clanData = ClanClient:GetPlayerClan()
-
-		-- Limpiar loading
-		UI.cleanupLoading()
-		if loadingFrame and loadingFrame.Parent then loadingFrame:Destroy() end
+	-- Solo recrear vistas si no existen o si se cambió de tab
+	local shouldRecreate = not viewsCreated or not views.main or not views.main.Parent
+	
+	if shouldRecreate then
+		-- Limpiar instancias anteriores solo si vamos a recrear
+		if membersListInstance then
+			membersListInstance:destroy()
+			membersListInstance = nil
+		end
+		if pendingListInstance then
+			pendingListInstance:destroy()
+			pendingListInstance = nil
+		end
+		
+		-- Limpiar solo el contenedor, NO las conexiones globales
 		Memory.destroyChildren(tuClanContainer)
 
-		if clanData then
-			-- Guardar en caché
-			cachedClanData = clanData
+		-- Mostrar loading
+		local loadingFrame = UI.loading(tuClanContainer)
 
-			-- Obtener rol del jugador
-			local playerRole = "miembro"
-			if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
-				playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
+		task.spawn(function()
+			local clanData = ClanClient:GetPlayerClan()
+
+			-- Limpiar loading
+			UI.cleanupLoading()
+			if loadingFrame and loadingFrame.Parent then loadingFrame:Destroy() end
+			Memory.destroyChildren(tuClanContainer)
+
+			if clanData then
+				-- Guardar en caché
+				cachedClanData = clanData
+
+				-- Obtener rol del jugador
+				local playerRole = "miembro"
+				if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
+					playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
+				end
+				cachedPlayerRole = playerRole
+
+				-- Crear las 3 vistas (se crean una vez)
+				views.main = createMainView(tuClanContainer, clanData, playerRole)
+				views.members = createMembersView(tuClanContainer, clanData, playerRole)
+
+				local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
+				if canManageRequests then
+					views.pending = createPendingView(tuClanContainer, clanData, playerRole)
+				end
+				
+				viewsCreated = true
+				currentView = "main"
+
+				-- Restaurar vista anterior si volvimos de otra tab
+				local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or "main"
+				
+				-- Ocultar todas las vistas
+				if views.main then views.main.Visible = false end
+				if views.members then views.members.Visible = false end
+				if views.pending then views.pending.Visible = false end
+				
+				-- Mostrar la vista correcta
+				if viewToShow == "members" and views.members then
+					views.members.Position = UDim2.new(0, 0, 0, 0)
+					views.members.Visible = true
+					currentView = "members"
+				elseif viewToShow == "pending" and views.pending then
+					views.pending.Position = UDim2.new(0, 0, 0, 0)
+					views.pending.Visible = true
+					currentView = "pending"
+				else
+					views.main.Position = UDim2.new(0, 0, 0, 0)
+					views.main.Visible = true
+					currentView = "main"
+				end
+				
+				-- Resetear para la próxima vez
+				lastViewBeforeTabSwitch = "main"
+
+			else
+				viewsCreated = false
+				-- No tiene clan - mostrar mensaje
+				local noClanCard = UI.frame({
+					size = UDim2.new(0, 280, 0, 140),
+					pos = UDim2.new(0.5, -140, 0.5, -70),
+					bg = THEME.card,
+					z = 103,
+					parent = tuClanContainer,
+					corner = 12,
+					stroke = true,
+					strokeA = 0.6
+				})
+
+				UI.label({
+					size = UDim2.new(1, 0, 0, 40),
+					pos = UDim2.new(0, 0, 0, 30),
+					text = "⚔️",
+					textSize = 32,
+					alignX = Enum.TextXAlignment.Center,
+					z = 104,
+					parent = noClanCard
+				})
+
+				UI.label({
+					size = UDim2.new(1, -20, 0, 20),
+					pos = UDim2.new(0, 10, 0, 75),
+					text = "No perteneces a ningún clan",
+					textSize = 13,
+					font = Enum.Font.GothamBold,
+					alignX = Enum.TextXAlignment.Center,
+					z = 104,
+					parent = noClanCard
+				})
+
+				UI.label({
+					size = UDim2.new(1, -20, 0, 16),
+					pos = UDim2.new(0, 10, 0, 100),
+					text = "Explora clanes en 'Disponibles'",
+					color = THEME.muted,
+					textSize = 11,
+					alignX = Enum.TextXAlignment.Center,
+					z = 104,
+					parent = noClanCard
+				})
+
+				-- Mostrar mensaje sin animación
+				noClanCard.Position = UDim2.new(0.5, -140, 0.5, -70)
 			end
-			cachedPlayerRole = playerRole
-
-			-- Crear las 3 vistas (se crean una vez)
-			views.main = createMainView(tuClanContainer, clanData, playerRole)
-			views.members = createMembersView(tuClanContainer, clanData, playerRole)
-
-			local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
-			if canManageRequests then
-				views.pending = createPendingView(tuClanContainer, clanData, playerRole)
-			end
-
-			-- Mostrar vista principal sin animación especial
-			views.main.Position = UDim2.new(0, 0, 0, 0)
-			views.main.Visible = true
-
+		end)
+	else
+		-- Las vistas ya existen, solo mostrar la correcta
+		local viewToShow = lastViewBeforeTabSwitch ~= "main" and lastViewBeforeTabSwitch or currentView
+		
+		-- Ocultar todas
+		if views.main then views.main.Visible = false end
+		if views.members then views.members.Visible = false end
+		if views.pending then views.pending.Visible = false end
+		
+		-- Mostrar la correcta
+		if viewToShow == "members" and views.members then
+			views.members.Visible = true
+			currentView = "members"
+		elseif viewToShow == "pending" and views.pending then
+			views.pending.Visible = true
+			currentView = "pending"
 		else
-			-- No tiene clan - mostrar mensaje
-			local noClanCard = UI.frame({
-				size = UDim2.new(0, 280, 0, 140),
-				pos = UDim2.new(0.5, -140, 0.5, -70),
-				bg = THEME.card,
-				z = 103,
-				parent = tuClanContainer,
-				corner = 12,
-				stroke = true,
-				strokeA = 0.6
-			})
-
-			UI.label({
-				size = UDim2.new(1, 0, 0, 40),
-				pos = UDim2.new(0, 0, 0, 30),
-				text = "⚔️",
-				textSize = 32,
-				alignX = Enum.TextXAlignment.Center,
-				z = 104,
-				parent = noClanCard
-			})
-
-			UI.label({
-				size = UDim2.new(1, -20, 0, 20),
-				pos = UDim2.new(0, 10, 0, 75),
-				text = "No perteneces a ningún clan",
-				textSize = 13,
-				font = Enum.Font.GothamBold,
-				alignX = Enum.TextXAlignment.Center,
-				z = 104,
-				parent = noClanCard
-			})
-
-			UI.label({
-				size = UDim2.new(1, -20, 0, 16),
-				pos = UDim2.new(0, 10, 0, 100),
-				text = "Explora clanes en 'Disponibles'",
-				color = THEME.muted,
-				textSize = 11,
-				alignX = Enum.TextXAlignment.Center,
-				z = 104,
-				parent = noClanCard
-			})
-
-			-- Mostrar mensaje sin animación
-			noClanCard.Position = UDim2.new(0.5, -140, 0.5, -70)
+			views.main.Visible = true
+			currentView = "main"
 		end
-	end)
+		
+		lastViewBeforeTabSwitch = "main"
+	end
 end
 
 -- Función: Crear entrada de clan
@@ -1648,10 +1704,37 @@ loadAdminClans = function()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- TAB SWITCHING (Sin lag - limpia antes de mostrar)
+-- TAB SWITCHING (Optimizado - no destruir innecesariamente)
 -- ════════════════════════════════════════════════════════════════
 switchTab = function(tabName)
-	Memory.cleanup()
+	-- Si regresamos a TuClan, guardar vista actual para restaurar
+	if currentPage == "TuClan" and currentView ~= "main" then
+		lastViewBeforeTabSwitch = currentView
+	end
+	
+	-- Solo limpiar si cambiamos DESDE TuClan hacia otra tab
+	if currentPage == "TuClan" and tabName ~= "TuClan" then
+		-- Guardar estado antes de limpiar
+		lastViewBeforeTabSwitch = currentView
+		-- NO destruir vistas, solo ocultar
+		if views.main then views.main.Visible = false end
+		if views.members then views.members.Visible = false end
+		if views.pending then views.pending.Visible = false end
+	end
+	
+	-- Solo cleanup de conexiones NO relacionadas con vistas de clan
+	if tabName ~= currentPage then
+		-- Limpiar solo conexiones globales, no las de vistas
+		local tempConnections = {}
+		for i, conn in ipairs(activeConnections) do
+			-- Mantener conexiones si están relacionadas con vistas
+			if not (conn and typeof(conn) == "table" and conn.Disconnect) then
+				table.insert(tempConnections, conn)
+			end
+		end
+		activeConnections = tempConnections
+	end
+	
 	currentPage = tabName
 
 	for name, btn in pairs(tabButtons) do
@@ -1661,10 +1744,13 @@ switchTab = function(tabName)
 	local positions = isAdmin and { TuClan = 20, Disponibles = 122, Crear = 224, Admin = 326 } or { TuClan = 20, Disponibles = 122 }
 	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, positions[tabName] or 20, 0, 93)}):Play()
 
-	-- LIMPIAR contenido ANTES de cambiar de página (evita flash)
+	-- LIMPIAR contenido solo si no es TuClan o si TuClan no está inicializado
 	if tabName == "TuClan" then
-		Memory.destroyChildren(tuClanContainer)
-		UI.loading(tuClanContainer) -- Mostrar loading inmediatamente
+		-- No limpiar si ya hay vistas creadas, solo recargar datos
+		if not viewsCreated then
+			Memory.destroyChildren(tuClanContainer)
+			UI.loading(tuClanContainer)
+		end
 	elseif tabName == "Disponibles" then
 		Memory.destroyChildren(clansScroll, "UIListLayout")
 		UI.loading(clansScroll)
@@ -1676,11 +1762,14 @@ switchTab = function(tabName)
 	local pageFrame = contentArea:FindFirstChild(tabName)
 	if pageFrame then pageLayout:JumpTo(pageFrame) end
 
-	-- Cargar datos después de un pequeño delay para que se vea el loading
+	-- Cargar datos
 	task.delay(0.05, function()
-		if tabName == "TuClan" then loadPlayerClan()
-		elseif tabName == "Disponibles" then loadClansFromServer()
-		elseif tabName == "Admin" and isAdmin then loadAdminClans()
+		if tabName == "TuClan" then 
+			loadPlayerClan()
+		elseif tabName == "Disponibles" then 
+			loadClansFromServer()
+		elseif tabName == "Admin" and isAdmin then 
+			loadAdminClans()
 		end
 	end)
 end
@@ -1698,7 +1787,31 @@ local function openUI()
 	switchTab("TuClan")
 end
 
-local function closeUI() modal:close() end
+local function closeUI() 
+	-- Limpiar todo al cerrar
+	Memory.cleanup()
+	
+	-- Resetear estado de navegación
+	viewsCreated = false
+	currentView = "main"
+	lastViewBeforeTabSwitch = "main"
+	
+	-- Destruir vistas
+	if membersListInstance then
+		membersListInstance:destroy()
+		membersListInstance = nil
+	end
+	if pendingListInstance then
+		pendingListInstance:destroy()
+		pendingListInstance = nil
+	end
+	
+	views.main = nil
+	views.members = nil
+	views.pending = nil
+	
+	modal:close() 
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
