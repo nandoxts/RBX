@@ -1,17 +1,10 @@
 --[[
-	Clan System UI - VERSIÓN OPTIMIZADA COMPLETA
-	- Gestión de solicitudes de unión
-	- Cambio de roles (owner/colider/lider)
-	- Emoji y color del clan
+	Clan System UI - VERSIÓN FINAL CORREGIDA
+	- Sin doble actualización
+	- Tab inicial correcta
+	- Loading estable
 	
-	Optimizaciones aplicadas:
-	- Estado centralizado
-	- CardFactory genérica
-	- withLoading wrapper
-	- Validador reutilizable
-	- ClanActions helper
-	
-	by ignxts (optimizado)
+	by ignxts
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -35,19 +28,16 @@ local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
 
 -- ════════════════════════════════════════════════════════════════
--- CONFIG CENTRALIZADA
+-- CONFIG
 -- ════════════════════════════════════════════════════════════════
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local CONFIG = {
-	panel = { 
-		width = THEME.panelWidth or 980, 
-		height = THEME.panelHeight or 620, 
-		corner = 12 
-	},
+	panel = { width = THEME.panelWidth or 980, height = THEME.panelHeight or 620, corner = 12 },
 	blur = { enabled = true, size = 14 },
 	cooldown = 1.5,
+	listenerCooldown = 3, -- Cooldown más largo para el listener del servidor
 	colors = {
 		{name = "Dorado", rgb = {255, 215, 0}},
 		{name = "Rojo", rgb = {255, 69, 0}},
@@ -67,24 +57,38 @@ local isAdmin = table.find(ClanSystemConfig.ADMINS.AdminUserIds, player.UserId) 
 -- ESTADO CENTRALIZADO
 -- ════════════════════════════════════════════════════════════════
 local State = {
-	currentPage = "TuClan",
+	-- Página/Vista actual
+	currentPage = nil, -- IMPORTANTE: nil al inicio para que switchTab funcione
 	currentView = "main",
-	lastView = "main",
+
+	-- Control de operaciones
 	isUpdating = false,
 	lastUpdateTime = 0,
+	loadingId = 0,
+
+	-- UI abierta
+	isOpen = false,
+
+	-- Selección en crear
 	selectedColor = 1,
 	selectedEmoji = 1,
-	viewsCreated = false,
-	availableClans = {},
-	cache = { clanData = nil, playerRole = nil },
-	views = { main = nil, members = nil, pending = nil },
-	instances = { membersList = nil, pendingList = nil }
+
+	-- Cache de datos
+	clanData = nil,
+	playerRole = nil,
+
+	-- Referencias a vistas
+	views = {},
+
+	-- Instancias de listas
+	membersList = nil,
+	pendingList = nil,
 }
 
 -- ════════════════════════════════════════════════════════════════
 -- MEMORY MANAGER
 -- ════════════════════════════════════════════════════════════════
-local Memory = { connections = {}, loadingFrames = {} }
+local Memory = { connections = {} }
 
 function Memory:track(conn)
 	if conn then table.insert(self.connections, conn) end
@@ -94,42 +98,62 @@ end
 function Memory:cleanup()
 	for i, conn in ipairs(self.connections) do
 		if conn then pcall(function() conn:Disconnect() end) end
-		self.connections[i] = nil
 	end
 	self.connections = {}
-	self:cleanupLoading()
-end
-
-function Memory:cleanupLoading()
-	for _, frame in ipairs(self.loadingFrames) do
-		if frame and frame.Parent then frame:Destroy() end
-	end
-	self.loadingFrames = {}
 	UI.cleanupLoading()
 end
 
 function Memory:destroyChildren(parent, except)
 	if not parent then return end
 	for _, child in ipairs(parent:GetChildren()) do
-		if not except or not child:IsA(except) then child:Destroy() end
+		if not except or not child:IsA(except) then 
+			child:Destroy() 
+		end
 	end
 end
 
 UI.setTrack(function(conn) return Memory:track(conn) end)
 
 -- ════════════════════════════════════════════════════════════════
--- ASYNC WRAPPER CON LOADING
+-- LOADING SEGURO
 -- ════════════════════════════════════════════════════════════════
-local function withLoading(container, asyncFn, onComplete)
+local function safeLoading(container, asyncFn, onComplete)
+	if not State.isOpen then return end
+
+	State.loadingId = State.loadingId + 1
+	local myId = State.loadingId
+	local expectedPage = State.currentPage
+
+	Memory:destroyChildren(container, "UIListLayout")
 	local loadingFrame = UI.loading(container)
-	table.insert(Memory.loadingFrames, loadingFrame)
-	
+
 	task.spawn(function()
-		local results = {asyncFn()}
-		Memory:cleanupLoading()
-		Memory:destroyChildren(container, "UIListLayout")
-		if onComplete then onComplete(table.unpack(results)) end
+		local results = {pcall(asyncFn)}
+		local success = table.remove(results, 1)
+
+		-- Verificar validez
+		if myId ~= State.loadingId then return end
+		if expectedPage ~= State.currentPage then return end
+		if not State.isOpen then return end
+
+		-- Limpiar loading
+		UI.cleanupLoading()
+		if loadingFrame and loadingFrame.Parent then
+			loadingFrame:Destroy()
+		end
+
+		if container and container.Parent then
+			Memory:destroyChildren(container, "UIListLayout")
+		end
+
+		if success and onComplete then
+			onComplete(table.unpack(results))
+		elseif not success then
+			warn("[ClanUI] Error async:", results[1])
+		end
 	end)
+
+	return myId
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -146,7 +170,7 @@ local Validator = {
 function Validator:check(field, value)
 	local rule = self.rules[field]
 	if not rule then return true end
-	
+
 	if rule.isNumber then
 		local num = tonumber(value)
 		if value ~= "" and (not num or (rule.positive and num <= 0)) then
@@ -155,7 +179,7 @@ function Validator:check(field, value)
 		end
 		return true
 	end
-	
+
 	local len = #(value or "")
 	if rule.min and len < rule.min then Notify:Warning("Validación", rule.msg, 3) return false end
 	if rule.max and len > rule.max then Notify:Warning("Validación", rule.msg, 3) return false end
@@ -167,7 +191,7 @@ function Validator:validateClanCreation(name, tag, ownerId)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- MODAL HELPERS
+-- MODAL HELPER
 -- ════════════════════════════════════════════════════════════════
 local function showModal(gui, opts)
 	ConfirmationModal.new({
@@ -194,7 +218,7 @@ local function showModal(gui, opts)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- CLAN ACTIONS (Reduce modals repetitivos)
+-- CLAN ACTIONS
 -- ════════════════════════════════════════════════════════════════
 local ClanActions = {}
 
@@ -270,45 +294,69 @@ function ClanActions:adminDelete(gui, clanData, onSuccess)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- NAVEGACIÓN
+-- NAVEGACIÓN ENTRE VISTAS
 -- ════════════════════════════════════════════════════════════════
-local Navigation = { tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) }
+local Navigation = { 
+	tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) 
+}
 
-function Navigation:animate(fromView, toView, direction)
+function Navigation:goto(viewName)
+	if State.currentView == viewName then return end
+	if not State.views[viewName] then return end
+
+	local fromView = State.views[State.currentView]
+	local toView = State.views[viewName]
+	local direction = viewName == "main" and "back" or "forward"
+
 	local outPos = direction == "forward" and UDim2.new(-1, 0, 0, 0) or UDim2.new(1, 0, 0, 0)
 	local inPos = direction == "forward" and UDim2.new(1, 0, 0, 0) or UDim2.new(-1, 0, 0, 0)
-	
-	if fromView then TweenService:Create(fromView, self.tweenInfo, {Position = outPos}):Play() end
+
+	if fromView then 
+		TweenService:Create(fromView, self.tweenInfo, {Position = outPos}):Play() 
+	end
+
 	if toView then
 		toView.Position = inPos
 		toView.Visible = true
 		TweenService:Create(toView, self.tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
 	end
-	
-	if fromView then
-		task.delay(0.3, function()
-			if fromView.Parent and State.currentView ~= self:getViewName(fromView) then
-				fromView.Visible = false
-			end
-		end)
-	end
-end
 
-function Navigation:getViewName(frame)
-	if not frame then return nil end
-	return frame.Name == "MainView" and "main" or frame.Name:lower():gsub("view", "")
-end
-
-function Navigation:goto(viewName)
-	if State.currentView == viewName then return end
-	self:animate(State.views[State.currentView], State.views[viewName], viewName == "main" and "back" or "forward")
+	local oldView = State.currentView
 	State.currentView = viewName
-	State.lastView = viewName
+
+	task.delay(0.3, function()
+		if fromView and fromView.Parent and State.currentView ~= oldView then
+			fromView.Visible = false
+		end
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- SELECTOR GENÉRICO (Emoji/Color)
+-- HELPERS UI
 -- ════════════════════════════════════════════════════════════════
+local function setupScroll(parent, options)
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = options.size or UDim2.new(1, -20, 1, -60)
+	scroll.Position = options.pos or UDim2.new(0, 10, 0, 58)
+	scroll.BackgroundTransparency = 1
+	scroll.ScrollBarThickness = 4
+	scroll.ScrollBarImageColor3 = THEME.accent
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ZIndex = options.z or 103
+	scroll.Parent = parent
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, options.padding or 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = scroll
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+	end)
+
+	return scroll
+end
+
 local function createSelector(items, config)
 	local container = UI.frame({
 		size = config.size or UDim2.new(1, 0, 0, 36),
@@ -342,7 +390,6 @@ local function createSelector(items, config)
 
 	for i, item in ipairs(items) do
 		local itemSize = config.itemSize or 28
-		local isColor = not config.isEmoji
 		local btn = UI.frame({
 			size = UDim2.new(0, itemSize, 0, itemSize),
 			bg = config.isEmoji and (i == 1 and THEME.accent or THEME.card) or Color3.fromRGB(item[1], item[2], item[3]),
@@ -372,35 +419,6 @@ local function createSelector(items, config)
 	return container, function() return selectedIdx end
 end
 
--- ════════════════════════════════════════════════════════════════
--- SCROLL FRAME HELPER
--- ════════════════════════════════════════════════════════════════
-local function setupScroll(parent, options)
-	local scroll = Instance.new("ScrollingFrame")
-	scroll.Size = options.size or UDim2.new(1, -20, 1, -60)
-	scroll.Position = options.pos or UDim2.new(0, 10, 0, 58)
-	scroll.BackgroundTransparency = 1
-	scroll.ScrollBarThickness = 4
-	scroll.ScrollBarImageColor3 = THEME.accent
-	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scroll.ZIndex = options.z or 103
-	scroll.Parent = parent
-
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, options.padding or 8)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = scroll
-
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-	end)
-
-	return scroll
-end
-
--- ════════════════════════════════════════════════════════════════
--- CARD FACTORY
--- ════════════════════════════════════════════════════════════════
 local function createNavCard(config)
 	local card = UI.frame({
 		size = config.size or UDim2.new(1, 0, 0, 60),
@@ -410,7 +428,7 @@ local function createNavCard(config)
 
 	UI.label({size = UDim2.new(0, 40, 0, 40), pos = UDim2.new(0, 12, 0.5, -20), text = config.icon or "👥", textSize = 22, alignX = Enum.TextXAlignment.Center, z = 105, parent = card})
 	UI.label({size = UDim2.new(1, -120, 0, 20), pos = UDim2.new(0, 60, 0, 12), text = config.title or "Título", color = THEME.text, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 105, parent = card})
-	
+
 	local subtitleLabel = UI.label({name = "Subtitle", size = UDim2.new(1, -120, 0, 16), pos = UDim2.new(0, 60, 0, 32), text = config.subtitle or "", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Left, z = 105, parent = card})
 	UI.label({size = UDim2.new(0, 30, 1, 0), pos = UDim2.new(1, -40, 0, 0), text = "›", color = THEME.muted, textSize = 24, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 105, parent = card})
 
@@ -434,9 +452,6 @@ local function createNavCard(config)
 	return card, clickBtn, subtitleLabel, notificationDot, avatarPreview
 end
 
--- ════════════════════════════════════════════════════════════════
--- VIEW HEADER CON BACK BUTTON
--- ════════════════════════════════════════════════════════════════
 local function createViewHeader(parent, title, onBack)
 	local header = UI.frame({size = UDim2.new(1, 0, 0, 44), bg = THEME.surface, z = 106, parent = parent, corner = 10})
 
@@ -453,6 +468,7 @@ end
 -- FORWARD DECLARATIONS
 -- ════════════════════════════════════════════════════════════════
 local loadPlayerClan, loadClansFromServer, loadAdminClans, createClanEntry, switchTab
+local refreshMembersList, refreshPendingList, reloadAndKeepView
 
 -- ════════════════════════════════════════════════════════════════
 -- ROOT GUI
@@ -465,7 +481,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 -- ════════════════════════════════════════════════════════════════
--- TOPBAR BUTTON (Icon de HDAdmin)
+-- TOPBAR ICON
 -- ════════════════════════════════════════════════════════════════
 task.wait(1)
 
@@ -524,7 +540,7 @@ Memory:track(closeBtn.MouseLeave:Connect(function()
 end))
 
 -- ════════════════════════════════════════════════════════════════
--- TABS NAVIGATION
+-- TABS
 -- ════════════════════════════════════════════════════════════════
 local tabNav = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bg = THEME.panel, z = 101, parent = panel})
 
@@ -595,7 +611,9 @@ searchInput:GetPropertyChangedSignal("Text"):Connect(function()
 	if searchDebounce then return end
 	searchDebounce = true
 	task.delay(0.4, function()
-		if State.currentPage == "Disponibles" then loadClansFromServer(searchInput.Text) end
+		if State.currentPage == "Disponibles" and State.isOpen then 
+			loadClansFromServer(searchInput.Text) 
+		end
 		searchDebounce = false
 	end)
 end)
@@ -603,7 +621,7 @@ end)
 tabPages["Disponibles"] = pageDisponibles
 
 -- ════════════════════════════════════════════════════════════════
--- PAGE: CREAR (ADMIN)
+-- PAGE: CREAR
 -- ════════════════════════════════════════════════════════════════
 local pageCrear = UI.frame({name = "Crear", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageCrear.LayoutOrder = 3
@@ -665,7 +683,7 @@ if isAdmin then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- CREAR VISTA PRINCIPAL DEL CLAN
+-- CREAR VISTA PRINCIPAL
 -- ════════════════════════════════════════════════════════════════
 local function createMainView(parent, clanData, playerRole)
 	local mainView = UI.frame({name = "MainView", size = UDim2.new(1, 0, 1, 0), bgT = 1, z = 103, parent = parent, clips = true})
@@ -728,8 +746,8 @@ local function createMainView(parent, clanData, playerRole)
 	UI.label({size = UDim2.new(0, 100, 0, 20), pos = UDim2.new(1, -116, 0, 56), text = roleData.display, color = roleData.color, textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Right, z = 106, parent = infoCard})
 	UI.label({size = UDim2.new(1, -32, 0, 36), pos = UDim2.new(0, 16, 0, 108), text = clanData.descripcion or "Sin descripción", color = THEME.muted, textSize = 13, wrap = true, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
-	-- NAV CARDS
-	local membersCard, membersBtn, membersSubtitle, _, membersAvatarPreview = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "👥", title = "MIEMBROS", subtitle = membersCount .. " miembros en el clan", showAvatarPreview = true})
+	-- MIEMBROS CARD
+	local membersCard, membersBtn, _, _, membersAvatarPreview = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "👥", title = "MIEMBROS", subtitle = membersCount .. " miembros en el clan", showAvatarPreview = true})
 	membersCard.LayoutOrder = nextOrder()
 
 	if membersAvatarPreview and clanData.miembros_data then
@@ -758,6 +776,7 @@ local function createMainView(parent, clanData, playerRole)
 
 	Memory:track(membersBtn.MouseButton1Click:Connect(function() Navigation:goto("members") end))
 
+	-- SOLICITUDES CARD
 	local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 
 	if canManageRequests then
@@ -769,12 +788,16 @@ local function createMainView(parent, clanData, playerRole)
 		task.spawn(function()
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
 			local requestCount = #requests
-			if pendingSubtitle and pendingSubtitle.Parent then pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes" end
-			if pendingDot and pendingDot.Parent then pendingDot.Visible = requestCount > 0 end
+			if pendingSubtitle and pendingSubtitle.Parent then 
+				pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes" 
+			end
+			if pendingDot and pendingDot.Parent then 
+				pendingDot.Visible = requestCount > 0 
+			end
 		end)
 	end
 
-	-- EDIT BUTTONS
+	-- BOTONES DE EDICIÓN
 	local permissions = ClanSystemConfig.ROLES.Permissions[playerRole] or {}
 	local canEditName, canEditTag = permissions.cambiar_nombre or false, permissions.cambiar_tag or (playerRole == "owner")
 	local canChangeColor = permissions.cambiar_color or false
@@ -813,7 +836,7 @@ local function createMainView(parent, clanData, playerRole)
 		Memory:track(btnEditColor.MouseButton1Click:Connect(function() ClanActions:editColor(screenGui, loadPlayerClan) end))
 	end
 
-	-- LEAVE/DISSOLVE BUTTON
+	-- BOTÓN SALIR/DISOLVER
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
 	local actionBtn = UI.button({size = UDim2.new(1, -8, 0, 44), bg = THEME.warn, text = actionBtnText, color = Color3.new(1, 1, 1), textSize = 13, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 8})
 	actionBtn.LayoutOrder = nextOrder()
@@ -843,60 +866,22 @@ local function createMembersView(parent, clanData, playerRole)
 
 	createViewHeader(membersView, "👥 MIEMBROS", function() Navigation:goto("main") end)
 
-	local listContainer = UI.frame({size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = membersView})
+	local listContainer = UI.frame({name = "MembersListContainer", size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = membersView})
 
-	local function loadMembersList()
-		if State.instances.membersList then 
-			State.instances.membersList:destroy() 
-			State.instances.membersList = nil 
-		end
-
-		-- Mostrar loading suave
-		Memory:destroyChildren(listContainer, "UIListLayout")
-		local loadingFrame = UI.loading(listContainer)
-		table.insert(Memory.loadingFrames, loadingFrame)
-
-		-- Recargar datos del servidor
-		task.spawn(function()
-			local updatedClanData = ClanClient:GetPlayerClan()
-			
-			-- Limpiar loading
-			Memory:cleanupLoading()
-			Memory:destroyChildren(listContainer, "UIListLayout")
-			
-			if updatedClanData then
-				State.cache.clanData = updatedClanData
-				-- Marcar para recrear main la próxima vez que se vea
-				State.viewsCreated = false
-				
-				-- Verificar si el jugador sigue en el clan
-				local stillInClan = updatedClanData.miembros_data and updatedClanData.miembros_data[tostring(player.UserId)] ~= nil
-				
-				if stillInClan then
-					-- Recrear la lista con datos actualizados (sin salir de la vista)
-					State.instances.membersList = MembersList.new({
-						parent = listContainer, 
-						screenGui = screenGui, 
-						mode = "members",
-						clanData = updatedClanData, 
-						playerRole = playerRole,
-						onUpdate = loadMembersList
-					})
-				else
-					-- Si fue expulsado, volver a main
-					Navigation:goto("main")
-					loadPlayerClan()
-				end
-			else
-				-- Si no hay clan, volver a main
-				Navigation:goto("main")
-				loadPlayerClan()
-			end
-		end)
+	-- Callback cuando se hace una acción (kick, cambio de rol, etc.)
+	local function onMembersAction()
+		-- Recargar toda la página pero volver a la vista de miembros
+		reloadAndKeepView("members")
 	end
 
-	-- Cargar lista inicial
-	loadMembersList()
+	State.membersList = MembersList.new({
+		parent = listContainer, 
+		screenGui = screenGui, 
+		mode = "members",
+		clanData = clanData, 
+		playerRole = playerRole,
+		onUpdate = onMembersAction
+	})
 
 	return membersView
 end
@@ -910,53 +895,30 @@ local function createPendingView(parent, clanData, playerRole)
 
 	createViewHeader(pendingView, "📩 SOLICITUDES", function() Navigation:goto("main") end)
 
-	local listContainer = UI.frame({size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = pendingView})
+	local listContainer = UI.frame({name = "PendingListContainer", size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = pendingView})
 
-	local function loadPendingRequests()
-		if State.instances.pendingList then 
-			State.instances.pendingList:destroy() 
-			State.instances.pendingList = nil 
-		end
-
-		-- Mostrar loading mientras se obtienen los datos
-		Memory:destroyChildren(listContainer, "UIListLayout")
-		local loadingFrame = UI.loading(listContainer)
-		table.insert(Memory.loadingFrames, loadingFrame)
-
-		task.spawn(function()
-			-- Obtener datos actualizados del servidor
-			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-			
-			-- Limpiar loading
-			Memory:cleanupLoading()
-			Memory:destroyChildren(listContainer, "UIListLayout")
-
-			-- Si ya no hay solicitudes, actualizar el contador en main silenciosamente
-			if #requests == 0 then
-				-- Actualizar el cache para que main se actualice la próxima vez que se muestre
-				local updatedClanData = ClanClient:GetPlayerClan()
-				if updatedClanData then
-					State.cache.clanData = updatedClanData
-					-- Marcar para recrear main la próxima vez
-					State.viewsCreated = false
-				end
-			end
-
-			-- Crear la lista con los datos actualizados
-			State.instances.pendingList = MembersList.new({
-				parent = listContainer, 
-				screenGui = screenGui, 
-				mode = "pending",
-				clanData = clanData, 
-				playerRole = playerRole, 
-				requests = requests,
-				onUpdate = loadPendingRequests
-			})
-		end)
+	-- Callback cuando se acepta/rechaza una solicitud
+	local function onPendingAction()
+		-- Recargar toda la página pero volver a la vista de solicitudes
+		reloadAndKeepView("pending")
 	end
 
-	-- Cargar solicitudes inicialmente
-	loadPendingRequests()
+	-- Cargar inicial
+	task.spawn(function()
+		local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
+
+		if not State.isOpen then return end
+
+		State.pendingList = MembersList.new({
+			parent = listContainer, 
+			screenGui = screenGui, 
+			mode = "pending",
+			clanData = clanData, 
+			playerRole = playerRole, 
+			requests = requests,
+			onUpdate = onPendingAction
+		})
+	end)
 
 	return pendingView
 end
@@ -965,22 +927,27 @@ end
 -- LOAD PLAYER CLAN
 -- ════════════════════════════════════════════════════════════════
 loadPlayerClan = function()
-	-- Limpiar vistas existentes para forzar actualización completa
-	if State.instances.membersList then State.instances.membersList:destroy() State.instances.membersList = nil end
-	if State.instances.pendingList then State.instances.pendingList:destroy() State.instances.pendingList = nil end
+	if not State.isOpen then return end
 
-	Memory:destroyChildren(tuClanContainer)
+	-- Limpiar
+	if State.membersList then State.membersList:destroy() State.membersList = nil end
+	if State.pendingList then State.pendingList:destroy() State.pendingList = nil end
+	State.views = {}
+	State.currentView = "main"
 
-	withLoading(tuClanContainer, function()
+	safeLoading(tuClanContainer, function()
 		return ClanClient:GetPlayerClan()
 	end, function(clanData)
+		if not State.isOpen then return end
+
 		if clanData then
-			State.cache.clanData = clanData
+			State.clanData = clanData
+
 			local playerRole = "miembro"
 			if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
 				playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
 			end
-			State.cache.playerRole = playerRole
+			State.playerRole = playerRole
 
 			State.views.main = createMainView(tuClanContainer, clanData, playerRole)
 			State.views.members = createMembersView(tuClanContainer, clanData, playerRole)
@@ -990,34 +957,94 @@ loadPlayerClan = function()
 				State.views.pending = createPendingView(tuClanContainer, clanData, playerRole)
 			end
 
-			State.viewsCreated = true
-			State.currentView = "main"
-
-			local viewToShow = State.lastView ~= "main" and State.lastView or "main"
-
-			for _, v in pairs(State.views) do if v then v.Visible = false end end
-
-			if viewToShow == "members" and State.views.members then
-				State.views.members.Position = UDim2.new(0, 0, 0, 0)
-				State.views.members.Visible = true
-				State.currentView = "members"
-			elseif viewToShow == "pending" and State.views.pending then
-				State.views.pending.Position = UDim2.new(0, 0, 0, 0)
-				State.views.pending.Visible = true
-				State.currentView = "pending"
-			else
-				State.views.main.Position = UDim2.new(0, 0, 0, 0)
-				State.views.main.Visible = true
-				State.currentView = "main"
-			end
-
-			State.lastView = "main"
+			State.views.main.Position = UDim2.new(0, 0, 0, 0)
+			State.views.main.Visible = true
 		else
-			State.viewsCreated = false
 			local noClanCard = UI.frame({size = UDim2.new(0, 280, 0, 140), pos = UDim2.new(0.5, -140, 0.5, -70), bg = THEME.card, z = 103, parent = tuClanContainer, corner = 12, stroke = true, strokeA = 0.6})
 			UI.label({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 30), text = "⚔️", textSize = 32, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
 			UI.label({size = UDim2.new(1, -20, 0, 20), pos = UDim2.new(0, 10, 0, 75), text = "No perteneces a ningún clan", textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
 			UI.label({size = UDim2.new(1, -20, 0, 16), pos = UDim2.new(0, 10, 0, 100), text = "Explora clanes en 'Disponibles'", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+		end
+	end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- RELOAD AND KEEP VIEW (Recarga todo pero vuelve a la vista actual)
+-- ════════════════════════════════════════════════════════════════
+reloadAndKeepView = function(targetView)
+	if not State.isOpen then return end
+
+	local viewToRestore = targetView or State.currentView
+
+	-- Limpiar
+	if State.membersList then State.membersList:destroy() State.membersList = nil end
+	if State.pendingList then State.pendingList:destroy() State.pendingList = nil end
+	State.views = {}
+	State.currentView = "main"
+
+	-- Cancelar operaciones previas
+	State.loadingId = State.loadingId + 1
+	UI.cleanupLoading()
+	Memory:destroyChildren(tuClanContainer, "UIListLayout")
+
+	local loadingFrame = UI.loading(tuClanContainer)
+	local myId = State.loadingId
+
+	task.spawn(function()
+		local success, clanData = pcall(function()
+			return ClanClient:GetPlayerClan()
+		end)
+
+		-- Verificar validez
+		if myId ~= State.loadingId then return end
+		if not State.isOpen then return end
+
+		-- Limpiar loading
+		UI.cleanupLoading()
+		if loadingFrame and loadingFrame.Parent then loadingFrame:Destroy() end
+		Memory:destroyChildren(tuClanContainer, "UIListLayout")
+
+		if not success or not clanData then
+			-- Usuario ya no tiene clan
+			local noClanCard = UI.frame({size = UDim2.new(0, 280, 0, 140), pos = UDim2.new(0.5, -140, 0.5, -70), bg = THEME.card, z = 103, parent = tuClanContainer, corner = 12, stroke = true, strokeA = 0.6})
+			UI.label({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 30), text = "⚔️", textSize = 32, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			UI.label({size = UDim2.new(1, -20, 0, 20), pos = UDim2.new(0, 10, 0, 75), text = "No perteneces a ningún clan", textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			UI.label({size = UDim2.new(1, -20, 0, 16), pos = UDim2.new(0, 10, 0, 100), text = "Explora clanes en 'Disponibles'", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			return
+		end
+
+		-- Actualizar cache
+		State.clanData = clanData
+
+		local playerRole = "miembro"
+		if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
+			playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
+		end
+		State.playerRole = playerRole
+
+		-- Recrear vistas
+		State.views.main = createMainView(tuClanContainer, clanData, playerRole)
+		State.views.members = createMembersView(tuClanContainer, clanData, playerRole)
+
+		local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
+		if canManageRequests then
+			State.views.pending = createPendingView(tuClanContainer, clanData, playerRole)
+		end
+
+		-- Mostrar vista correcta
+		for _, v in pairs(State.views) do 
+			if v then v.Visible = false end 
+		end
+
+		-- Si la vista a restaurar existe, mostrarla
+		if viewToRestore ~= "main" and State.views[viewToRestore] then
+			State.views[viewToRestore].Position = UDim2.new(0, 0, 0, 0)
+			State.views[viewToRestore].Visible = true
+			State.currentView = viewToRestore
+		else
+			State.views.main.Position = UDim2.new(0, 0, 0, 0)
+			State.views.main.Visible = true
+			State.currentView = "main"
 		end
 	end)
 end
@@ -1062,14 +1089,21 @@ createClanEntry = function(clanData, pendingList)
 		joinBtn.Text, joinBtn.BackgroundColor3 = "PENDIENTE", Color3.fromRGB(220, 180, 60)
 		Memory:track(joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:CancelAllJoinRequests()
-			if success then Notify:Success("Cancelado", msg or "Solicitud cancelada", 5) end
+			if success then 
+				Notify:Success("Cancelado", msg or "Solicitud cancelada", 5)
+				loadClansFromServer() -- Recargar para actualizar estado
+			end
 		end))
 	else
 		UI.hover(joinBtn, THEME.accent, UI.brighten(THEME.accent, 1.15))
 		Memory:track(joinBtn.MouseButton1Click:Connect(function()
 			local success, msg = ClanClient:RequestJoinClan(clanData.clanId)
-			if success then Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
-			else Notify:Error("Error", msg or "No se pudo enviar", 5) end
+			if success then 
+				Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
+				loadClansFromServer() -- Recargar para actualizar estado
+			else 
+				Notify:Error("Error", msg or "No se pudo enviar", 5) 
+			end
 		end))
 	end
 
@@ -1081,6 +1115,8 @@ end
 -- LOAD CLANS FROM SERVER
 -- ════════════════════════════════════════════════════════════════
 loadClansFromServer = function(filtro)
+	if not State.isOpen then return end
+
 	local now = tick()
 	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
 	State.isUpdating = true
@@ -1089,16 +1125,14 @@ loadClansFromServer = function(filtro)
 	filtro = filtro or ""
 	local filtroLower = filtro:lower()
 
-	Memory:destroyChildren(clansScroll, "UIListLayout")
-
-	withLoading(clansScroll, function()
+	safeLoading(clansScroll, function()
 		return ClanClient:GetClansList(), ClanClient:GetUserPendingRequests()
 	end, function(clans, pendingList)
-		State.availableClans = clans or {}
+		clans = clans or {}
 
-		if #State.availableClans > 0 then
+		if #clans > 0 then
 			local hayResultados = false
-			for _, clanData in ipairs(State.availableClans) do
+			for _, clanData in ipairs(clans) do
 				local nombre = (clanData.clanName or ""):lower()
 				local tag = (clanData.clanTag or ""):lower()
 
@@ -1124,15 +1158,14 @@ end
 -- ════════════════════════════════════════════════════════════════
 loadAdminClans = function()
 	if not isAdmin or not adminClansScroll then return end
+	if not State.isOpen then return end
 
 	local now = tick()
 	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
 	State.isUpdating = true
 	State.lastUpdateTime = now
 
-	Memory:destroyChildren(adminClansScroll, "UIListLayout")
-
-	withLoading(adminClansScroll, function()
+	safeLoading(adminClansScroll, function()
 		return ClanClient:GetClansList()
 	end, function(clans)
 		if not clans or #clans == 0 then
@@ -1164,44 +1197,41 @@ end
 -- ════════════════════════════════════════════════════════════════
 local tabPositions = isAdmin and { TuClan = 20, Disponibles = 122, Crear = 224, Admin = 326 } or { TuClan = 20, Disponibles = 122 }
 
-switchTab = function(tabName)
-	if State.currentPage == "TuClan" and State.currentView ~= "main" then
-		State.lastView = State.currentView
-	end
+switchTab = function(tabName, forceLoad)
+	-- Si ya estamos en la tab y no forzamos carga, no hacer nada
+	if State.currentPage == tabName and not forceLoad then return end
 
-	if State.currentPage == "TuClan" and tabName ~= "TuClan" then
-		State.lastView = State.currentView
-		for _, v in pairs(State.views) do if v then v.Visible = false end end
-	end
+	-- Cancelar operaciones async
+	State.loadingId = State.loadingId + 1
+	UI.cleanupLoading()
 
 	State.currentPage = tabName
+	State.currentView = "main"
+	State.isUpdating = false -- Reset para permitir carga
 
+	-- Actualizar estilo de tabs
 	for name, btn in pairs(tabButtons) do
 		TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = (name == tabName) and THEME.accent or THEME.muted}):Play()
 	end
 
 	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, tabPositions[tabName] or 20, 0, 93)}):Play()
 
-	if tabName == "TuClan" then
-		if not State.viewsCreated then
-			Memory:destroyChildren(tuClanContainer)
-			UI.loading(tuClanContainer)
-		end
-	elseif tabName == "Disponibles" then
-		Memory:destroyChildren(clansScroll, "UIListLayout")
-		UI.loading(clansScroll)
-	elseif tabName == "Admin" and isAdmin and adminClansScroll then
-		Memory:destroyChildren(adminClansScroll, "UIListLayout")
-		UI.loading(adminClansScroll)
-	end
-
+	-- Cambiar página
 	local pageFrame = contentArea:FindFirstChild(tabName)
 	if pageFrame then pageLayout:JumpTo(pageFrame) end
 
+	-- Cargar contenido
 	task.delay(0.05, function()
-		if tabName == "TuClan" then loadPlayerClan()
-		elseif tabName == "Disponibles" then loadClansFromServer()
-		elseif tabName == "Admin" and isAdmin then loadAdminClans() end
+		if State.currentPage ~= tabName then return end
+		if not State.isOpen then return end
+
+		if tabName == "TuClan" then 
+			loadPlayerClan()
+		elseif tabName == "Disponibles" then 
+			loadClansFromServer()
+		elseif tabName == "Admin" and isAdmin then 
+			loadAdminClans() 
+		end
 	end)
 end
 
@@ -1213,22 +1243,39 @@ end
 -- OPEN/CLOSE
 -- ════════════════════════════════════════════════════════════════
 local function openUI()
+	State.isOpen = true
+	State.currentPage = nil -- IMPORTANTE: Reset para que switchTab funcione
+
 	modal:open()
-	if not ClanClient.initialized then task.spawn(function() ClanClient:Initialize() end) end
-	switchTab("TuClan")
+
+	if not ClanClient.initialized then 
+		task.spawn(function() ClanClient:Initialize() end) 
+	end
+
+	-- Ir a la primera tab (forzar carga)
+	switchTab("TuClan", true)
 end
 
 local function closeUI()
+	State.isOpen = false
+
+	-- Cancelar operaciones
+	State.loadingId = State.loadingId + 1
+
+	-- Limpiar
 	Memory:cleanup()
+	UI.cleanupLoading()
 
-	State.viewsCreated = false
+	if State.membersList then State.membersList:destroy() State.membersList = nil end
+	if State.pendingList then State.pendingList:destroy() State.pendingList = nil end
+
+	-- Reset estado
+	State.views = {}
 	State.currentView = "main"
-	State.lastView = "main"
-
-	if State.instances.membersList then State.instances.membersList:destroy() State.instances.membersList = nil end
-	if State.instances.pendingList then State.instances.pendingList:destroy() State.instances.pendingList = nil end
-
-	State.views.main, State.views.members, State.views.pending = nil, nil, nil
+	State.currentPage = nil
+	State.clanData = nil
+	State.playerRole = nil
+	State.isUpdating = false
 
 	modal:close()
 end
@@ -1256,7 +1303,7 @@ btnCrear.MouseButton1Click:Connect(function()
 	if success then
 		Notify:Success("Clan Creado", msg or "Clan creado exitosamente", 5)
 		inputNombre.Text, inputTag.Text, inputDesc.Text, inputLogo.Text, inputOwnerId.Text = "", "", "", "", ""
-		task.delay(0.5, function() switchTab("TuClan") end)
+		task.delay(0.5, function() switchTab("TuClan", true) end)
 	else
 		Notify:Error("Error", msg or "No se pudo crear el clan", 5)
 	end
@@ -1265,7 +1312,7 @@ btnCrear.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- ICON BINDING (Botón para abrir el modal)
+-- ICON BINDING
 -- ════════════════════════════════════════════════════════════════
 if clanIcon then
 	clanIcon:bindEvent("selected", openUI)
@@ -1273,19 +1320,35 @@ if clanIcon then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- LISTENER CON DEBOUNCE
+-- LISTENER DEL SERVIDOR (Con control estricto)
 -- ════════════════════════════════════════════════════════════════
-local listenerDebounce = false
+local listenerLastTime = 0
+
 ClanClient.onClansUpdated = function(clans)
+	-- Ignorar si UI no está abierta
+	if not State.isOpen then return end
 	if not screenGui or not screenGui.Parent then return end
-	if listenerDebounce then return end
 
-	listenerDebounce = true
-	task.delay(CONFIG.cooldown, function() listenerDebounce = false end)
+	-- Cooldown estricto para evitar spam del servidor
+	local now = tick()
+	if (now - listenerLastTime) < CONFIG.listenerCooldown then 
+		return 
+	end
+	listenerLastTime = now
 
-	if State.currentPage == "Disponibles" then task.defer(loadClansFromServer)
-	elseif State.currentPage == "Admin" and isAdmin then task.defer(loadAdminClans)
-	elseif State.currentPage == "TuClan" then task.defer(loadPlayerClan) end
+	-- Solo actualizar la página actual si ya terminó de cargar
+	if State.isUpdating then return end
+
+	-- Actualizar según la página actual
+	if State.currentPage == "Disponibles" then 
+		task.defer(loadClansFromServer)
+	elseif State.currentPage == "Admin" and isAdmin then 
+		task.defer(loadAdminClans)
+	end
+	-- NO actualizar TuClan automáticamente para evitar perder el estado de la vista
 end
 
-task.spawn(function() ClanClient:GetPlayerClan() end)
+-- Pre-cargar datos del cliente (sin abrir UI)
+task.spawn(function() 
+	ClanClient:Initialize()
+end)
