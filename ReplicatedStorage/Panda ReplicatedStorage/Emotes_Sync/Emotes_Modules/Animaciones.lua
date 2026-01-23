@@ -95,11 +95,14 @@ Animaciones.Recomendado = {
 	{ID = 101758039233408, Nombre = 'Diva I'},
 	{ID = 79464831560180, Nombre = 'Diva II'},
 	{ID = 105776468980438, Nombre = 'Diva III'},
-	{ID = 101203726979542, Nombre = 'Diva V'},
+	{ID = 111664314706389, Nombre = 'Diva V'},
 	{ID = 118896295981144, Nombre = 'Diva VI'},
 
 	{ID = 108873777157620, Nombre = 'Lady I'},
 	{ID = 111799322743206, Nombre = 'Lady II'},
+	{ID = 93358488237387, Nombre = 'Lady III'},
+	{ID = 92689671662713, Nombre = 'Lady IV'},
+	{ID = 114912639422575, Nombre = 'Lady V'},
 
 	{ID = 129991743366120, Nombre = 'Locura I'},
 	{ID = 102571052202995, Nombre = 'Locura II'},
@@ -107,10 +110,12 @@ Animaciones.Recomendado = {
 	{ID = 113814533436918, Nombre = 'Locura IV'},
 	{ID = 95690194214852, Nombre = 'Locura V'},
 
-	{ID = 136292253730425, Nombre = 'Electro Dance I'},
-	{ID = 89853648983240, Nombre = 'Electro Dance II'},
-	{ID = 138785676658772, Nombre = 'Electro Dance III'},
-	{ID = 118468821959324, Nombre = 'Electro Dance IV'},
+
+	{ID = 122599479076921, Nombre = 'Electro  I'},
+	{ID = 89853648983240, Nombre = 'Electro II'},
+	{ID = 138785676658772, Nombre = 'Electro III'},
+	{ID = 118468821959324, Nombre = 'Electro IV'},
+	{ID = 117991470645633, Nombre = 'Electro V'},
 
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
@@ -120,7 +125,7 @@ Animaciones.Recomendado = {
 	{ID = 122719596509695, Nombre = 'Menea VI'},
 	{ID = 139110277540140, Nombre = 'Menea VII'},
 	{ID = 112176404394603, Nombre = 'Menea VIII'},
-	{ID = 93358488237387, Nombre = 'Menea IX'},
+
 
 	{ID = 75043657148780, Nombre = 'Sad I'},
 	{ID = 136392114296143, Nombre = 'Sad II'},
@@ -199,7 +204,7 @@ Animaciones.Vip = {
 	{ID = 110560761506205, Nombre = 'Perreo Sexy VII'},
 	{ID = 77780134372141, Nombre = 'Perreo Sexy VIII'},
 
-	{ID = 112320382824256, Nombre = 'Golpe I'},
+	{ID = 100672487163010, Nombre = 'Golpe I'},
 	{ID = 97079458057304, Nombre = 'Golpe II'},
 	{ID = 99174723293981, Nombre = 'Golpe III'},
 	{ID = 126490613005651, Nombre = 'Golpe IV'},
@@ -215,7 +220,6 @@ Animaciones.Vip = {
 	{ID = 133729878579101, Nombre = 'Sexy III'},
 	{ID = 125855137691891, Nombre = 'Sexy IV'},
 	{ID = 82290588229832, Nombre = 'Sexy V'},
-	{ID = 103360497719320, Nombre = 'Sexy VII'},
 
 	{ID = 120500147347751, Nombre = 'Rock I'},
 	{ID = 112116164691956, Nombre = 'Rock II'},
@@ -245,6 +249,10 @@ Animaciones.Vip = {
 	
 	{ID = 119075562351736, Nombre = 'Gangnam Style'},
 	{ID = 119473524290403, Nombre = 'Russian Dance'},
+
+	{ID = 91219524625419, Nombre = 'RADIANT I'},
+	{ID = 98837556665887, Nombre = 'RADIANT II'},
+
 }
 
 return Animaciones
