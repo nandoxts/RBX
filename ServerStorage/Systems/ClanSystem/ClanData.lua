@@ -37,32 +37,32 @@ local function getPlayerName(userId)
 		playerNameCache[userId] = player.Name
 		return player.Name
 	end
-	
+
 	-- Verificar cache
 	if playerNameCache[userId] then
 		return playerNameCache[userId]
 	end
-	
+
 	-- Intentar obtener del DataStore con reintentos
 	local maxRetries = 3
 	local name = nil
-	
+
 	for attempt = 1, maxRetries do
 		local success, result = pcall(function()
 			return Players:GetNameFromUserIdAsync(userId)
 		end)
-		
+
 		if success and result and result ~= "" then
 			playerNameCache[userId] = result
 			return result
 		end
-		
+
 		-- Si no es el último intento, esperar antes de reintentar
 		if attempt < maxRetries then
 			task.wait(0.1 * attempt) -- Espera exponencial: 0.1s, 0.2s
 		end
 	end
-	
+
 	-- Si todo falla, devolver ID como fallback
 	return "Usuario_" .. tostring(userId):sub(-4)
 end
@@ -225,7 +225,7 @@ function ClanData:GetAllClans()
 			elseif clanData.miembros then
 				memberCount = #clanData.miembros
 			end
-			
+
 			-- Agregar contador
 			clanData.miembros_count = memberCount
 			table.insert(result, clanData)
@@ -329,16 +329,16 @@ function ClanData:AddOwner(clanId, userId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
+
 	-- Verificar que no sea ya owner
 	clanData.owners = clanData.owners or {}
 	if table.find(clanData.owners, userId) then
 		return false, "Ya es owner del clan"
 	end
-	
+
 	-- Agregar a owners
 	table.insert(clanData.owners, userId)
-	
+
 	-- Si no es miembro, agregarlo
 	local userIdStr = tostring(userId)
 	if not clanData.miembros_data or not clanData.miembros_data[userIdStr] then
@@ -349,7 +349,7 @@ function ClanData:AddOwner(clanId, userId)
 			rol = "owner",
 			fechaUnion = os.time()
 		}
-		
+
 		pcall(function()
 			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = os.time()})
 		end)
@@ -360,16 +360,16 @@ function ClanData:AddOwner(clanId, userId)
 			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
 		end)
 	end
-	
+
 	-- Guardar
 	local success, err = pcall(function()
 		clanStore:SetAsync("clan:" .. clanId, clanData)
 	end)
-	
+
 	if success then
 		clanDataUpdatedEvent:Fire()
 	end
-	
+
 	return success, success and "Owner agregado" or err
 end
 
@@ -381,14 +381,14 @@ function ClanData:RemoveOwner(clanId, userId)
 	if not clanData then
 		return false, "Clan no encontrado"
 	end
-	
+
 	clanData.owners = clanData.owners or {}
-	
+
 	-- No se puede remover el último owner
 	if #clanData.owners == 1 then
 		return false, "No puedes remover el único owner del clan"
 	end
-	
+
 	-- Remover de owners
 	for i, owner in ipairs(clanData.owners) do
 		if owner == userId then
@@ -396,7 +396,7 @@ function ClanData:RemoveOwner(clanId, userId)
 			break
 		end
 	end
-	
+
 	-- Cambiar rol a miembro
 	local userIdStr = tostring(userId)
 	if clanData.miembros_data and clanData.miembros_data[userIdStr] then
@@ -405,16 +405,16 @@ function ClanData:RemoveOwner(clanId, userId)
 			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "miembro", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
 		end)
 	end
-	
+
 	-- Guardar
 	local success, err = pcall(function()
 		clanStore:SetAsync("clan:" .. clanId, clanData)
 	end)
-	
+
 	if success then
 		clanDataUpdatedEvent:Fire()
 	end
-	
+
 	return success, success and "Owner removido" or err
 end
 
@@ -455,7 +455,7 @@ function ClanData:UpdateClan(clanId, updates)
 		-- LIMPIAR CACHE para que se recargue
 		clanCache[clanId] = nil
 		clanCacheTime[clanId] = nil
-		
+
 		-- Actualizar índice si cambió nombre o tag
 		if updates.clanName or updates.clanTag then
 			local index = getIndex()
@@ -506,7 +506,7 @@ function ClanData:AddMember(clanId, userId, rol)
 	-- Asegurar que miembros array existe
 	clanData.miembros = clanData.miembros or {}
 	table.insert(clanData.miembros, userId)
-	
+
 	-- SIEMPRE mantener miembros_data
 	clanData.miembros_data = clanData.miembros_data or {}
 	clanData.miembros_data[userIdStr] = {

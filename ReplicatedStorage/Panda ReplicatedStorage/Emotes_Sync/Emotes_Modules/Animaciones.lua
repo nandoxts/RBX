@@ -112,10 +112,9 @@ Animaciones.Recomendado = {
 
 
 	{ID = 122599479076921, Nombre = 'Electro  I'},
-	{ID = 89853648983240, Nombre = 'Electro II'},
-	{ID = 138785676658772, Nombre = 'Electro III'},
-	{ID = 118468821959324, Nombre = 'Electro IV'},
-	{ID = 117991470645633, Nombre = 'Electro V'},
+	{ID = 138785676658772, Nombre = 'Electro II'},
+	{ID = 118468821959324, Nombre = 'Electro III'},
+	{ID = 117991470645633, Nombre = 'Electro IV'},
 
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
@@ -178,6 +177,7 @@ Animaciones.Vip = {
 	{ID = 95828307734740, Nombre = 'LATIN I'},
 	{ID = 121540036206716, Nombre = 'LATIN II'},
 	{ID = 74407321445762, Nombre = 'LATIN III'},
+	{ID = 124209914932987, Nombre = 'LATIN IV'},
 
 
 

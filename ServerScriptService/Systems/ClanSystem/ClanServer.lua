@@ -509,13 +509,13 @@ GetPlayerClanFunction.OnServerInvoke = function(player)
 	-- Reintentos para esperar a que los datos estén listos
 	local maxRetries = 10
 	local retries = 0
-	
+
 	while retries < maxRetries do
 		local playerClan = ClanData:GetPlayerClan(player.UserId)
 		if playerClan and playerClan.clanId then
 			return ClanData:GetClan(playerClan.clanId)
 		end
-		
+
 		-- Si no encontró el clan pero es un owner de clan por defecto, intentar de nuevo
 		if retries < maxRetries - 1 then
 			task.wait(0.1)
@@ -524,7 +524,7 @@ GetPlayerClanFunction.OnServerInvoke = function(player)
 			break
 		end
 	end
-	
+
 	return nil
 end
 
@@ -573,12 +573,12 @@ end
 AddOwnerEvent.OnServerInvoke = function(player, clanId, targetUserId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
-	
+
 	local playerData = clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)]
 	if not playerData or not Config:HasPermission(playerData.rol, "agregar_owner") then
 		return false, "Sin permiso"
 	end
-	
+
 	local success, msg = ClanData:AddOwner(clanId, targetUserId)
 	if success then
 		updatePlayerAttributes(targetUserId)
@@ -590,12 +590,12 @@ end
 RemoveOwnerEvent.OnServerInvoke = function(player, clanId, targetUserId)
 	local clanData = ClanData:GetClan(clanId)
 	if not clanData then return false, "Clan no encontrado" end
-	
+
 	local playerData = clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)]
 	if not playerData or not Config:HasPermission(playerData.rol, "remover_owner") then
 		return false, "Sin permiso"
 	end
-	
+
 	local success, msg = ClanData:RemoveOwner(clanId, targetUserId)
 	if success then
 		updatePlayerAttributes(targetUserId)
