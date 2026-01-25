@@ -638,6 +638,7 @@ SyncPlayerName.TextSize = IsMobile and 16 or 20
 SyncPlayerName.TextScaled = false
 SyncPlayerName.TextWrapped = false
 SyncPlayerName.TextTruncate = Enum.TextTruncate.AtEnd
+SyncPlayerName.TextXAlignment = Enum.TextXAlignment.Center
 SyncPlayerName.ZIndex = 102
 SyncPlayerName.Parent = SyncContainer
 
@@ -669,8 +670,9 @@ local function SetSyncOverlay(synced, syncedPlayerName)
 		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
 		Tween(SyncContainer, 0.4, {Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)}, Enum.EasingStyle.Back)
 	else
-		Tween(SyncContainer, 0.2, {Size = UDim2.new(1, -40, 0, 0)}, Enum.EasingStyle.Quad)
-		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
+		-- Animaciones de salida (similares a la entrada pero en reversa)
+		Tween(SyncContainer, 0.3, {Size = UDim2.new(1, -40, 0, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		local t = Tween(SyncOverlay, 0.3, {BackgroundTransparency = 1})
 		if t then
 			t.Completed:Connect(function()
 				SyncOverlay.Visible = false
