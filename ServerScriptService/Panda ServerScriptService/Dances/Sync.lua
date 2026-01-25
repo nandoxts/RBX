@@ -23,9 +23,48 @@ local Animaciones = require(ReplicatedStorage:WaitForChild("Emotes_Sync"):WaitFo
 local Settings = require(script.Settings)
 
 local Remotes = ReplicatedStorage:WaitForChild("Emotes_Sync")
-local SyncRemote = Remotes.Sync
-local PlayAnimationRemote = Remotes.PlayAnimation
-local StopAnimationRemote = Remotes.StopAnimation
+
+-- Función auxiliar para crear RemoteEvents de forma segura
+local function GetOrCreateRemoteEvent(parent, name)
+	local existing = parent:FindFirstChild(name)
+	if existing then return existing end
+	
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = name
+	remote.Parent = parent
+	print("[EmotesSync] Creado RemoteEvent: " .. name)
+	return remote
+end
+
+-- Función auxiliar para crear RemoteFunctions de forma segura
+local function GetOrCreateRemoteFunction(parent, name)
+	local existing = parent:FindFirstChild(name)
+	if existing then return existing end
+	
+	local remote = Instance.new("RemoteFunction")
+	remote.Name = name
+	remote.Parent = parent
+	print("[EmotesSync] Creada RemoteFunction: " .. name)
+	return remote
+end
+
+-- RemoteEvent principal para sync/unsync
+local SyncRemote = GetOrCreateRemoteEvent(Remotes, "Sync")
+
+-- RemoteEvent para reproducir animaciones
+local PlayAnimationRemote = GetOrCreateRemoteEvent(Remotes, "PlayAnimation")
+
+-- RemoteEvent para detener animaciones
+local StopAnimationRemote = GetOrCreateRemoteEvent(Remotes, "StopAnimation")
+
+-- RemoteEvent para notificar estado de sincronización a clientes
+local SyncUpdate = GetOrCreateRemoteEvent(Remotes, "SyncUpdate")
+
+-- RemoteEvent broadcast para líderes: servidor -> todos los clientes
+local SyncBroadcast = GetOrCreateRemoteEvent(Remotes, "SyncBroadcast")
+
+-- RemoteFunction para que el cliente consulte su estado de sincronización
+local GetSyncState = GetOrCreateRemoteFunction(Remotes, "GetSyncState")
 
 -- Configuración
 local FADE_TIME = 0.3
@@ -47,6 +86,17 @@ local function InitializeDanceCache()
 end
 InitializeDanceCache()
 
+-- Inicializar cache de bailes
+local function InitializeDanceCache()
+	local sources = {Animaciones.Ids, Animaciones.Recomendado, Animaciones.Vip}
+	for _, source in ipairs(sources) do
+		for _, anim in pairs(source) do
+			DanceCache[anim.Nombre] = "rbxassetid://" .. tostring(anim.ID)
+		end
+	end
+end
+InitializeDanceCache()
+
 --------------------------------------------------------------------------------
 -- UTILIDADES
 --------------------------------------------------------------------------------
@@ -56,6 +106,17 @@ local function IsValidPlayer(player)
 	return player 
 		and player.Parent == Players 
 		and PlayerData[player] ~= nil
+end
+
+-- Implementación de GetSyncState RemoteFunction
+GetSyncState.OnServerInvoke = function(player)
+	if not IsValidPlayer(player) then
+		return { isSynced = false, leaderName = nil }
+	end
+	local data = PlayerData[player]
+	local isSynced = data and data.Following ~= nil
+	local leaderName = (data and data.Following) and data.Following.Name or nil
+	return { isSynced = isSynced, leaderName = leaderName }
 end
 
 -- Validar que un jugador puede bailar (tiene Character, Humanoid, etc.)
@@ -174,6 +235,74 @@ local function NotifyClient(player, animationName)
 			StopAnimationRemote:FireClient(player)
 		end
 	end)
+
+	-- Enviar actualización de sincronización al cliente (payload completo)
+	pcall(function()
+		local data = PlayerData[player]
+		local isSynced = data and data.Following ~= nil
+		local leaderName = (data and data.Following) and data.Following.Name or nil
+		local leaderUserId = (data and data.Following) and data.Following.UserId or nil
+
+		local speed = nil
+		if data and data.Animation and data.Animation.Speed then
+			speed = data.Animation.Speed
+		end
+
+		-- SIEMPRE enviar payload completo con todos los campos
+		SyncUpdate:FireClient(player, { 
+			isSynced = isSynced, 
+			leaderName = leaderName, 
+			leaderUserId = leaderUserId, 
+			animationName = animationName, 
+			speed = speed 
+		})
+	end)
+
+	-- Si este player es líder raíz, planificar broadcast debounced a todos los clientes
+	pcall(function()
+		local rootLeader = GetRootLeader(player)
+		if rootLeader == player then
+			ScheduleLeaderBroadcast(player)
+		end
+	end)
+end
+
+-- Debounce/batching para broadcasts por líder
+local PendingBroadcasts = {}
+local BROADCAST_DEBOUNCE = 0.1 -- segundos
+
+local function FireLeaderBroadcast(leader)
+	local entry = PendingBroadcasts[leader]
+	if not entry then return end
+	PendingBroadcasts[leader] = nil
+
+	-- construir payload tomando estado actual del leader
+	if not IsValidPlayer(leader) then return end
+	local data = PlayerData[leader]
+	local payload = {
+		leaderUserId = leader.UserId,
+		animationName = data and data.AnimationName or nil,
+		timePosition = (data and data.Animation) and data.Animation.TimePosition or 0,
+		speed = (data and data.Animation) and data.Animation.Speed or 1,
+		timestamp = os.time(),
+	}
+
+	pcall(function()
+		SyncBroadcast:FireAllClients(payload)
+	end)
+end
+
+function ScheduleLeaderBroadcast(leader)
+	if not leader then return end
+	-- reemplazar cualquier entrada existente
+	if PendingBroadcasts[leader] then
+		-- reiniciar timer: (we'll simply ignore because existing task will fire soon)
+	else
+		PendingBroadcasts[leader] = true
+		task.delay(BROADCAST_DEBOUNCE, function()
+			FireLeaderBroadcast(leader)
+		end)
+	end
 end
 
 -- Detener la animación de un jugador
@@ -189,6 +318,9 @@ local function StopPlayerAnimation(player)
 		data.Animation = nil
 	end
 	data.AnimationName = nil
+	
+	-- NOTA: NO enviamos SyncUpdate aquí porque puede interferir con Follow()
+	-- El estado de sync se maneja en Follow(), Unfollow() y NotifyClient()
 end
 
 -- Reproducir una animación en un jugador específico
@@ -292,11 +424,12 @@ local function Unfollow(player)
 	data.Following = nil
 
 	-- Actualizar indicador visual
-	if player.Character and player.Character:FindFirstChild("SyncOnOff") then
-		player.Character.SyncOnOff.Value = false
-		-- Limpiar nombre del líder al desincronizarse
-		player.Character:SetAttribute("SyncedPlayerName", nil)
-	end
+	-- Nota: dejamos de usar SyncOnOff/atributos en el character; el cliente recibirá el estado por SyncUpdate
+
+	-- Notificar cliente inmediatamente que dejó de seguir
+	pcall(function()
+		SyncUpdate:FireClient(player, { isSynced = false, leaderName = nil, animationName = nil, speed = nil })
+	end)
 end
 
 -- Seguir a un nuevo líder
@@ -316,14 +449,17 @@ local function Follow(follower, leader)
 	-- Guardar mis seguidores válidos antes de cambiar
 	local myFollowers = GetValidFollowers(follower)
 
-	-- Dejar de seguir al líder anterior si existe
-	Unfollow(follower)
+	-- Dejar de seguir al líder anterior si existe (SILENCIOSAMENTE)
+	local followerData = PlayerData[follower]
+	local currentLeader = followerData.Following
+	if currentLeader and IsValidPlayer(currentLeader) then
+		SafeRemoveFromArray(PlayerData[currentLeader].Followers, follower)
+	end
 
 	-- Validar nuevamente que el líder sigue siendo válido
 	if not IsValidPlayer(leader) then return false end
 
 	-- Establecer nuevo líder
-	local followerData = PlayerData[follower]
 	followerData.Following = leader
 
 	-- Agregar a la lista de seguidores del nuevo líder
@@ -334,33 +470,61 @@ local function Follow(follower, leader)
 	-- Restaurar mis seguidores (ellos me siguen a mí, no al nuevo líder)
 	followerData.Followers = myFollowers
 
-	-- Actualizar indicador visual
-	if follower.Character and follower.Character:FindFirstChild("SyncOnOff") then
-		follower.Character.SyncOnOff.Value = true
-		-- Enviar nombre del líder al cliente
-		follower.Character:SetAttribute("SyncedPlayerName", leader.Name)
-	end
-
 	-- Obtener la animación del líder raíz
 	local rootLeader = GetRootLeader(leader)
+	local animName = nil
+	local speed = nil
+	local hasAnimation = false
+	
 	if rootLeader and IsValidPlayer(rootLeader) then
 		local rootData = PlayerData[rootLeader]
 		if rootData.Animation then
 			local animId = rootData.Animation.Animation.AnimationId
-			local animName = rootData.AnimationName
+			animName = rootData.AnimationName
 			local timePos = rootData.Animation.TimePosition
-			local speed = rootData.Animation.Speed
+			speed = rootData.Animation.Speed
+			hasAnimation = true
 
 			-- Aplicar animación al nuevo seguidor
-			if PlayAnimationOnPlayer(follower, animId, animName, timePos, speed) then
-				NotifyClient(follower, animName)
-			end
+			PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
 
 			-- Propagar a todos mis seguidores usando el helper
 			if #myFollowers > 0 then
 				PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
 			end
 		end
+	end
+	
+	-- ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
+	local leaderUserId = rootLeader and rootLeader.UserId or leader.UserId
+	print("[EmotesSync] DEBUG Follow - Antes de enviar SyncUpdate:")
+	print("  follower:", follower.Name)
+	print("  leader:", leader.Name)
+	print("  leaderUserId:", leaderUserId)
+	print("  animName:", animName)
+	print("  speed:", speed)
+	print("  hasAnimation:", hasAnimation)
+	
+	local success = pcall(function()
+		print("[EmotesSync] Enviando SyncUpdate SYNC al cliente:", follower.Name, "isSynced=true, leaderName=" .. leader.Name .. ", leaderUserId=" .. leaderUserId)
+		SyncUpdate:FireClient(follower, { 
+			isSynced = true, 
+			leaderName = leader.Name, 
+			leaderUserId = leaderUserId, 
+			animationName = animName, 
+			speed = speed 
+		})
+	end)
+	
+	if not success then
+		warn("[EmotesSync] Error al enviar SyncUpdate a", follower.Name)
+	end
+	
+	-- También enviar PlayAnimationRemote si hay animación activa
+	if hasAnimation and animName then
+		pcall(function()
+			PlayAnimationRemote:FireClient(follower, "playAnim", animName)
+		end)
 	end
 
 	return true
@@ -489,10 +653,6 @@ local function OnCharacterAdded(character)
 	local animation = Instance.new("Animation")
 	animation.Name = "Baile"
 	animation.Parent = character
-
-	local syncIndicator = Instance.new("BoolValue")
-	syncIndicator.Name = "SyncOnOff"
-	syncIndicator.Parent = character
 
 	-- Usar spawn para no bloquear si Humanoid tarda
 	task.spawn(function()

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Pan
 -- Servicios de sincronizacion
 local RemotesSync = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local SyncRemote = RemotesSync:WaitForChild("Sync")
+local GetSyncState = RemotesSync:WaitForChild("GetSyncState")
 
 -- Sistema de jugador seleccionado
 local SelectedPlayer = ReplicatedStorage:WaitForChild("SelectedPlayer")
@@ -639,9 +640,11 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 	if debounceSync or not currentTarget then return end
 	debounceSync = true
 
-	if LocalPlayer.Character:FindFirstChild("SyncOnOff") 
-		and LocalPlayer.Character.SyncOnOff.Value then
-
+	-- Consultar estado actual de sincronización
+	local ok, info = pcall(function() return GetSyncState:InvokeServer() end)
+	
+	-- Si ya estoy sincronizado con ALGUIEN (no importa quién), desincronizar
+	if ok and info and info.isSynced then
 		SyncRemote:FireServer("unsync")
 
 		pcall(function()
@@ -649,12 +652,15 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 		end)
 
 		toggleGui(false)
+	-- Si NO estoy sincronizado, sincronizar con el target actual
 	else
-		SyncRemote:FireServer("sync", currentTarget)
+		if currentTarget and currentTarget ~= LocalPlayer then
+			SyncRemote:FireServer("sync", currentTarget)
 
-		pcall(function()
-			NotificationSystem:Success("Sync", "Ahora estas sincronizado con: " .. tostring(currentTarget.Name), 4)
-		end)
+			pcall(function()
+				NotificationSystem:Success("Sync", "Ahora estas sincronizado con: " .. tostring(currentTarget.Name), 4)
+			end)
+		end
 	end
 
 	task.wait(0.5)

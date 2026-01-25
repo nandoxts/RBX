@@ -98,12 +98,13 @@ local ActiveCard = nil
 local tieneVIP = false
 local TabActual = "Todos"
 local IsSynced = false -- Estado de sincronización
+local currentLeaderUserId = nil -- UserId del jugador que sigo (nil si no sigo a nadie)
 
 -- Gestión de memoria
 local CardConnections = {}
 local ActiveTweens = {}
 local GlobalConnections = {}
-local SyncOnOffConnection = nil -- Conexión específica para SyncOnOff
+-- (removed SyncOnOffConnection) ahora usamos `SyncUpdate` RemoteEvent desde el servidor
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- UTILIDADES
@@ -432,6 +433,7 @@ end
 local mostrarSlider = IsMobile and Config.Movil_MostrarSlider or true
 local currentSpeedIndex = 6
 local speedValues = {0.01, 0.05, 0.3, 0.5, 0.7, 1, 1.3, 1.6, 1.9, 2.2, 2.5}
+local SpeedValue = nil -- Declarar aquí, asignado más abajo
 
 if mostrarSlider then
 	local SliderSection = Instance.new("Frame")
@@ -487,7 +489,7 @@ if mostrarSlider then
 	CreateCorner(KnobLine, 1)
 
 	-- Valor de velocidad (abajo del knob)
-	local SpeedValue = Instance.new("TextLabel")
+	SpeedValue = Instance.new("TextLabel")
 	SpeedValue.Name = "SpeedValue"
 	SpeedValue.Size = UDim2.new(0, 40, 0, 12)
 	SpeedValue.Position = UDim2.new(0.5, -20, 1, 1)
@@ -610,17 +612,23 @@ SyncText.Parent = SyncOverlay
 
 -- Función para mostrar/ocultar el overlay
 local function SetSyncOverlay(synced, syncedPlayerName)
+	print("[EMOTEFUI] SetSyncOverlay llamado - synced:", synced, "syncedPlayerName:", syncedPlayerName)
 	IsSynced = synced
 	if synced then
+		print("[EMOTEFUI] Mostrando overlay - Visible=true, actualizando texto")
 		SyncOverlay.Visible = true
 		SyncOverlay.BackgroundTransparency = 1
 		SyncText.Text = "Sync: " .. (syncedPlayerName or "Desconocido") .. "\n\nHaz click para\ndesincronizarte"
+		print("[EMOTEFUI] SyncText actualizado a:", SyncText.Text)
 		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
+		print("[EMOTEFUI] Tween iniciado para mostrar overlay")
 	else
+		print("[EMOTEFUI] Ocultando overlay")
 		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
 		if t then
 			t.Completed:Connect(function()
 				SyncOverlay.Visible = false
+				print("[EMOTEFUI] Overlay oculto completamente")
 			end)
 		end
 	end
@@ -631,7 +639,7 @@ SyncOverlay.MouseButton1Click:Connect(function()
 	if SyncRemote then
 		SyncRemote:FireServer("unsync")
 		SetSyncOverlay(false)
-		NotificationSystem:Success("Sync", "Te has desincronizado", 2)
+		NotificationSystem:Info("Sync", "Te has desincronizado", 2)
 	end
 end)
 
@@ -646,49 +654,7 @@ SyncOverlay.MouseLeave:Connect(function()
 	Tween(SyncText, 0.15, {TextColor3 = Theme.TextPrimary})
 end)
 
--- Escuchar cambios en SyncOnOff del personaje
-local function SetupSyncListener()
-	local character = Jugador.Character
-	if not character then return end
-
-	local syncValue = character:FindFirstChild("SyncOnOff")
-	if not syncValue then return end
-
-	-- Desconectar conexión anterior si existe
-	if SyncOnOffConnection then
-		pcall(function()
-			SyncOnOffConnection:Disconnect()
-		end)
-		SyncOnOffConnection = nil
-	end
-
-	-- Obtener nombre del jugador sincronizado (el servidor lo envía como atributo)
-	local function GetSyncedPlayerName()
-		return character:GetAttribute("SyncedPlayerName") or "Desconocido"
-	end
-
-	-- Crear nueva conexión con el nuevo SyncOnOff
-	local syncedName = GetSyncedPlayerName()
-	SetSyncOverlay(syncValue.Value, syncedName)
-	SyncOnOffConnection = syncValue:GetPropertyChangedSignal("Value"):Connect(function()
-		-- Validar que el character aún existe antes de actualizar
-		if Jugador.Character and Jugador.Character:FindFirstChild("SyncOnOff") then
-			local updatedName = GetSyncedPlayerName()
-			SetSyncOverlay(syncValue.Value, updatedName)
-		end
-	end)
-end
-
-TrackGlobalConnection(Jugador.CharacterAdded:Connect(function(character)
-	task.wait(0.1) -- Esperar menos tiempo, más rápido
-	SetupSyncListener()
-end))
-
--- Configurar listener inicial
-task.spawn(function()
-	task.wait(0.5)
-	SetupSyncListener()
-end)
+-- Nota: el cliente ya no usa valores en el Character; escucha `SyncUpdate` desde el servidor
 
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Name = "ScrollFrame"
@@ -788,6 +754,105 @@ end
 if StopAnimationRemote and StopAnimationRemote.IsA and StopAnimationRemote:IsA("RemoteEvent") then
 	TrackGlobalConnection(StopAnimationRemote.OnClientEvent:Connect(function()
 		clearActive()
+	end))
+end
+
+-- Escuchar actualizaciones de sincronización desde el servidor (payload: isSynced, leaderName, animationName, speed)
+local SyncUpdate = RemotesSync:FindFirstChild("SyncUpdate")
+if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
+	TrackGlobalConnection(SyncUpdate.OnClientEvent:Connect(function(payload)
+		if not payload then 
+			warn("[EMOTEFUI] SyncUpdate recibido sin payload")
+			return 
+		end
+		
+		print("[EMOTEFUI] SyncUpdate recibido - Payload completo:")
+		print("  isSynced:", payload.isSynced)
+		print("  leaderName:", payload.leaderName)
+		print("  leaderUserId:", payload.leaderUserId)
+		print("  animationName:", payload.animationName)
+		print("  speed:", payload.speed)
+		
+		-- Mostrar/ocultar overlay de sync
+		if payload.isSynced ~= nil then
+			print("[EMOTEFUI] Llamando SetSyncOverlay con isSynced=" .. tostring(payload.isSynced) .. ", leaderName=" .. tostring(payload.leaderName))
+			SetSyncOverlay(payload.isSynced, payload.leaderName)
+		else
+			print("[EMOTEFUI] payload.isSynced es nil, no se llama SetSyncOverlay")
+		end
+
+		-- Mantener UserId del líder que sigo (nil si ya no sigo a nadie)
+		if payload.leaderUserId ~= nil then
+			currentLeaderUserId = payload.leaderUserId
+		else
+			if payload.isSynced == false then
+				currentLeaderUserId = nil
+			end
+		end
+
+		-- Sincronizar animación activa en UI
+		if payload.animationName and type(payload.animationName) == "string" and payload.animationName ~= "" then
+			setActiveByName(payload.animationName)
+		elseif payload.animationName == nil then
+			-- si el servidor indica nil, limpiar activo
+			clearActive()
+		end
+
+		-- Sincronizar velocidad si el servidor la envía
+		if payload.speed and type(payload.speed) == "number" then
+			-- Encontrar el índice de speedValues más cercano a payload.speed
+			local closestIdx = 1
+			local closestDiff = math.huge
+			for i, v in ipairs(speedValues) do
+				local diff = math.abs(v - payload.speed)
+				if diff < closestDiff then
+					closestDiff = diff
+					closestIdx = i
+				end
+			end
+			currentSpeedIndex = closestIdx
+			if SpeedValue then
+				SpeedValue.Text = string.format("%.2fx", speedValues[currentSpeedIndex])
+			end
+		end
+	end))
+end
+
+-- Escuchar broadcasts de líderes (debounced desde servidor). Aplicar solo si el broadcast
+-- corresponde al líder que este cliente está siguiendo (filtrado por UserId).
+local SyncBroadcast = RemotesSync:FindFirstChild("SyncBroadcast")
+if SyncBroadcast and SyncBroadcast.IsA and SyncBroadcast:IsA("RemoteEvent") then
+	TrackGlobalConnection(SyncBroadcast.OnClientEvent:Connect(function(payload)
+		if not payload then return end
+		if not payload.leaderUserId then return end
+
+		-- Solo aplicar si el broadcast es del líder que seguimos actualmente
+		if currentLeaderUserId and payload.leaderUserId == currentLeaderUserId then
+			if payload.animationName ~= nil then
+				if payload.animationName == "" then
+					clearActive()
+				else
+					setActiveByName(payload.animationName)
+				end
+			end
+
+			if payload.speed then
+				-- Actualizar indicador de velocidad al valor más cercano disponible
+				local closestIdx = 1
+				local closestDiff = math.huge
+				for i, v in ipairs(speedValues) do
+					local diff = math.abs(v - payload.speed)
+					if diff < closestDiff then
+						closestDiff = diff
+						closestIdx = i
+					end
+				end
+				currentSpeedIndex = closestIdx
+				if SpeedValue then
+					SpeedValue.Text = string.format("%.2fx", speedValues[currentSpeedIndex])
+				end
+			end
+		end
 	end))
 end
 
@@ -1309,11 +1374,7 @@ ScreenGui.Destroying:Connect(function()
 	CleanupAllCards()
 
 	-- Desconectar SyncOnOff
-	if SyncOnOffConnection then
-		pcall(function()
-			SyncOnOffConnection:Disconnect()
-		end)
-	end
+	-- (removed SyncOnOffConnection) ya no es usado
 
 	-- Desconectar todas las conexiones globales
 	for _, conn in ipairs(GlobalConnections) do

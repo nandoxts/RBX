@@ -243,6 +243,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "🔝",
 		clanColor = {151, 0, 0}, -- rojo
 	},
+	{
+		clanName = "VIP",
+		ownerId = 8387751399, -- Admin owner
+		clanTag = "VIP",
+		clanLogo = "rbxassetid://105232541431821",
+		descripcion = "Clan VIP",
+		clanEmoji = "👑",
+		clanColor = {255, 215, 0}, -- Dorado
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════
