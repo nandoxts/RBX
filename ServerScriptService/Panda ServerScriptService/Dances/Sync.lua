@@ -64,6 +64,9 @@ local SyncBroadcast = GetOrCreateRemoteEvent(Remotes, "SyncBroadcast")
 -- RemoteFunction para que el cliente consulte su estado de sincronización
 local GetSyncState = GetOrCreateRemoteFunction(Remotes, "GetSyncState")
 
+-- RemoteEvent para Dance Leader UI
+local DanceLeaderEvent = GetOrCreateRemoteEvent(Remotes, "DanceLeaderEvent")
+
 -- Configuración
 local FADE_TIME = 0.3
 
@@ -203,6 +206,21 @@ local function FindPlayerByName(partialName)
 		end
 	end
 	return nil
+end
+
+-- Actualizar atributo de followers en el jugador (para Dance Leader System)
+local function UpdateFollowerCount(player)
+	if not IsValidPlayer(player) then return end
+	
+	local followerCount = #PlayerData[player].Followers
+	pcall(function()
+		player:SetAttribute("followers", followerCount)
+	end)
+	
+	-- DEBUG
+	if followerCount > 0 then
+		print("[Sync] " .. player.Name .. " ahora tiene " .. followerCount .. " seguidores")
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -406,6 +424,8 @@ local function Unfollow(player)
 	if currentLeader and IsValidPlayer(currentLeader) then
 		-- Remover de la lista de seguidores del líder anterior
 		SafeRemoveFromArray(PlayerData[currentLeader].Followers, player)
+		-- ACTUALIZAR atributo del líder para que Dance Leader System se entere
+		UpdateFollowerCount(currentLeader)
 	end
 
 	data.Following = nil
@@ -441,6 +461,8 @@ local function Follow(follower, leader)
 	local currentLeader = followerData.Following
 	if currentLeader and IsValidPlayer(currentLeader) then
 		SafeRemoveFromArray(PlayerData[currentLeader].Followers, follower)
+		-- ACTUALIZAR atributo del líder anterior para que Dance Leader System se entere
+		UpdateFollowerCount(currentLeader)
 	end
 
 	-- Validar nuevamente que el líder sigue siendo válido
@@ -453,6 +475,9 @@ local function Follow(follower, leader)
 	if not table.find(PlayerData[leader].Followers, follower) then
 		table.insert(PlayerData[leader].Followers, follower)
 	end
+	
+	-- ACTUALIZAR atributo del nuevo líder para que Dance Leader System se entere
+	UpdateFollowerCount(leader)
 
 	-- Restaurar mis seguidores (ellos me siguen a mí, no al nuevo líder)
 	followerData.Followers = myFollowers
@@ -625,6 +650,8 @@ local function OnCharacterAdded(character)
 	for otherPlayer, data in pairs(PlayerData) do
 		if otherPlayer ~= player and data and data.Followers then
 			SafeRemoveFromArray(data.Followers, player)
+			-- ACTUALIZAR atributo de followers para este jugador
+			UpdateFollowerCount(otherPlayer)
 		end
 	end
 
@@ -671,6 +698,8 @@ local function OnCharacterAdded(character)
 				for otherPlayer, data in pairs(PlayerData) do
 					if otherPlayer ~= player and data and data.Followers then
 						SafeRemoveFromArray(data.Followers, player)
+						-- ACTUALIZAR atributo de followers para este jugador
+						UpdateFollowerCount(otherPlayer)
 					end
 				end
 
@@ -740,6 +769,8 @@ local function OnPlayerRemoving(player)
 	for otherPlayer, data in pairs(PlayerData) do
 		if otherPlayer ~= player and data.Followers then
 			SafeRemoveFromArray(data.Followers, player)
+			-- ACTUALIZAR atributo de followers para este jugador
+			UpdateFollowerCount(otherPlayer)
 		end
 	end
 

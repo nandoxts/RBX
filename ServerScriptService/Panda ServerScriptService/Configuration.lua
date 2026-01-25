@@ -114,7 +114,7 @@ return {
 	MIN_SPEED = 0.3,
 	MAX_SPEED = 2,
 	-- DANCE LEADER
-	FOLLOWER_DANCE = 10, -- Cantidad de seguidores para activar el gui
+	FOLLOWER_DANCE = 2, -- Cantidad de seguidores para activar el gui
 	CHECK_TIME_FOLLOWER = 300, -- Tiempo de comprobación de seguidores
 	BILLBOARD_NAME = "Dance_Leader",
 	-- RIG SYNC
