@@ -580,137 +580,62 @@ ContentArea.ClipsDescendants = true
 ContentArea.Parent = MainFrame
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- BANNER DE SINCRONIZACIÓN (Diseño Moderno)
+-- OVERLAY DE SINCRONIZACIÓN
 -- ════════════════════════════════════════════════════════════════════════════════
 
-local SyncBanner = Instance.new("Frame")
-SyncBanner.Name = "SyncBanner"
-SyncBanner.Size = UDim2.new(1, 0, 0, IsMobile and 32 or 38)
-SyncBanner.Position = UDim2.new(0, 0, 0, IsMobile and -36 or -42) -- Oculto arriba inicialmente
-SyncBanner.BackgroundColor3 = Theme.Primary
-SyncBanner.BorderSizePixel = 0
-SyncBanner.ZIndex = 100
-SyncBanner.ClipsDescendants = false
-SyncBanner.Parent = ContentArea
-CreateCorner(SyncBanner, IsMobile and 6 or 8)
+local SyncOverlay = Instance.new("TextButton")
+SyncOverlay.Name = "SyncOverlay"
+SyncOverlay.Size = UDim2.new(1, 0, 1, 0)
+SyncOverlay.Position = UDim2.new(0, 0, 0, 0)
+SyncOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+SyncOverlay.BackgroundTransparency = 0.3
+SyncOverlay.BorderSizePixel = 0
+SyncOverlay.Text = ""
+SyncOverlay.AutoButtonColor = false
+SyncOverlay.ZIndex = 10
+SyncOverlay.Visible = false
+SyncOverlay.Parent = ContentArea
 
--- Gradiente para efecto moderno
-local SyncGradient = Instance.new("UIGradient")
-SyncGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Theme.Primary),
-	ColorSequenceKeypoint.new(1, Theme.Primary:Lerp(Color3.fromRGB(0, 0, 0), 0.3))
-})
-SyncGradient.Rotation = 45
-SyncGradient.Parent = SyncBanner
+-- Texto del overlay
+local SyncText = Instance.new("TextLabel")
+SyncText.Name = "SyncText"
+SyncText.Size = UDim2.new(1, -20, 0, 40)
+SyncText.Position = UDim2.new(0, 10, 0.5, -20)
+SyncText.BackgroundTransparency = 1
+SyncText.Font = Enum.Font.GothamBold
+SyncText.Text = "Haz click para\ndesincronizarte"
+SyncText.TextColor3 = Theme.TextPrimary
+SyncText.TextSize = IsMobile and 11 or 13
+SyncText.TextWrapped = true
+SyncText.ZIndex = 11
+SyncText.Parent = SyncOverlay
 
--- Icono de enlace (⛓️ estilizado)
-local LinkIcon = Instance.new("Frame")
-LinkIcon.Name = "LinkIcon"
-LinkIcon.Size = UDim2.new(0, IsMobile and 16 or 20, 0, IsMobile and 16 or 20)
-LinkIcon.Position = UDim2.new(0, IsMobile and 8 or 12, 0.5, IsMobile and -8 or -10)
-LinkIcon.BackgroundColor3 = Theme.TextPrimary
-LinkIcon.BackgroundTransparency = 0.1
-LinkIcon.BorderSizePixel = 0
-LinkIcon.ZIndex = 101
-LinkIcon.Parent = SyncBanner
-CreateCorner(LinkIcon, IsMobile and 3 or 4)
-
--- Líneas del icono de enlace
-local LinkLine1 = Instance.new("Frame")
-LinkLine1.Size = UDim2.new(0, IsMobile and 2 or 3, 0.5, 0)
-LinkLine1.Position = UDim2.new(0.25, 0, 0.15, 0)
-LinkLine1.BackgroundColor3 = Theme.Primary
-LinkLine1.BorderSizePixel = 0
-LinkLine1.ZIndex = 102
-LinkLine1.Parent = LinkIcon
-CreateCorner(LinkLine1, 1)
-
-local LinkLine2 = Instance.new("Frame")
-LinkLine2.Size = UDim2.new(0, IsMobile and 2 or 3, 0.5, 0)
-LinkLine2.Position = UDim2.new(0.65, 0, 0.35, 0)
-LinkLine2.BackgroundColor3 = Theme.Primary
-LinkLine2.BorderSizePixel = 0
-LinkLine2.ZIndex = 102
-LinkLine2.Parent = LinkIcon
-CreateCorner(LinkLine2, 1)
-
--- Texto del banner
-local SyncBannerText = Instance.new("TextLabel")
-SyncBannerText.Name = "SyncBannerText"
-SyncBannerText.Size = UDim2.new(1, IsMobile and -60 or -80, 1, 0)
-SyncBannerText.Position = UDim2.new(0, IsMobile and 28 or 36, 0, 0)
-SyncBannerText.BackgroundTransparency = 1
-SyncBannerText.Font = Enum.Font.GothamBold
-SyncBannerText.Text = "Sincronizado con Player"
-SyncBannerText.TextColor3 = Color3.fromRGB(255, 255, 255)
-SyncBannerText.TextSize = IsMobile and 12 or 14
-SyncBannerText.TextXAlignment = Enum.TextXAlignment.Left
-SyncBannerText.TextTruncate = Enum.TextTruncate.AtEnd
-SyncBannerText.ZIndex = 101
-SyncBannerText.Parent = SyncBanner
-
--- Botón de cerrar (X)
-local SyncCloseBtn = Instance.new("TextButton")
-SyncCloseBtn.Name = "SyncCloseBtn"
-SyncCloseBtn.Size = UDim2.new(0, IsMobile and 28 or 32, 1, 0)
-SyncCloseBtn.Position = UDim2.new(1, IsMobile and -28 or -32, 0, 0)
-SyncCloseBtn.BackgroundTransparency = 1
-SyncCloseBtn.Font = Enum.Font.GothamBold
-SyncCloseBtn.Text = "✕"
-SyncCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-SyncCloseBtn.TextSize = IsMobile and 16 or 18
-SyncCloseBtn.ZIndex = 101
-SyncCloseBtn.Parent = SyncBanner
-
--- Función para mostrar/ocultar el banner
+-- Función para mostrar/ocultar el overlay
 local function SetSyncOverlay(synced, syncedPlayerName)
 	print("[EMOTEFUI] SetSyncOverlay llamado - synced:", synced, "syncedPlayerName:", syncedPlayerName)
 	IsSynced = synced
 	if synced then
-		print("[EMOTEFUI] Mostrando banner de sync")
-		SyncBannerText.Text = "🔗 Sincronizado con " .. (syncedPlayerName or "Desconocido")
-		print("[EMOTEFUI] Texto del banner:", SyncBannerText.Text)
-		
-		-- Animación de entrada suave desde arriba
-		SyncBanner.Position = UDim2.new(0, 0, 0, IsMobile and -36 or -42)
-		Tween(SyncBanner, 0.4, {Position = UDim2.new(0, 0, 0, 0)}, Enum.EasingStyle.Back)
-		
-		-- Ajustar ScrollFrame para hacer espacio al banner
-		local bannerHeight = IsMobile and 36 or 42
-		Tween(ScrollFrame, 0.4, {
-			Size = UDim2.new(1, 0, 1, -bannerHeight),
-			Position = UDim2.new(0, 0, 0, bannerHeight)
-		}, Enum.EasingStyle.Back)
-		
-		-- Animación del icono de enlace (pulso sutil)
-		task.spawn(function()
-			while IsSynced do
-				Tween(LinkIcon, 0.6, {BackgroundTransparency = 0.3})
-				task.wait(0.6)
-				if not IsSynced then break end
-				Tween(LinkIcon, 0.6, {BackgroundTransparency = 0.1})
-				task.wait(0.6)
-			end
-		end)
-		
-		print("[EMOTEFUI] Banner mostrado con animación")
+		print("[EMOTEFUI] Mostrando overlay - Visible=true, actualizando texto")
+		SyncOverlay.Visible = true
+		SyncOverlay.BackgroundTransparency = 1
+		SyncText.Text = "Sync: " .. (syncedPlayerName or "Desconocido") .. "\n\nHaz click para\ndesincronizarte"
+		print("[EMOTEFUI] SyncText actualizado a:", SyncText.Text)
+		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
+		print("[EMOTEFUI] Tween iniciado para mostrar overlay")
 	else
-		print("[EMOTEFUI] Ocultando banner de sync")
-		-- Animación de salida hacia arriba
-		Tween(SyncBanner, 0.3, {Position = UDim2.new(0, 0, 0, IsMobile and -36 or -42)}, Enum.EasingStyle.Quint)
-		
-		-- Restaurar ScrollFrame a tamaño completo
-		Tween(ScrollFrame, 0.3, {
-			Size = UDim2.new(1, 0, 1, 0),
-			Position = UDim2.new(0, 0, 0, 0)
-		}, Enum.EasingStyle.Quint)
-		
-		print("[EMOTEFUI] Banner oculto con animación")
+		print("[EMOTEFUI] Ocultando overlay")
+		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
+		if t then
+			t.Completed:Connect(function()
+				SyncOverlay.Visible = false
+				print("[EMOTEFUI] Overlay oculto completamente")
+			end)
+		end
 	end
 end
 
--- Click en el botón de cerrar
-SyncCloseBtn.MouseButton1Click:Connect(function()
+-- Click en el overlay para desincronizarse
+SyncOverlay.MouseButton1Click:Connect(function()
 	if SyncRemote then
 		SyncRemote:FireServer("unsync")
 		SetSyncOverlay(false)
@@ -718,14 +643,18 @@ SyncCloseBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Hover en el botón de cerrar
-SyncCloseBtn.MouseEnter:Connect(function()
-	Tween(SyncCloseBtn, 0.15, {TextSize = IsMobile and 18 or 20, TextColor3 = Color3.fromRGB(255, 100, 100)})
+-- Hover en el overlay
+SyncOverlay.MouseEnter:Connect(function()
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.15})
+	Tween(SyncText, 0.15, {TextColor3 = Theme.Primary})
 end)
 
-SyncCloseBtn.MouseLeave:Connect(function()
-	Tween(SyncCloseBtn, 0.15, {TextSize = IsMobile and 16 or 18, TextColor3 = Color3.fromRGB(255, 255, 255)})
+SyncOverlay.MouseLeave:Connect(function()
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.3})
+	Tween(SyncText, 0.15, {TextColor3 = Theme.TextPrimary})
 end)
+
+-- Nota: el cliente ya no usa valores en el Character; escucha `SyncUpdate` desde el servidor
 
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Name = "ScrollFrame"
