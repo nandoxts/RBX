@@ -32,7 +32,6 @@ local function GetOrCreateRemoteEvent(parent, name)
 	local remote = Instance.new("RemoteEvent")
 	remote.Name = name
 	remote.Parent = parent
-	print("[EmotesSync] Creado RemoteEvent: " .. name)
 	return remote
 end
 
@@ -44,7 +43,6 @@ local function GetOrCreateRemoteFunction(parent, name)
 	local remote = Instance.new("RemoteFunction")
 	remote.Name = name
 	remote.Parent = parent
-	print("[EmotesSync] Creada RemoteFunction: " .. name)
 	return remote
 end
 
@@ -486,16 +484,8 @@ local function Follow(follower, leader)
 	
 	-- ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
 	local leaderUserId = rootLeader and rootLeader.UserId or leader.UserId
-	print("[EmotesSync] DEBUG Follow - Antes de enviar SyncUpdate:")
-	print("  follower:", follower.Name)
-	print("  leader:", leader.Name)
-	print("  leaderUserId:", leaderUserId)
-	print("  animName:", animName)
-	print("  speed:", speed)
-	print("  hasAnimation:", hasAnimation)
 	
 	local success = pcall(function()
-		print("[EmotesSync] Enviando SyncUpdate SYNC al cliente:", follower.Name, "isSynced=true, leaderName=" .. leader.Name .. ", leaderUserId=" .. leaderUserId)
 		SyncUpdate:FireClient(follower, { 
 			isSynced = true, 
 			leaderName = leader.Name, 

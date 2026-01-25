@@ -580,7 +580,7 @@ ContentArea.ClipsDescendants = true
 ContentArea.Parent = MainFrame
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- OVERLAY DE SINCRONIZACIÓN
+-- OVERLAY DE SINCRONIZACIÓN MODERNO
 -- ════════════════════════════════════════════════════════════════════════════════
 
 local SyncOverlay = Instance.new("TextButton")
@@ -588,47 +588,92 @@ SyncOverlay.Name = "SyncOverlay"
 SyncOverlay.Size = UDim2.new(1, 0, 1, 0)
 SyncOverlay.Position = UDim2.new(0, 0, 0, 0)
 SyncOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-SyncOverlay.BackgroundTransparency = 0.3
+SyncOverlay.BackgroundTransparency = 0.1
 SyncOverlay.BorderSizePixel = 0
 SyncOverlay.Text = ""
 SyncOverlay.AutoButtonColor = false
-SyncOverlay.ZIndex = 10
+SyncOverlay.ZIndex = 100
 SyncOverlay.Visible = false
 SyncOverlay.Parent = ContentArea
+CreateCorner(SyncOverlay, IsMobile and 8 or 12)
 
--- Texto del overlay
-local SyncText = Instance.new("TextLabel")
-SyncText.Name = "SyncText"
-SyncText.Size = UDim2.new(1, -20, 0, 40)
-SyncText.Position = UDim2.new(0, 10, 0.5, -20)
-SyncText.BackgroundTransparency = 1
-SyncText.Font = Enum.Font.GothamBold
-SyncText.Text = "Haz click para\ndesincronizarte"
-SyncText.TextColor3 = Theme.TextPrimary
-SyncText.TextSize = IsMobile and 11 or 13
-SyncText.TextWrapped = true
-SyncText.ZIndex = 11
-SyncText.Parent = SyncOverlay
+-- Container central para el contenido
+local SyncContainer = Instance.new("Frame")
+SyncContainer.Name = "SyncContainer"
+SyncContainer.Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)
+SyncContainer.Position = UDim2.new(0, 20, 0.5, IsMobile and -60 or -70)
+SyncContainer.BackgroundColor3 = Theme.BackgroundTertiary
+SyncContainer.BackgroundTransparency = 0.3
+SyncContainer.BorderSizePixel = 0
+SyncContainer.ZIndex = 101
+SyncContainer.Parent = SyncOverlay
+CreateCorner(SyncContainer, IsMobile and 12 or 16)
+
+-- Borde sutil con efecto glow
+local ContainerStroke = CreateStroke(SyncContainer, Theme.Primary, IsMobile and 1.5 or 2, 0.5)
+
+-- Texto secundario: "Sincronizado" (arriba)
+local SyncLabel = Instance.new("TextLabel")
+SyncLabel.Name = "SyncLabel"
+SyncLabel.Size = UDim2.new(1, -20, 0, IsMobile and 16 or 18)
+SyncLabel.Position = UDim2.new(0, 10, 0.5, IsMobile and -28 or -32)
+SyncLabel.BackgroundTransparency = 1
+SyncLabel.Font = Enum.Font.GothamMedium
+SyncLabel.Text = "Sincronizado"
+SyncLabel.TextColor3 = Theme.TextSecondary
+SyncLabel.TextSize = IsMobile and 11 or 13
+SyncLabel.ZIndex = 102
+SyncLabel.Parent = SyncContainer
+
+-- Texto principal: Nombre del jugador (centro)
+local SyncPlayerName = Instance.new("TextLabel")
+SyncPlayerName.Name = "SyncPlayerName"
+SyncPlayerName.Size = UDim2.new(1, -20, 0, IsMobile and 28 or 32)
+SyncPlayerName.Position = UDim2.new(0, 10, 0.5, IsMobile and -10 or -12)
+SyncPlayerName.BackgroundTransparency = 1
+SyncPlayerName.Font = Enum.Font.GothamBold
+SyncPlayerName.Text = "Player Name"
+SyncPlayerName.TextColor3 = Theme.Primary
+SyncPlayerName.TextSize = IsMobile and 16 or 20
+SyncPlayerName.TextScaled = false
+SyncPlayerName.TextWrapped = false
+SyncPlayerName.TextTruncate = Enum.TextTruncate.AtEnd
+SyncPlayerName.ZIndex = 102
+SyncPlayerName.Parent = SyncContainer
+
+-- Instrucción para cerrar (abajo)
+local SyncHint = Instance.new("TextLabel")
+SyncHint.Name = "SyncHint"
+SyncHint.Size = UDim2.new(1, -20, 0, IsMobile and 16 or 18)
+SyncHint.Position = UDim2.new(0, 10, 0.5, IsMobile and 20 or 24)
+SyncHint.BackgroundTransparency = 1
+SyncHint.Font = Enum.Font.GothamMedium
+SyncHint.Text = "Toca para desincronizarte"
+SyncHint.TextColor3 = Theme.TextMuted
+SyncHint.TextSize = IsMobile and 10 or 11
+SyncHint.ZIndex = 102
+SyncHint.Parent = SyncContainer
 
 -- Función para mostrar/ocultar el overlay
 local function SetSyncOverlay(synced, syncedPlayerName)
-	print("[EMOTEFUI] SetSyncOverlay llamado - synced:", synced, "syncedPlayerName:", syncedPlayerName)
 	IsSynced = synced
 	if synced then
-		print("[EMOTEFUI] Mostrando overlay - Visible=true, actualizando texto")
 		SyncOverlay.Visible = true
 		SyncOverlay.BackgroundTransparency = 1
-		SyncText.Text = "Sync: " .. (syncedPlayerName or "Desconocido") .. "\n\nHaz click para\ndesincronizarte"
-		print("[EMOTEFUI] SyncText actualizado a:", SyncText.Text)
+		SyncContainer.Size = UDim2.new(1, -40, 0, 0)
+		
+		-- Actualizar nombre del jugador
+		SyncPlayerName.Text = syncedPlayerName or "Desconocido"
+		
+		-- Animaciones de entrada
 		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
-		print("[EMOTEFUI] Tween iniciado para mostrar overlay")
+		Tween(SyncContainer, 0.4, {Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)}, Enum.EasingStyle.Back)
 	else
-		print("[EMOTEFUI] Ocultando overlay")
+		Tween(SyncContainer, 0.2, {Size = UDim2.new(1, -40, 0, 0)}, Enum.EasingStyle.Quad)
 		local t = Tween(SyncOverlay, 0.2, {BackgroundTransparency = 1})
 		if t then
 			t.Completed:Connect(function()
 				SyncOverlay.Visible = false
-				print("[EMOTEFUI] Overlay oculto completamente")
 			end)
 		end
 	end
@@ -645,13 +690,17 @@ end)
 
 -- Hover en el overlay
 SyncOverlay.MouseEnter:Connect(function()
-	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.15})
-	Tween(SyncText, 0.15, {TextColor3 = Theme.Primary})
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.2})
+	Tween(SyncPlayerName, 0.15, {TextColor3 = Color3.fromRGB(255, 255, 255)})
+	Tween(SyncContainer, 0.15, {BackgroundTransparency = 0.2})
+	Tween(ContainerStroke, 0.15, {Transparency = 0.2})
 end)
 
 SyncOverlay.MouseLeave:Connect(function()
 	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.3})
-	Tween(SyncText, 0.15, {TextColor3 = Theme.TextPrimary})
+	Tween(SyncPlayerName, 0.15, {TextColor3 = Theme.Primary})
+	Tween(SyncContainer, 0.15, {BackgroundTransparency = 0.3})
+	Tween(ContainerStroke, 0.15, {Transparency = 0.5})
 end)
 
 -- Nota: el cliente ya no usa valores en el Character; escucha `SyncUpdate` desde el servidor
@@ -761,24 +810,11 @@ end
 local SyncUpdate = RemotesSync:FindFirstChild("SyncUpdate")
 if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 	TrackGlobalConnection(SyncUpdate.OnClientEvent:Connect(function(payload)
-		if not payload then 
-			warn("[EMOTEFUI] SyncUpdate recibido sin payload")
-			return 
-		end
-		
-		print("[EMOTEFUI] SyncUpdate recibido - Payload completo:")
-		print("  isSynced:", payload.isSynced)
-		print("  leaderName:", payload.leaderName)
-		print("  leaderUserId:", payload.leaderUserId)
-		print("  animationName:", payload.animationName)
-		print("  speed:", payload.speed)
+		if not payload then return end
 		
 		-- Mostrar/ocultar overlay de sync
 		if payload.isSynced ~= nil then
-			print("[EMOTEFUI] Llamando SetSyncOverlay con isSynced=" .. tostring(payload.isSynced) .. ", leaderName=" .. tostring(payload.leaderName))
 			SetSyncOverlay(payload.isSynced, payload.leaderName)
-		else
-			print("[EMOTEFUI] payload.isSynced es nil, no se llama SetSyncOverlay")
 		end
 
 		-- Mantener UserId del líder que sigo (nil si ya no sigo a nadie)
