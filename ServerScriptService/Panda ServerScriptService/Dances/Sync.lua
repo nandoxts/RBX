@@ -75,18 +75,7 @@ local PlayerData = {}
 -- Cache de animaciones: nombre -> assetId
 local DanceCache = {}
 
--- Inicializar cache de bailes
-local function InitializeDanceCache()
-	local sources = {Animaciones.Ids, Animaciones.Recomendado, Animaciones.Vip}
-	for _, source in ipairs(sources) do
-		for _, anim in pairs(source) do
-			DanceCache[anim.Nombre] = "rbxassetid://" .. tostring(anim.ID)
-		end
-	end
-end
-InitializeDanceCache()
-
--- Inicializar cache de bailes
+-- Inicializar cache de bailes (una sola vez)
 local function InitializeDanceCache()
 	local sources = {Animaciones.Ids, Animaciones.Recomendado, Animaciones.Vip}
 	for _, source in ipairs(sources) do
@@ -762,6 +751,11 @@ local function OnPlayerRemoving(player)
 		if otherPlayer ~= player and data.Followers then
 			SafeRemoveFromArray(data.Followers, player)
 		end
+	end
+
+	-- Limpiar broadcasts pendientes de este jugador
+	if PendingBroadcasts[player] then
+		PendingBroadcasts[player] = nil
 	end
 
 	-- Desconectar todas las conexiones
