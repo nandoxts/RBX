@@ -81,8 +81,8 @@ return{
 	-- VIP SERVER OWNER
 	VipServerOwner = "NonAdmin";
 
-	-- FREE ADMIN
-	FreeAdmin = "NonAdmin";
+	-- FREE ADMIN (⚠️ TESTING: Todos tienen acceso completo - CAMBIAR EN PRODUCCIÓN)
+	FreeAdmin = "Owner";
 
 	--------------| BANLAND |--------------
 	Banned = {"",0};

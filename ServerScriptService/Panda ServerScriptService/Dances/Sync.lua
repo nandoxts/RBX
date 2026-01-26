@@ -218,6 +218,30 @@ local function UpdateFollowerCount(player)
 	end)
 end
 
+-- Notificar a un jugador sobre quién lo sigue
+local function NotifyFollowers(player)
+	if not IsValidPlayer(player) then return end
+	
+	local followers = PlayerData[player].Followers
+	if #followers > 0 then
+		local followerNames = {}
+		for _, follower in ipairs(followers) do
+			if IsValidPlayer(follower) then
+				table.insert(followerNames, follower.Name)
+			end
+		end
+		
+		if #followerNames > 0 then
+			pcall(function()
+				SyncUpdate:FireClient(player, {
+					followerNotification = true,
+					followerNames = followerNames
+				})
+			end)
+		end
+	end
+end
+
 --------------------------------------------------------------------------------
 -- SISTEMA DE ANIMACIONES
 --------------------------------------------------------------------------------
@@ -535,6 +559,9 @@ local function Follow(follower, leader)
 			PlayAnimationRemote:FireClient(follower, "playAnim", animName)
 		end)
 	end
+	
+	-- 🔔 NOTIFICAR al líder que tiene un nuevo seguidor
+	NotifyFollowers(leader)
 
 	return true
 end
@@ -643,14 +670,11 @@ local function OnCharacterAdded(character)
 	local player = Players:GetPlayerFromCharacter(character)
 	if not player or not PlayerData[player] then return end
 
-	-- LIMPIAR SINCRONIZACIÓN DEL CHARACTER ANTERIOR INMEDIATAMENTE
-	-- Esto asegura que si el jugador es seguidor de alguien, se quite
-	-- de su lista de seguidores cuando hace respawn/LoadCharacter
-	if PlayerData[player].Following then
-		Unfollow(player)
-	end
+	-- 🔄 IMPORTANTE: GUARDAR estado de sync ANTES de limpiar
+	local wasFollowing = PlayerData[player].Following
+	local myFollowers = ShallowCopy(PlayerData[player].Followers)
 
-	-- Limpiar referencias stale en TODOS los demás jugadores
+	-- LIMPIAR referencias stale en TODOS los demás jugadores
 	-- (previene que la animación se propague al nuevo character)
 	for otherPlayer, data in pairs(PlayerData) do
 		if otherPlayer ~= player and data and data.Followers then
@@ -720,6 +744,27 @@ local function OnCharacterAdded(character)
 			if PlayerData[player] then
 				table.insert(PlayerData[player].Connections, diedConnection)
 			end
+		end
+		
+		--  RESTAURAR sync después del respawn/;char
+		task.wait(0.5) -- Esperar a que el character esté completamente cargado
+		
+		if not IsValidPlayer(player) then return end
+		
+		-- Restaurar mis seguidores
+		PlayerData[player].Followers = myFollowers
+		UpdateFollowerCount(player)
+		
+		-- Si estaba siguiendo a alguien, RE-SINCRONIZAR
+		if wasFollowing and IsValidPlayer(wasFollowing) then
+			-- Re-establecer la sincronización
+			Follow(player, wasFollowing)
+			print("[EmotesSync] ", player.Name, " re-sincronizado con", wasFollowing.Name, "después de respawn")
+		end
+		
+		-- Notificar a mis seguidores que sigo disponible
+		if #myFollowers > 0 then
+			NotifyFollowers(player)
 		end
 	end)
 end

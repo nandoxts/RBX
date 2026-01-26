@@ -146,8 +146,15 @@ local PlayerConnections = {}
 
 -- Manejar cuando un jugador hace respawn (comando ;re) o cambia personaje (;char)
 local function OnCharacterAdded(player, character)
+	-- Validar que el jugador sigue siendo válido
+	if not player or player.Parent ~= Players then return end
+	if not character or character.Parent == nil then return end
+	
 	-- Esperar a que el character se cargue completamente
 	task.wait(0.5)
+
+	-- Validar de nuevo después de esperar
+	if not player or player.Parent ~= Players then return end
 
 	-- Si este jugador es líder, notificar al cliente para recrear efectos
 	if CurrentDanceLeaders[player] then
@@ -161,6 +168,9 @@ end
 -- Conectar cambios en Sync.lua
 -- Esperamos que Sync.lua actualice el atributo "followers" cuando hay cambios
 local function OnPlayerAdded(player)
+	-- Validar que el jugador es válido
+	if not player or player.Parent ~= Players then return end
+	
 	-- Escuchar cambios en el atributo "followers" (que Sync.lua actualiza)
 	local attrConnection = player:GetAttributeChangedSignal("followers"):Connect(function()
 		CheckDanceLeaders()
@@ -174,7 +184,7 @@ local function OnPlayerAdded(player)
 	end)
 	table.insert(PlayerConnections[player], charConnection)
 
-	-- Si ya tiene character, procesarlo
+	-- Si ya tiene character, procesarlo (con validación)
 	if player.Character then
 		OnCharacterAdded(player, player.Character)
 	end

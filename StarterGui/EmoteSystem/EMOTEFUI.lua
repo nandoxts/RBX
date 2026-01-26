@@ -814,6 +814,26 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 	TrackGlobalConnection(SyncUpdate.OnClientEvent:Connect(function(payload)
 		if not payload then return end
 		
+		--  NOTIFICACIÓN DE SEGUIDORES
+		if payload.followerNotification and payload.followerNames then
+			local message = ""
+			if #payload.followerNames == 1 then
+				message = payload.followerNames[1] .. " te está siguiendo"
+			else
+				message = #payload.followerNames .. " personas te siguen"
+			end
+			
+			-- Mostrar notificación usando el método correcto
+			if NotificationSystem then
+				pcall(function()
+					NotificationSystem:Info("Seguidores", message, 4)
+				end)
+			else
+				warn("[EmotesUI] NotificationSystem no disponible")
+			end
+			return -- No procesar más si es una notificación
+		end
+		
 		-- Mostrar/ocultar overlay de sync
 		if payload.isSynced ~= nil then
 			SetSyncOverlay(payload.isSynced, payload.leaderName)
