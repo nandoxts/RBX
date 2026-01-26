@@ -898,11 +898,6 @@ Players.PlayerAdded:Connect(function(player)
 				return GamepassManager.HasGamepass(player, Configuration.VIP)
 			end
 
-			-- Verificar si es admin alto
-			local function isHighAdmin()
-				return ColorEffects.hasPermission(player, Configuration.GroupID, Configuration.ALLOWED_RANKS_OWS)
-			end
-
 			if korblox and checkVIP() then
 				handleAppearanceCommand(player, "korblox")
 
@@ -915,7 +910,7 @@ Players.PlayerAdded:Connect(function(player)
 					equipAccessory(character, tonumber(id))
 				end
 
-			elseif particleCommand and (hasCommands or isHighAdmin()) then
+			elseif particleCommand and hasCommands then
 				handleParticleCommand(player, character, particleCommand)
 
 			elseif sizeCommand and hasCommands then

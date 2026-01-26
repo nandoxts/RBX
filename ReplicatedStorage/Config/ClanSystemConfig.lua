@@ -188,15 +188,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "🔥",
 		clanColor = {255, 69, 0}, -- Color sugerido (naranja)
 	},
-	{
-		clanName = "ETA",
-		ownerId = 9167247137,
-		clanTag = "ETA",
-		clanLogo ="rbxassetid://139899084429788",
-		descripcion = "Entrelazados todos somos una alianza",
-		clanEmoji = "⚔️",
-		clanColor = {0, 0, 255}, -- Azul
-	},
+
 	{
 		clanName = "King of Darkness",
 		ownerId = 8109061566, -- Asignar ownerId
@@ -216,15 +208,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "😹",
 		clanColor = {34, 177, 76}, -- Verde elegante
 	},
-	{
-		clanName = "DZN",
-		ownerId = 7904861114,
-		clanTag = "DZN",
-		clanLogo = "rbxassetid://134988933629013",
-		descripcion = "Clan DZN",
-		clanEmoji = "👑",
-		clanColor = {0, 122, 255}, -- Azul
-	},
+
 	{
 		clanName = "Supreme Legacy",
 		ownerId = 9764396115,
@@ -242,6 +226,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		descripcion = "solo para sabios",
 		clanEmoji = "🔝",
 		clanColor = {151, 0, 0}, -- rojo
+	},
+	{
+		clanName = "Kings De Zona",
+		ownerId = 8771639155,
+		clanTag = "KDZ",
+		clanLogo = "rbxassetid://87112894255587",
+		descripcion = "Unión, lealtad y amistad",
+		clanEmoji = "💎",
+		clanColor = {0, 206, 209}, -- Azul celeste
 	},
 	{
 		clanName = "VIP",
