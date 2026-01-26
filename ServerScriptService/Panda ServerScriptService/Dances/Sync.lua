@@ -413,17 +413,47 @@ local function PropagateToFollowerChain(followers, animId, animName, timePos, sp
 	end
 end
 
--- Detener animaciones de todos los seguidores
-local function StopFollowersAnimations(leader)
+-- Detener animaciones de todos los seguidores (y opcionalmente desincronizarlos)
+local function StopFollowersAnimations(leader, alsoUnsync)
 	if not IsValidPlayer(leader) then return end
 
 	local allFollowers = GetAllFollowers(leader)
 
 	for _, follower in ipairs(allFollowers) do
 		-- Validar que el seguidor sigue siendo válido
-		if IsValidPlayer(follower) and CanAnimate(follower) then
-			StopPlayerAnimation(follower)
-			NotifyClient(follower, nil)
+		if IsValidPlayer(follower) then
+			if alsoUnsync then
+				-- Limpiar el estado de sincronización cuando el líder se sale
+				if PlayerData[follower] then
+					PlayerData[follower].Following = nil
+					
+					-- ACTUALIZAR atributo "following" para DanceLeaderSystem
+					pcall(function()
+						follower:SetAttribute("following", nil)
+					end)
+				end
+			end
+
+			-- Detener animación si existe
+			if CanAnimate(follower) then
+				StopPlayerAnimation(follower)
+			end
+
+			-- ENVIAR notificación al cliente
+			if alsoUnsync then
+				-- Cuando se desincroniza, avisar que no hay más sync
+				pcall(function()
+					SyncUpdate:FireClient(follower, { 
+						isSynced = false, 
+						leaderName = nil, 
+						animationName = nil, 
+						speed = nil 
+					})
+				end)
+			else
+				-- Cuando solo se detiene, usar NotifyClient normal
+				NotifyClient(follower, nil)
+			end
 		end
 	end
 end
@@ -803,9 +833,11 @@ end
 local function OnPlayerRemoving(player)
 	if not PlayerData[player] then return end
 
-	-- Detener mi animación y notificar seguidores
+	-- Desincronizar a TODOS los seguidores (detener animaciones + limpiar sync + notificar)
+	StopFollowersAnimations(player, true)
+
+	-- Detener mi animación
 	StopPlayerAnimation(player)
-	StopFollowersAnimations(player)
 
 	-- Dejar de seguir a mi líder
 	Unfollow(player)

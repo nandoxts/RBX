@@ -12,6 +12,22 @@ local Configuration = require(ServerScriptService.Configuration)
 local GamepassManager = require(ServerScriptService["Gamepass Gifting"].GamepassManager)
 local ColorEffects = require(ServerScriptService.Effects.ColorEffectsModule)
 
+-- ClanData para obtener información del clan
+local ClanData = nil
+pcall(function()
+	local serverStorage = game:GetService("ServerStorage")
+	local systems = serverStorage:FindFirstChild("Systems")
+	if systems then
+		local clanSystem = systems:FindFirstChild("ClanSystem")
+		if clanSystem then
+			local clanDataModule = clanSystem:FindFirstChild("ClanData")
+			if clanDataModule then
+				ClanData = require(clanDataModule)
+			end
+		end
+	end
+end)
+
 --> Constants
 local EFFECT_PARTS = {"Head", "LeftLowerArm", "RightLowerArm", "LeftLowerLeg", "RightLowerLeg"}
 local BLACKLISTED_USERIDS = Configuration.OWS
@@ -584,32 +600,83 @@ end
 -----------------------------------------------------------------------------------
 
 local function handleParticleCommand(player, character, textureId)
+	print("[PARTICLE] Iniciando handleParticleCommand para", player.Name, "con textureId:", textureId)
+	
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
+	if not humanoidRootPart then 
+		warn("[PARTICLE] ERROR: HumanoidRootPart no encontrado para", player.Name)
+		return 
+	end
+	print("[PARTICLE] HumanoidRootPart encontrado")
+
+	local isClan = string.lower(textureId) == "clan"
+	local textureIdToUse = textureId
+	print("[PARTICLE] isClan:", isClan, "| ClanData disponible:", ClanData ~= nil)
+
+	-- Si es clan, obtener el logo del clan
+	if isClan and ClanData then
+		print("[PARTICLE] Buscando clan del jugador...")
+		local playerClan = ClanData:GetPlayerClan(player.UserId)
+		if playerClan and playerClan.clanId then
+			print("[PARTICLE] Clan encontrado:", playerClan.clanId)
+			local clanData = ClanData:GetClan(playerClan.clanId)
+			if clanData and clanData.clanLogo then
+				textureIdToUse = clanData.clanLogo:gsub("rbxassetid://", "")
+				print("[PARTICLE] Logo del clan:", textureIdToUse)
+			else
+				warn("[PARTICLE] WARN: Clan data o logo no encontrados")
+			end
+		else
+			warn("[PARTICLE] WARN: Jugador no está en un clan")
+		end
+	end
 
 	local existingParticleEmitter = humanoidRootPart:FindFirstChild("CommandParticles")
 	local particleEmitter = existingParticleEmitter
 
 	if not particleEmitter then
+		print("[PARTICLE] ParticleEmitter no existe, buscando template...")
 		local commandParticles = ServerStorage:FindFirstChild("Commands")
 		if commandParticles then
+			print("[PARTICLE] Carpeta Commands encontrada")
 			commandParticles = commandParticles:FindFirstChild("CommandParticles")
+			if commandParticles then
+				print("[PARTICLE] Template CommandParticles encontrado, clonando...")
+				particleEmitter = commandParticles:Clone()
+				particleEmitter.Name = "CommandParticles"
+				particleEmitter.Parent = humanoidRootPart
+				print("[PARTICLE] ParticleEmitter agregado a HumanoidRootPart")
+			else
+				warn("[PARTICLE] WARN: Template CommandParticles no encontrado")
+				return
+			end
+		else
+			warn("[PARTICLE] WARN: Carpeta Commands no encontrada en ServerStorage")
+			return
 		end
-		if not commandParticles then return end
-
-		particleEmitter = commandParticles:Clone()
-		particleEmitter.Parent = humanoidRootPart
+	else
+		print("[PARTICLE] ParticleEmitter ya existe, reutilizando...")
 	end
 
-	local success = pcall(function()
-		particleEmitter.Texture = "rbxassetid://" .. textureId
+	-- Configurar propiedades para que reboten alrededor del cuerpo
+	particleEmitter.Size = NumberSequence.new(0.35, 0.5)
+	particleEmitter.Lifetime = NumberRange.new(2, 3)
+	particleEmitter.Rate = 20
+	particleEmitter.Speed = NumberRange.new(2, 4)
+	particleEmitter.Drag = 1.5
+	particleEmitter.VelocityInheritance = 0.1
+	particleEmitter.Acceleration = Vector3.new(0, 0, 0)
+	particleEmitter.SpreadAngle = Vector2.new(180, 180)
+	particleEmitter.Transparency = NumberSequence.new(0.2, 0.5, 1)
+
+	pcall(function()
+		local fullTexture = "rbxassetid://" .. textureIdToUse
+		particleEmitter.Texture = fullTexture
+		print("[PARTICLE] Texture asignado:", fullTexture)
 	end)
 
-	if not success then
-		particleEmitter.Texture = "http://www.roblox.com/asset/?id=73535722381719"
-	end
-
 	particleEmitter.Enabled = true
+	print("[PARTICLE] ParticleEmitter habilitado y funcionando")
 end
 
 local function handleCloneCommand(player, targetName)
@@ -808,16 +875,16 @@ Players.PlayerAdded:Connect(function(player)
 			-- Función helper para parsear y aplicar efectos con soporte a target
 			local function applyEffectWithTarget(effectType, input, commandKey)
 				if not input then return end
-				
+
 				local parts = {}
 				for part in string.gmatch(input, "%S+") do
 					table.insert(parts, part)
 				end
-				
+
 				local colorToken = parts[1]
 				local targetName = parts[2]
 				local color = resolveColor(colorToken)
-				
+
 				if targetName then
 					local targetPlayer = Players:FindFirstChild(targetName)
 					if targetPlayer then
@@ -844,7 +911,7 @@ Players.PlayerAdded:Connect(function(player)
 					clearPlayerEffect(player)
 				elseif destacado then
 					applyEffectWithTarget("destacar", destacado, "destacar")
-			end
+				end
 			end
 
 			-- VIP COMMANDS
