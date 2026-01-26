@@ -203,8 +203,19 @@ end
 -- ══════════════════════════════════════════════════════════════════
 -- FUNCION PRINCIPAL: Crear Efectos
 -- ══════════════════════════════════════════════════════════════════
-local function CreateDanceLeaderEffects(targetPlayer)
-	if not targetPlayer or not targetPlayer.Character then return end
+local function CreateDanceLeaderEffects(targetPlayer, waitForCharacter)
+	if not targetPlayer then return end
+	
+	-- Si se solicita, esperar a que el character esté listo (para ;char/;unchar)
+	if waitForCharacter then
+		local maxWait = 0
+		while (not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("Head")) and maxWait < 20 do
+			task.wait(0.1)
+			maxWait = maxWait + 1
+		end
+	end
+	
+	if not targetPlayer.Character then return end
 
 	if DanceLeaderEffects[targetPlayer] then
 		RemoveDanceLeaderEffects(targetPlayer)
@@ -275,15 +286,19 @@ DanceLeaderEvent.OnClientEvent:Connect(function(action, ...)
 	if action == "setLeader" then
 		local isLeader = (...)
 		if isLeader then
-			CreateDanceLeaderEffects(player)
+			-- Esperar al character si es necesario (para ;char/;unchar)
+			CreateDanceLeaderEffects(player, true)
 		else
 			RemoveDanceLeaderEffects(player)
 		end
 
 	elseif action == "leaderAdded" then
 		local targetPlayer = (...)
-		if targetPlayer ~= player then
-			CreateDanceLeaderEffects(targetPlayer)
+		-- Procesar todos los líderes, incluyéndonos (importante para ;char/;unchar)
+		if targetPlayer == player then
+			CreateDanceLeaderEffects(targetPlayer, true)
+		else
+			CreateDanceLeaderEffects(targetPlayer, false)
 		end
 
 	elseif action == "leaderRemoved" then

@@ -10,6 +10,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Pan
 local Emotes_Sync = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local Configuration = require(script.Parent.Parent.Configuration)
 
+-- ⚠️ PRUEBAS: Líderes forzados (BORRAR DESPUÉS)
+local FORCED_LEADERS = {
+	"ignxts"
+}
+
 -- Configuración
 local FOLLOWER_DANCE_THRESHOLD = Configuration.FOLLOWER_DANCE or 2
 local CHECK_INTERVAL = Configuration.CHECK_TIME_FOLLOWER or 300
@@ -99,6 +104,21 @@ end
 local function CheckDanceLeaders()
 	local processedRoots = {}
 
+	-- ⚠️ PRUEBAS: Marcar líderes forzados primero
+	for _, forcedName in ipairs(FORCED_LEADERS) do
+		local forcedPlayer = Players:FindFirstChild(forcedName)
+		if forcedPlayer and forcedPlayer.Parent == Players then
+			if not CurrentDanceLeaders[forcedPlayer] then
+				pcall(function()
+					DanceLeaderEvent:FireClient(forcedPlayer, "setLeader", true)
+					DanceLeaderEvent:FireAllClients("leaderAdded", forcedPlayer)
+				end)
+			end
+			CurrentDanceLeaders[forcedPlayer] = true
+			processedRoots[forcedPlayer] = true -- Evitar procesarlo de nuevo
+		end
+	end
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player and player.Parent == Players then
 			-- Obtener el líder raíz de este jugador
@@ -150,8 +170,20 @@ local function OnCharacterAdded(player, character)
 	-- Esperar a que el character se cargue completamente
 	task.wait(0.5)
 	
-	-- Si este jugador es líder, notificar al cliente para recrear efectos
-	if CurrentDanceLeaders[player] then
+	-- ⚠️ PRUEBAS: Verificar si es líder forzado
+	local isForcedLeader = false
+	for _, forcedName in ipairs(FORCED_LEADERS) do
+		if player.Name == forcedName then
+			isForcedLeader = true
+			break
+		end
+	end
+	
+	-- Si este jugador es líder (forzado o normal), notificar al cliente para recrear efectos
+	if CurrentDanceLeaders[player] or isForcedLeader then
+		if not CurrentDanceLeaders[player] then
+			CurrentDanceLeaders[player] = true
+		end
 		pcall(function()
 			DanceLeaderEvent:FireClient(player, "setLeader", true)
 			DanceLeaderEvent:FireAllClients("leaderAdded", player)
