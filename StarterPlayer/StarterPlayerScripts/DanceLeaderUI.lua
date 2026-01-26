@@ -240,6 +240,35 @@ local function CreateDanceLeaderEffects(targetPlayer)
 end
 
 -- ══════════════════════════════════════════════════════════════════
+-- VERIFICAR ESTADO INICIAL (para casos de refresco)
+-- ══════════════════════════════════════════════════════════════════
+local function CheckInitialState()
+	-- Verificar si ya somos líder (útil cuando nos refrescamos con HD Admin)
+	local character = player.Character
+	if not character then return end
+	
+	-- Buscar si ya tenemos efectos de líder en el personaje
+	local hasLeaderEffects = character:FindFirstChild("DanceLeaderOutline") or 
+		(character:FindFirstChild("Head") and character.Head:FindFirstChild("DanceLeaderStarGUI"))
+	
+	if not hasLeaderEffects then
+		-- Esperar un momento a que el servidor nos notifique si somos líder
+		task.wait(1)
+		-- Nota: El servidor ahora verificará automáticamente al inicio
+	end
+end
+
+-- Ejecutar verificación inicial
+if player.Character then
+	CheckInitialState()
+end
+
+player.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	CheckInitialState()
+end)
+
+-- ══════════════════════════════════════════════════════════════════
 -- EVENTOS
 -- ══════════════════════════════════════════════════════════════════
 DanceLeaderEvent.OnClientEvent:Connect(function(action, ...)

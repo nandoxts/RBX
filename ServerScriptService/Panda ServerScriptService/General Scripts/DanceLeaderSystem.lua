@@ -145,6 +145,20 @@ end
 -- Tabla para rastrear conexiones de atributos por jugador
 local PlayerConnections = {}
 
+-- Manejar cuando un jugador hace respawn (comando ;re)
+local function OnCharacterAdded(player, character)
+	-- Esperar a que el character se cargue completamente
+	task.wait(0.5)
+	
+	-- Si este jugador es líder, notificar al cliente para recrear efectos
+	if CurrentDanceLeaders[player] then
+		pcall(function()
+			DanceLeaderEvent:FireClient(player, "setLeader", true)
+			DanceLeaderEvent:FireAllClients("leaderAdded", player)
+		end)
+	end
+end
+
 -- Conectar cambios en Sync.lua
 -- Esperamos que Sync.lua actualice el atributo "followers" cuando hay cambios
 local function OnPlayerAdded(player)
@@ -153,13 +167,29 @@ local function OnPlayerAdded(player)
 		CheckDanceLeaders()
 	end)
 
-	PlayerConnections[player] = attrConnection
+	PlayerConnections[player] = {attrConnection}
+	
+	-- Escuchar cuando el jugador hace respawn (comando ;re de HD Admin)
+	local charConnection = player.CharacterAdded:Connect(function(character)
+		OnCharacterAdded(player, character)
+	end)
+	table.insert(PlayerConnections[player], charConnection)
+	
+	-- Si ya tiene character, procesarlo
+	if player.Character then
+		OnCharacterAdded(player, player.Character)
+	end
+	
+	-- Verificar inmediatamente al conectar (para casos de refresco)
+	CheckDanceLeaders()
 end
 
 local function OnPlayerRemoving(player)
-	-- Limpiar conexión
+	-- Limpiar todas las conexiones
 	if PlayerConnections[player] then
-		pcall(function() PlayerConnections[player]:Disconnect() end)
+		for _, connection in ipairs(PlayerConnections[player]) do
+			pcall(function() connection:Disconnect() end)
+		end
 		PlayerConnections[player] = nil
 	end
 
@@ -170,6 +200,14 @@ end
 -- Eventos
 Players.PlayerAdded:Connect(OnPlayerAdded)
 Players.PlayerRemoving:Connect(OnPlayerRemoving)
+
+-- Procesar jugadores que ya están en el servidor (para refrescos)
+for _, player in ipairs(Players:GetPlayers()) do
+	OnPlayerAdded(player)
+end
+
+-- Verificar inmediatamente al inicio
+CheckDanceLeaders()
 
 -- Verificar periódicamente
 while true do
