@@ -600,34 +600,22 @@ end
 -----------------------------------------------------------------------------------
 
 local function handleParticleCommand(player, character, textureId)
-	print("[PARTICLE] Iniciando handleParticleCommand para", player.Name, "con textureId:", textureId)
-	
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then 
-		warn("[PARTICLE] ERROR: HumanoidRootPart no encontrado para", player.Name)
 		return 
 	end
-	print("[PARTICLE] HumanoidRootPart encontrado")
 
 	local isClan = string.lower(textureId) == "clan"
 	local textureIdToUse = textureId
-	print("[PARTICLE] isClan:", isClan, "| ClanData disponible:", ClanData ~= nil)
 
 	-- Si es clan, obtener el logo del clan
 	if isClan and ClanData then
-		print("[PARTICLE] Buscando clan del jugador...")
 		local playerClan = ClanData:GetPlayerClan(player.UserId)
 		if playerClan and playerClan.clanId then
-			print("[PARTICLE] Clan encontrado:", playerClan.clanId)
 			local clanData = ClanData:GetClan(playerClan.clanId)
 			if clanData and clanData.clanLogo then
 				textureIdToUse = clanData.clanLogo:gsub("rbxassetid://", "")
-				print("[PARTICLE] Logo del clan:", textureIdToUse)
-			else
-				warn("[PARTICLE] WARN: Clan data o logo no encontrados")
 			end
-		else
-			warn("[PARTICLE] WARN: Jugador no está en un clan")
 		end
 	end
 
@@ -635,33 +623,25 @@ local function handleParticleCommand(player, character, textureId)
 	local particleEmitter = existingParticleEmitter
 
 	if not particleEmitter then
-		print("[PARTICLE] ParticleEmitter no existe, buscando template...")
 		local commandParticles = ServerStorage:FindFirstChild("Commands")
 		if commandParticles then
-			print("[PARTICLE] Carpeta Commands encontrada")
 			commandParticles = commandParticles:FindFirstChild("CommandParticles")
 			if commandParticles then
-				print("[PARTICLE] Template CommandParticles encontrado, clonando...")
 				particleEmitter = commandParticles:Clone()
 				particleEmitter.Name = "CommandParticles"
 				particleEmitter.Parent = humanoidRootPart
-				print("[PARTICLE] ParticleEmitter agregado a HumanoidRootPart")
 			else
-				warn("[PARTICLE] WARN: Template CommandParticles no encontrado")
 				return
 			end
 		else
-			warn("[PARTICLE] WARN: Carpeta Commands no encontrada en ServerStorage")
 			return
 		end
-	else
-		print("[PARTICLE] ParticleEmitter ya existe, reutilizando...")
 	end
 
 	-- Configurar propiedades para que reboten alrededor del cuerpo
-	particleEmitter.Size = NumberSequence.new(0.35, 0.5)
+	particleEmitter.Size = NumberSequence.new(0.25, 0.35)
 	particleEmitter.Lifetime = NumberRange.new(2, 3)
-	particleEmitter.Rate = 20
+	particleEmitter.Rate = 15
 	particleEmitter.Speed = NumberRange.new(2, 4)
 	particleEmitter.Drag = 1.5
 	particleEmitter.VelocityInheritance = 0.1
@@ -672,11 +652,9 @@ local function handleParticleCommand(player, character, textureId)
 	pcall(function()
 		local fullTexture = "rbxassetid://" .. textureIdToUse
 		particleEmitter.Texture = fullTexture
-		print("[PARTICLE] Texture asignado:", fullTexture)
 	end)
 
 	particleEmitter.Enabled = true
-	print("[PARTICLE] ParticleEmitter habilitado y funcionando")
 end
 
 local function handleCloneCommand(player, targetName)
@@ -920,6 +898,11 @@ Players.PlayerAdded:Connect(function(player)
 				return GamepassManager.HasGamepass(player, Configuration.VIP)
 			end
 
+			-- Verificar si es admin alto
+			local function isHighAdmin()
+				return ColorEffects.hasPermission(player, Configuration.GroupID, Configuration.ALLOWED_RANKS_OWS)
+			end
+
 			if korblox and checkVIP() then
 				handleAppearanceCommand(player, "korblox")
 
@@ -932,7 +915,7 @@ Players.PlayerAdded:Connect(function(player)
 					equipAccessory(character, tonumber(id))
 				end
 
-			elseif particleCommand and hasCommands then
+			elseif particleCommand and (hasCommands or isHighAdmin()) then
 				handleParticleCommand(player, character, particleCommand)
 
 			elseif sizeCommand and hasCommands then
