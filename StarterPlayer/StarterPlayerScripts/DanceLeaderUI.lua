@@ -1,9 +1,8 @@
 --[[
-════════════════════════════════════════════════════════════════════
-    DANCE LEADER EFFECTS - MINIMAL v5.0
-    - Estrella GUI estatica (sin rotacion, sin scale)
-    - Borde/Outline alrededor del jugador
-════════════════════════════════════════════════════════════════════
+    Dance Leader System - CLIENT
+
+    by ignxts
+    25/01/2026
 ]]
 
 local Players = game:GetService("Players")
@@ -205,7 +204,7 @@ end
 -- ══════════════════════════════════════════════════════════════════
 local function CreateDanceLeaderEffects(targetPlayer, waitForCharacter)
 	if not targetPlayer then return end
-	
+
 	-- Si se solicita, esperar a que el character esté listo (para ;char/;unchar)
 	if waitForCharacter then
 		local maxWait = 0
@@ -214,7 +213,7 @@ local function CreateDanceLeaderEffects(targetPlayer, waitForCharacter)
 			maxWait = maxWait + 1
 		end
 	end
-	
+
 	if not targetPlayer.Character then return end
 
 	if DanceLeaderEffects[targetPlayer] then
@@ -257,11 +256,11 @@ local function CheckInitialState()
 	-- Verificar si ya somos líder (útil cuando nos refrescamos con HD Admin)
 	local character = player.Character
 	if not character then return end
-	
+
 	-- Buscar si ya tenemos efectos de líder en el personaje
 	local hasLeaderEffects = character:FindFirstChild("DanceLeaderOutline") or 
 		(character:FindFirstChild("Head") and character.Head:FindFirstChild("DanceLeaderStarGUI"))
-	
+
 	if not hasLeaderEffects then
 		-- Esperar un momento a que el servidor nos notifique si somos líder
 		task.wait(1)
