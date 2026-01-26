@@ -28,7 +28,7 @@ local Remotes = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local function GetOrCreateRemoteEvent(parent, name)
 	local existing = parent:FindFirstChild(name)
 	if existing then return existing end
-	
+
 	local remote = Instance.new("RemoteEvent")
 	remote.Name = name
 	remote.Parent = parent
@@ -39,7 +39,7 @@ end
 local function GetOrCreateRemoteFunction(parent, name)
 	local existing = parent:FindFirstChild(name)
 	if existing then return existing end
-	
+
 	local remote = Instance.new("RemoteFunction")
 	remote.Name = name
 	remote.Parent = parent
@@ -211,16 +211,11 @@ end
 -- Actualizar atributo de followers en el jugador (para Dance Leader System)
 local function UpdateFollowerCount(player)
 	if not IsValidPlayer(player) then return end
-	
+
 	local followerCount = #PlayerData[player].Followers
 	pcall(function()
 		player:SetAttribute("followers", followerCount)
 	end)
-	
-	-- DEBUG
-	if followerCount > 0 then
-		print("[Sync] " .. player.Name .. " ahora tiene " .. followerCount .. " seguidores")
-	end
 end
 
 --------------------------------------------------------------------------------
@@ -323,7 +318,7 @@ local function StopPlayerAnimation(player)
 		data.Animation = nil
 	end
 	data.AnimationName = nil
-	
+
 	-- NOTA: NO enviamos SyncUpdate aquí porque puede interferir con Follow()
 	-- El estado de sync se maneja en Follow(), Unfollow() y NotifyClient()
 end
@@ -430,6 +425,11 @@ local function Unfollow(player)
 
 	data.Following = nil
 
+	-- ACTUALIZAR atributo "following" para DanceLeaderSystem
+	pcall(function()
+		player:SetAttribute("following", nil)
+	end)
+
 	-- Actualizar indicador visual
 	-- Nota: dejamos de usar SyncOnOff/atributos en el character; el cliente recibirá el estado por SyncUpdate
 
@@ -471,11 +471,16 @@ local function Follow(follower, leader)
 	-- Establecer nuevo líder
 	followerData.Following = leader
 
+	-- ACTUALIZAR atributo "following" para DanceLeaderSystem
+	pcall(function()
+		follower:SetAttribute("following", leader.Name)
+	end)
+
 	-- Agregar a la lista de seguidores del nuevo líder
 	if not table.find(PlayerData[leader].Followers, follower) then
 		table.insert(PlayerData[leader].Followers, follower)
 	end
-	
+
 	-- ACTUALIZAR atributo del nuevo líder para que Dance Leader System se entere
 	UpdateFollowerCount(leader)
 
@@ -487,7 +492,7 @@ local function Follow(follower, leader)
 	local animName = nil
 	local speed = nil
 	local hasAnimation = false
-	
+
 	if rootLeader and IsValidPlayer(rootLeader) then
 		local rootData = PlayerData[rootLeader]
 		if rootData.Animation then
@@ -506,10 +511,10 @@ local function Follow(follower, leader)
 			end
 		end
 	end
-	
+
 	-- ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
 	local leaderUserId = rootLeader and rootLeader.UserId or leader.UserId
-	
+
 	local success = pcall(function()
 		SyncUpdate:FireClient(follower, { 
 			isSynced = true, 
@@ -519,11 +524,11 @@ local function Follow(follower, leader)
 			speed = speed 
 		})
 	end)
-	
+
 	if not success then
 		warn("[EmotesSync] Error al enviar SyncUpdate a", follower.Name)
 	end
-	
+
 	-- También enviar PlayAnimationRemote si hay animación activa
 	if hasAnimation and animName then
 		pcall(function()
@@ -644,7 +649,7 @@ local function OnCharacterAdded(character)
 	if PlayerData[player].Following then
 		Unfollow(player)
 	end
-	
+
 	-- Limpiar referencias stale en TODOS los demás jugadores
 	-- (previene que la animación se propague al nuevo character)
 	for otherPlayer, data in pairs(PlayerData) do

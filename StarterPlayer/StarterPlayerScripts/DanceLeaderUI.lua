@@ -1,187 +1,274 @@
 --[[
-DANCE LEADER UI CLIENT - MEJORADO
-Muestra un billboard/UI encima del jugador cuando es Dance Leader
+════════════════════════════════════════════════════════════════════
+    DANCE LEADER EFFECTS - MINIMAL v5.0
+    - Estrella GUI estatica (sin rotacion, sin scale)
+    - Borde/Outline alrededor del jugador
+════════════════════════════════════════════════════════════════════
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
 local Emotes_Sync = ReplicatedStorage:WaitForChild("Emotes_Sync")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
 
--- Esperar a que el RemoteEvent esté disponible
+-- ══════════════════════════════════════════════════════════════════
+-- CONFIGURACION
+-- ══════════════════════════════════════════════════════════════════
+local CONFIG = {
+	-- Estrella
+	STAR_HEIGHT_OFFSET = 5,
+	STAR_SIZE = UDim2.new(2.5, 0, 2.5, 0),
+	STAR_COLOR = Color3.fromRGB(255, 230, 100),
+	STAR_GLOW_COLOR = Color3.fromRGB(255, 200, 50),
+
+	-- Borde del jugador
+	OUTLINE_COLOR = Color3.fromRGB(255, 215, 0),
+	OUTLINE_TRANSPARENCY = 0,
+	FILL_TRANSPARENCY = 0.70,
+
+	-- Sparkles
+	SPARKLE_COLOR = Color3.fromRGB(255, 230, 150),
+	SPARKLE_RATE = 8,
+
+	MAX_DISTANCE = 250,
+}
+
+-- ══════════════════════════════════════════════════════════════════
+-- ASSETS
+-- ══════════════════════════════════════════════════════════════════
+local ASSETS = {
+	STAR_IMAGE = "rbxassetid://129709815461039",
+	STAR_GLOW = "rbxassetid://5864017498",
+	SPARKLE_TEXTURE = "rbxassetid://2273224484",
+}
+
+-- ══════════════════════════════════════════════════════════════════
+-- ESPERAR REMOTE EVENT
+-- ══════════════════════════════════════════════════════════════════
 local DanceLeaderEvent
-local maxWaitTime = 10  -- Esperar máximo 10 segundos
+local maxWaitTime = 10
 local elapsedTime = 0
 
 while not DanceLeaderEvent and elapsedTime < maxWaitTime do
 	DanceLeaderEvent = Emotes_Sync:FindFirstChild("DanceLeaderEvent")
 	if DanceLeaderEvent then break end
-	wait(0.2)
+	task.wait(0.2)
 	elapsedTime = elapsedTime + 0.2
 end
 
 if not DanceLeaderEvent then
-	warn("[DanceLeaderUI] No se pudo encontrar DanceLeaderEvent después de " .. maxWaitTime .. " segundos")
-	warn("[DanceLeaderUI] Verificar que DanceLeaderEvent está en Panda ReplicatedStorage > Emotes_Sync")
+	warn("[DanceLeaderEffects] No se encontro DanceLeaderEvent")
 	return
 end
 
--- Billboard cache para líderes de danza
-local DanceLeaderBillboards = {}
+-- ══════════════════════════════════════════════════════════════════
+-- CACHE DE EFECTOS
+-- ══════════════════════════════════════════════════════════════════
+local DanceLeaderEffects = {}
 
--- Crear billboard para un Dance Leader
-local function CreateDanceLeaderBillboard(targetPlayer)
-if not targetPlayer or not targetPlayer.Character then return end
+-- ══════════════════════════════════════════════════════════════════
+-- FUNCION: Crear Estrella GUI Estatica
+-- ══════════════════════════════════════════════════════════════════
+local function CreateStarGUI(character)
+	local head = character:FindFirstChild("Head")
+	if not head then return nil end
 
--- Si ya existe, removerlo
-if DanceLeaderBillboards[targetPlayer] then
-if DanceLeaderBillboards[targetPlayer].connection then
-DanceLeaderBillboards[targetPlayer].connection:Disconnect()
-end
-if DanceLeaderBillboards[targetPlayer].billboard then
-DanceLeaderBillboards[targetPlayer].billboard:Destroy()
-end
-end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DanceLeaderStarGUI"
+	billboard.Size = CONFIG.STAR_SIZE
+	billboard.StudsOffset = Vector3.new(0, CONFIG.STAR_HEIGHT_OFFSET, 0)
+	billboard.AlwaysOnTop = false
+	billboard.MaxDistance = CONFIG.MAX_DISTANCE
+	billboard.LightInfluence = 0
+	billboard.Parent = head
 
-local character = targetPlayer.Character
-local head = character:FindFirstChild("Head")
-if not head then return end
+	-- Glow exterior
+	local glowOuter = Instance.new("ImageLabel")
+	glowOuter.Name = "GlowOuter"
+	glowOuter.Size = UDim2.new(2.5, 0, 2.5, 0)
+	glowOuter.Position = UDim2.new(0.5, 0, 0.5, 0)
+	glowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+	glowOuter.BackgroundTransparency = 1
+	glowOuter.Image = ASSETS.STAR_GLOW
+	glowOuter.ImageColor3 = CONFIG.STAR_GLOW_COLOR
+	glowOuter.ImageTransparency = 0.4
+	glowOuter.Parent = billboard
 
--- Crear BillboardGui
-local billboard = Instance.new("BillboardGui")
-billboard.Name = "DanceLeaderBillboard"
-billboard.Size = UDim2.new(5, 0, 3, 0)
-billboard.MaxDistance = 250
-billboard.StudsOffset = Vector3.new(0, 4, 0)
-billboard.Parent = head
+	-- Glow medio
+	local glowMid = Instance.new("ImageLabel")
+	glowMid.Name = "GlowMid"
+	glowMid.Size = UDim2.new(1.8, 0, 1.8, 0)
+	glowMid.Position = UDim2.new(0.5, 0, 0.5, 0)
+	glowMid.AnchorPoint = Vector2.new(0.5, 0.5)
+	glowMid.BackgroundTransparency = 1
+	glowMid.Image = ASSETS.STAR_GLOW
+	glowMid.ImageColor3 = CONFIG.STAR_COLOR
+	glowMid.ImageTransparency = 0.2
+	glowMid.Parent = billboard
 
--- Frame principal con fondo degradado
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainContainer"
-mainFrame.Size = UDim2.new(1, 0, 1, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-mainFrame.BackgroundTransparency = 0.15
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = billboard
+	-- Estrella principal
+	local starImage = Instance.new("ImageLabel")
+	starImage.Name = "StarMain"
+	starImage.Size = UDim2.new(1, 0, 1, 0)
+	starImage.Position = UDim2.new(0.5, 0, 0.5, 0)
+	starImage.AnchorPoint = Vector2.new(0.5, 0.5)
+	starImage.BackgroundTransparency = 1
+	starImage.Image = ASSETS.STAR_IMAGE
+	starImage.ImageColor3 = CONFIG.STAR_COLOR
+	starImage.Parent = billboard
 
--- Esquinas redondeadas
-local cornerRadius = Instance.new("UICorner")
-cornerRadius.CornerRadius = UDim.new(0, 12)
-cornerRadius.Parent = mainFrame
+	-- Centro brillante
+	local centerGlow = Instance.new("ImageLabel")
+	centerGlow.Name = "CenterGlow"
+	centerGlow.Size = UDim2.new(0.4, 0, 0.4, 0)
+	centerGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+	centerGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+	centerGlow.BackgroundTransparency = 1
+	centerGlow.Image = ASSETS.STAR_GLOW
+	centerGlow.ImageColor3 = Color3.fromRGB(255, 255, 255)
+	centerGlow.Parent = billboard
 
--- Borde exterior dorado
-local outerStroke = Instance.new("UIStroke")
-outerStroke.Color = Color3.fromRGB(255, 215, 0)
-outerStroke.Thickness = 3
-outerStroke.Transparency = 0.1
-outerStroke.Parent = mainFrame
-
--- Label de corona (emoji)
-local crownLabel = Instance.new("TextLabel")
-crownLabel.Name = "Crown"
-crownLabel.Size = UDim2.new(1, 0, 0.25, 0)
-crownLabel.Position = UDim2.new(0, 0, 0, 0)
-crownLabel.BackgroundTransparency = 1
-crownLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-crownLabel.TextSize = 18
-crownLabel.Font = Enum.Font.GothamBold
-crownLabel.Text = "���"
-crownLabel.Parent = mainFrame
-
--- Label principal
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, 0, 0.4, 0)
-titleLabel.Position = UDim2.new(0, 0, 0.2, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 150)
-titleLabel.TextSize = 14
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Text = "DANCE LEADER"
-titleLabel.TextScaled = true
-titleLabel.Parent = mainFrame
-
--- Label de nombre
-local nameLabel = Instance.new("TextLabel")
-nameLabel.Name = "Name"
-nameLabel.Size = UDim2.new(1, -4, 0.35, 0)
-nameLabel.Position = UDim2.new(0, 2, 0.6, 0)
-nameLabel.BackgroundTransparency = 1
-nameLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-nameLabel.TextSize = 12
-nameLabel.Font = Enum.Font.Gotham
-nameLabel.Text = targetPlayer.Name
-nameLabel.TextScaled = true
-nameLabel.TextWrapped = true
-nameLabel.Parent = mainFrame
-
--- Efecto de escala suave (pulse)
-local scaleValue = 1
-local scaleDirection = 1
-local scaleConnection = RunService.RenderStepped:Connect(function()
-scaleValue = scaleValue + (0.008 * scaleDirection)
-if scaleValue >= 1.1 then
-scaleDirection = -1
-elseif scaleValue <= 0.95 then
-scaleDirection = 1
-end
-mainFrame.Size = UDim2.new(scaleValue, 0, scaleValue, 0)
-end)
-
-DanceLeaderBillboards[targetPlayer] = {
-billboard = billboard,
-connection = scaleConnection
-}
+	return billboard
 end
 
--- Remover billboard de un Dance Leader
-local function RemoveDanceLeaderBillboard(targetPlayer)
-if DanceLeaderBillboards[targetPlayer] then
-local data = DanceLeaderBillboards[targetPlayer]
-if data.connection then
-data.connection:Disconnect()
-end
-if data.billboard then
-data.billboard:Destroy()
-end
-DanceLeaderBillboards[targetPlayer] = nil
-end
+-- ══════════════════════════════════════════════════════════════════
+-- FUNCION: Crear Borde del Jugador
+-- ══════════════════════════════════════════════════════════════════
+local function CreatePlayerOutline(character)
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "DanceLeaderOutline"
+	highlight.Adornee = character
+	highlight.FillColor = CONFIG.OUTLINE_COLOR
+	highlight.FillTransparency = CONFIG.FILL_TRANSPARENCY
+	highlight.OutlineColor = CONFIG.OUTLINE_COLOR
+	highlight.OutlineTransparency = CONFIG.OUTLINE_TRANSPARENCY
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.Parent = character
+
+	return highlight
 end
 
--- Conectar al evento del servidor
+-- ══════════════════════════════════════════════════════════════════
+-- FUNCION: Crear Sparkles
+-- ══════════════════════════════════════════════════════════════════
+local function CreateSparkles(character)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return nil end
+
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Name = "DanceLeaderSparkles"
+	sparkles.Texture = ASSETS.SPARKLE_TEXTURE
+	sparkles.Rate = CONFIG.SPARKLE_RATE
+	sparkles.Lifetime = NumberRange.new(1, 2)
+	sparkles.Speed = NumberRange.new(0.5, 1.5)
+	sparkles.SpreadAngle = Vector2.new(360, 360)
+	sparkles.RotSpeed = NumberRange.new(-45, 45)
+	sparkles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(0.3, 0.35),
+		NumberSequenceKeypoint.new(0.7, 0.25),
+		NumberSequenceKeypoint.new(1, 0)
+	})
+	sparkles.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(0.2, 0.1),
+		NumberSequenceKeypoint.new(0.7, 0.4),
+		NumberSequenceKeypoint.new(1, 1)
+	})
+	sparkles.LightEmission = 1
+	sparkles.LightInfluence = 0
+	sparkles.Color = ColorSequence.new(CONFIG.SPARKLE_COLOR)
+	sparkles.Parent = hrp
+
+	return sparkles
+end
+
+-- ══════════════════════════════════════════════════════════════════
+-- FUNCION: Remover Efectos
+-- ══════════════════════════════════════════════════════════════════
+local function RemoveDanceLeaderEffects(targetPlayer)
+	local data = DanceLeaderEffects[targetPlayer]
+	if not data then return end
+
+	for _, instance in ipairs(data.instances) do
+		if instance and instance.Parent then
+			instance:Destroy()
+		end
+	end
+
+	DanceLeaderEffects[targetPlayer] = nil
+end
+
+-- ══════════════════════════════════════════════════════════════════
+-- FUNCION PRINCIPAL: Crear Efectos
+-- ══════════════════════════════════════════════════════════════════
+local function CreateDanceLeaderEffects(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+
+	if DanceLeaderEffects[targetPlayer] then
+		RemoveDanceLeaderEffects(targetPlayer)
+	end
+
+	local character = targetPlayer.Character
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+
+	local effectsData = {
+		instances = {}
+	}
+
+	-- Crear Estrella
+	local starBillboard = CreateStarGUI(character)
+	if starBillboard then
+		table.insert(effectsData.instances, starBillboard)
+	end
+
+	-- Crear Borde
+	local highlight = CreatePlayerOutline(character)
+	if highlight then
+		table.insert(effectsData.instances, highlight)
+	end
+
+	-- Crear Sparkles
+	local sparkles = CreateSparkles(character)
+	if sparkles then
+		table.insert(effectsData.instances, sparkles)
+	end
+
+	DanceLeaderEffects[targetPlayer] = effectsData
+end
+
+-- ══════════════════════════════════════════════════════════════════
+-- EVENTOS
+-- ══════════════════════════════════════════════════════════════════
 DanceLeaderEvent.OnClientEvent:Connect(function(action, ...)
-if action == "setLeader" then
-local isLeader = (...)
-if isLeader then
-CreateDanceLeaderBillboard(player)
-else
-RemoveDanceLeaderBillboard(player)
-end
-elseif action == "leaderAdded" then
-local targetPlayer = (...)
-if targetPlayer ~= player then
-CreateDanceLeaderBillboard(targetPlayer)
-end
-elseif action == "leaderRemoved" then
-local targetPlayer = (...)
-RemoveDanceLeaderBillboard(targetPlayer)
-end
+	if action == "setLeader" then
+		local isLeader = (...)
+		if isLeader then
+			CreateDanceLeaderEffects(player)
+		else
+			RemoveDanceLeaderEffects(player)
+		end
+
+	elseif action == "leaderAdded" then
+		local targetPlayer = (...)
+		if targetPlayer ~= player then
+			CreateDanceLeaderEffects(targetPlayer)
+		end
+
+	elseif action == "leaderRemoved" then
+		local targetPlayer = (...)
+		RemoveDanceLeaderEffects(targetPlayer)
+	end
 end)
 
--- Limpiar cuando el jugador se va
 player.CharacterRemoving:Connect(function()
-for _, data in pairs(DanceLeaderBillboards) do
-if data.connection then
-data.connection:Disconnect()
-end
-if data.billboard then
-data.billboard:Destroy()
-end
-end
-DanceLeaderBillboards = {}
+	for targetPlayer, _ in pairs(DanceLeaderEffects) do
+		RemoveDanceLeaderEffects(targetPlayer)
+	end
 end)
 
-print("[DanceLeaderUI] Sistema de Dance Leader activado")
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+	RemoveDanceLeaderEffects(leavingPlayer)
+end)

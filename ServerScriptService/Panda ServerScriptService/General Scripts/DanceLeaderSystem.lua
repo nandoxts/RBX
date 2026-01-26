@@ -1,7 +1,8 @@
 --[[
-DANCE LEADER SYSTEM
-Sistema para detectar y marcar líderes de danza basado en cantidad de seguidores
-Si un jugador tiene >= FOLLOWER_DANCE seguidores, se marca como dance leader
+DANCE LEADER SYSTEM - MEJORADO
+Sistema para detectar y marcar líderes de danza basado en cadenas de sync
+Solo el LÍDER RAÍZ (quien no sigue a nadie) puede ser Dance Leader
+Si el líder raíz tiene >= FOLLOWER_DANCE jugadores en su cadena, es Dance Leader
 ]]
 
 local Players = game:GetService("Players")
@@ -10,7 +11,7 @@ local Emotes_Sync = ReplicatedStorage:WaitForChild("Emotes_Sync")
 local Configuration = require(script.Parent.Parent.Configuration)
 
 -- Configuración
-local FOLLOWER_DANCE_THRESHOLD = Configuration.FOLLOWER_DANCE or 10
+local FOLLOWER_DANCE_THRESHOLD = Configuration.FOLLOWER_DANCE or 2
 local CHECK_INTERVAL = Configuration.CHECK_TIME_FOLLOWER or 300
 local BILLBOARD_NAME = Configuration.BILLBOARD_NAME or "Dance_Leader"
 
@@ -20,62 +21,138 @@ local DanceLeaderEvent = Emotes_Sync:WaitForChild("DanceLeaderEvent")
 -- Estado de líderes actuales
 local CurrentDanceLeaders = {}
 
--- Función para obtener todos los seguidores de un jugador
--- Se obtienen desde el atributo 'followers' del jugador
-local function GetAllFollowersForPlayer(player)
--- Esta función necesita acceder a PlayerData del módulo Sync
--- Por ahora usamos una aproximación más simple
-return 0
+-- Función para obtener a quién sigue un jugador (desde atributo "following")
+local function GetFollowing(player)
+	if not player or player.Parent ~= Players then return nil end
+	local followingName = player:GetAttribute("following")
+	if followingName then
+		return Players:FindFirstChild(followingName)
+	end
+	return nil
 end
 
--- Obtener los datos de seguidores desde la UI del jugador
-local function GetFollowerCount(player)
-local playerData = player:GetAttribute("followers") or 0
-return tonumber(playerData) or 0
+-- Función para obtener el LÍDER RAÍZ de una cadena
+-- Si A sigue a B y B sigue a C, el líder raíz de A es C
+local function GetRootLeader(player)
+	if not player or player.Parent ~= Players then return nil end
+
+	local visited = {}
+	local current = player
+
+	while current and current.Parent == Players do
+		-- Prevenir loops
+		if visited[current] then
+			warn("[Dance Leader] Loop detectado en " .. current.Name)
+			return current
+		end
+		visited[current] = true
+
+		local following = GetFollowing(current)
+		if not following then
+			-- Este jugador no sigue a nadie, es el líder raíz
+			return current
+		end
+		current = following
+	end
+
+	return player -- Si algo falla, retornar el jugador original
+end
+
+-- Obtener TODOS los jugadores que siguen a un líder (directa o indirectamente)
+local function GetAllFollowersRecursive(leader, visited)
+	visited = visited or {}
+	local allFollowers = {}
+
+	if not leader or visited[leader] then 
+		return allFollowers 
+	end
+	visited[leader] = true
+
+	-- Buscar todos los jugadores que siguen directamente a este líder
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= leader and player.Parent == Players and not visited[player] then
+			local following = GetFollowing(player)
+			if following == leader then
+				table.insert(allFollowers, player)
+				-- Recursivamente obtener los que siguen a este jugador
+				local subFollowers = GetAllFollowersRecursive(player, visited)
+				for _, subFollower in ipairs(subFollowers) do
+					table.insert(allFollowers, subFollower)
+				end
+			end
+		end
+	end
+
+	return allFollowers
+end
+
+-- Contar SOLO los seguidores (sin incluir al líder)
+local function GetFollowerCount(rootLeader)
+	if not rootLeader or rootLeader.Parent ~= Players then return 0 end
+
+	-- Contar solo los seguidores (sin el líder)
+	local allFollowers = GetAllFollowersRecursive(rootLeader, {})
+	return #allFollowers
 end
 
 -- Verificar quién debería ser dance leader
 local function CheckDanceLeaders()
-local newLeaders = {}
+	local processedRoots = {}
 
-for _, player in ipairs(Players:GetPlayers()) do
-if player and player.Parent == Players then
-local followerCount = GetFollowerCount(player)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player and player.Parent == Players then
+			-- Obtener el líder raíz de este jugador
+			local rootLeader = GetRootLeader(player)
 
-if followerCount >= FOLLOWER_DANCE_THRESHOLD then
-table.insert(newLeaders, player)
+			-- Evitar procesar el mismo líder raíz múltiples veces
+			if rootLeader and not processedRoots[rootLeader] then
+				processedRoots[rootLeader] = true
 
--- Si es nuevo líder, notificar
-if not CurrentDanceLeaders[player] then
-print("[Dance Leader] " .. player.Name .. " es ahora un Dance Leader con " .. followerCount .. " seguidores")
-DanceLeaderEvent:FireClient(player, "setLeader", true)
-DanceLeaderEvent:FireAllClients("leaderAdded", player)
-end
-CurrentDanceLeaders[player] = true
-else
--- Si dejó de ser líder
-if CurrentDanceLeaders[player] then
-print("[Dance Leader] " .. player.Name .. " dejó de ser Dance Leader (" .. followerCount .. " seguidores)")
-DanceLeaderEvent:FireClient(player, "setLeader", false)
-DanceLeaderEvent:FireAllClients("leaderRemoved", player)
-end
-CurrentDanceLeaders[player] = nil
-end
-end
-end
+				-- Contar SOLO los seguidores del líder raíz
+				local followerCount = GetFollowerCount(rootLeader)
+
+				if followerCount >= FOLLOWER_DANCE_THRESHOLD then
+					-- Si es nuevo líder, notificar
+					if not CurrentDanceLeaders[rootLeader] then
+						pcall(function()
+							DanceLeaderEvent:FireClient(rootLeader, "setLeader", true)
+							DanceLeaderEvent:FireAllClients("leaderAdded", rootLeader)
+						end)
+					end
+					CurrentDanceLeaders[rootLeader] = true
+				else
+					-- Si dejó de ser líder
+					if CurrentDanceLeaders[rootLeader] then
+						pcall(function()
+							DanceLeaderEvent:FireClient(rootLeader, "setLeader", false)
+							DanceLeaderEvent:FireAllClients("leaderRemoved", rootLeader)
+						end)
+					end
+					CurrentDanceLeaders[rootLeader] = nil
+				end
+			end
+		end
+	end
+
+	-- Limpiar líderes que ya no existen
+	for leader in pairs(CurrentDanceLeaders) do
+		if not leader or leader.Parent ~= Players then
+			CurrentDanceLeaders[leader] = nil
+		end
+	end
 end
 
 -- Tabla para rastrear conexiones de atributos por jugador
 local PlayerConnections = {}
 
--- Conectar cambios de atributos (cuando cambia followers)
+-- Conectar cambios en Sync.lua
+-- Esperamos que Sync.lua actualice el atributo "followers" cuando hay cambios
 local function OnPlayerAdded(player)
-	-- Escuchar cambios en el atributo "followers"
+	-- Escuchar cambios en el atributo "followers" (que Sync.lua actualiza)
 	local attrConnection = player:GetAttributeChangedSignal("followers"):Connect(function()
 		CheckDanceLeaders()
 	end)
-	
-	-- Guardar conexión en tabla local para limpiar después
+
 	PlayerConnections[player] = attrConnection
 end
 
@@ -85,7 +162,7 @@ local function OnPlayerRemoving(player)
 		pcall(function() PlayerConnections[player]:Disconnect() end)
 		PlayerConnections[player] = nil
 	end
-	
+
 	-- Remover de líderes actuales
 	CurrentDanceLeaders[player] = nil
 end
@@ -94,7 +171,7 @@ end
 Players.PlayerAdded:Connect(OnPlayerAdded)
 Players.PlayerRemoving:Connect(OnPlayerRemoving)
 
--- Verificar periódicamente (cada 5 minutos)
+-- Verificar periódicamente
 while true do
 	wait(CHECK_INTERVAL)
 	CheckDanceLeaders()
