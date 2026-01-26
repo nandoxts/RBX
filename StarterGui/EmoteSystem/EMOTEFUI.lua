@@ -828,8 +828,6 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 				pcall(function()
 					NotificationSystem:Info("Seguidores", message, 4)
 				end)
-			else
-				warn("[EmotesUI] NotificationSystem no disponible")
 			end
 			return -- No procesar más si es una notificación
 		end

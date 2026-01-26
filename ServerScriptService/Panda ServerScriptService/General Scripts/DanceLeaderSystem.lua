@@ -41,7 +41,6 @@ local function GetRootLeader(player)
 	while current and current.Parent == Players do
 		-- Prevenir loops
 		if visited[current] then
-			warn("[Dance Leader] Loop detectado en " .. current.Name)
 			return current
 		end
 		visited[current] = true

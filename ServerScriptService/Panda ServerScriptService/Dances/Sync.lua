@@ -139,7 +139,6 @@ local function GetRootLeader(player)
 	while current and PlayerData[current] and PlayerData[current].Following do
 		-- Prevenir loops infinitos
 		if visited[current] then
-			warn("[EmotesSync] Loop detectado en cadena de sincronización")
 			return current
 		end
 		visited[current] = true
@@ -472,7 +471,6 @@ local function Follow(follower, leader)
 	local allMyFollowers = GetAllFollowers(follower)
 	for _, f in ipairs(allMyFollowers) do
 		if f == leader then
-			warn("[EmotesSync] No se puede seguir a un seguidor propio")
 			return false
 		end
 	end
@@ -549,9 +547,7 @@ local function Follow(follower, leader)
 		})
 	end)
 
-	if not success then
-		warn("[EmotesSync] Error al enviar SyncUpdate a", follower.Name)
-	end
+	-- Si falla, se reintentará en el próximo ciclo
 
 	-- También enviar PlayAnimationRemote si hay animación activa
 	if hasAnimation and animName then
@@ -759,7 +755,6 @@ local function OnCharacterAdded(character)
 		if wasFollowing and IsValidPlayer(wasFollowing) then
 			-- Re-establecer la sincronización
 			Follow(player, wasFollowing)
-			print("[EmotesSync] ", player.Name, " re-sincronizado con", wasFollowing.Name, "después de respawn")
 		end
 		
 		-- Notificar a mis seguidores que sigo disponible

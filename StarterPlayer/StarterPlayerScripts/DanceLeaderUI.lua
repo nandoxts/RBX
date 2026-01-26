@@ -57,7 +57,6 @@ while not DanceLeaderEvent and elapsedTime < maxWaitTime do
 end
 
 if not DanceLeaderEvent then
-	warn("[DanceLeaderEffects] No se encontro DanceLeaderEvent")
 	return
 end
 
