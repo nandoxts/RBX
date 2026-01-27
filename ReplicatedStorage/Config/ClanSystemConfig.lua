@@ -245,6 +245,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "👑",
 		clanColor = {255, 215, 0}, -- Dorado
 	},
+	{
+		clanName = "ECLIPSE ROSA",
+		ownerId = 8659516822,
+		clanTag = "ER",
+		clanLogo = "rbxassetid://87193271601992",
+		descripcion = "Un clan que brilla incluso en la oscuridad.",
+		clanEmoji = "🌙",
+		clanColor = {255, 192, 203}, -- Rosado
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════

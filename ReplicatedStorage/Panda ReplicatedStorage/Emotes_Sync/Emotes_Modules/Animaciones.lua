@@ -94,7 +94,7 @@ Animaciones.Recomendado = {
 
 	{ID = 101758039233408, Nombre = 'Diva I'},
 	{ID = 79464831560180, Nombre = 'Diva II'},
-	{ID = 105776468980438, Nombre = 'Diva III'},
+	{ID = 136073073685621, Nombre = 'Diva III'},
 	{ID = 111664314706389, Nombre = 'Diva V'},
 	{ID = 118896295981144, Nombre = 'Diva VI'},
 
@@ -193,11 +193,21 @@ Animaciones.Vip = {
 	{ID = 75835894773315, Nombre = 'Jump III'},
 	{ID = 125178785524122, Nombre = 'Jump IV'},
 
+	{ID = 80962650363654, Nombre = 'SMOOTH I'},
+	{ID = 113057522886646, Nombre = 'SMOOTH II'},
+	{ID = 91990091528914, Nombre = 'SMOOTH III'},
+
+	{ID = 96072539308174, Nombre = 'FLOW I'},
+	{ID = 103571429590163, Nombre = 'FLOW II'},
+	{ID = 78858697200410, Nombre = 'FLOW III'},
+	{ID = 121418461728575, Nombre = 'FLOW IV'},
 
 
-	{ID = 122215157965385, Nombre = 'STURDY I'},
+
+	{ID = 96649139759245, Nombre = 'STURDY I'},
 	{ID = 115988057886214, Nombre = 'STURDY II'},
 	{ID = 112773902133223, Nombre = 'STURDY III'},
+	{ID = 132555082396072, Nombre = 'STURDY IV'},
 
 	{ID = 92001399624797, Nombre = 'Perreo Sexy'},
 	{ID = 131584988251817, Nombre = 'Perreo Sexy VI'},
@@ -211,15 +221,14 @@ Animaciones.Vip = {
 	{ID = 80720157509285, Nombre = 'Golpe V'},
 	{ID = 102779295838500, Nombre = 'Golpe VI'},
 	{ID = 126780665379004, Nombre = 'Golpe VII'},
-	
+
 	{ID = 84112287597268, Nombre = 'Huaska I'},
 	{ID = 84623954062978, Nombre = 'Huaska II'},
 	{ID = 94847143626311, Nombre = 'Huaska III'},
 
-	{ID = 71589647866255, Nombre = 'Sexy II'},
-	{ID = 133729878579101, Nombre = 'Sexy III'},
-	{ID = 125855137691891, Nombre = 'Sexy IV'},
-	{ID = 82290588229832, Nombre = 'Sexy V'},
+	{ID = 71589647866255, Nombre = 'Sexy I'},
+	{ID = 125855137691891, Nombre = 'Sexy II'},
+	{ID = 82290588229832, Nombre = 'Sexy III'},
 
 	{ID = 120500147347751, Nombre = 'Rock I'},
 	{ID = 112116164691956, Nombre = 'Rock II'},
@@ -239,14 +248,14 @@ Animaciones.Vip = {
 	{ID = 87993818624535, Nombre = 'MJ Thriller II'},
 	{ID = 119059160928904, Nombre = 'MJ Thriller III'},
 	{ID = 73665396963024, Nombre = 'MJ Thriller IV'},
-	
+
 	{ID = 129014371180875, Nombre = 'Merlina'},
 	{ID = 71043409187026, Nombre = 'Metro Man'},
 
 	{ID = 82445927449072, Nombre = 'Bachata I'},
 	{ID = 129492556391446, Nombre = 'Bachata II'},
 	{ID = 136760422939999, Nombre = 'Bachata III'},
-	
+
 	{ID = 119075562351736, Nombre = 'Gangnam Style'},
 	{ID = 119473524290403, Nombre = 'Russian Dance'},
 
