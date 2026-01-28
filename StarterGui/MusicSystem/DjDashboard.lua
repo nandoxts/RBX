@@ -19,6 +19,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
+local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 
 -- ════════════════════════════════════════════════════════════════
 -- RESPONSE CODES (debe coincidir con el servidor)
@@ -109,24 +110,7 @@ local songsScroll = nil
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
 -- ════════════════════════════════════════════════════════════════
-local function rounded(inst, px)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, px)
-	c.Parent = inst
-	return c
-end
-
-local function stroked(inst, alpha)
-	local s = Instance.new("UIStroke")
-	s.Color = THEME.stroke
-	s.Thickness = 1
-	s.Transparency = alpha or 0.5
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = inst
-	return s
-end
-
-local function isValidAudioId(text)
+local isValidAudioId = function(text)
 	if not text or text == "" then return false end
 	if not text:match("^%d+$") then return false end
 	local len = #text
@@ -369,7 +353,7 @@ header.BackgroundColor3 = THEME.head
 header.BorderSizePixel = 0
 header.ZIndex = 102
 header.Parent = panel
-rounded(header, 18)
+UI.rounded(header, 18)
 
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new{
@@ -392,7 +376,7 @@ title.Position = UDim2.new(0, 0, 0, 0)
 title.Text = "XT"
 title.TextColor3 = THEME.text
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 16
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = titleFrame
 
@@ -405,8 +389,8 @@ closeBtn.TextColor3 = THEME.muted
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 16
 closeBtn.Parent = header
-rounded(closeBtn, 8)
-stroked(closeBtn, 0.4)
+UI.rounded(closeBtn, 8)
+UI.stroked(closeBtn, 0.4)
 
 -- ════════════════════════════════════════════════════════════════
 -- NOW PLAYING BAR
@@ -417,8 +401,8 @@ nowPlayingBar.Position = UDim2.new(0, 20, 0, 56)
 nowPlayingBar.BackgroundColor3 = THEME.card
 nowPlayingBar.BorderSizePixel = 0
 nowPlayingBar.Parent = header
-rounded(nowPlayingBar, 8)
-stroked(nowPlayingBar, 0.3)
+UI.rounded(nowPlayingBar, 8)
+UI.stroked(nowPlayingBar, 0.3)
 
 local npPadding = Instance.new("UIPadding")
 npPadding.PaddingLeft = UDim.new(0, 14)
@@ -438,7 +422,7 @@ songTitle.Size = UDim2.new(1, 0, 1, 0)
 songTitle.Text = "No song playing"
 songTitle.TextColor3 = THEME.text
 songTitle.Font = Enum.Font.GothamMedium
-songTitle.TextSize = 15
+songTitle.TextSize = 14
 songTitle.TextXAlignment = Enum.TextXAlignment.Left
 songTitle.TextTruncate = Enum.TextTruncate.AtEnd
 songTitle.Parent = songInfo
@@ -449,14 +433,14 @@ progressBar.Position = UDim2.new(0, 0, 0, 26)
 progressBar.BackgroundColor3 = Color3.fromRGB(28, 28, 32)
 progressBar.BorderSizePixel = 0
 progressBar.Parent = nowPlayingBar
-rounded(progressBar, 2)
+UI.rounded(progressBar, 2)
 
 local progressFill = Instance.new("Frame")
 progressFill.Size = UDim2.new(0, 0, 1, 0)
 progressFill.BackgroundColor3 = THEME.accent
 progressFill.BorderSizePixel = 0
 progressFill.Parent = progressBar
-rounded(progressFill, 5)
+UI.rounded(progressFill, 5)
 
 local timeLabels = Instance.new("Frame")
 timeLabels.Size = UDim2.new(1, 0, 0, 16)
@@ -470,7 +454,7 @@ currentTimeLabel.Size = UDim2.new(0, 40, 1, 0)
 currentTimeLabel.Text = "0:00"
 currentTimeLabel.TextColor3 = THEME.muted
 currentTimeLabel.Font = Enum.Font.GothamMedium
-currentTimeLabel.TextSize = 12
+currentTimeLabel.TextSize = 16
 currentTimeLabel.TextXAlignment = Enum.TextXAlignment.Left
 currentTimeLabel.Parent = timeLabels
 
@@ -481,7 +465,7 @@ totalTimeLabel.Position = UDim2.new(1, -40, 0, 0)
 totalTimeLabel.Text = "0:00"
 totalTimeLabel.TextColor3 = THEME.muted
 totalTimeLabel.Font = Enum.Font.GothamMedium
-totalTimeLabel.TextSize = 12
+totalTimeLabel.TextSize = 16
 totalTimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 totalTimeLabel.Parent = timeLabels
 
@@ -508,10 +492,10 @@ if isAdmin then
 		b.TextColor3 = Color3.new(1, 1, 1)
 		b.BorderSizePixel = 0
 		b.Font = Enum.Font.GothamBold
-		b.TextSize = 12
+		b.TextSize = 16
 		b.Parent = ctrl
-		rounded(b, 6)
-		stroked(b, 0.2)
+		UI.rounded(b, 6)
+		UI.stroked(b, 0.2)
 
 		b.MouseEnter:Connect(function()
 			TweenService:Create(b, TweenInfo.new(0.15), {
@@ -555,8 +539,8 @@ volSliderBg.BackgroundColor3 = THEME.head
 volSliderBg.BorderSizePixel = 0
 volSliderBg.ZIndex = 102
 volSliderBg.Parent = volFrame
-rounded(volSliderBg, 8)
-stroked(volSliderBg, 0.6)
+UI.rounded(volSliderBg, 8)
+UI.stroked(volSliderBg, 0.6)
 
 local volSliderFill = Instance.new("Frame")
 volSliderFill.Size = UDim2.new(0.8, 0, 1, 0)
@@ -564,7 +548,7 @@ volSliderFill.BackgroundColor3 = THEME.accent
 volSliderFill.BorderSizePixel = 0
 volSliderFill.ZIndex = 103
 volSliderFill.Parent = volSliderBg
-rounded(volSliderFill, 8)
+UI.rounded(volSliderFill, 8)
 
 local volLabel = Instance.new("TextButton")
 volLabel.Size = UDim2.new(0, 42, 0, 26)
@@ -573,13 +557,13 @@ volLabel.BackgroundColor3 = THEME.card
 volLabel.Text = "80%"
 volLabel.TextColor3 = THEME.text
 volLabel.Font = Enum.Font.GothamBold
-volLabel.TextSize = 14
+volLabel.TextSize = 16
 volLabel.BorderSizePixel = 0
 volLabel.ZIndex = 103
 volLabel.AutoButtonColor = false
 volLabel.Parent = volFrame
-rounded(volLabel, 8)
-stroked(volLabel, 0.3)
+UI.rounded(volLabel, 8)
+UI.stroked(volLabel, 0.3)
 
 local volInput = Instance.new("TextBox")
 volInput.Size = volLabel.Size
@@ -588,15 +572,15 @@ volInput.BackgroundColor3 = THEME.elevated
 volInput.Text = "80"
 volInput.TextColor3 = THEME.text
 volInput.Font = Enum.Font.GothamBold
-volInput.TextSize = 14
+volInput.TextSize = 16
 volInput.BorderSizePixel = 0
 volInput.ZIndex = 104
 volInput.Visible = false
 volInput.ClearTextOnFocus = false
 volInput.TextXAlignment = Enum.TextXAlignment.Center
 volInput.Parent = volFrame
-rounded(volInput, 8)
-stroked(volInput, 0.4)
+UI.rounded(volInput, 8)
+UI.stroked(volInput, 0.4)
 
 local savedVolume = player:GetAttribute("MusicVolume") or 0.8
 local currentVolume = savedVolume
@@ -728,7 +712,7 @@ local function createTab(text)
 	btn.Text = text
 	btn.TextColor3 = THEME.muted
 	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 13
+	btn.TextSize = 14
 	btn.BorderSizePixel = 0
 	btn.AutoButtonColor = false
 	btn.Parent = navBar
@@ -745,7 +729,7 @@ underline.BackgroundColor3 = THEME.accent
 underline.BorderSizePixel = 0
 underline.ZIndex = 102
 underline.Parent = panel
-rounded(underline, 2)
+UI.rounded(underline, 2)
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT HOLDER
@@ -788,8 +772,8 @@ quickAddFrame.Position = UDim2.new(0, 12, 0, 8)
 quickAddFrame.BackgroundColor3 = THEME.card
 quickAddFrame.BorderSizePixel = 0
 quickAddFrame.Parent = queuePage
-rounded(quickAddFrame, 8)
-qiStroke = stroked(quickAddFrame, 0.3)
+UI.rounded(quickAddFrame, 8)
+qiStroke = UI.stroked(quickAddFrame, 0.3)
 
 quickInput = Instance.new("TextBox")
 quickInput.Size = UDim2.new(1, -80, 1, 0)
@@ -800,7 +784,7 @@ quickInput.PlaceholderText = "Enter Audio ID..."
 quickInput.TextColor3 = THEME.text
 quickInput.PlaceholderColor3 = THEME.muted
 quickInput.Font = Enum.Font.Gotham
-quickInput.TextSize = 14
+quickInput.TextSize = 16
 quickInput.TextXAlignment = Enum.TextXAlignment.Left
 quickInput.ClearTextOnFocus = false
 quickInput.Parent = quickAddFrame
@@ -818,10 +802,10 @@ quickAddBtn.BackgroundColor3 = THEME.accent
 quickAddBtn.Text = "ADD"
 quickAddBtn.TextColor3 = Color3.new(1, 1, 1)
 quickAddBtn.Font = Enum.Font.GothamBold
-quickAddBtn.TextSize = 12
+quickAddBtn.TextSize = 16
 quickAddBtn.BorderSizePixel = 0
 quickAddBtn.Parent = quickAddFrame
-rounded(quickAddBtn, 6)
+UI.rounded(quickAddBtn, 6)
 
 -- ════════════════════════════════════════════════════════════════
 -- ADD TO QUEUE - NUEVA LÓGICA CON RESPUESTA SÍNCRONA
@@ -964,7 +948,7 @@ local function drawQueue()
 		empty.Text = "Queue is empty\nAdd songs from the library"
 		empty.TextColor3 = THEME.muted
 		empty.Font = Enum.Font.Gotham
-		empty.TextSize = 15
+		empty.TextSize = 14
 		empty.TextWrapped = true
 		empty.Parent = queueScroll
 		return
@@ -979,9 +963,9 @@ local function drawQueue()
 		card.BackgroundColor3 = isActive and THEME.accent or THEME.card
 		card.BorderSizePixel = 0
 		card.Parent = queueScroll
-		rounded(card, 8)
+		UI.rounded(card, 8)
 
-		local cardStroke = stroked(card, isActive and 0.6 or 0.3)
+		local cardStroke = UI.stroked(card, isActive and 0.6 or 0.3)
 		if isActive then
 			local glowStroke = Instance.new("UIStroke")
 			glowStroke.Color = Color3.fromRGB(120, 140, 255)
@@ -1040,7 +1024,7 @@ local function drawQueue()
 			avatar.ZIndex = 2
 			avatar.ImageTransparency = 0
 			avatar.Parent = card
-			rounded(avatar, 22)
+			UI.rounded(avatar, 22)
 
 			local border = Instance.new("UIStroke")
 			border.Color = isActive and THEME.accent or Color3.fromRGB(100, 100, 110)
@@ -1082,7 +1066,7 @@ local function drawQueue()
 		nameText.Text = (song.name or "Unknown") .. "  |  Añadido por " .. (song.requestedBy or "Unknown")
 		nameText.TextColor3 = isActive and Color3.new(1, 1, 1) or THEME.text
 		nameText.Font = Enum.Font.GothamMedium
-		nameText.TextSize = 14
+		nameText.TextSize = 16
 		nameText.TextXAlignment = Enum.TextXAlignment.Left
 		nameText.TextTruncate = Enum.TextTruncate.AtEnd
 		nameText.ZIndex = 2
@@ -1095,7 +1079,7 @@ local function drawQueue()
 		artist.Text = song.artist or "Unknown Artist"
 		artist.TextColor3 = isActive and Color3.fromRGB(220, 220, 230) or THEME.muted
 		artist.Font = Enum.Font.Gotham
-		artist.TextSize = 13
+		artist.TextSize = 14
 		artist.TextXAlignment = Enum.TextXAlignment.Left
 		artist.TextTruncate = Enum.TextTruncate.AtEnd
 		artist.ZIndex = 2
@@ -1109,11 +1093,11 @@ local function drawQueue()
 			removeBtn.Text = "REMOVE"
 			removeBtn.TextColor3 = Color3.new(1, 1, 1)
 			removeBtn.Font = Enum.Font.GothamBold
-			removeBtn.TextSize = 12
+			removeBtn.TextSize = 16
 			removeBtn.BorderSizePixel = 0
 			removeBtn.ZIndex = 2
 			removeBtn.Parent = card
-			rounded(removeBtn, 6)
+			UI.rounded(removeBtn, 6)
 
 			removeBtn.MouseButton1Click:Connect(function()
 				if R.Remove then R.Remove:FireServer(i) end
@@ -1185,13 +1169,13 @@ backBtn.BackgroundColor3 = THEME.accent
 backBtn.Text = "← BACK"
 backBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 backBtn.Font = Enum.Font.GothamBold
-backBtn.TextSize = 13
+backBtn.TextSize = 14
 backBtn.BorderSizePixel = 0
 backBtn.Visible = false
 backBtn.ZIndex = 102
 backBtn.Parent = libraryPage
-rounded(backBtn, 8)
-stroked(backBtn, 0.2)
+UI.rounded(backBtn, 8)
+UI.stroked(backBtn, 0.2)
 
 -- Reset Library State
 local function resetLibraryState()
@@ -1253,7 +1237,7 @@ local function drawDJs()
 		empty.Text = "No DJs available"
 		empty.TextColor3 = THEME.muted
 		empty.Font = Enum.Font.Gotham
-		empty.TextSize = 15
+		empty.TextSize = 14
 		empty.Parent = djsScroll
 		return
 	end
@@ -1265,8 +1249,8 @@ local function drawDJs()
 		card.BorderSizePixel = 0
 		card.ZIndex = 50
 		card.Parent = djsScroll
-		rounded(card, 16)
-		stroked(card, 0.4)
+		UI.rounded(card, 16)
+		UI.stroked(card, 0.4)
 
 		local cover = Instance.new("ImageLabel")
 		cover.Size = UDim2.new(1, 0, 1, 0)
@@ -1276,7 +1260,7 @@ local function drawDJs()
 		cover.BorderSizePixel = 0
 		cover.ZIndex = 51
 		cover.Parent = card
-		rounded(cover, 16)
+		UI.rounded(cover, 16)
 
 		local overlay = Instance.new("Frame")
 		overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -1285,7 +1269,7 @@ local function drawDJs()
 		overlay.BorderSizePixel = 0
 		overlay.ZIndex = 52
 		overlay.Parent = card
-		rounded(overlay, 16)
+		UI.rounded(overlay, 16)
 
 		local infoContainer = Instance.new("Frame")
 		infoContainer.Size = UDim2.new(1, -24, 0, 60)
@@ -1314,7 +1298,7 @@ local function drawDJs()
 		countLabel.Text = dj.songCount .. " songs"
 		countLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		countLabel.Font = Enum.Font.Gotham
-		countLabel.TextSize = 13
+		countLabel.TextSize = 14
 		countLabel.TextTransparency = 1
 		countLabel.ZIndex = 54
 		countLabel.Parent = infoContainer
@@ -1391,7 +1375,7 @@ local function drawSongs(songs)
 		empty.Text = "No songs in this DJ"
 		empty.TextColor3 = THEME.muted
 		empty.Font = Enum.Font.Gotham
-		empty.TextSize = 15
+		empty.TextSize = 14
 		empty.Parent = songsScroll
 		return
 	end
@@ -1410,8 +1394,8 @@ local function drawSongs(songs)
 		card.BackgroundColor3 = THEME.card
 		card.BorderSizePixel = 0
 		card.Parent = songsScroll
-		rounded(card, 8)
-		stroked(card, 0.3)
+		UI.rounded(card, 8)
+		UI.stroked(card, 0.3)
 
 		card.Name = "SongCard_" .. song.id
 		card:SetAttribute("SongID", song.id)
@@ -1428,7 +1412,7 @@ local function drawSongs(songs)
 		name.Text = song.name or "Unknown"
 		name.TextColor3 = THEME.text
 		name.Font = Enum.Font.GothamMedium
-		name.TextSize = 15
+		name.TextSize = 14
 		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		name.Parent = card
@@ -1440,7 +1424,7 @@ local function drawSongs(songs)
 		artist.Text = song.artist or "Unknown Artist"
 		artist.TextColor3 = THEME.muted
 		artist.Font = Enum.Font.Gotham
-		artist.TextSize = 13
+		artist.TextSize = 14
 		artist.TextXAlignment = Enum.TextXAlignment.Left
 		artist.TextTruncate = Enum.TextTruncate.AtEnd
 		artist.Parent = card
@@ -1449,10 +1433,10 @@ local function drawSongs(songs)
 		addBtn.Size = UDim2.new(0, 70, 0, 30)
 		addBtn.Position = UDim2.new(1, isAdmin and -150 or -70, 0.5, -15)
 		addBtn.Font = Enum.Font.GothamBold
-		addBtn.TextSize = 12
+		addBtn.TextSize = 16
 		addBtn.BorderSizePixel = 0
 		addBtn.Parent = card
-		rounded(addBtn, 6)
+		UI.rounded(addBtn, 6)
 		addBtn.Name = "QueueButton"
 
 		if isInQueue then
@@ -1494,10 +1478,10 @@ local function drawSongs(songs)
 			delBtn.Text = "DELETE"
 			delBtn.TextColor3 = Color3.new(1, 1, 1)
 			delBtn.Font = Enum.Font.GothamBold
-			delBtn.TextSize = 12
+			delBtn.TextSize = 16
 			delBtn.BorderSizePixel = 0
 			delBtn.Parent = card
-			rounded(delBtn, 6)
+			UI.rounded(delBtn, 6)
 
 			delBtn.MouseButton1Click:Connect(function()
 				ConfirmationModal.new({
