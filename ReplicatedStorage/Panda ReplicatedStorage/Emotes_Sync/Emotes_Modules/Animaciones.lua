@@ -166,7 +166,7 @@ Animaciones.Recomendado = {
 }
 
 Animaciones.Vip = {
-	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
+	
 
 	{ID = 112455083563294, Nombre = 'Perreo I'},
 	{ID = 89794141549021, Nombre = 'Perreo II'},
@@ -201,6 +201,7 @@ Animaciones.Vip = {
 	{ID = 103571429590163, Nombre = 'FLOW II'},
 	{ID = 78858697200410, Nombre = 'FLOW III'},
 	{ID = 121418461728575, Nombre = 'FLOW IV'},
+	{ID = 84450135363865, Nombre = 'FLOW V'},
 
 
 
@@ -261,6 +262,8 @@ Animaciones.Vip = {
 
 	{ID = 91219524625419, Nombre = 'RADIANT I'},
 	{ID = 98837556665887, Nombre = 'RADIANT II'},
+	
+	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
 
 }
 
