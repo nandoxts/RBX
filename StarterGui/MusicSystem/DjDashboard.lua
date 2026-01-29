@@ -161,6 +161,8 @@ local function formatTime(seconds)
 	return string.format("%d:%02d", mins, secs)
 end
 
+
+
 -- ════════════════════════════════════════════════════════════════
 -- NOTIFICATION HELPER
 -- ════════════════════════════════════════════════════════════════
@@ -266,7 +268,7 @@ local R = {
 	Update = getRemote("UpdateUI"),
 	GetDJs = getRemote("GetDJs"),
 	GetSongsByDJ = getRemote("GetSongsByDJ"),
-	RemoveSongFromLibrary = getRemote("RemoveSongFromLibrary"),
+	-- RemoveSongFromLibrary removed: library now carga desde DB
 	RemoveDJ = getRemote("RemoveDJ"),
 	RenameDJ = getRemote("RenameDJ")
 }
@@ -596,7 +598,7 @@ local function updateVolume(volume)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 
-	local sound = workspace:FindFirstChild("QueueSound")
+	local sound = game:GetService("SoundService"):FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") then
 		sound.Volume = currentVolume
 	end
@@ -678,7 +680,7 @@ volLabel.MouseLeave:Connect(function()
 end)
 
 RunService.Heartbeat:Connect(function()
-	local sound = workspace:FindFirstChild("QueueSound")
+	local sound = game:GetService("SoundService"):FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") and sound.Volume ~= currentVolume then
 		sound.Volume = currentVolume
 	end
@@ -1470,35 +1472,7 @@ local function drawSongs(songs)
 			end)
 		end
 
-		if isAdmin then
-			local delBtn = Instance.new("TextButton")
-			delBtn.Size = UDim2.new(0, 70, 0, 30)
-			delBtn.Position = UDim2.new(1, -75, 0.5, -15)
-			delBtn.BackgroundColor3 = THEME.danger
-			delBtn.Text = "DELETE"
-			delBtn.TextColor3 = Color3.new(1, 1, 1)
-			delBtn.Font = Enum.Font.GothamBold
-			delBtn.TextSize = 16
-			delBtn.BorderSizePixel = 0
-			delBtn.Parent = card
-			UI.rounded(delBtn, 6)
-
-			delBtn.MouseButton1Click:Connect(function()
-				ConfirmationModal.new({
-					screenGui = screenGui,
-					theme = THEME,
-					Title = "Delete Song",
-					Message = "Are you sure you want to delete '" .. song.name .. "' from the library?",
-					ConfirmText = "DELETE",
-					CancelText = "CANCEL",
-					OnConfirm = function()
-						if R.RemoveFromLibrary then
-							R.RemoveFromLibrary:FireServer(song.id)
-						end
-					end
-				})
-			end)
-		end
+		-- Delete button removed: library is managed by the database
 	end
 end
 
@@ -1507,7 +1481,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function updateProgressBar()
 	if not currentSoundObject then
-		currentSoundObject = workspace:FindFirstChild("QueueSound")
+		currentSoundObject = game:GetService("SoundService"):FindFirstChild("QueueSound")
 	end
 
 	if not currentSoundObject or not currentSoundObject:IsA("Sound") or not currentSoundObject.Parent then
@@ -1673,7 +1647,7 @@ if R.Update then
 		currentSong = data.currentSong
 		allDJs = data.djs or allDJs
 
-		currentSoundObject = workspace:FindFirstChild("QueueSound")
+		currentSoundObject = game:GetService("SoundService"):FindFirstChild("QueueSound")
 
 		if currentSong then
 			songTitle.Text = currentSong.name .. " - " .. (currentSong.artist or "Unknown")
@@ -1714,20 +1688,7 @@ if R.GetSongsByDJ then
 	end)
 end
 
-if R.RemoveFromLibrary then
-	R.RemoveFromLibrary.OnClientEvent:Connect(function(response)
-		if response.success then
-			Notify:Success("Eliminado", response.message, 3)
-			if currentPage == "Library" and selectedDJ then
-				if R.GetSongsByDJ then
-					R.GetSongsByDJ:FireServer(selectedDJ)
-				end
-			end
-		else
-			Notify:Error("Error", response.message, 3)
-		end
-	end)
-end
+-- RemoveFromLibrary client listener removed (library is read-only client-side)
 
 if R.RemoveDJ then
 	R.RemoveDJ.OnClientEvent:Connect(function(response)

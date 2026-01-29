@@ -9,7 +9,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("Cl
 -- ColorEffectsModule usado para mapear nombres a Color3
 local ColorEffects = nil
 pcall(function()
-	ColorEffects = require(game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService"):WaitForChild("Effects"):WaitForChild("ColorEffectsModule"))
+	ColorEffects = require(game:GetService("ServerScriptService"):WaitForChild("Systems"):WaitForChild("Effects"):WaitForChild("ColorEffectsModule"))
 end)
 
 -- ============================================

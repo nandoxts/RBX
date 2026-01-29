@@ -86,7 +86,7 @@ local uiFolder = getOrCreateFolder(remotesFolder, "UI")
 local playbackRemotes = {
 	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong", "UpdatePlayback"}},
 	{folder = musicQueueFolder, names = {"AddToQueue", "AddToQueueResponse", "RemoveFromQueue", "RemoveFromQueueResponse", "ClearQueue", "ClearQueueResponse", "MoveInQueue", "UpdateQueue"}},
-	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "RemoveSongFromLibrary", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
+	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
 	{folder = uiFolder, names = {"UpdateUI"}}
 }
 
@@ -101,12 +101,13 @@ for _, group in ipairs(playbackRemotes) do
 end
 
 -- Sound Object
-local soundObject = Workspace:FindFirstChild("QueueSound")
+local SoundService = game:GetService("SoundService")
+local soundObject = SoundService:FindFirstChild("QueueSound")
 if soundObject then soundObject:Destroy() end
 
 soundObject = Instance.new("Sound")
 soundObject.Name = "QueueSound"
-soundObject.Parent = Workspace
+soundObject.Parent = SoundService
 soundObject.Volume = MusicConfig:GetDefaultVolume()
 soundObject.Looped = MusicConfig.PLAYBACK.LoopQueue
 
@@ -129,7 +130,6 @@ local R = {
 	GetDJs = musicLibraryFolder:FindFirstChild("GetDJs"),
 	GetSongsByDJ = musicLibraryFolder:FindFirstChild("GetSongsByDJ"),
 	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
-	RemoveSongFromLibrary = musicLibraryFolder:FindFirstChild("RemoveSongFromLibrary"),
 	RemoveDJ = musicLibraryFolder:FindFirstChild("RemoveDJ"),
 	RenameDJ = musicLibraryFolder:FindFirstChild("RenameDJ"),
 	AddToLibrary = musicLibraryFolder:FindFirstChild("AddToLibrary"),
