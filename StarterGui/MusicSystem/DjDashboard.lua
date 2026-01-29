@@ -269,17 +269,7 @@ panel.ClipsDescendants = true
 -- ════════════════════════════════════════════════════════════════
 local HEADER_HEIGHT = 140
 
-local header = Instance.new("Frame")
-header.Name = "Header"
--- Hacer el header del mismo ancho que el panel (sin márgenes laterales)
-header.Size = UDim2.new(1, 0, 0, HEADER_HEIGHT)
-header.Position = UDim2.new(0, 0, 0, 0)
-header.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-header.BorderSizePixel = 0
-header.ZIndex = 102
-header.ClipsDescendants = true
-header.Parent = panel
-UI.rounded(header, 16)
+local header = UI.frame({name = "Header", size = UDim2.new(1, 0, 0, HEADER_HEIGHT), pos = UDim2.new(0, 0, 0, 0), bg = Color3.fromRGB(18, 18, 22), z = 102, parent = panel, corner = 16, clip = true})
 
 -- Cover de fondo (blur effect) - Muestra el DJ de la canción actual
 headerCoverImage = Instance.new("ImageLabel")
@@ -734,7 +724,6 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId
 		pcall(function() skipRemote:FireServer(true) end)
 	end
 end)
-
 -- ════════════════════════════════════════════════════════════════
 -- NAVIGATION BAR
 -- ════════════════════════════════════════════════════════════════
@@ -1158,33 +1147,22 @@ songsHeader.Position = UDim2.new(0, 12, 0, 8)
 songsHeader.BackgroundTransparency = 1
 songsHeader.Parent = songsView
 
-local backBtn = Instance.new("TextButton")
-backBtn.Size = UDim2.new(0, 80, 0, 36)
-backBtn.Position = UDim2.new(0, 0, 0, 4)
-backBtn.BackgroundColor3 = THEME.accent
-backBtn.Text = "BACK"
-backBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-backBtn.Font = Enum.Font.GothamBold
-backBtn.TextSize = 12
-backBtn.BorderSizePixel = 0
-backBtn.ZIndex = 102
-backBtn.Parent = songsHeader
-UI.rounded(backBtn, 8)
+local backBtn = UI.button({size = UDim2.new(0, 36, 0, 36), pos = UDim2.new(0, 4, 0.5, -18), bg = THEME.card, text = "‹", color = THEME.text, textSize = 22, font = Enum.Font.GothamBold, z = 107, parent = songsHeader, corner = 8})
 
 local searchContainer
 searchContainer, searchInput = SearchModern.new(songsHeader, {
 	placeholder = "Buscar por ID o nombre...",
-	size = UDim2.new(1, -200, 0, 36),
+	size = UDim2.new(1, -160, 0, 36),
 	bg = THEME.card,
 	corner = 8,
 	z = 102,
 	inputName = "SearchInput"
 })
-searchContainer.Position = UDim2.new(0, 92, 0, 4)
+searchContainer.Position = UDim2.new(0, 48, 0, 4)
 
 songCountLabel = Instance.new("TextLabel")
-songCountLabel.Size = UDim2.new(0, 100, 0, 36)
-songCountLabel.Position = UDim2.new(1, -100, 0, 4)
+songCountLabel.Size = UDim2.new(0, 60, 0, 36)
+songCountLabel.Position = UDim2.new(1, -68, 0, 4)
 songCountLabel.BackgroundTransparency = 1
 songCountLabel.Text = "0 songs"
 songCountLabel.TextColor3 = THEME.muted
