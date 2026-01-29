@@ -270,8 +270,9 @@ local HEADER_HEIGHT = 140
 
 local header = Instance.new("Frame")
 header.Name = "Header"
-header.Size = UDim2.new(1, -24, 0, HEADER_HEIGHT)
-header.Position = UDim2.new(0, 12, 0, 12)
+-- Hacer el header del mismo ancho que el panel (sin márgenes laterales)
+header.Size = UDim2.new(1, 0, 0, HEADER_HEIGHT)
+header.Position = UDim2.new(0, 0, 0, 0)
 header.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 header.BorderSizePixel = 0
 header.ZIndex = 102
@@ -321,8 +322,9 @@ overlayGradient.Parent = headerGradientOverlay
 -- Container para el contenido del header
 local headerContent = Instance.new("Frame")
 headerContent.Name = "Content"
-headerContent.Size = UDim2.new(1, -40, 1, -20)
-headerContent.Position = UDim2.new(0, 20, 0, 10)
+-- Reducir padding interno para que cover y elementos rellenen correctamente
+headerContent.Size = UDim2.new(1, -24, 1, -12)
+headerContent.Position = UDim2.new(0, 12, 0, 6)
 headerContent.BackgroundTransparency = 1
 headerContent.ZIndex = 104
 headerContent.Parent = header
@@ -344,13 +346,14 @@ title.Parent = headerContent
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseBtn"
 closeBtn.Size = UDim2.new(0, 36, 0, 36)
-closeBtn.Position = UDim2.new(1, -36, 0, -6)
-closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.BackgroundTransparency = 0.9
-closeBtn.Text = "✕"
+-- Posición igual que CreateClanGui (más centrada verticalmente y con margen)
+closeBtn.Position = UDim2.new(1, -50, 0.5, -18)
+closeBtn.BackgroundColor3 = THEME.card
+closeBtn.BackgroundTransparency = 0
+closeBtn.Text = "×"
 closeBtn.TextColor3 = THEME.muted
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 16
+closeBtn.TextSize = 22
 closeBtn.ZIndex = 105
 closeBtn.Parent = headerContent
 UI.rounded(closeBtn, 18)
@@ -723,7 +726,8 @@ end)
 -- ════════════════════════════════════════════════════════════════
 -- NAVIGATION BAR
 -- ════════════════════════════════════════════════════════════════
-local NAV_TOP = HEADER_HEIGHT + 24 -- 12 top margin + 12 bottom margin del header
+-- Colocar la barra de navegación justo debajo del header sin margen extra
+local NAV_TOP = HEADER_HEIGHT
 
 local navBar = Instance.new("Frame")
 navBar.Size = UDim2.new(1, 0, 0, 36)
