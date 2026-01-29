@@ -215,33 +215,33 @@ local function getSongsByDJPaginated(djName, page)
 	local startIndex = (page - 1) * SONGS_PER_PAGE + 1
 	local endIndex = math.min(startIndex + SONGS_PER_PAGE - 1, total)
 
-	       local songs = {}
-	       for i = startIndex, endIndex do
-		       local id = allIds[i]
-		       if id then
-			       local cached = metadataCache[id]
-			       if not cached then
-				       local success, info = pcall(function()
-					       return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
-				       end)
-				       if success and info and info.AssetTypeId == 3 then
-					       cached = {
-						       name = info.Name or ("Audio " .. id),
-						       artist = (info.Creator and info.Creator.Name) or "Unknown"
-					       }
-					       metadataCache[id] = cached
-				       else
-					       cached = {name = "Audio " .. id, artist = "..."}
-				       end
-			       end
-			       table.insert(songs, {
-				       id = id,
-				       name = cached.name,
-				       artist = cached.artist,
-				       index = i
-			       })
-		       end
-	       end
+	local songs = {}
+	for i = startIndex, endIndex do
+		local id = allIds[i]
+		if id then
+			local cached = metadataCache[id]
+			if not cached then
+				local success, info = pcall(function()
+					return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
+				end)
+				if success and info and info.AssetTypeId == 3 then
+					cached = {
+						name = info.Name or ("Audio " .. id),
+						artist = (info.Creator and info.Creator.Name) or "Unknown"
+					}
+					metadataCache[id] = cached
+				else
+					cached = {name = "Audio " .. id, artist = "..."}
+				end
+			end
+			table.insert(songs, {
+				id = id,
+				name = cached.name,
+				artist = cached.artist,
+				index = i
+			})
+		end
+	end
 
 	return {
 		songs = songs,
