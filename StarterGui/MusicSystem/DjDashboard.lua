@@ -1,5 +1,6 @@
---[[ Music Dashboard - Professional Edition v5
+--[[ Music Dashboard - Professional Edition v6
 	by ignxts
+	OPTIMIZADO: Virtualización + Búsqueda + Carga bajo demanda
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -20,9 +21,10 @@ local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitFo
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
+local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
 
 -- ════════════════════════════════════════════════════════════════
--- RESPONSE CODES (debe coincidir con el servidor)
+-- RESPONSE CODES
 -- ════════════════════════════════════════════════════════════════
 local ResponseCodes = {
 	SUCCESS = "SUCCESS",
@@ -37,7 +39,6 @@ local ResponseCodes = {
 	ERROR_UNKNOWN = "ERROR_UNKNOWN"
 }
 
--- Mapeo de códigos a mensajes amigables y tipos de notificación
 local ResponseMessages = {
 	[ResponseCodes.SUCCESS] = {type = "success", title = "Éxito"},
 	[ResponseCodes.ERROR_INVALID_ID] = {type = "error", title = "ID Inválido"},
@@ -57,8 +58,8 @@ local ResponseMessages = {
 local player = Players.LocalPlayer
 
 local ADMIN_IDS = {
-	8387751399,  -- nandoxts (Owner)
-	9375636407,  -- Admin2
+	8387751399,
+	9375636407,
 }
 
 local function isAdminUser(userId)
@@ -72,26 +73,23 @@ local SHOW_ADMIN_UI = false
 local isAdmin = isAdminUser(player.UserId) or SHOW_ADMIN_UI
 
 -- ════════════════════════════════════════════════════════════════
--- THEME
+-- THEME & CONFIG
 -- ════════════════════════════════════════════════════════════════
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local R_PANEL, R_CTRL = 12, 10
 local ENABLE_BLUR, BLUR_SIZE = true, 14
 
--- ════════════════════════════════════════════════════════════════
--- CONFIG
--- ════════════════════════════════════════════════════════════════
 local USE_PIXEL_SIZE = true
-local PANEL_W_SCALE = 0.40
-local PANEL_H_SCALE = 0.86
 local PANEL_W_PX = THEME.panelWidth or 980
-local PANEL_H_PX = THEME.panelHeight or 620 
+local PANEL_H_PX = THEME.panelHeight or 620
 
 -- ════════════════════════════════════════════════════════════════
--- POSICIONES CONSTANTES
+-- VIRTUALIZACIÓN CONFIG
 -- ════════════════════════════════════════════════════════════════
-local DJS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 8)
-local SONGS_SCROLL_DEFAULT_POS = UDim2.new(0, 12, 0, 56)
+local CARD_HEIGHT = 54
+local CARD_PADDING = 6
+local VISIBLE_BUFFER = 3 -- Cards extra arriba/abajo del viewport
+local BATCH_SIZE = 15 -- Cuántas canciones pedir por batch
 
 -- ════════════════════════════════════════════════════════════════
 -- STATE
@@ -102,10 +100,31 @@ local currentPage = "Queue"
 local currentSoundObject = nil
 local progressConnection = nil
 
+-- Virtual scroll state
+local virtualScrollState = {
+	totalSongs = 0,
+	songData = {}, -- Cache local de canciones: index -> songInfo
+	visibleCards = {}, -- Pool de cards UI
+	firstVisibleIndex = 1,
+	lastVisibleIndex = 1,
+	isSearching = false,
+	searchQuery = "",
+	searchResults = {},
+	pendingRequests = {}, -- Rangos que ya pedimos
+}
+
 -- UI Elements references
 local quickAddBtn, quickInput, qiStroke = nil, nil, nil
-local isAddingToQueue = false -- Flag para prevenir múltiples clicks
+local isAddingToQueue = false
 local songsScroll = nil
+local songsContainer = nil
+local searchInput = nil
+local loadingIndicator = nil
+local songCountLabel = nil
+
+-- Pool de cards (declarado aquí para que exista cuando llega AddResponse)
+local cardPool = {}
+local MAX_POOL_SIZE = 25
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -119,40 +138,31 @@ end
 
 local function getRemote(name)
 	local MusicRemotes = ReplicatedStorage:WaitForChild("MusicRemotes", 10)
-	if not MusicRemotes then warn("[MusicDashboard] Remote folder missing"); return end
+	if not MusicRemotes then return end
 
 	local remoteMap = {
 		NextSong = "MusicPlayback",
 		PlaySong = "MusicPlayback",
 		PauseSong = "MusicPlayback",
 		StopSong = "MusicPlayback",
-		UpdatePlayback = "MusicPlayback",
 		AddToQueue = "MusicQueue",
 		AddToQueueResponse = "MusicQueue",
 		RemoveFromQueue = "MusicQueue",
 		RemoveFromQueueResponse = "MusicQueue",
 		ClearQueue = "MusicQueue",
 		ClearQueueResponse = "MusicQueue",
-		MoveInQueue = "MusicQueue",
-		UpdateQueue = "MusicQueue",
 		UpdateUI = "UI",
 		GetDJs = "MusicLibrary",
 		GetSongsByDJ = "MusicLibrary",
+		GetSongRange = "MusicLibrary",
+		SearchSongs = "MusicLibrary",
+		GetSongMetadata = "MusicLibrary",
 	}
 
 	local subfolder = remoteMap[name] or "MusicLibrary"
 	local folder = MusicRemotes:FindFirstChild(subfolder)
-	if not folder then
-		warn("[MusicDashboard] Subfolder missing:", subfolder)
-		return nil
-	end
-
-	local r = folder:FindFirstChild(name)
-	if not r then
-		-- Se suprime el warning para evitar logs repetitivos cuando remotes opcionales
-		return nil
-	end
-	return r
+	if not folder then return nil end
+	return folder:FindFirstChild(name)
 end
 
 local function formatTime(seconds)
@@ -160,8 +170,6 @@ local function formatTime(seconds)
 	local secs = math.floor(seconds % 60)
 	return string.format("%d:%02d", mins, secs)
 end
-
-
 
 -- ════════════════════════════════════════════════════════════════
 -- NOTIFICATION HELPER
@@ -172,7 +180,6 @@ local function showNotification(response)
 	local title = config.title
 	local message = response.message or "Operación completada"
 
-	-- Añadir información extra si está disponible
 	if response.data and response.data.songName then
 		message = message .. ": " .. response.data.songName
 	end
@@ -189,7 +196,7 @@ local function showNotification(response)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- UI STATE HELPER - Para el botón de añadir
+-- UI STATE HELPER
 -- ════════════════════════════════════════════════════════════════
 local function setAddButtonState(state, customMessage)
 	if not quickAddBtn or not quickInput or not qiStroke then return end
@@ -200,36 +207,25 @@ local function setAddButtonState(state, customMessage)
 		quickAddBtn.BackgroundColor3 = THEME.info
 		qiStroke.Color = THEME.info
 		quickAddBtn.AutoButtonColor = false
-
 	elseif state == "success" then
 		isAddingToQueue = false
 		quickInput.Text = ""
 		qiStroke.Color = THEME.success
-		quickAddBtn.Text = "✓ ADDED"
+		quickAddBtn.Text = "ADDED"
 		quickAddBtn.BackgroundColor3 = THEME.success
-
 		task.delay(2, function()
-			if quickAddBtn and qiStroke then
-				setAddButtonState("default")
-			end
+			if quickAddBtn and qiStroke then setAddButtonState("default") end
 		end)
-
 	elseif state == "error" then
 		isAddingToQueue = false
 		quickInput.Text = ""
 		qiStroke.Color = THEME.danger
 		quickAddBtn.Text = "ERROR"
 		quickAddBtn.BackgroundColor3 = THEME.danger
-		if customMessage then
-			quickInput.PlaceholderText = customMessage
-		end
-
+		if customMessage then quickInput.PlaceholderText = customMessage end
 		task.delay(3, function()
-			if quickAddBtn and qiStroke then
-				setAddButtonState("default")
-			end
+			if quickAddBtn and qiStroke then setAddButtonState("default") end
 		end)
-
 	elseif state == "duplicate" then
 		isAddingToQueue = false
 		quickInput.Text = ""
@@ -237,13 +233,9 @@ local function setAddButtonState(state, customMessage)
 		quickAddBtn.Text = "DUPLICATE"
 		quickAddBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
 		quickInput.PlaceholderText = customMessage or "Song already in queue"
-
 		task.delay(3, function()
-			if quickAddBtn and qiStroke then
-				setAddButtonState("default")
-			end
+			if quickAddBtn and qiStroke then setAddButtonState("default") end
 		end)
-
 	elseif state == "default" then
 		isAddingToQueue = false
 		qiStroke.Color = THEME.stroke
@@ -268,6 +260,9 @@ local R = {
 	Update = getRemote("UpdateUI"),
 	GetDJs = getRemote("GetDJs"),
 	GetSongsByDJ = getRemote("GetSongsByDJ"),
+	GetSongRange = getRemote("GetSongRange"),
+	SearchSongs = getRemote("SearchSongs"),
+	GetSongMetadata = getRemote("GetSongMetadata"),
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -295,21 +290,15 @@ end
 
 if Icon then
 	if _G.MusicDashboardIcon then
-		pcall(function()
-			_G.MusicDashboardIcon:destroy()
-		end)
+		pcall(function() _G.MusicDashboardIcon:destroy() end)
 		_G.MusicDashboardIcon = nil
 	end
 
 	musicIcon = Icon.new()
 		:setLabel("MUSIC")
 		:setOrder(1)
-		:bindEvent("selected", function()
-			openUI(false)
-		end)
-		:bindEvent("deselected", function()
-			closeUI()
-		end)
+		:bindEvent("selected", function() openUI(false) end)
+		:bindEvent("deselected", function() closeUI() end)
 		:setEnabled(true)
 
 	_G.MusicDashboardIcon = musicIcon
@@ -344,7 +333,7 @@ local panel = modal:getPanel()
 panel.ClipsDescendants = true
 
 -- ════════════════════════════════════════════════════════════════
--- HEADER
+-- HEADER (mismo que antes)
 -- ════════════════════════════════════════════════════════════════
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 126)
@@ -495,22 +484,6 @@ if isAdmin then
 		b.Parent = ctrl
 		UI.rounded(b, 6)
 		UI.stroked(b, 0.2)
-
-		b.MouseEnter:Connect(function()
-			TweenService:Create(b, TweenInfo.new(0.15), {
-				BackgroundColor3 = Color3.fromRGB(
-					color.R * 255 + 15,
-					color.G * 255 + 15,
-					color.B * 255 + 15
-				)
-			}):Play()
-		end)
-		b.MouseLeave:Connect(function()
-			TweenService:Create(b, TweenInfo.new(0.15), {
-				BackgroundColor3 = color
-			}):Play()
-		end)
-
 		return b
 	end
 
@@ -522,7 +495,7 @@ if isAdmin then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- PERSONAL VOLUME CONTROL
+-- PERSONAL VOLUME CONTROL (igual que antes, resumido)
 -- ════════════════════════════════════════════════════════════════
 local volFrame = Instance.new("Frame")
 volFrame.Size = UDim2.new(0, 140, 0, 28)
@@ -567,7 +540,7 @@ UI.stroked(volLabel, 0.3)
 local volInput = Instance.new("TextBox")
 volInput.Size = volLabel.Size
 volInput.Position = volLabel.Position
-volInput.BackgroundColor3 = THEME.elevated
+volInput.BackgroundColor3 = THEME.elevated or THEME.card
 volInput.Text = "80"
 volInput.TextColor3 = THEME.text
 volInput.Font = Enum.Font.GothamBold
@@ -585,22 +558,14 @@ local savedVolume = player:GetAttribute("MusicVolume") or 0.8
 local currentVolume = savedVolume
 local dragging = false
 
-local function saveVolume(volume)
-	player:SetAttribute("MusicVolume", volume)
-end
-
 local function updateVolume(volume)
 	currentVolume = math.clamp(volume, 0, 1)
 	volSliderFill.Size = UDim2.new(currentVolume, 0, 1, 0)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
-
 	local sound = game:GetService("SoundService"):FindFirstChild("QueueSound")
-	if sound and sound:IsA("Sound") then
-		sound.Volume = currentVolume
-	end
-
-	saveVolume(currentVolume)
+	if sound and sound:IsA("Sound") then sound.Volume = currentVolume end
+	player:SetAttribute("MusicVolume", currentVolume)
 end
 
 updateVolume(currentVolume)
@@ -614,9 +579,7 @@ volSliderBg.InputBegan:Connect(function(input)
 end)
 
 volSliderBg.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
 volSliderBg.InputChanged:Connect(function(input)
@@ -626,6 +589,7 @@ volSliderBg.InputChanged:Connect(function(input)
 	end
 end)
 
+-- Click en el label para editar manualmente
 volLabel.MouseButton1Click:Connect(function()
 	volLabel.Visible = false
 	volInput.Visible = true
@@ -633,6 +597,7 @@ volLabel.MouseButton1Click:Connect(function()
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 end)
 
+-- Validar input mientras escribe
 volInput:GetPropertyChangedSignal("Text"):Connect(function()
 	local text = volInput.Text:gsub("[^%d]", "")
 	if #text > 3 then
@@ -645,6 +610,7 @@ volInput:GetPropertyChangedSignal("Text"):Connect(function()
 	volInput.Text = text
 end)
 
+-- Aplicar valor al perder foco
 local function applyInputValue()
 	local value = tonumber(volInput.Text)
 	if not value or value < 1 then
@@ -658,15 +624,10 @@ end
 
 volInput.FocusLost:Connect(applyInputValue)
 
-UserInputService.InputBegan:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.Return and volInput.Visible then
-		applyInputValue()
-	end
-end)
-
+-- Hover effects en volLabel
 volLabel.MouseEnter:Connect(function()
 	TweenService:Create(volLabel, TweenInfo.new(0.15), {
-		BackgroundColor3 = THEME.hover
+		BackgroundColor3 = THEME.hover or Color3.fromRGB(60, 60, 70)
 	}):Play()
 end)
 
@@ -674,6 +635,13 @@ volLabel.MouseLeave:Connect(function()
 	TweenService:Create(volLabel, TweenInfo.new(0.15), {
 		BackgroundColor3 = THEME.card
 	}):Play()
+end)
+
+-- Enter key para aplicar valor
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.Return and volInput.Visible then
+		applyInputValue()
+	end
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -756,7 +724,7 @@ pageLayout.ScrollWheelInputEnabled = false
 pageLayout.TouchInputEnabled = false
 
 -- ════════════════════════════════════════════════════════════════
--- QUEUE PAGE
+-- QUEUE PAGE (igual que antes)
 -- ════════════════════════════════════════════════════════════════
 local queuePage = Instance.new("Frame")
 queuePage.Name = "Queue"
@@ -806,42 +774,24 @@ quickAddBtn.BorderSizePixel = 0
 quickAddBtn.Parent = quickAddFrame
 UI.rounded(quickAddBtn, 6)
 
--- ════════════════════════════════════════════════════════════════
--- ADD TO QUEUE - NUEVA LÓGICA CON RESPUESTA SÍNCRONA
--- ════════════════════════════════════════════════════════════════
 quickAddBtn.MouseButton1Click:Connect(function()
-	-- Prevenir múltiples clicks mientras se procesa
 	if isAddingToQueue then return end
-
 	local aid = quickInput.Text:gsub("%s+", "")
-
-	-- Validación local primero
 	if not isValidAudioId(aid) then
 		Notify:Warning("ID Inválido", "Ingresa un ID válido (6-19 dígitos)", 3)
-		setAddButtonState("error", "Invalid Audio ID (6-19 digits)")
+		setAddButtonState("error", "Invalid Audio ID")
 		return
 	end
-
-	-- Mostrar estado de carga
 	setAddButtonState("loading")
-
-	-- Enviar al servidor
-	if R.Add then
-		R.Add:FireServer(tonumber(aid))
-	end
+	if R.Add then R.Add:FireServer(tonumber(aid)) end
 end)
 
--- ════════════════════════════════════════════════════════════════
--- LISTENER PARA RESPUESTA DE ADD TO QUEUE (SÍNCRONO)
--- ════════════════════════════════════════════════════════════════
 if R.AddResponse then
 	R.AddResponse.OnClientEvent:Connect(function(response)
 		if not response then return end
-
-		-- Mostrar notificación
 		showNotification(response)
 
-		-- Actualizar UI del Quick Add según el resultado
+		-- Actualizar Quick Add button
 		if response.success then
 			setAddButtonState("success")
 		elseif response.code == ResponseCodes.ERROR_DUPLICATE then
@@ -850,65 +800,54 @@ if R.AddResponse then
 			setAddButtonState("error", response.message)
 		end
 
-		-- También actualizar botones de la Library si estamos ahí
-		if currentPage == "Library" and songsScroll then
-			for _, card in pairs(songsScroll:GetChildren()) do
-				if card:IsA("Frame") then
-					local queueBtn = card:FindFirstChild("QueueButton")
-					if queueBtn and queueBtn.Text == "..." then
-						-- Restaurar el botón
-						if response.success then
-							queueBtn.Text = "EN COLA"
-							queueBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
-							queueBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-							queueBtn.AutoButtonColor = false
-						elseif response.code == ResponseCodes.ERROR_DUPLICATE then
-							queueBtn.Text = "EN COLA"
-							queueBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
-							queueBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-							queueBtn.AutoButtonColor = false
-						else
-							queueBtn.Text = "QUEUE"
-							queueBtn.BackgroundColor3 = THEME.success
-							queueBtn.TextColor3 = Color3.new(1, 1, 1)
-							queueBtn.AutoButtonColor = true
+		-- Actualizar botones de las cards en Library (se hace después cuando cardPool existe)
+		task.defer(function()
+			if currentPage == "Library" and cardPool and #cardPool > 0 then
+				for _, card in ipairs(cardPool) do
+					if card and card.Visible then
+						local addBtn = card:FindFirstChild("AddButton")
+
+						if addBtn and addBtn.Text == "..." then
+							if response.success then
+								addBtn.Text = "EN COLA"
+								addBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
+								addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+								addBtn.AutoButtonColor = false
+							elseif response.code == ResponseCodes.ERROR_DUPLICATE then
+								addBtn.Text = "EN COLA"
+								addBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
+								addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+								addBtn.AutoButtonColor = false
+							else
+								addBtn.Text = "QUEUE"
+								addBtn.BackgroundColor3 = THEME.success
+								addBtn.TextColor3 = Color3.new(1, 1, 1)
+								addBtn.AutoButtonColor = true
+							end
 						end
 					end
 				end
 			end
-		end
+		end)
 	end)
 end
 
--- ════════════════════════════════════════════════════════════════
--- LISTENERS PARA OTRAS RESPUESTAS SÍNCRONAS
--- ════════════════════════════════════════════════════════════════
 if R.RemoveResponse then
 	R.RemoveResponse.OnClientEvent:Connect(function(response)
-		if response then
-			showNotification(response)
-		end
+		if response then showNotification(response) end
 	end)
 end
 
 if R.ClearResponse then
 	R.ClearResponse.OnClientEvent:Connect(function(response)
-		if response then
-			showNotification(response)
-		end
+		if response then showNotification(response) end
 	end)
 end
 
 -- Queue Scroll
 local queueScroll = Instance.new("ScrollingFrame")
-local topOffset = 10
-local bottomInset = -12
-if quickAddFrame and quickAddFrame.Parent and quickAddFrame.Visible then
-	topOffset = 10 + quickAddFrame.Size.Y.Offset + 4
-	bottomInset = -(quickAddFrame.Size.Y.Offset + 4)
-end
-queueScroll.Size = UDim2.new(1, -24, 1, bottomInset)
-queueScroll.Position = UDim2.new(0, 12, 0, topOffset)
+queueScroll.Size = UDim2.new(1, -24, 1, -56)
+queueScroll.Position = UDim2.new(0, 12, 0, 52)
 queueScroll.BackgroundTransparency = 1
 queueScroll.BorderSizePixel = 0
 queueScroll.ScrollBarThickness = 6
@@ -963,55 +902,7 @@ local function drawQueue()
 		card.BorderSizePixel = 0
 		card.Parent = queueScroll
 		UI.rounded(card, 8)
-
-		local cardStroke = UI.stroked(card, isActive and 0.6 or 0.3)
-		if isActive then
-			local glowStroke = Instance.new("UIStroke")
-			glowStroke.Color = Color3.fromRGB(120, 140, 255)
-			glowStroke.Thickness = 2.5
-			glowStroke.Transparency = 0.3
-			glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			glowStroke.Parent = card
-
-			task.spawn(function()
-				while card.Parent and isActive do
-					TweenService:Create(glowStroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-						Transparency = 0,
-						Thickness = 3
-					}):Play()
-					task.wait(1)
-					TweenService:Create(glowStroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-						Transparency = 0.5,
-						Thickness = 2.5
-					}):Play()
-					task.wait(1)
-				end
-			end)
-
-			local gradientEffect = Instance.new("UIGradient")
-			gradientEffect.Color = ColorSequence.new{
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
-				ColorSequenceKeypoint.new(0.3, Color3.fromRGB(48, 52, 70)),
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(68, 72, 100)),
-				ColorSequenceKeypoint.new(0.7, Color3.fromRGB(48, 52, 70)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 28, 32))
-			}
-			gradientEffect.Rotation = 0
-			gradientEffect.Transparency = NumberSequence.new(0.3)
-			gradientEffect.Offset = Vector2.new(-1, 0)
-			gradientEffect.Parent = card
-
-			task.spawn(function()
-				while card.Parent and isActive do
-					TweenService:Create(gradientEffect, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {
-						Offset = Vector2.new(1, 0)
-					}):Play()
-					task.wait(2.5)
-					gradientEffect.Offset = Vector2.new(-1, 0)
-					task.wait(0.5)
-				end
-			end)
-		end
+		UI.stroked(card, isActive and 0.6 or 0.3)
 
 		local avatarOffset = 4
 		local contentLeft = avatarOffset
@@ -1021,27 +912,19 @@ local function drawQueue()
 			avatar.Position = UDim2.new(0, avatarOffset, 0.5, -22)
 			avatar.BackgroundTransparency = 1
 			avatar.ZIndex = 2
-			avatar.ImageTransparency = 0
 			avatar.Parent = card
 			UI.rounded(avatar, 22)
 
 			local border = Instance.new("UIStroke")
 			border.Color = isActive and THEME.accent or Color3.fromRGB(100, 100, 110)
 			border.Thickness = isActive and 2 or 1.5
-			border.Transparency = 0
 			border.Parent = avatar
 
 			task.spawn(function()
-				local success, thumb, isReady = pcall(function()
-					return game.Players:GetUserThumbnailAsync(
-						userId,
-						Enum.ThumbnailType.HeadShot,
-						Enum.ThumbnailSize.Size100x100
-					)
+				local success, thumb = pcall(function()
+					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
 				end)
-				if success and isReady then
-					avatar.Image = thumb
-				end
+				if success then avatar.Image = thumb end
 			end)
 			contentLeft = avatarOffset + 44 + 8
 		end
@@ -1051,25 +934,18 @@ local function drawQueue()
 		padding.PaddingRight = UDim.new(0, 12)
 		padding.Parent = card
 
-		local nameFrame = Instance.new("Frame")
-		nameFrame.Size = UDim2.new(1, -140, 0, 18)
-		nameFrame.Position = UDim2.new(0, contentLeft, 0, 8)
-		nameFrame.BackgroundTransparency = 1
-		nameFrame.ZIndex = 2
-		nameFrame.ClipsDescendants = true
-		nameFrame.Parent = card
-
 		local nameText = Instance.new("TextLabel")
-		nameText.Size = UDim2.new(1, 0, 1, 0)
+		nameText.Size = UDim2.new(1, -140, 0, 18)
+		nameText.Position = UDim2.new(0, contentLeft, 0, 8)
 		nameText.BackgroundTransparency = 1
-		nameText.Text = (song.name or "Unknown") .. "  |  Añadido por " .. (song.requestedBy or "Unknown")
+		nameText.Text = (song.name or "Unknown") .. "  |  " .. (song.requestedBy or "Unknown")
 		nameText.TextColor3 = isActive and Color3.new(1, 1, 1) or THEME.text
 		nameText.Font = Enum.Font.GothamMedium
 		nameText.TextSize = 16
 		nameText.TextXAlignment = Enum.TextXAlignment.Left
 		nameText.TextTruncate = Enum.TextTruncate.AtEnd
 		nameText.ZIndex = 2
-		nameText.Parent = nameFrame
+		nameText.Parent = card
 
 		local artist = Instance.new("TextLabel")
 		artist.Size = UDim2.new(1, -140, 0, 14)
@@ -1097,7 +973,6 @@ local function drawQueue()
 			removeBtn.ZIndex = 2
 			removeBtn.Parent = card
 			UI.rounded(removeBtn, 6)
-
 			removeBtn.MouseButton1Click:Connect(function()
 				if R.Remove then R.Remove:FireServer(i) end
 			end)
@@ -1106,7 +981,7 @@ local function drawQueue()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- LIBRARY PAGE
+-- LIBRARY PAGE (OPTIMIZADA CON VIRTUALIZACIÓN)
 -- ════════════════════════════════════════════════════════════════
 local libraryPage = Instance.new("Frame")
 libraryPage.Name = "Library"
@@ -1118,7 +993,7 @@ libraryPage.Parent = holder
 -- DJs Grid
 local djsScroll = Instance.new("ScrollingFrame")
 djsScroll.Size = UDim2.new(1, -24, 1, -16)
-djsScroll.Position = DJS_SCROLL_DEFAULT_POS
+djsScroll.Position = UDim2.new(0, 12, 0, 8)
 djsScroll.BackgroundTransparency = 1
 djsScroll.BorderSizePixel = 0
 djsScroll.ScrollBarThickness = 6
@@ -1139,93 +1014,414 @@ djsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 	djsScroll.CanvasSize = UDim2.new(0, 0, 0, djsLayout.AbsoluteContentSize.Y + 24)
 end)
 
--- Songs scroll
-local songsScroll = Instance.new("ScrollingFrame")
+-- ════════════════════════════════════════════════════════════════
+-- SONGS VIEW (VIRTUALIZADA)
+-- ════════════════════════════════════════════════════════════════
+local songsView = Instance.new("Frame")
+songsView.Name = "SongsView"
+songsView.Size = UDim2.new(1, 0, 1, 0)
+songsView.BackgroundTransparency = 1
+songsView.Visible = false
+songsView.Parent = libraryPage
+
+-- Header con búsqueda
+local songsHeader = Instance.new("Frame")
+songsHeader.Size = UDim2.new(1, -24, 0, 44)
+songsHeader.Position = UDim2.new(0, 12, 0, 8)
+songsHeader.BackgroundTransparency = 1
+songsHeader.Parent = songsView
+
+-- Back button
+local backBtn = Instance.new("TextButton")
+backBtn.Size = UDim2.new(0, 80, 0, 36)
+backBtn.Position = UDim2.new(0, 0, 0, 4)
+backBtn.BackgroundColor3 = THEME.accent
+backBtn.Text = "BACK"
+backBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+backBtn.Font = Enum.Font.GothamBold
+backBtn.TextSize = 14
+backBtn.BorderSizePixel = 0
+backBtn.ZIndex = 102
+backBtn.Parent = songsHeader
+UI.rounded(backBtn, 8)
+UI.stroked(backBtn, 0.2)
+
+local searchContainer
+searchContainer, searchInput = SearchModern.new(songsHeader, {
+	placeholder = "Buscar por ID o nombre...",
+	size = UDim2.new(1, -200, 0, 36),
+	bg = THEME.card,
+	corner = 8,
+	z = 102,
+	inputName = "SearchInput"
+})
+searchContainer.Position = UDim2.new(0, 92, 0, 4)
+
+
+-- Song count label
+songCountLabel = Instance.new("TextLabel")
+songCountLabel.Size = UDim2.new(0, 100, 0, 36)
+songCountLabel.Position = UDim2.new(1, -100, 0, 4)
+songCountLabel.BackgroundTransparency = 1
+songCountLabel.Text = "0 songs"
+songCountLabel.TextColor3 = THEME.muted
+songCountLabel.Font = Enum.Font.Gotham
+songCountLabel.TextSize = 12
+songCountLabel.TextXAlignment = Enum.TextXAlignment.Right
+songCountLabel.Parent = songsHeader
+
+-- Songs scroll (VIRTUALIZADA)
+songsScroll = Instance.new("ScrollingFrame")
 songsScroll.Size = UDim2.new(1, -24, 1, -64)
-songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
+songsScroll.Position = UDim2.new(0, 12, 0, 56)
 songsScroll.BackgroundTransparency = 1
 songsScroll.BorderSizePixel = 0
 songsScroll.ScrollBarThickness = 6
 songsScroll.ScrollBarImageColor3 = THEME.stroke
 songsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-songsScroll.Visible = false
-songsScroll.Parent = libraryPage
+songsScroll.ClipsDescendants = true
+songsScroll.Parent = songsView
 
-local songsList = Instance.new("UIListLayout")
-songsList.Padding = UDim.new(0, 6)
-songsList.SortOrder = Enum.SortOrder.LayoutOrder
-songsList.Parent = songsScroll
+-- Container para cards virtuales
+songsContainer = Instance.new("Frame")
+songsContainer.Name = "SongsContainer"
+songsContainer.Size = UDim2.new(1, 0, 0, 0)
+songsContainer.BackgroundTransparency = 1
+songsContainer.Parent = songsScroll
 
-songsList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	songsScroll.CanvasSize = UDim2.new(0, 0, 0, songsList.AbsoluteContentSize.Y + 12)
-end)
+-- Loading indicator
+loadingIndicator = Instance.new("TextLabel")
+loadingIndicator.Size = UDim2.new(1, 0, 0, 40)
+loadingIndicator.BackgroundTransparency = 1
+loadingIndicator.Text = "Cargando..."
+loadingIndicator.TextColor3 = THEME.muted
+loadingIndicator.Font = Enum.Font.Gotham
+loadingIndicator.TextSize = 14
+loadingIndicator.Visible = false
+loadingIndicator.Parent = songsScroll
 
--- Back button
-local backBtn = Instance.new("TextButton")
-backBtn.Size = UDim2.new(0, 80, 0, 36)
-backBtn.Position = UDim2.new(0, 12, 0, 12)
-backBtn.BackgroundColor3 = THEME.accent
-backBtn.Text = "← BACK"
-backBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-backBtn.Font = Enum.Font.GothamBold
-backBtn.TextSize = 14
-backBtn.BorderSizePixel = 0
-backBtn.Visible = false
-backBtn.ZIndex = 102
-backBtn.Parent = libraryPage
-UI.rounded(backBtn, 8)
-UI.stroked(backBtn, 0.2)
+-- ════════════════════════════════════════════════════════════════
+-- POOL DE CARDS (REUTILIZABLES)
+-- ════════════════════════════════════════════════════════════════
 
--- Reset Library State
-local function resetLibraryState()
-	selectedDJ = nil
-	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
-	djsScroll.Visible = true
-	djsScroll.CanvasPosition = Vector2.new(0, 0)
-	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
-	songsScroll.Visible = false
-	songsScroll.CanvasPosition = Vector2.new(0, 0)
-	backBtn.Visible = false
+local function createSongCard()
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, -8, 0, CARD_HEIGHT)
+	card.BackgroundColor3 = THEME.card
+	card.BorderSizePixel = 0
+	card.Visible = false
+	UI.rounded(card, 8)
+	UI.stroked(card, 0.3)
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingRight = UDim.new(0, 12)
+	padding.Parent = card
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(1, -160, 0, 18)
+	nameLabel.Position = UDim2.new(0, 0, 0, 10)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = THEME.text
+	nameLabel.Font = Enum.Font.GothamMedium
+	nameLabel.TextSize = 14
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.Parent = card
+
+	local artistLabel = Instance.new("TextLabel")
+	artistLabel.Name = "ArtistLabel"
+	artistLabel.Size = UDim2.new(1, -160, 0, 14)
+	artistLabel.Position = UDim2.new(0, 0, 0, 28)
+	artistLabel.BackgroundTransparency = 1
+	artistLabel.TextColor3 = THEME.muted
+	artistLabel.Font = Enum.Font.Gotham
+	artistLabel.TextSize = 14
+	artistLabel.TextXAlignment = Enum.TextXAlignment.Left
+	artistLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	artistLabel.Parent = card
+
+	local addBtn = Instance.new("TextButton")
+	addBtn.Name = "AddButton"
+	addBtn.Size = UDim2.new(0, 70, 0, 30)
+	addBtn.Position = UDim2.new(1, -70, 0.5, -15)
+	addBtn.BackgroundColor3 = THEME.success
+	addBtn.Text = "QUEUE"
+	addBtn.TextColor3 = Color3.new(1, 1, 1)
+	addBtn.Font = Enum.Font.GothamBold
+	addBtn.TextSize = 16
+	addBtn.BorderSizePixel = 0
+	addBtn.Parent = card
+	UI.rounded(addBtn, 6)
+
+	return card
 end
 
-backBtn.MouseButton1Click:Connect(function()
-	selectedDJ = nil
+local function getCardFromPool()
+	for i, card in ipairs(cardPool) do
+		if not card.Visible then
+			return card
+		end
+	end
 
-	TweenService:Create(songsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-		Position = UDim2.new(0, 12, 0, 150)
-	}):Play()
+	if #cardPool < MAX_POOL_SIZE then
+		local newCard = createSongCard()
+		newCard.Parent = songsContainer
+		table.insert(cardPool, newCard)
+		return newCard
+	end
 
-	task.wait(0.1)
+	return nil
+end
 
-	songsScroll.Visible = false
-	songsScroll.Position = SONGS_SCROLL_DEFAULT_POS
+local function releaseCard(card)
+	card.Visible = false
+	card:SetAttribute("SongIndex", nil)
+	card:SetAttribute("SongID", nil)
+end
 
-	djsScroll.Visible = true
-	djsScroll.Position = DJS_SCROLL_DEFAULT_POS
-	backBtn.Visible = false
+local function releaseAllCards()
+	for _, card in ipairs(cardPool) do
+		releaseCard(card)
+	end
+end
 
-	djsScroll.Position = UDim2.new(0, 12, 0, 0)
-	TweenService:Create(djsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-		Position = DJS_SCROLL_DEFAULT_POS
-	}):Play()
+-- ════════════════════════════════════════════════════════════════
+-- VIRTUAL SCROLL LOGIC
+-- ════════════════════════════════════════════════════════════════
+local function getSongDataForDisplay()
+	if virtualScrollState.isSearching then
+		return virtualScrollState.searchResults
+	end
+	return virtualScrollState.songData
+end
+
+local function getTotalSongsForDisplay()
+	if virtualScrollState.isSearching then
+		return #virtualScrollState.searchResults
+	end
+	return virtualScrollState.totalSongs
+end
+
+local function updateSongCard(card, songData, index, isInQueue)
+	if not card or not songData then return end
+
+	card:SetAttribute("SongIndex", index)
+	card:SetAttribute("SongID", songData.id)
+
+	local nameLabel = card:FindFirstChild("NameLabel")
+	local artistLabel = card:FindFirstChild("ArtistLabel")
+	local addBtn = card:FindFirstChild("AddButton")
+
+	if nameLabel then
+		nameLabel.Text = songData.name or "Cargando..."
+		nameLabel.TextColor3 = songData.loaded and THEME.text or THEME.muted
+	end
+
+	if artistLabel then
+		artistLabel.Text = songData.artist or ("ID: " .. songData.id)
+	end
+
+	if addBtn then
+		-- Limpiar conexiones anteriores
+		for _, conn in pairs(addBtn:GetAttribute("Connections") or {}) do
+			-- No podemos guardar conexiones en atributos, así que usamos otro método
+		end
+
+		if isInQueue then
+			addBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
+			addBtn.Text = "EN COLA"
+			addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+			addBtn.AutoButtonColor = false
+		else
+			addBtn.BackgroundColor3 = THEME.success
+			addBtn.Text = "QUEUE"
+			addBtn.TextColor3 = Color3.new(1, 1, 1)
+			addBtn.AutoButtonColor = true
+		end
+	end
+
+	local yPos = (index - 1) * (CARD_HEIGHT + CARD_PADDING)
+	card.Position = UDim2.new(0, 4, 0, yPos)
+	card.Visible = true
+end
+
+local function isInQueue(songId)
+	for _, song in ipairs(playQueue) do
+		if song.id == songId then return true end
+	end
+	return false
+end
+
+local function updateVisibleCards()
+	if not songsScroll or not songsScroll.Parent then return end
+
+	local scrollPos = songsScroll.CanvasPosition.Y
+	local viewportHeight = songsScroll.AbsoluteSize.Y
+	local totalItems = getTotalSongsForDisplay()
+
+	if totalItems == 0 then
+		releaseAllCards()
+		return
+	end
+
+	-- Calcular rango visible
+	local firstVisible = math.max(1, math.floor(scrollPos / (CARD_HEIGHT + CARD_PADDING)) + 1 - VISIBLE_BUFFER)
+	local lastVisible = math.min(totalItems, math.ceil((scrollPos + viewportHeight) / (CARD_HEIGHT + CARD_PADDING)) + VISIBLE_BUFFER)
+
+	-- Actualizar canvas size
+	local totalHeight = totalItems * (CARD_HEIGHT + CARD_PADDING)
+	songsContainer.Size = UDim2.new(1, 0, 0, totalHeight)
+	songsScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 20)
+
+	-- Liberar cards fuera del rango
+	for _, card in ipairs(cardPool) do
+		if card.Visible then
+			local cardIndex = card:GetAttribute("SongIndex")
+			if cardIndex and (cardIndex < firstVisible or cardIndex > lastVisible) then
+				releaseCard(card)
+			end
+		end
+	end
+
+	-- Mostrar cards en el rango
+	local dataSource = getSongDataForDisplay()
+	local needsServerFetch = {}
+
+	for i = firstVisible, lastVisible do
+		local songData = nil
+
+		if virtualScrollState.isSearching then
+			songData = dataSource[i]
+		else
+			songData = dataSource[i]
+		end
+
+		-- Verificar si ya hay una card para este índice
+		local existingCard = nil
+		for _, card in ipairs(cardPool) do
+			if card.Visible and card:GetAttribute("SongIndex") == i then
+				existingCard = card
+				break
+			end
+		end
+
+		if songData then
+			local card = existingCard or getCardFromPool()
+			if card then
+				updateSongCard(card, songData, i, isInQueue(songData.id))
+			end
+		elseif not virtualScrollState.isSearching then
+			-- No tenemos data, pedir al servidor
+			table.insert(needsServerFetch, i)
+		end
+	end
+
+	-- Pedir datos faltantes al servidor
+	if #needsServerFetch > 0 and not virtualScrollState.isSearching then
+		local minIndex = math.huge
+		local maxIndex = 0
+
+		for _, idx in ipairs(needsServerFetch) do
+			minIndex = math.min(minIndex, idx)
+			maxIndex = math.max(maxIndex, idx)
+		end
+
+		-- Verificar si ya pedimos este rango
+		local rangeKey = minIndex .. "-" .. maxIndex
+		if not virtualScrollState.pendingRequests[rangeKey] then
+			virtualScrollState.pendingRequests[rangeKey] = true
+
+			if R.GetSongRange and selectedDJ then
+				R.GetSongRange:FireServer(selectedDJ, minIndex, maxIndex)
+			end
+		end
+	end
+
+	virtualScrollState.firstVisibleIndex = firstVisible
+	virtualScrollState.lastVisibleIndex = lastVisible
+end
+
+-- Conectar el scroll
+local scrollConnection = nil
+
+local function connectScrollListener()
+	if scrollConnection then scrollConnection:Disconnect() end
+
+	scrollConnection = songsScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		updateVisibleCards()
+	end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- BÚSQUEDA
+-- ════════════════════════════════════════════════════════════════
+local searchDebounce = nil
+
+local function performSearch(query)
+	if query == "" then
+		virtualScrollState.isSearching = false
+		virtualScrollState.searchQuery = ""
+		virtualScrollState.searchResults = {}
+		songCountLabel.Text = virtualScrollState.totalSongs .. " songs"
+		songsScroll.CanvasPosition = Vector2.new(0, 0)
+		updateVisibleCards()
+		return
+	end
+
+	virtualScrollState.isSearching = true
+	virtualScrollState.searchQuery = query
+	loadingIndicator.Visible = true
+	loadingIndicator.Text = "Buscando..."
+
+	if R.SearchSongs and selectedDJ then
+		R.SearchSongs:FireServer(selectedDJ, query)
+	end
+end
+
+searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = searchInput.Text
+
+	-- Debounce
+	if searchDebounce then
+		task.cancel(searchDebounce)
+	end
+
+	searchDebounce = task.delay(0.3, function()
+		performSearch(text)
+	end)
 end)
 
-backBtn.MouseEnter:Connect(function()
-	TweenService:Create(backBtn, TweenInfo.new(0.15), {
-		BackgroundColor3 = Color3.fromRGB(THEME.accent.R * 255 * 0.8, THEME.accent.G * 255 * 0.8, THEME.accent.B * 255 * 0.8)
-	}):Play()
+-- ════════════════════════════════════════════════════════════════
+-- CONEXIONES DE BOTONES EN CARDS
+-- ════════════════════════════════════════════════════════════════
+-- Usar un único listener en el container
+songsContainer.ChildAdded:Connect(function(child)
+	if child:IsA("Frame") then
+		local addBtn = child:FindFirstChild("AddButton")
+		if addBtn then
+			addBtn.MouseButton1Click:Connect(function()
+				local songId = child:GetAttribute("SongID")
+				if songId and not isInQueue(songId) then
+					addBtn.BackgroundColor3 = THEME.info
+					addBtn.Text = "..."
+					if R.Add then
+						R.Add:FireServer(songId)
+					end
+				end
+			end)
+		end
+	end
 end)
 
-backBtn.MouseLeave:Connect(function()
-	TweenService:Create(backBtn, TweenInfo.new(0.15), {
-		BackgroundColor3 = THEME.accent
-	}):Play()
-end)
-
+-- ════════════════════════════════════════════════════════════════
+-- DJs DRAWING
+-- ════════════════════════════════════════════════════════════════
 local function drawDJs()
 	for _, child in pairs(djsScroll:GetChildren()) do
-		if not child:IsA("UIGridLayout") then 
-			child:Destroy() 
+		if not child:IsA("UIGridLayout") then
+			child:Destroy()
 		end
 	end
 
@@ -1312,166 +1508,117 @@ local function drawDJs()
 		clickBtn.MouseButton1Click:Connect(function()
 			selectedDJ = dj.name
 
+			-- Resetear estado virtual
+			virtualScrollState.totalSongs = dj.songCount
+			virtualScrollState.songData = {}
+			virtualScrollState.searchResults = {}
+			virtualScrollState.isSearching = false
+			virtualScrollState.searchQuery = ""
+			virtualScrollState.pendingRequests = {}
+
+			-- Transición
 			TweenService:Create(djsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
 				Position = UDim2.new(0, 12, 0, -50)
 			}):Play()
 
 			task.wait(0.15)
-
 			djsScroll.Visible = false
-			djsScroll.Position = DJS_SCROLL_DEFAULT_POS
+			djsScroll.Position = UDim2.new(0, 12, 0, 8)
 
-			songsScroll.Visible = true
-			backBtn.Visible = true
+			songsView.Visible = true
+			searchInput.Text = ""
+			songCountLabel.Text = dj.songCount .. " songs"
 
-			songsScroll.Position = UDim2.new(0, 12, 0, 100)
-			TweenService:Create(songsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-				Position = SONGS_SCROLL_DEFAULT_POS
-			}):Play()
+			-- Limpiar cards y pedir datos iniciales
+			releaseAllCards()
+			songsScroll.CanvasPosition = Vector2.new(0, 0)
 
-			if R.GetSongsByDJ then
-				R.GetSongsByDJ:FireServer(dj.name)
+			-- Configurar canvas inicial
+			local totalHeight = dj.songCount * (CARD_HEIGHT + CARD_PADDING)
+			songsContainer.Size = UDim2.new(1, 0, 0, totalHeight)
+			songsScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 20)
+
+			connectScrollListener()
+
+			-- Pedir primer batch
+			if R.GetSongRange then
+				R.GetSongRange:FireServer(dj.name, 1, BATCH_SIZE)
 			end
+
+			-- Animar entrada
+			songsView.Position = UDim2.new(0, 0, 0, 50)
+			TweenService:Create(songsView, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+				Position = UDim2.new(0, 0, 0, 0)
+			}):Play()
 		end)
 
 		clickBtn.MouseEnter:Connect(function()
-			TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 0.3
-			}):Play()
-			TweenService:Create(nameLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				TextTransparency = 0
-			}):Play()
-			TweenService:Create(countLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				TextTransparency = 0
-			}):Play()
+			TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 0.3}):Play()
+			TweenService:Create(nameLabel, TweenInfo.new(0.2), {TextTransparency = 0}):Play()
+			TweenService:Create(countLabel, TweenInfo.new(0.2), {TextTransparency = 0}):Play()
 		end)
 
 		clickBtn.MouseLeave:Connect(function()
-			TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundTransparency = 1
-			}):Play()
-			TweenService:Create(nameLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				TextTransparency = 1
-			}):Play()
-			TweenService:Create(countLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				TextTransparency = 1
-			}):Play()
+			TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+			TweenService:Create(nameLabel, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
+			TweenService:Create(countLabel, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
 		end)
 	end
 end
 
-local function drawSongs(songs)
-	for _, child in pairs(songsScroll:GetChildren()) do
-		if not child:IsA("UIListLayout") then 
-			child:Destroy() 
-		end
+-- Back button
+backBtn.MouseButton1Click:Connect(function()
+	selectedDJ = nil
+
+	-- Limpiar estado
+	virtualScrollState.songData = {}
+	virtualScrollState.searchResults = {}
+	virtualScrollState.isSearching = false
+	virtualScrollState.pendingRequests = {}
+	releaseAllCards()
+
+	if scrollConnection then
+		scrollConnection:Disconnect()
+		scrollConnection = nil
 	end
 
-	if not songs or #songs == 0 then
-		local empty = Instance.new("TextLabel")
-		empty.Size = UDim2.new(1, 0, 0, 60)
-		empty.BackgroundTransparency = 1
-		empty.Text = "No songs in this DJ"
-		empty.TextColor3 = THEME.muted
-		empty.Font = Enum.Font.Gotham
-		empty.TextSize = 14
-		empty.Parent = songsScroll
-		return
+	TweenService:Create(songsView, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+		Position = UDim2.new(0, 0, 0, 50)
+	}):Play()
+
+	task.wait(0.15)
+	songsView.Visible = false
+	songsView.Position = UDim2.new(0, 0, 0, 0)
+
+	djsScroll.Visible = true
+	djsScroll.Position = UDim2.new(0, 12, 0, -50)
+	TweenService:Create(djsScroll, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+		Position = UDim2.new(0, 12, 0, 8)
+	}):Play()
+end)
+
+-- ════════════════════════════════════════════════════════════════
+-- RESET LIBRARY STATE
+-- ════════════════════════════════════════════════════════════════
+local function resetLibraryState()
+	selectedDJ = nil
+	virtualScrollState.songData = {}
+	virtualScrollState.searchResults = {}
+	virtualScrollState.isSearching = false
+	virtualScrollState.pendingRequests = {}
+	releaseAllCards()
+
+	if scrollConnection then
+		scrollConnection:Disconnect()
+		scrollConnection = nil
 	end
 
-	for _, song in ipairs(songs) do
-		local isInQueue = false
-		for _, queueSong in ipairs(playQueue) do
-			if queueSong.id == song.id then
-				isInQueue = true
-				break
-			end
-		end
-
-		local card = Instance.new("Frame")
-		card.Size = UDim2.new(1, 0, 0, 54)
-		card.BackgroundColor3 = THEME.card
-		card.BorderSizePixel = 0
-		card.Parent = songsScroll
-		UI.rounded(card, 8)
-		UI.stroked(card, 0.3)
-
-		card.Name = "SongCard_" .. song.id
-		card:SetAttribute("SongID", song.id)
-
-		local padding = Instance.new("UIPadding")
-		padding.PaddingLeft = UDim.new(0, 12)
-		padding.PaddingRight = UDim.new(0, 12)
-		padding.Parent = card
-
-		local name = Instance.new("TextLabel")
-		name.Size = UDim2.new(1, -160, 0, 18)
-		name.Position = UDim2.new(0, 0, 0, 10)
-		name.BackgroundTransparency = 1
-		name.Text = song.name or "Unknown"
-		name.TextColor3 = THEME.text
-		name.Font = Enum.Font.GothamMedium
-		name.TextSize = 14
-		name.TextXAlignment = Enum.TextXAlignment.Left
-		name.TextTruncate = Enum.TextTruncate.AtEnd
-		name.Parent = card
-
-		local artist = Instance.new("TextLabel")
-		artist.Size = UDim2.new(1, -160, 0, 14)
-		artist.Position = UDim2.new(0, 0, 0, 28)
-		artist.BackgroundTransparency = 1
-		artist.Text = song.artist or "Unknown Artist"
-		artist.TextColor3 = THEME.muted
-		artist.Font = Enum.Font.Gotham
-		artist.TextSize = 14
-		artist.TextXAlignment = Enum.TextXAlignment.Left
-		artist.TextTruncate = Enum.TextTruncate.AtEnd
-		artist.Parent = card
-
-		local addBtn = Instance.new("TextButton")
-		addBtn.Size = UDim2.new(0, 70, 0, 30)
-		-- Ajuste: reduce el offset cuando el admin UI ya no tiene botón de eliminar
-		addBtn.Position = UDim2.new(1, isAdmin and -90 or -70, 0.5, -15)
-		addBtn.Font = Enum.Font.GothamBold
-		addBtn.TextSize = 16
-		addBtn.BorderSizePixel = 0
-		addBtn.Parent = card
-		UI.rounded(addBtn, 6)
-		addBtn.Name = "QueueButton"
-
-		if isInQueue then
-			addBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 110)
-			addBtn.Text = "EN COLA"
-			addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
-			addBtn.AutoButtonColor = false
-
-			addBtn.MouseButton1Click:Connect(function()
-				local originalColor = addBtn.BackgroundColor3
-				addBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 130)
-				task.wait(0.1)
-				addBtn.BackgroundColor3 = originalColor
-			end)
-		else
-			addBtn.BackgroundColor3 = THEME.success
-			addBtn.Text = "QUEUE"
-			addBtn.TextColor3 = Color3.new(1, 1, 1)
-			addBtn.AutoButtonColor = true
-
-			local isAddingThisSong = false
-			addBtn.MouseButton1Click:Connect(function()
-				if isAddingThisSong then return end
-				isAddingThisSong = true
-
-				if R.Add then 
-					addBtn.BackgroundColor3 = THEME.info
-					addBtn.Text = "..."
-					R.Add:FireServer(song.id)
-				end
-			end)
-		end
-
-		-- Delete button removed: library is managed by the database
-	end
+	djsScroll.Position = UDim2.new(0, 12, 0, 8)
+	djsScroll.Visible = true
+	djsScroll.CanvasPosition = Vector2.new(0, 0)
+	songsView.Visible = false
+	songsView.Position = UDim2.new(0, 0, 0, 0)
+	searchInput.Text = ""
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1486,9 +1633,7 @@ local function updateProgressBar()
 		progressFill.Size = UDim2.new(0, 0, 1, 0)
 		currentTimeLabel.Text = "0:00"
 		totalTimeLabel.Text = "0:00"
-		if not currentSong then
-			songTitle.Text = "No song playing"
-		end
+		if not currentSong then songTitle.Text = "No song playing" end
 		return
 	end
 
@@ -1513,7 +1658,6 @@ local function moveUnderline(btn)
 		local x = btn.AbsolutePosition.X - panel.AbsolutePosition.X
 		local w = btn.AbsoluteSize.X
 		local y = header.Size.Y.Offset + 33
-
 		TweenService:Create(underline, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
 			Size = UDim2.new(0, w, 0, 3),
 			Position = UDim2.new(0, x, 0, y)
@@ -1538,26 +1682,14 @@ function showPage(name)
 		pageLayout:JumpTo(pageFrame)
 	end
 
-	if name == "Queue" then 
-		drawQueue() 
-	end
+	if name == "Queue" then drawQueue() end
 
 	if name == "Library" then
 		resetLibraryState()
-
 		if #allDJs > 0 then
 			drawDJs()
-		else
-			for _, child in pairs(djsScroll:GetChildren()) do
-				if not child:IsA("UIGridLayout") then 
-					child:Destroy() 
-				end
-			end
 		end
-
-		if R.GetDJs then
-			R.GetDJs:FireServer()
-		end
+		if R.GetDJs then R.GetDJs:FireServer() end
 	end
 end
 
@@ -1593,9 +1725,7 @@ function openUI(openToLibrary)
 
 	modal:open()
 
-	if progressConnection then
-		progressConnection:Disconnect()
-	end
+	if progressConnection then progressConnection:Disconnect() end
 	progressConnection = RunService.Heartbeat:Connect(updateProgressBar)
 end
 
@@ -1636,7 +1766,7 @@ closeBtn.MouseLeave:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- REMOTE UPDATES (General UI sync)
+-- REMOTE UPDATES
 -- ════════════════════════════════════════════════════════════════
 if R.Update then
 	R.Update.OnClientEvent:Connect(function(data)
@@ -1653,18 +1783,14 @@ if R.Update then
 			songTitle.Text = "No song playing"
 		end
 
-		-- Solo redibujar UI, las notificaciones se manejan por AddResponse
-		if currentPage == "Queue" then 
-			drawQueue() 
-		end
+		if currentPage == "Queue" then drawQueue() end
 
-		if currentPage == "Library" then 
-			if selectedDJ then
-				if R.GetSongsByDJ then
-					R.GetSongsByDJ:FireServer(selectedDJ)
-				end
-			else
+		if currentPage == "Library" then
+			if not selectedDJ then
 				drawDJs()
+			else
+				-- Actualizar estado de botones en cards visibles
+				updateVisibleCards()
 			end
 		end
 	end)
@@ -1673,16 +1799,64 @@ end
 if R.GetDJs then
 	R.GetDJs.OnClientEvent:Connect(function(d)
 		allDJs = (d and (d.djs or d)) or allDJs
-
 		if currentPage == "Library" and not selectedDJ then
 			drawDJs()
 		end
 	end)
 end
 
+-- Recibir rango de canciones
+if R.GetSongRange then
+	R.GetSongRange.OnClientEvent:Connect(function(data)
+		if not data or data.djName ~= selectedDJ then return end
+
+		loadingIndicator.Visible = false
+
+		-- Guardar canciones en cache local
+		for _, song in ipairs(data.songs or {}) do
+			virtualScrollState.songData[song.index] = song
+		end
+
+		-- Limpiar request pendiente
+		local rangeKey = data.startIndex .. "-" .. data.endIndex
+		virtualScrollState.pendingRequests[rangeKey] = nil
+
+		-- Actualizar cards visibles
+		updateVisibleCards()
+	end)
+end
+
+-- Recibir resultados de búsqueda
+if R.SearchSongs then
+	R.SearchSongs.OnClientEvent:Connect(function(data)
+		if not data or data.djName ~= selectedDJ then return end
+
+		loadingIndicator.Visible = false
+
+		virtualScrollState.searchResults = data.songs or {}
+		songCountLabel.Text = #virtualScrollState.searchResults .. " / " .. (data.totalInDJ or virtualScrollState.totalSongs) .. " songs"
+
+		if data.cachedCount and data.cachedCount < (data.totalInDJ or 0) then
+			songCountLabel.Text = songCountLabel.Text .. " " .. math.floor(data.cachedCount / (data.totalInDJ or 1) * 100) .. "%"
+		end
+
+		songsScroll.CanvasPosition = Vector2.new(0, 0)
+		updateVisibleCards()
+	end)
+end
+
+-- Recibir info inicial del DJ
 if R.GetSongsByDJ then
-	R.GetSongsByDJ.OnClientEvent:Connect(function(p)
-		if p and p.songs then drawSongs(p.songs) end
+	R.GetSongsByDJ.OnClientEvent:Connect(function(data)
+		if not data or data.djName ~= selectedDJ then return end
+
+		virtualScrollState.totalSongs = data.total or 0
+		songCountLabel.Text = data.total .. " songs"
+
+		-- Actualizar canvas size
+		local totalHeight = data.total * (CARD_HEIGHT + CARD_PADDING)
+		songsContainer.Size = UDim2.new(1, 0, 0, totalHeight)
+		songsScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 20)
 	end)
 end
 
@@ -1690,3 +1864,10 @@ end
 -- INITIALIZATION
 -- ════════════════════════════════════════════════════════════════
 if R.GetDJs then R.GetDJs:FireServer() end
+
+-- Pre-crear pool de cards
+for i = 1, MAX_POOL_SIZE do
+	local card = createSongCard()
+	card.Parent = songsContainer
+	table.insert(cardPool, card)
+end

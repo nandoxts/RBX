@@ -29,23 +29,24 @@
 ]]
 
 local SoundService = game:GetService("SoundService")
-local Workspace = game:GetService("Workspace")
 
 -- Configuración
 local MUSIC_SOUND_NAME = "THEME"
-local QUEUE_SOUND_NAME = "QueueSound"
 local ASSET_PREFIX = "rbxassetid://"
 local DEFAULT_PITCH = 1
 local DEBOUNCE_DELAY = 0.05
 
--- Obtener referencias al sonido
+-- Obtener referencia al sonido
 local sound = SoundService:FindFirstChild(MUSIC_SOUND_NAME)
-local queueSound = SoundService:FindFirstChild(QUEUE_SOUND_NAME)
+if not sound then
+	--warn(`No se encontró el sonido llamado '{MUSIC_SOUND_NAME}' en SoundService`)
+	return
+end
 
 -- Cargar módulo con manejo de errores
 local pitchModule
 local success, err = pcall(function()
-	pitchModule = require(script.PitchModule)
+	pitchModule = require(script.MODULESCRIPT)
 end)
 
 if not success then
@@ -59,6 +60,15 @@ if type(pitchModule) ~= "table" or not pitchModule.ids or type(pitchModule.ids) 
 	return
 end
 
+-- Imprimir contenido del módulo para debug
+--[[
+print("Contenido del módulo cargado:")
+print(pitchModule)
+for i, entry in ipairs(pitchModule.ids) do
+	print(`Entry {i}: ID={entry.id}, Pitch={entry.pitch}`)
+end
+]]
+
 -- Optimización: Crear tabla de búsqueda
 local pitchLookup = {}
 for _, entry in ipairs(pitchModule.ids) do
@@ -68,70 +78,34 @@ for _, entry in ipairs(pitchModule.ids) do
 end
 
 -- Función para actualizar el pitch
-local function updatePitch(targetSound)
-	if not targetSound or not targetSound:IsA("Sound") then return end
-	local pitch = pitchLookup[targetSound.SoundId] or DEFAULT_PITCH
-	targetSound.PlaybackSpeed = pitch
+local function updatePitch()
+	local pitch = pitchLookup[sound.SoundId] or DEFAULT_PITCH
+	sound.PlaybackSpeed = pitch
+
+	-- Debug (opcional)
+	--print(`Sound ID: {sound.SoundId}, Pitch set to: {pitch}`)
 end
 
 -- Función con manejo de errores
-local function safeUpdatePitch(targetSound)
-	local success, err = pcall(function()
-		updatePitch(targetSound)
-	end)
+local function safeUpdatePitch()
+	local success, err = pcall(updatePitch)
 	if not success then
 		--warn("Error al actualizar el pitch:", err)
-		if targetSound then targetSound.PlaybackSpeed = DEFAULT_PITCH end
+		sound.PlaybackSpeed = DEFAULT_PITCH
 	end
 end
 
--- Conectar evento de cambio para THEME sound
-if sound then
-	safeUpdatePitch(sound)
-	
-	local debounce = false
-	sound:GetPropertyChangedSignal("SoundId"):Connect(function()
-		if debounce then return end
-		debounce = true
-		task.delay(DEBOUNCE_DELAY, function()
-			safeUpdatePitch(sound)
-			debounce = false
-		end)
-	end)
-end
+-- Llamar inicialmente
+safeUpdatePitch()
 
--- Monitorear QueueSound en SoundService (DjDashboard)
-if queueSound then
-	safeUpdatePitch(queueSound)
-	
-	local debounce = false
-	queueSound:GetPropertyChangedSignal("SoundId"):Connect(function()
-		if debounce then return end
-		debounce = true
-		task.delay(DEBOUNCE_DELAY, function()
-			safeUpdatePitch(queueSound)
-			debounce = false
-		end)
+-- Conectar evento de cambio con debounce
+local debounce = false
+sound:GetPropertyChangedSignal("SoundId"):Connect(function()
+	if debounce then return end
+	debounce = true
+
+	task.delay(DEBOUNCE_DELAY, function()
+		safeUpdatePitch()
+		debounce = false
 	end)
-else
-	-- Si no existe aún, intentar encontrarlo periódicamente
-	game:GetService("RunService").Heartbeat:Connect(function()
-		if not queueSound then
-			queueSound = SoundService:FindFirstChild(QUEUE_SOUND_NAME)
-			if queueSound and not queueSound:GetAttribute("PitchMonitored") then
-				queueSound:SetAttribute("PitchMonitored", true)
-				safeUpdatePitch(queueSound)
-				
-				local debounce = false
-				queueSound:GetPropertyChangedSignal("SoundId"):Connect(function()
-					if debounce then return end
-					debounce = true
-					task.delay(DEBOUNCE_DELAY, function()
-						safeUpdatePitch(queueSound)
-						debounce = false
-					end)
-				end)
-			end
-		end
-	end)
-end
+end)

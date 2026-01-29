@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════
--- DJ MUSIC SYSTEM - SERVER SCRIPT (ULTRA OPTIMIZADO)
--- Carga instantánea + Paginación de canciones
+-- DJ MUSIC SYSTEM - SERVER SCRIPT (OPTIMIZADO CON BÚSQUEDA)
+-- Virtualización + Búsqueda + Carga bajo demanda
 -- by ignxts
 -- ════════════════════════════════════════════════════════════════
 
@@ -12,12 +12,12 @@ local SoundService = game:GetService("SoundService")
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 
 -- STATE
-local musicDatabase = {}  -- DJ name -> {cover, songIds[]} (solo IDs, sin metadata)
+local musicDatabase = {}  -- DJ name -> {cover, songIds[]}
 local playQueue = {}
 local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
-local metadataCache = {}  -- Cache de metadata por ID
+local metadataCache = {}  -- Cache de metadata por ID: {name, artist, loaded}
 
 -- RESPONSE CODES
 local ResponseCodes = {
@@ -61,7 +61,7 @@ local uiFolder = getOrCreateFolder(remotesFolder, "UI")
 local remotesList = {
 	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong"}},
 	{folder = musicQueueFolder, names = {"AddToQueue", "AddToQueueResponse", "RemoveFromQueue", "RemoveFromQueueResponse", "ClearQueue", "ClearQueueResponse"}},
-	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "GetSongMetadata"}},
+	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "GetSongMetadata", "SearchSongs", "GetSongRange"}},
 	{folder = uiFolder, names = {"UpdateUI"}}
 }
 
@@ -101,6 +101,8 @@ local R = {
 	GetDJs = musicLibraryFolder:FindFirstChild("GetDJs"),
 	GetSongsByDJ = musicLibraryFolder:FindFirstChild("GetSongsByDJ"),
 	GetSongMetadata = musicLibraryFolder:FindFirstChild("GetSongMetadata"),
+	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
+	GetSongRange = musicLibraryFolder:FindFirstChild("GetSongRange"),
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -129,14 +131,13 @@ local function hasPermission(player, action)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- CARGA INSTANTÁNEA DE DJS (SOLO IDs, SIN METADATA)
+-- CARGA DE DJS (SOLO IDs)
 -- ════════════════════════════════════════════════════════════════
 local function loadDJsInstantly()
 	musicDatabase = {}
 	local djsConfig = MusicConfig:GetDJs()
 
 	for djName, djData in pairs(djsConfig) do
-		-- Solo guardamos los IDs, nada más
 		local songIds = {}
 		for _, songId in ipairs(djData.SongIds or {}) do
 			if type(songId) == "number" then
@@ -147,7 +148,7 @@ local function loadDJsInstantly()
 		musicDatabase[djName] = {
 			cover = djData.ImageId or "",
 			userId = djData.userId,
-			songIds = songIds,  -- Solo array de IDs
+			songIds = songIds,
 			songCount = #songIds
 		}
 	end
@@ -156,27 +157,91 @@ local function loadDJsInstantly()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- OBTENER METADATA (SOLO CUANDO SE NECESITA)
+-- METADATA FUNCTIONS (OPTIMIZADO)
 -- ════════════════════════════════════════════════════════════════
-local function getMetadataForId(audioId)
-	if metadataCache[audioId] then
+local metadataLoadQueue = {}
+local isLoadingMetadata = false
+
+-- Cargar metadata de un batch de IDs
+local function loadMetadataBatch(ids, callback)
+	local results = {}
+	local pending = #ids
+
+	if pending == 0 then
+		if callback then callback({}) end
+		return
+	end
+
+	for _, id in ipairs(ids) do
+		-- Si ya está en cache, usar cache
+		if metadataCache[id] and metadataCache[id].loaded then
+			results[id] = metadataCache[id]
+			pending = pending - 1
+			if pending == 0 and callback then
+				callback(results)
+			end
+		else
+			-- Cargar desde MarketplaceService
+			task.spawn(function()
+				local success, info = pcall(function()
+					return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
+				end)
+
+				if success and info and info.AssetTypeId == 3 then
+					metadataCache[id] = {
+						name = info.Name or ("Audio " .. id),
+						artist = (info.Creator and info.Creator.Name) or "Unknown",
+						loaded = true
+					}
+				else
+					metadataCache[id] = {
+						name = "Audio " .. id,
+						artist = "Unknown",
+						loaded = true,
+						error = true
+					}
+				end
+
+				results[id] = metadataCache[id]
+				pending = pending - 1
+
+				if pending == 0 and callback then
+					callback(results)
+				end
+			end)
+		end
+	end
+end
+
+-- Obtener metadata (sync si está en cache, placeholder si no)
+local function getMetadataForId(audioId, forceLoad)
+	if metadataCache[audioId] and metadataCache[audioId].loaded then
 		return metadataCache[audioId]
 	end
 
-	local success, info = pcall(function()
-		return MarketplaceService:GetProductInfo(audioId, Enum.InfoType.Asset)
-	end)
+	-- Retornar placeholder inmediato
+	local placeholder = {
+		name = "Cargando...",
+		artist = "ID: " .. audioId,
+		loaded = false
+	}
 
-	if success and info and info.AssetTypeId == 3 then
-		local metadata = {
-			name = info.Name or ("Audio " .. audioId),
-			artist = (info.Creator and info.Creator.Name) or "Unknown"
-		}
-		metadataCache[audioId] = metadata
-		return metadata
+	if forceLoad then
+		local success, info = pcall(function()
+			return MarketplaceService:GetProductInfo(audioId, Enum.InfoType.Asset)
+		end)
+
+		if success and info and info.AssetTypeId == 3 then
+			metadataCache[audioId] = {
+				name = info.Name or ("Audio " .. audioId),
+				artist = (info.Creator and info.Creator.Name) or "Unknown",
+				loaded = true
+			}
+			return metadataCache[audioId]
+		end
 	end
 
-	return {name = "Audio " .. audioId, artist = "Unknown"}
+	return placeholder
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -199,57 +264,144 @@ local function getAllDJs()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- OBTENER CANCIONES POR LOTES (PAGINACIÓN)
+-- OBTENER RANGO DE CANCIONES (PARA VIRTUALIZACIÓN)
 -- ════════════════════════════════════════════════════════════════
-local SONGS_PER_PAGE = 30
-
-local function getSongsByDJPaginated(djName, page)
-	page = page or 1
-
+local function getSongRange(djName, startIndex, endIndex, loadMetadata)
 	if not musicDatabase[djName] then
-		return {songs = {}, hasMore = false, total = 0, page = page}
+		return {songs = {}, total = 0}
 	end
 
 	local allIds = musicDatabase[djName].songIds or {}
 	local total = #allIds
-	local startIndex = (page - 1) * SONGS_PER_PAGE + 1
-	local endIndex = math.min(startIndex + SONGS_PER_PAGE - 1, total)
+
+	startIndex = math.max(1, startIndex or 1)
+	endIndex = math.min(endIndex or (startIndex + 19), total)
 
 	local songs = {}
+	local idsToLoad = {}
+
 	for i = startIndex, endIndex do
 		local id = allIds[i]
 		if id then
 			local cached = metadataCache[id]
-			if not cached then
-				local success, info = pcall(function()
-					return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
-				end)
-				if success and info and info.AssetTypeId == 3 then
-					cached = {
-						name = info.Name or ("Audio " .. id),
-						artist = (info.Creator and info.Creator.Name) or "Unknown"
-					}
-					metadataCache[id] = cached
-				else
-					cached = {name = "Audio " .. id, artist = "..."}
+			if cached and cached.loaded then
+				table.insert(songs, {
+					id = id,
+					name = cached.name,
+					artist = cached.artist,
+					index = i,
+					loaded = true
+				})
+			else
+				-- Placeholder mientras carga
+				table.insert(songs, {
+					id = id,
+					name = "Cargando...",
+					artist = "ID: " .. id,
+					index = i,
+					loaded = false
+				})
+				if loadMetadata then
+					table.insert(idsToLoad, id)
 				end
 			end
-			table.insert(songs, {
-				id = id,
-				name = cached.name,
-				artist = cached.artist,
-				index = i
-			})
 		end
 	end
 
 	return {
 		songs = songs,
-		hasMore = endIndex < total,
 		total = total,
-		page = page,
-		totalPages = math.ceil(total / SONGS_PER_PAGE)
+		startIndex = startIndex,
+		endIndex = endIndex,
+		hasMore = endIndex < total,
+		idsToLoad = idsToLoad
 	}
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- BÚSQUEDA DE CANCIONES
+-- ════════════════════════════════════════════════════════════════
+local function searchSongs(djName, query, maxResults)
+	maxResults = maxResults or 50
+
+	if not musicDatabase[djName] then
+		return {songs = {}, total = 0, query = query}
+	end
+
+	local allIds = musicDatabase[djName].songIds or {}
+	local results = {}
+	local queryLower = string.lower(query or "")
+	local queryNumber = tonumber(query)
+
+	-- Si la query es un número, buscar por ID primero
+	if queryNumber then
+		for i, id in ipairs(allIds) do
+			if tostring(id):find(tostring(queryNumber), 1, true) then
+				local cached = metadataCache[id]
+				table.insert(results, {
+					id = id,
+					name = cached and cached.name or ("Audio " .. id),
+					artist = cached and cached.artist or "Unknown",
+					index = i,
+					loaded = cached and cached.loaded or false,
+					matchType = "id"
+				})
+				if #results >= maxResults then break end
+			end
+		end
+	end
+
+	-- Buscar por nombre en cache
+	if #results < maxResults and queryLower ~= "" then
+		for i, id in ipairs(allIds) do
+			local cached = metadataCache[id]
+			if cached and cached.loaded and cached.name then
+				local nameLower = string.lower(cached.name)
+				local artistLower = string.lower(cached.artist or "")
+
+				if nameLower:find(queryLower, 1, true) or artistLower:find(queryLower, 1, true) then
+					-- Evitar duplicados
+					local isDupe = false
+					for _, r in ipairs(results) do
+						if r.id == id then isDupe = true break end
+					end
+
+					if not isDupe then
+						table.insert(results, {
+							id = id,
+							name = cached.name,
+							artist = cached.artist,
+							index = i,
+							loaded = true,
+							matchType = "name"
+						})
+						if #results >= maxResults then break end
+					end
+				end
+			end
+		end
+	end
+
+	return {
+		songs = results,
+		total = #results,
+		query = query,
+		totalInDJ = #allIds,
+		cachedCount = 0 -- Se calculará abajo
+	}
+end
+
+-- Contar cuántas canciones tienen metadata cacheada
+local function getCachedCount(djName)
+	if not musicDatabase[djName] then return 0 end
+
+	local count = 0
+	for _, id in ipairs(musicDatabase[djName].songIds or {}) do
+		if metadataCache[id] and metadataCache[id].loaded then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -450,7 +602,6 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		return
 	end
 
-	-- Verificar que es audio válido
 	local success, result = pcall(function()
 		return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
 	end)
@@ -470,7 +621,6 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		return
 	end
 
-	-- Validar permisos con Sound temporal
 	local tempSound = Instance.new("Sound")
 	tempSound.SoundId = "rbxassetid://" .. id
 	tempSound.Parent = workspace
@@ -491,8 +641,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 			addedAt = os.time()
 		}
 
-		-- Guardar en cache
-		metadataCache[id] = {name = songInfo.name, artist = songInfo.artist}
+		metadataCache[id] = {name = songInfo.name, artist = songInfo.artist, loaded = true}
 
 		table.insert(playQueue, songInfo)
 
@@ -564,36 +713,102 @@ R.ClearQueue.OnServerEvent:Connect(function(player)
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- LIBRARY EVENTS
+-- LIBRARY EVENTS (OPTIMIZADOS)
 -- ════════════════════════════════════════════════════════════════
 R.GetDJs.OnServerEvent:Connect(function(player)
 	local djs = getAllDJs()
 	R.GetDJs:FireClient(player, {djs = djs})
 end)
 
--- PAGINACIÓN DE CANCIONES
-R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName, page)
-	page = page or 1
-	local result = getSongsByDJPaginated(djName, page)
-	result.djName = djName
-	R.GetSongsByDJ:FireClient(player, result)
+-- OBTENER INFO INICIAL DEL DJ (sin cargar metadata)
+R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
+	if not musicDatabase[djName] then
+		R.GetSongsByDJ:FireClient(player, {
+			djName = djName,
+			total = 0,
+			songs = {},
+			cachedCount = 0
+		})
+		return
+	end
+
+	local djData = musicDatabase[djName]
+	local total = #(djData.songIds or {})
+	local cachedCount = getCachedCount(djName)
+
+	-- Enviar solo la info inicial, sin canciones
+	R.GetSongsByDJ:FireClient(player, {
+		djName = djName,
+		total = total,
+		cachedCount = cachedCount,
+		songs = {} -- El cliente pedirá rangos específicos
+	})
 end)
 
--- OBTENER METADATA BAJO DEMANDA (para lotes de IDs)
+-- OBTENER RANGO DE CANCIONES (PARA SCROLL VIRTUAL)
+R.GetSongRange.OnServerEvent:Connect(function(player, djName, startIndex, endIndex)
+	local result = getSongRange(djName, startIndex, endIndex, true)
+	result.djName = djName
+
+	-- Si hay IDs para cargar, cargarlos y enviar actualización
+	if result.idsToLoad and #result.idsToLoad > 0 then
+		-- Primero enviar con placeholders
+		R.GetSongRange:FireClient(player, result)
+
+		-- Luego cargar metadata y enviar actualización
+		loadMetadataBatch(result.idsToLoad, function(metadata)
+			-- Re-obtener el rango con metadata cargada
+			local updatedResult = getSongRange(djName, startIndex, endIndex, false)
+			updatedResult.djName = djName
+			updatedResult.isUpdate = true
+			R.GetSongRange:FireClient(player, updatedResult)
+		end)
+	else
+		R.GetSongRange:FireClient(player, result)
+	end
+end)
+
+-- BÚSQUEDA DE CANCIONES
+R.SearchSongs.OnServerEvent:Connect(function(player, djName, query)
+	local result = searchSongs(djName, query, 50)
+	result.djName = djName
+	result.cachedCount = getCachedCount(djName)
+	R.SearchSongs:FireClient(player, result)
+end)
+
+-- OBTENER METADATA DE IDs ESPECÍFICOS
 R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
 	if type(audioIds) ~= "table" then return end
 
-	-- Limitar a 10 IDs por request para no sobrecargar
 	local results = {}
-	for i = 1, math.min(#audioIds, 10) do
+	local idsToLoad = {}
+
+	-- Primero enviar lo que ya está en cache
+	for i = 1, math.min(#audioIds, 20) do
 		local id = audioIds[i]
 		if type(id) == "number" then
-			local metadata = getMetadataForId(id)
-			results[id] = metadata
+			if metadataCache[id] and metadataCache[id].loaded then
+				results[id] = metadataCache[id]
+			else
+				table.insert(idsToLoad, id)
+				results[id] = {name = "Cargando...", artist = "ID: " .. id, loaded = false}
+			end
 		end
 	end
 
-	R.GetSongMetadata:FireClient(player, results)
+	-- Enviar respuesta inmediata
+	R.GetSongMetadata:FireClient(player, {metadata = results, pending = #idsToLoad})
+
+	-- Si hay IDs por cargar, cargarlos y enviar actualización
+	if #idsToLoad > 0 then
+		loadMetadataBatch(idsToLoad, function(loadedMetadata)
+			R.GetSongMetadata:FireClient(player, {
+				metadata = loadedMetadata,
+				pending = 0,
+				isUpdate = true
+			})
+		end)
+	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
