@@ -342,21 +342,7 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.ZIndex = 105
 title.Parent = headerContent
 
--- Close button
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 36, 0, 36)
--- Posición igual que CreateClanGui (más centrada verticalmente y con margen)
-closeBtn.Position = UDim2.new(1, -50, 0.5, -18)
-closeBtn.BackgroundColor3 = THEME.card
-closeBtn.BackgroundTransparency = 0
-closeBtn.Text = "×"
-closeBtn.TextColor3 = THEME.muted
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 22
-closeBtn.ZIndex = 103
-closeBtn.Parent = header
-UI.rounded(closeBtn, 8)
+
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTROLES ROW (Volumen + Skip + Clear)
@@ -374,13 +360,14 @@ controlsLayout.FillDirection = Enum.FillDirection.Horizontal
 controlsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 controlsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 controlsLayout.Padding = UDim.new(0, 10)
+controlsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 controlsLayout.Parent = controlsRow
 
 -- Spacer para empujar a la derecha (antes del close btn)
 local controlsSpacer = Instance.new("Frame")
 controlsSpacer.Size = UDim2.new(0, 10, 0, 32)
 controlsSpacer.BackgroundTransparency = 1
-controlsSpacer.LayoutOrder = 100
+controlsSpacer.LayoutOrder = 0
 controlsSpacer.Parent = controlsRow
 
 -- CLEAR button (solo admin)
@@ -471,6 +458,22 @@ volInput.TextXAlignment = Enum.TextXAlignment.Center
 volInput.Parent = volFrame
 UI.rounded(volInput, 6)
 
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseBtn"
+closeBtn.Size = UDim2.new(0, 36, 0, 36)
+closeBtn.BackgroundColor3 = THEME.card
+closeBtn.BackgroundTransparency = 0
+closeBtn.Text = "×"
+closeBtn.TextColor3 = THEME.muted
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 22
+closeBtn.ZIndex = 103
+-- Insertar dinámicamente dentro de controlsRow para alinearlo con los controles
+closeBtn.LayoutOrder = 1000
+closeBtn.Parent = controlsRow
+UI.rounded(closeBtn, 8)
+UI.stroked(closeBtn, 0.4)
 -- ════════════════════════════════════════════════════════════════
 -- NOW PLAYING SECTION
 -- ════════════════════════════════════════════════════════════════
@@ -1815,11 +1818,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 closeBtn.MouseEnter:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.7, TextColor3 = THEME.warn or Color3.fromRGB(255, 100, 100)}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 60, 60), TextColor3 = Color3.new(1, 1, 1)}):Play()
 end)
 
 closeBtn.MouseLeave:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.9, TextColor3 = THEME.muted}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.card, TextColor3 = THEME.muted}):Play()
 end)
 
 -- ════════════════════════════════════════════════════════════════
