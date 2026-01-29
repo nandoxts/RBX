@@ -3,12 +3,14 @@
 -- Virtualización + Búsqueda + Carga bajo demanda
 -- by ignxts
 -- FIXED: Incluye info del DJ en las canciones de la cola
+-- UPDATED: Usa MusicSoundGroup para control de volumen local
 -- ════════════════════════════════════════════════════════════════
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 
@@ -52,7 +54,9 @@ local musicQueueFolder = getFolder(remotesFolder, "MusicQueue")
 local musicLibraryFolder = getFolder(remotesFolder, "MusicLibrary")
 local uiFolder = getFolder(remotesFolder, "UI")
 
--- Sound Object
+-- ════════════════════════════════════════════════════════════════
+-- SOUND OBJECT + SOUNDGROUP
+-- ════════════════════════════════════════════════════════════════
 local soundObject = SoundService:FindFirstChild("QueueSound")
 if soundObject then soundObject:Destroy() end
 
@@ -61,6 +65,15 @@ soundObject.Name = "QueueSound"
 soundObject.Parent = SoundService
 soundObject.Volume = MusicConfig:GetDefaultVolume()
 soundObject.Looped = false
+
+-- ASIGNAR AL SOUNDGROUP (creado manualmente en Studio)
+local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
+if musicSoundGroup then
+	soundObject.SoundGroup = musicSoundGroup
+	print("[MUSIC] QueueSound asignado a MusicSoundGroup")
+else
+	warn("[MUSIC] MusicSoundGroup no encontrado en SoundService - El mute local no funcionará")
+end
 
 -- Get RemoteEvents
 local R = {
@@ -413,13 +426,10 @@ local function playSong(index)
 	isPlaying = true
 	isPaused = false
 
+	-- Fade in del volumen
 	soundObject.Volume = 0
-	task.spawn(function()
-		for i = 1, 10 do
-			soundObject.Volume = i * 0.1
-			task.wait(0.05)
-		end
-	end)
+	local tween = TweenService:Create(soundObject, TweenInfo.new(0.5), {Volume = MusicConfig:GetDefaultVolume()})
+	tween:Play()
 
 	updateAllClients()
 end
@@ -800,9 +810,11 @@ end)
 -- ════════════════════════════════════════════════════════════════
 soundObject.Ended:Connect(function()
 	if isPlaying then
+		-- Fade out antes de cambiar
+		local currentVol = soundObject.Volume
 		task.spawn(function()
 			for i = 10, 1, -1 do
-				soundObject.Volume = i * 0.1
+				soundObject.Volume = currentVol * (i / 10)
 				task.wait(0.03)
 			end
 		end)

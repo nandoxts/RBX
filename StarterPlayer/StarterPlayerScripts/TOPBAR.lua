@@ -1,24 +1,31 @@
--- Dentro de un LocalScript en StarterPlayerScripts y asumiendo que el paquete Icon está en ReplicatedStorage
+-- ════════════════════════════════════════════════════════════════
+-- TOPBAR CONTROLLER - LocalScript en StarterPlayerScripts
+-- Usando SoundGroup para mute LOCAL sin entrecortes
+-- ════════════════════════════════════════════════════════════════
+
 local Icon = require(game:GetService("ReplicatedStorage").Icon)
 local player = game.Players.LocalPlayer
-
--- Obtenemos el PlayerGui del jugador local
 local playerGui = player:WaitForChild("PlayerGui")
 
--- SystemMusic GUI removed from Topbar management
-
+-- ════════════════════════════════════════════════════════════════
+-- REFERENCIAS A GUIs
+-- ════════════════════════════════════════════════════════════════
 local gamepassUI = playerGui:WaitForChild("GamepassUI")
 local FrameGamepass = gamepassUI:WaitForChild("MainFrame")
 
 local settingsUI = playerGui:WaitForChild("Settings")
 local FrameSettings = settingsUI:WaitForChild("MainFrame")
 
-
--- Servicios
+-- ════════════════════════════════════════════════════════════════
+-- SERVICIOS
+-- ════════════════════════════════════════════════════════════════
 local TweenService = game:GetService("TweenService")
-local Debounce = false
+local SoundService = game:GetService("SoundService")
+local StarterGui = game:GetService("StarterGui")
 
--- Configuración de TweenInfo
+-- ════════════════════════════════════════════════════════════════
+-- CONFIGURACIÓN DE ANIMACIONES
+-- ════════════════════════════════════════════════════════════════
 local Info = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, 0, false, 0)
 
 -- Crear efecto de desenfoque
@@ -30,31 +37,31 @@ Blur.Size = 0
 local Camera = game.Workspace.CurrentCamera
 local FOV = Camera.FieldOfView
 
--- Función para cerrar todas las GUIs excepto la especificada
+-- Debounce para las GUIs
+local guiDebounce = false
+
+-- ════════════════════════════════════════════════════════════════
+-- FUNCIONES DE GUI
+-- ════════════════════════════════════════════════════════════════
+
 local function closeAllGUIsExcept(exception)
 	if exception ~= "GMUI" then FrameGamepass.Visible = false end
 	if exception ~= "SettingsUI" then FrameSettings.Visible = false end
-	-- Nota: EmoteUI no se cierra nunca
 end
 
--- Función para aplicar animaciones al abrir una GUI
 local function openGUIAnimation()
 	TweenService:Create(Blur, Info, {Size = 15}):Play()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV - 10}):Play()
 end
 
--- Función para aplicar animaciones al cerrar una GUI
 local function closeGUIAnimation()
 	TweenService:Create(Blur, Info, {Size = 0}):Play()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV}):Play()
 end
 
--- Función para abrir o cerrar la interfaz de MusicUI
--- (toggleMusicUI removed - Music UI toggle handled elsewhere)
-
 local function toggleGMUI()
-	if Debounce then return end
-	Debounce = true
+	if guiDebounce then return end
+	guiDebounce = true
 
 	if FrameGamepass.Visible then
 		closeGUIAnimation()
@@ -65,13 +72,12 @@ local function toggleGMUI()
 		FrameGamepass.Visible = true
 	end
 
-	Debounce = false
+	guiDebounce = false
 end
 
--- Función para abrir o cerrar la interfaz de MusicUI
 local function toggleSettingsUI()
-	if Debounce then return end
-	Debounce = true
+	if guiDebounce then return end
+	guiDebounce = true
 
 	if FrameSettings.Visible then
 		closeGUIAnimation()
@@ -82,34 +88,24 @@ local function toggleSettingsUI()
 		FrameSettings.Visible = true
 	end
 
-	Debounce = false
+	guiDebounce = false
 end
 
-local StarterGui = game:GetService("StarterGui")
-local CoreGuiType = Enum.CoreGuiType.Backpack
-local Debounce = false
-
--- Función para abrir o cerrar la interfaz de Inventario
 local function toggleInventoryUI()
-	if Debounce then return end
-	Debounce = true
-
-	-- Verificar si el inventario está activo y alternar su estado
+	local CoreGuiType = Enum.CoreGuiType.Backpack
 	local isBackpackEnabled = StarterGui:GetCoreGuiEnabled(CoreGuiType)
 	StarterGui:SetCoreGuiEnabled(CoreGuiType, not isBackpackEnabled)
-
-	Debounce = false
 end
 
--- Función para abrir el cuadro de agregar a juego favorito
 local function setFavoriteOnButtonClick()
 	local success, errorInfo = pcall(function()
 		game:GetService("AvatarEditorService"):PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
 	end)
 end
 
-
--- Music icon removed from Topbar
+-- ════════════════════════════════════════════════════════════════
+-- ICONOS DEL TOPBAR
+-- ════════════════════════════════════════════════════════════════
 
 Icon.new()
 	:setImage(9405933217)
@@ -128,68 +124,56 @@ Icon.new()
 	:bindEvent("deselected", toggleSettingsUI)
 	:oneClick()
 
+-- ════════════════════════════════════════════════════════════════
+-- SISTEMA DE MÚSICA CON SOUNDGROUP (MUTE LOCAL)
+-- ════════════════════════════════════════════════════════════════
 
+-- Obtener el SoundGroup (creado manualmente en Studio dentro de SoundService)
+local musicSoundGroup = SoundService:WaitForChild("MusicSoundGroup", 10)
 
--- Referencia al SoundService y al sonido THEME
-local SoundService = game:GetService("SoundService")
-local themeSound = SoundService:FindFirstChild("QueueSound")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- Buscar remoto ChangeVolume en la nueva estructura MusicRemotes
-local changeVolumeRemote = nil
-do
-	local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
-	if musicRemotes then
-		local playback = musicRemotes:FindFirstChild("MusicPlayback")
-		if playback then
-			changeVolumeRemote = playback:FindFirstChild("ChangeVolume")
-		end
-	end
-end
-
-if themeSound then
-	-- Crear el icono para silenciar/activar el sonido
+if musicSoundGroup then
+	-- Crear el icono de sonido
 	local soundIcon = Icon.new()
-		:setImage(166377448) -- Estado inicial (activado)
+		:setImage(166377448)
 		:setName("SoundToggle")
 		:setCaption("Música")
-		:bindToggleKey(Enum.KeyCode.N)
-		--:align("Right")
+		:bindToggleKey(Enum.KeyCode.M)
 		:oneClick()
 
-	-- Variables para controlar el estado del volumen
+	-- ════════════════════════════════════════════════════════════
+	-- ESTADO DEL MUTE
+	-- ════════════════════════════════════════════════════════════
 	local isMuted = false
-	local lastVolumeBeforeMute = themeSound.Volume -- Guarda el último volumen antes de mutear
+	local savedVolume = musicSoundGroup.Volume -- Guardar el volumen inicial
 
-	-- Función para alternar el estado del sonido y cambiar el icono
+	local ICON_SOUND_ON = 166377448
+	local ICON_SOUND_OFF = 14861812886
+
+	-- ════════════════════════════════════════════════════════════
+	-- TOGGLE MUTE (SIMPLE Y LIMPIO)
+	-- ════════════════════════════════════════════════════════════
 	soundIcon:bindEvent("deselected", function()
 		isMuted = not isMuted
 
 		if isMuted then
-			-- Si se está silenciando, guarda el volumen actual
-			lastVolumeBeforeMute = themeSound.Volume
-			themeSound.Volume = 0 -- Silencia el sonido
-			soundIcon:setImage(14861812886) -- Cambia el icono a "mute"
-			-- Notificar al servidor del cambio de volumen (nuevo sistema)
-			if changeVolumeRemote then
-				pcall(function() changeVolumeRemote:FireServer(0) end)
-			end
+			-- Guardar volumen actual del grupo y mutear
+			savedVolume = musicSoundGroup.Volume
+			musicSoundGroup.Volume = 0
+			soundIcon:setImage(ICON_SOUND_OFF)
 		else
-			-- Si se está reactivando, restaura el último volumen guardado
-			themeSound.Volume = lastVolumeBeforeMute
-			soundIcon:setImage(166377448) -- Cambia el icono a "activado"
-			-- Notificar al servidor del cambio de volumen (nuevo sistema)
-			if changeVolumeRemote then
-				pcall(function() changeVolumeRemote:FireServer(lastVolumeBeforeMute) end)
-			end
+			-- Restaurar volumen del grupo
+			musicSoundGroup.Volume = savedVolume
+			soundIcon:setImage(ICON_SOUND_ON)
 		end
+
+		print("[Topbar] Música:", isMuted and "MUTEADA" or "ACTIVADA")
 	end)
+
+	print("[Topbar] Sistema de música inicializado con SoundGroup")
 else
-	--warn("No se encontró el sonido 'THEME' en SoundService")
+	warn("[Topbar] No se encontró 'MusicSoundGroup' en SoundService - Créalo manualmente en Studio")
 end
 
-------------------------------------
-
-
-
-
+-- ════════════════════════════════════════════════════════════════
+-- FIN DEL SCRIPT
+-- ════════════════════════════════════════════════════════════════

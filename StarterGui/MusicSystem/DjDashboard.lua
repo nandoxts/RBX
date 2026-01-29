@@ -284,10 +284,8 @@ UI.rounded(header, 16)
 -- Cover de fondo (blur effect) - Muestra el DJ de la canción actual
 headerCoverImage = Instance.new("ImageLabel")
 headerCoverImage.Name = "CoverBackground"
--- Ajustado para cubrir exactamente el header (100%) y respetar el corner del contenedor
--- Añadimos un pequeño padding interno al cover para que no pegue con los bordes
-headerCoverImage.Size = UDim2.new(1, -16, 1, -16)
-headerCoverImage.Position = UDim2.new(0, 8, 0, 8)
+headerCoverImage.Size = UDim2.new(1, 0, 1, 0)
+headerCoverImage.Position = UDim2.new(0, 0, 0, 0)
 headerCoverImage.BackgroundTransparency = 1
 headerCoverImage.Image = ""
 headerCoverImage.ImageTransparency = 0.5
@@ -617,11 +615,12 @@ local currentVolume = savedVolume
 local dragging = false
 
 local function updateVolume(volume)
+	local sound = SoundService:FindFirstChild("QueueSound")
+	if sound and sound:GetAttribute("Muted") then return end
 	currentVolume = math.clamp(volume, 0, 1)
 	volSliderFill.Size = UDim2.new(currentVolume, 0, 1, 0)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
-	local sound = SoundService:FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") then sound.Volume = currentVolume end
 	player:SetAttribute("MusicVolume", currentVolume)
 	-- Notificar servidor del cambio de volumen si existe el remote (nuevo sistema)

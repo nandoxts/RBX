@@ -77,7 +77,7 @@ MusicSystemConfig.PERMISSIONS = {
 	PauseSong = "admin",
 	StopSong = "admin",
 	NextSong = "everyone",
-	ChangeVolume = "admin",
+	ChangeVolume = "everyone",
 	ToggleShuffle = "admin",
 	ToggleLoop = "admin",
 }
