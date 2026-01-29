@@ -490,8 +490,71 @@ if isAdmin then
 	local skipB = mini("SKIP", THEME.accent)
 	local clearB = mini("CLEAR", Color3.fromRGB(161, 124, 72))
 
-	if R.Next then skipB.MouseButton1Click:Connect(function() R.Next:FireServer() end) end
+	-- Producto para compra de skip (reemplaza por tu id si hace falta)
+	local skipProductId = 3468988018
+	-- Buscar remote de skip en ReplicatedStorage.Music (servidor espera Remotes._skipRequest)
+	-- Buscar remote de skip: preferir `PurchaseSkip` en MusicRemotes.MusicQueue, luego `_skipRequest` como fallback
+	local skipRemote = nil
+	do
+		local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
+		if musicRemotes then
+			local queueFolder = musicRemotes:FindFirstChild("MusicQueue")
+			if queueFolder then
+				local purchase = queueFolder:FindFirstChild("PurchaseSkip")
+				if purchase and purchase:IsA("RemoteEvent") then
+					skipRemote = purchase
+				end
+			end
+
+			-- If still not found, search generically for _skipRequest inside MusicRemotes
+			if not skipRemote then
+				for _, v in ipairs(musicRemotes:GetDescendants()) do
+					if v.Name == "_skipRequest" and v:IsA("RemoteEvent") then
+						skipRemote = v
+						break
+					end
+				end
+			end
+		end
+
+		-- Backwards compatibility: if not found in MusicRemotes, search old ReplicatedStorage.Music
+		if not skipRemote then
+			local musicFolder = ReplicatedStorage:FindFirstChild("Music")
+			if musicFolder then
+				-- Prefer PurchaseSkip if present
+				local purchase = musicFolder:FindFirstChild("PurchaseSkip")
+				if purchase and purchase:IsA("RemoteEvent") then
+					skipRemote = purchase
+				else
+					skipRemote = musicFolder:FindFirstChild("_skipRequest")
+				end
+			end
+		end
+	end
+
+	if R.Next then
+		skipB.MouseButton1Click:Connect(function()
+			if isAdmin then
+				R.Next:FireServer()
+			else
+				MarketplaceService:PromptProductPurchase(player, skipProductId)
+			end
+		end)
+	end
+
 	if R.Clear then clearB.MouseButton1Click:Connect(function() R.Clear:FireServer() end) end
+
+	-- Al finalizar compra, notificar al servidor para procesar skip comprado
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
+		if plr ~= player then return end
+		if not wasPurchased then return end
+		if productId ~= skipProductId then return end
+		if skipRemote then
+			pcall(function() skipRemote:FireServer(true) end)
+		else
+			warn("_skipRequest remote no encontrado en ReplicatedStorage.Music; crea _skipRequest para procesar skips pagados")
+		end
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════

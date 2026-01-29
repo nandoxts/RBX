@@ -38,42 +38,18 @@ local ResponseCodes = {
 -- ════════════════════════════════════════════════════════════════
 local remotesFolder = ReplicatedStorage:FindFirstChild("MusicRemotes")
 if not remotesFolder then
-	remotesFolder = Instance.new("Folder")
-	remotesFolder.Name = "MusicRemotes"
-	remotesFolder.Parent = ReplicatedStorage
+	warn("[DjMusicSystem] ReplicatedStorage.MusicRemotes not found — expected to be created manually in the place.")
 end
 
-local function getOrCreateFolder(parent, folderName)
-	local folder = parent:FindFirstChild(folderName)
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = folderName
-		folder.Parent = parent
-	end
-	return folder
+local function getFolder(parent, folderName)
+	if not parent then return nil end
+	return parent:FindFirstChild(folderName)
 end
 
-local musicPlaybackFolder = getOrCreateFolder(remotesFolder, "MusicPlayback")
-local musicQueueFolder = getOrCreateFolder(remotesFolder, "MusicQueue")
-local musicLibraryFolder = getOrCreateFolder(remotesFolder, "MusicLibrary")
-local uiFolder = getOrCreateFolder(remotesFolder, "UI")
-
-local remotesList = {
-	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong"}},
-	{folder = musicQueueFolder, names = {"AddToQueue", "AddToQueueResponse", "RemoveFromQueue", "RemoveFromQueueResponse", "ClearQueue", "ClearQueueResponse"}},
-	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "GetSongMetadata", "SearchSongs", "GetSongRange"}},
-	{folder = uiFolder, names = {"UpdateUI"}}
-}
-
-for _, group in ipairs(remotesList) do
-	for _, name in ipairs(group.names) do
-		if not group.folder:FindFirstChild(name) then
-			local remote = Instance.new("RemoteEvent")
-			remote.Name = name
-			remote.Parent = group.folder
-		end
-	end
-end
+local musicPlaybackFolder = getFolder(remotesFolder, "MusicPlayback")
+local musicQueueFolder = getFolder(remotesFolder, "MusicQueue")
+local musicLibraryFolder = getFolder(remotesFolder, "MusicLibrary")
+local uiFolder = getFolder(remotesFolder, "UI")
 
 -- Sound Object
 local soundObject = SoundService:FindFirstChild("QueueSound")
