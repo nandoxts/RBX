@@ -5,8 +5,7 @@ local player = game.Players.LocalPlayer
 -- Obtenemos el PlayerGui del jugador local
 local playerGui = player:WaitForChild("PlayerGui")
 
-local systemMusicUI = playerGui:WaitForChild("SystemMusic")
-local FrameMusic = systemMusicUI:WaitForChild("MusicGui")
+-- SystemMusic GUI removed from Topbar management
 
 local gamepassUI = playerGui:WaitForChild("GamepassUI")
 local FrameGamepass = gamepassUI:WaitForChild("MainFrame")
@@ -33,7 +32,6 @@ local FOV = Camera.FieldOfView
 
 -- Función para cerrar todas las GUIs excepto la especificada
 local function closeAllGUIsExcept(exception)
-	if exception ~= "MusicUI" then FrameMusic.Visible = false end
 	if exception ~= "GMUI" then FrameGamepass.Visible = false end
 	if exception ~= "SettingsUI" then FrameSettings.Visible = false end
 	-- Nota: EmoteUI no se cierra nunca
@@ -52,21 +50,7 @@ local function closeGUIAnimation()
 end
 
 -- Función para abrir o cerrar la interfaz de MusicUI
-local function toggleMusicUI()
-	if Debounce then return end
-	Debounce = true
-
-	if FrameMusic.Visible then
-		closeGUIAnimation()
-		FrameMusic.Visible = false
-	else
-		closeAllGUIsExcept("MusicUI")
-		openGUIAnimation()
-		FrameMusic.Visible = true
-	end
-
-	Debounce = false
-end
+-- (toggleMusicUI removed - Music UI toggle handled elsewhere)
 
 local function toggleGMUI()
 	if Debounce then return end
@@ -125,13 +109,7 @@ local function setFavoriteOnButtonClick()
 end
 
 
-Icon.new()
-	:setImage(13780950231)
-	:setName("Musica")
-	:setCaption("Música")
-	:bindToggleKey(Enum.KeyCode.M)
-	:bindEvent("deselected", toggleMusicUI)
-	:oneClick()
+-- Music icon removed from Topbar
 
 Icon.new()
 	:setImage(9405933217)
@@ -154,7 +132,20 @@ Icon.new()
 
 -- Referencia al SoundService y al sonido THEME
 local SoundService = game:GetService("SoundService")
-local themeSound = SoundService:FindFirstChild("THEME")
+local themeSound = SoundService:FindFirstChild("QueueSound")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Buscar remoto ChangeVolume en la nueva estructura MusicRemotes
+local changeVolumeRemote = nil
+do
+	local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
+	if musicRemotes then
+		local playback = musicRemotes:FindFirstChild("MusicPlayback")
+		if playback then
+			changeVolumeRemote = playback:FindFirstChild("ChangeVolume")
+		end
+	end
+end
 
 if themeSound then
 	-- Crear el icono para silenciar/activar el sonido
@@ -179,10 +170,18 @@ if themeSound then
 			lastVolumeBeforeMute = themeSound.Volume
 			themeSound.Volume = 0 -- Silencia el sonido
 			soundIcon:setImage(14861812886) -- Cambia el icono a "mute"
+			-- Notificar al servidor del cambio de volumen (nuevo sistema)
+			if changeVolumeRemote then
+				pcall(function() changeVolumeRemote:FireServer(0) end)
+			end
 		else
 			-- Si se está reactivando, restaura el último volumen guardado
 			themeSound.Volume = lastVolumeBeforeMute
 			soundIcon:setImage(166377448) -- Cambia el icono a "activado"
+			-- Notificar al servidor del cambio de volumen (nuevo sistema)
+			if changeVolumeRemote then
+				pcall(function() changeVolumeRemote:FireServer(lastVolumeBeforeMute) end)
+			end
 		end
 	end)
 else

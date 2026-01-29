@@ -80,6 +80,7 @@ local R = {
 	GetSongMetadata = musicLibraryFolder:FindFirstChild("GetSongMetadata"),
 	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
 	GetSongRange = musicLibraryFolder:FindFirstChild("GetSongRange"),
+	ChangeVolume = musicPlaybackFolder and musicPlaybackFolder:FindFirstChild("ChangeVolume") or nil,
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -546,6 +547,16 @@ R.Stop.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "StopSong") then return end
 	stopSong()
 end)
+
+-- CHANGE VOLUME (desde cliente)
+if R.ChangeVolume then
+	R.ChangeVolume.OnServerEvent:Connect(function(player, vol)
+		if type(vol) ~= "number" then return end
+		if not hasPermission(player, "ChangeVolume") then return end
+		soundObject.Volume = math.clamp(vol, 0, 1)
+		updateAllClients()
+	end)
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- ADD TO QUEUE (MODIFICADO - INCLUYE DJ INFO)

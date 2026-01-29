@@ -202,6 +202,7 @@ local R = {
 	GetSongRange = getRemote("GetSongRange"),
 	SearchSongs = getRemote("SearchSongs"),
 	GetSongMetadata = getRemote("GetSongMetadata"),
+	ChangeVolume = getRemote("ChangeVolume"),
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -284,8 +285,9 @@ UI.rounded(header, 16)
 headerCoverImage = Instance.new("ImageLabel")
 headerCoverImage.Name = "CoverBackground"
 -- Ajustado para cubrir exactamente el header (100%) y respetar el corner del contenedor
-headerCoverImage.Size = UDim2.new(1, 0, 1, 0)
-headerCoverImage.Position = UDim2.new(0, 0, 0, 0)
+-- Añadimos un pequeño padding interno al cover para que no pegue con los bordes
+headerCoverImage.Size = UDim2.new(1, -16, 1, -16)
+headerCoverImage.Position = UDim2.new(0, 8, 0, 8)
 headerCoverImage.BackgroundTransparency = 1
 headerCoverImage.Image = ""
 headerCoverImage.ImageTransparency = 0.5
@@ -322,9 +324,9 @@ overlayGradient.Parent = headerGradientOverlay
 -- Container para el contenido del header
 local headerContent = Instance.new("Frame")
 headerContent.Name = "Content"
--- Reducir padding interno para que cover y elementos rellenen correctamente
-headerContent.Size = UDim2.new(1, -24, 1, -12)
-headerContent.Position = UDim2.new(0, 12, 0, 6)
+-- Restaurar padding parecido a CreateClanGui: margen interior para título y controles
+headerContent.Size = UDim2.new(1, -40, 1, -20)
+headerContent.Position = UDim2.new(0, 20, 0, 10)
 headerContent.BackgroundTransparency = 1
 headerContent.ZIndex = 104
 headerContent.Parent = header
@@ -349,11 +351,19 @@ title.Parent = headerContent
 -- ════════════════════════════════════════════════════════════════
 local controlsRow = Instance.new("Frame")
 controlsRow.Name = "ControlsRow"
-controlsRow.Size = UDim2.new(1, -50, 0, 32)
-controlsRow.Position = UDim2.new(0, 0, 0, 0)
+-- Usar todo el ancho interior del headerContent y dejar margen interno gestionado por UIPadding
+controlsRow.Size = UDim2.new(1, 0, 0, 32)
+controlsRow.Position = UDim2.new(0, 0, 0, 6)
 controlsRow.BackgroundTransparency = 1
 controlsRow.ZIndex = 105
 controlsRow.Parent = headerContent
+
+local controlsPadding = Instance.new("UIPadding")
+controlsPadding.PaddingRight = UDim.new(0, 12)
+controlsPadding.PaddingLeft = UDim.new(0, 0)
+controlsPadding.PaddingTop = UDim.new(0, 0)
+controlsPadding.PaddingBottom = UDim.new(0, 0)
+controlsPadding.Parent = controlsRow
 
 local controlsLayout = Instance.new("UIListLayout")
 controlsLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -614,6 +624,10 @@ local function updateVolume(volume)
 	local sound = SoundService:FindFirstChild("QueueSound")
 	if sound and sound:IsA("Sound") then sound.Volume = currentVolume end
 	player:SetAttribute("MusicVolume", currentVolume)
+	-- Notificar servidor del cambio de volumen si existe el remote (nuevo sistema)
+	if R and R.ChangeVolume then
+		pcall(function() R.ChangeVolume:FireServer(currentVolume) end)
+	end
 end
 
 updateVolume(currentVolume)
@@ -685,23 +699,19 @@ local skipRemote = nil
 do
 	local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
 	if musicRemotes then
+		-- Prefer explicit PurchaseSkip in MusicQueue
 		local queueFolder = musicRemotes:FindFirstChild("MusicQueue")
 		if queueFolder then
 			skipRemote = queueFolder:FindFirstChild("PurchaseSkip")
 		end
+		-- Fallback: buscar cualquier RemoteEvent llamado PurchaseSkip o _skipRequest dentro de MusicRemotes
 		if not skipRemote then
 			for _, v in ipairs(musicRemotes:GetDescendants()) do
-				if v.Name == "_skipRequest" and v:IsA("RemoteEvent") then
+				if v:IsA("RemoteEvent") and (v.Name == "PurchaseSkip" or v.Name == "_skipRequest") then
 					skipRemote = v
 					break
 				end
 			end
-		end
-	end
-	if not skipRemote then
-		local musicFolder = ReplicatedStorage:FindFirstChild("Music")
-		if musicFolder then
-			skipRemote = musicFolder:FindFirstChild("PurchaseSkip") or musicFolder:FindFirstChild("_skipRequest")
 		end
 	end
 end
