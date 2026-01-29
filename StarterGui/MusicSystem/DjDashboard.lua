@@ -139,8 +139,7 @@ local function getRemote(name)
 		GetDJs = "MusicLibrary",
 		GetSongsByDJ = "MusicLibrary",
 		RemoveSongFromLibrary = "MusicLibrary",
-		RemoveDJ = "MusicLibrary",
-		RenameDJ = "MusicLibrary"
+		-- RemoveDJ = "MusicLibrary", -- removed: library is read-only
 	}
 
 	local subfolder = remoteMap[name] or "MusicLibrary"
@@ -269,8 +268,8 @@ local R = {
 	GetDJs = getRemote("GetDJs"),
 	GetSongsByDJ = getRemote("GetSongsByDJ"),
 	-- RemoveSongFromLibrary removed: library now carga desde DB
-	RemoveDJ = getRemote("RemoveDJ"),
-	RenameDJ = getRemote("RenameDJ")
+	-- RemoveDJ removed: DJs are immutable, loaded from config only
+	-- RenameDJ removed: DJs are immutable, loaded from config only
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -1690,41 +1689,7 @@ end
 
 -- RemoveFromLibrary client listener removed (library is read-only client-side)
 
-if R.RemoveDJ then
-	R.RemoveDJ.OnClientEvent:Connect(function(response)
-		if response.success then
-			Notify:Success("DJ Eliminado", response.message, 3)
-			selectedDJ = nil
-			if currentPage == "Library" then
-				drawDJs()
-				if R.GetDJs then
-					R.GetDJs:FireServer()
-				end
-			end
-		else
-			Notify:Error("Error", response.message, 3)
-		end
-	end)
-end
-
-if R.RenameDJ then
-	R.RenameDJ.OnClientEvent:Connect(function(response)
-		if response.success then
-			Notify:Success("DJ Renombrado", response.message, 3)
-			if selectedDJ == response.oldName then
-				selectedDJ = response.newName
-			end
-			if currentPage == "Library" then
-				drawDJs()
-				if selectedDJ and R.GetSongsByDJ then
-					R.GetSongsByDJ:FireServer(selectedDJ)
-				end
-			end
-		else
-			Notify:Error("Error", response.message, 3)
-		end
-	end)
-end
+-- RemoveDJ and RenameDJ listeners removed: DJs are immutable, loaded from config only
 
 -- ════════════════════════════════════════════════════════════════
 -- INITIALIZATION

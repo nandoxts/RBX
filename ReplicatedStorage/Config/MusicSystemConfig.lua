@@ -76,13 +76,6 @@ MusicSystemConfig.PERMISSIONS = {
 	PauseSong = "admin",
 	StopSong = "admin",
 	NextSong = "everyone",
-	AddToLibrary = "admin",
-	RemoveFromLibrary = "admin",
-	-- AddSongToDJ permission removed (feature disabled)
-	RemoveSongFromDJ = "admin",
-	CreateDJ = "admin",
-	RemoveDJ = "admin",
-	RenameDJ = "admin",
 	ChangeVolume = "admin",
 	ToggleShuffle = "admin",
 	ToggleLoop = "admin",

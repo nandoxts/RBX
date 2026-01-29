@@ -86,7 +86,7 @@ local uiFolder = getOrCreateFolder(remotesFolder, "UI")
 local playbackRemotes = {
 	{folder = musicPlaybackFolder, names = {"PlaySong", "PauseSong", "NextSong", "StopSong", "UpdatePlayback"}},
 	{folder = musicQueueFolder, names = {"AddToQueue", "AddToQueueResponse", "RemoveFromQueue", "RemoveFromQueueResponse", "ClearQueue", "ClearQueueResponse", "MoveInQueue", "UpdateQueue"}},
-	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs", "RemoveDJ", "RenameDJ", "AddToLibrary", "RemoveFromLibrary", "GetLibrary", "UpdateLibrary"}},
+	{folder = musicLibraryFolder, names = {"GetDJs", "GetSongsByDJ", "SearchSongs"}},
 	{folder = uiFolder, names = {"UpdateUI"}}
 }
 
@@ -129,13 +129,8 @@ local R = {
 	UpdateQueue = musicQueueFolder:FindFirstChild("UpdateQueue"),
 	GetDJs = musicLibraryFolder:FindFirstChild("GetDJs"),
 	GetSongsByDJ = musicLibraryFolder:FindFirstChild("GetSongsByDJ"),
-	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
-	RemoveDJ = musicLibraryFolder:FindFirstChild("RemoveDJ"),
-	RenameDJ = musicLibraryFolder:FindFirstChild("RenameDJ"),
-	AddToLibrary = musicLibraryFolder:FindFirstChild("AddToLibrary"),
-	RemoveFromLibrary = musicLibraryFolder:FindFirstChild("RemoveFromLibrary"),
-	GetLibrary = musicLibraryFolder:FindFirstChild("GetLibrary"),
-	UpdateLibrary = musicLibraryFolder:FindFirstChild("UpdateLibrary")
+	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs")
+	-- RemoveDJ removed: DJs are immutable
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -176,9 +171,16 @@ end
 
 local function loadLibraryFromDataStore()
 	musicDatabase = {}
-	for _, djData in ipairs(MusicConfig:GetDJs()) do
+	local djsConfig = MusicConfig:GetDJs()
+	local count = 0
+	for _ in pairs(djsConfig) do count = count + 1 end
+	print("[MUSIC DEBUG] DJs encontrados en config:", count)
+	local djIndex = 0
+	for djName, djData in pairs(djsConfig) do
+		djIndex = djIndex + 1
+		print(string.format("[MUSIC DEBUG] DJ #%d: %s (ImageId: %s, Canciones: %d)", djIndex, tostring(djName), tostring(djData.ImageId), #(djData.SongIds or {})))
 		local songsList = {}
-		for _, s in ipairs(djData.songs or {}) do
+		for _, s in ipairs(djData.SongIds or {}) do
 			if type(s) == "number" then
 				local id = s
 				local name = "Audio " .. tostring(id)
@@ -201,46 +203,41 @@ local function loadLibraryFromDataStore()
 					id = id,
 					name = name,
 					artist = artist,
-					djName = djData.name,
+					djName = djData.name or djName,
 					duration = duration,
 					verified = verified,
 					addedDate = os.date("%Y-%m-%d"),
 					addedBy = "Config"
 				})
 			elseif type(s) == "table" and s.id then
-				s.djName = s.djName or djData.name
+				s.djName = s.djName or djData.name or djName
 				s.addedBy = s.addedBy or "Config"
 				s.addedDate = s.addedDate or os.date("%Y-%m-%d")
 				table.insert(songsList, s)
 			end
 		end
-
-		musicDatabase[djData.name] = {
-			cover = djData.cover,
+		musicDatabase[djName] = {
+			cover = djData.ImageId,
 			userId = djData.userId,
 			songs = songsList
 		}
 	end
+	print(string.format("[MUSIC DEBUG] DJs cargados en musicDatabase: %d", djIndex))
 end
 
-local function removeSongFromLibrary(audioId, adminName)
-	for djName, djData in pairs(musicDatabase) do
-		for i, song in ipairs(djData.songs) do
-			if song.id == audioId then
-				local removedSong = table.remove(djData.songs, i)
-				saveLibraryToDataStore()
-				return true, djName, removedSong.name
-			end
-		end
-	end
-	return false, nil, nil
-end
+-- removeSongFromLibrary removed: never called, system is immutable
 
 local function getAllDJs()
 	local djsList = {}
 	local stats = {}
-
+	local count = 0
+	print("[MUSIC DEBUG] getAllDJs: contenido actual de musicDatabase:")
+	for k, v in pairs(musicDatabase) do
+		print("  DJ:", k, "->", v and type(v) == "table" and ("canciones: "..tostring(#(v.songs or {}))) or tostring(v))
+	end
 	for djName, djData in pairs(musicDatabase) do
+		count = count + 1
+		print(string.format("[MUSIC DEBUG] getAllDJs: #%d %s (cover: %s, canciones: %d)", count, tostring(djName), tostring(djData.cover), #(djData.songs or {})))
 		table.insert(djsList, {
 			name = djName,
 			cover = djData.cover,
@@ -249,50 +246,12 @@ local function getAllDJs()
 		})
 		stats[djName] = #djData.songs
 	end
-
+	print(string.format("[MUSIC DEBUG] getAllDJs: total enviados: %d", count))
 	return djsList, stats
 end
 
-local function removeDJ(djName, adminName)
-	if not musicDatabase[djName] then
-		return false, "DJ not found"
-	end
-
-	local songCount = #musicDatabase[djName].songs
-	musicDatabase[djName] = nil
-	saveLibraryToDataStore()
-
-	return true, "DJ deleted: " .. djName .. " (" .. songCount .. " songs)"
-end
-
-local function renameDJ(oldName, newName, adminName)
-	if not musicDatabase[oldName] then
-		return false, "DJ not found"
-	end
-
-	if oldName == newName then
-		return false, "Same name provided"
-	end
-
-	if musicDatabase[newName] then
-		return false, "DJ name already exists"
-	end
-
-	if newName:match("^%s*$") or #newName > 30 then
-		return false, "Invalid DJ name"
-	end
-
-	musicDatabase[newName] = musicDatabase[oldName]
-	musicDatabase[oldName] = nil
-
-	for _, song in ipairs(musicDatabase[newName].songs) do
-		song.djName = newName
-	end
-
-	saveLibraryToDataStore()
-
-	return true, "DJ renamed: " .. oldName .. " → " .. newName
-end
+-- removeDJ removed: DJs are immutable, loaded from config only
+-- RenameDJ removed: DJs are read-only from MusicSystemConfig
 
 local function searchSongsInLibrary(searchTerm)
 	if not searchTerm or searchTerm == "" then
@@ -302,8 +261,8 @@ local function searchSongsInLibrary(searchTerm)
 	local results = {}
 	local lowerSearch = searchTerm:lower()
 
-	for djName, djData in pairs(musicDatabase) do
-		for _, song in ipairs(djData.songs) do
+	   for djName, djData in pairs(musicDatabase) do
+		   for _, song in ipairs(djData.songs) do
 			local lowerName = song.name:lower()
 			local lowerArtist = (song.artist or ""):lower()
 
@@ -481,28 +440,7 @@ function updateAllClients()
 	end
 end
 
-local function updateLibrary()
-	if R.UpdateLibrary then
-		local djs, stats = getAllDJs()
-		for _, player in ipairs(Players:GetPlayers()) do
-			R.UpdateLibrary:FireClient(player, {
-				library = musicDatabase,
-				djs = djs,
-				stats = stats
-			})
-		end
-	end
-
-	if R.GetDJs then
-		local djs, stats = getAllDJs()
-		for _, player in ipairs(Players:GetPlayers()) do
-			R.GetDJs:FireClient(player, {
-				djs = djs,
-				stats = stats
-			})
-		end
-	end
-end
+-- updateLibrary removed: RemoveSongFromLibrary was never called from client, system is now immutable
 
 -- ════════════════════════════════════════════════════════════════
 -- SERVER EVENTS - PLAYBACK
@@ -793,103 +731,9 @@ R.SearchSongs.OnServerEvent:Connect(function(player, searchTerm)
 	R.SearchSongs:FireClient(player, {songs = results})
 end)
 
-R.RemoveSongFromLibrary.OnServerEvent:Connect(function(player, audioId)
-	if not MusicConfig:HasPermission(player.UserId, "RemoveFromLibrary") then
-		return 
-	end
+-- RemoveSongFromLibrary event handler removed: never called from client, system is immutable
 
-	local id = tonumber(audioId)
-	if not id then
-		return
-	end
-
-	local success, djName, songName = removeSongFromLibrary(id, player.Name)
-
-	if success then
-		updateLibrary()
-		if R.RemoveSongFromLibrary then
-			R.RemoveSongFromLibrary:FireClient(player, {
-				success = true, 
-				message = "Canción eliminada: " .. songName .. " de " .. djName
-			})
-		end
-	else
-		if R.RemoveSongFromLibrary then
-			R.RemoveSongFromLibrary:FireClient(player, {
-				success = false, 
-				message = "Canción no encontrada"
-			})
-		end
-	end
-end)
-
-R.GetLibrary.OnServerEvent:Connect(function(player)
-	updateAllClients()
-end)
-
-R.RemoveDJ.OnServerEvent:Connect(function(player, djName)
-	if not MusicConfig:HasPermission(player.UserId, "RemoveDJ") then
-		return
-	end
-
-	if not djName or djName == "" then
-		return
-	end
-
-	local success, message = removeDJ(djName, player.Name)
-
-	if success then
-		updateLibrary()
-		if R.RemoveDJ then
-			R.RemoveDJ:FireClient(player, {
-				success = true,
-				message = message
-			})
-		end
-	else
-		if R.RemoveDJ then
-			R.RemoveDJ:FireClient(player, {
-				success = false,
-				message = message
-			})
-		end
-	end
-end)
-
-R.RenameDJ.OnServerEvent:Connect(function(player, oldName, newName)
-	if not MusicConfig:HasPermission(player.UserId, "RenameDJ") then
-		return
-	end
-
-	if not oldName or oldName == "" then
-		return
-	end
-
-	if not newName or newName == "" then
-		return
-	end
-
-	local success, message = renameDJ(oldName, newName, player.Name)
-
-	if success then
-		updateLibrary()
-		if R.RenameDJ then
-			R.RenameDJ:FireClient(player, {
-				success = true,
-				message = message,
-				oldName = oldName,
-				newName = newName
-			})
-		end
-	else
-		if R.RenameDJ then
-			R.RenameDJ:FireClient(player, {
-				success = false,
-				message = message
-			})
-		end
-	end
-end)
+-- GetLibrary event handler removed: never called from client, redundant with automatic updateAllClients()
 
 -- ════════════════════════════════════════════════════════════════
 -- AUTO EVENTS
