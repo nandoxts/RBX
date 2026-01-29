@@ -459,7 +459,6 @@ function RainbowSync.Init()
 	-- Contar instancias registradas
 	local count = 0
 	for _ in pairs(registry) do count = count + 1 end
-	print("RainbowSync: Inicializado con", count, "instancias")
 end
 
 function RainbowSync.SetMode(mode, themeName)

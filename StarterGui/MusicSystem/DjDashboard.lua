@@ -458,104 +458,107 @@ totalTimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 totalTimeLabel.Parent = timeLabels
 
 -- ════════════════════════════════════════════════════════════════
--- ADMIN CONTROLS
 -- ════════════════════════════════════════════════════════════════
+-- ADMIN / SKIP CONTROL
+-- Mostrar siempre el botón SKIP; CLEAR sólo visible para admins
+local ctrl = Instance.new("Frame")
+ctrl.Size = UDim2.new(0, 140, 0, 28)
+ctrl.Position = UDim2.new(1, -200, 0, 14)
+ctrl.BackgroundTransparency = 1
+ctrl.Parent = header
+
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.Padding = UDim.new(0, 6)
+layout.Parent = ctrl
+
+local function mini(text, color)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 56, 0, 26)
+	b.BackgroundColor3 = color
+	b.Text = text
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.BorderSizePixel = 0
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 16
+	b.Parent = ctrl
+	UI.rounded(b, 6)
+	UI.stroked(b, 0.2)
+	return b
+end
+
+local skipB = mini("SKIP", THEME.accent)
+local clearB = nil
 if isAdmin then
-	local ctrl = Instance.new("Frame")
-	ctrl.Size = UDim2.new(0, 120, 0, 28)
-	ctrl.Position = UDim2.new(1, -200, 0, 14)
-	ctrl.BackgroundTransparency = 1
-	ctrl.Parent = header
+	clearB = mini("CLEAR", Color3.fromRGB(161, 124, 72))
+end
 
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.Padding = UDim.new(0, 6)
-	layout.Parent = ctrl
+-- Producto para compra de skip (reemplaza por tu id si hace falta)
+local skipProductId = 3468988018
 
-	local function mini(text, color)
-		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0, 56, 0, 26)
-		b.BackgroundColor3 = color
-		b.Text = text
-		b.TextColor3 = Color3.new(1, 1, 1)
-		b.BorderSizePixel = 0
-		b.Font = Enum.Font.GothamBold
-		b.TextSize = 16
-		b.Parent = ctrl
-		UI.rounded(b, 6)
-		UI.stroked(b, 0.2)
-		return b
-	end
-
-	local skipB = mini("SKIP", THEME.accent)
-	local clearB = mini("CLEAR", Color3.fromRGB(161, 124, 72))
-
-	-- Producto para compra de skip (reemplaza por tu id si hace falta)
-	local skipProductId = 3468988018
-	-- Buscar remote de skip en ReplicatedStorage.Music (servidor espera Remotes._skipRequest)
-	-- Buscar remote de skip: preferir `PurchaseSkip` en MusicRemotes.MusicQueue, luego `_skipRequest` como fallback
-	local skipRemote = nil
-	do
-		local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
-		if musicRemotes then
-			local queueFolder = musicRemotes:FindFirstChild("MusicQueue")
-			if queueFolder then
-				local purchase = queueFolder:FindFirstChild("PurchaseSkip")
-				if purchase and purchase:IsA("RemoteEvent") then
-					skipRemote = purchase
-				end
-			end
-
-			-- If still not found, search generically for _skipRequest inside MusicRemotes
-			if not skipRemote then
-				for _, v in ipairs(musicRemotes:GetDescendants()) do
-					if v.Name == "_skipRequest" and v:IsA("RemoteEvent") then
-						skipRemote = v
-						break
-					end
-				end
+-- Buscar remote de skip: preferir `PurchaseSkip` en MusicRemotes.MusicQueue, luego `_skipRequest` como fallback
+local skipRemote = nil
+do
+	local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
+	if musicRemotes then
+		local queueFolder = musicRemotes:FindFirstChild("MusicQueue")
+		if queueFolder then
+			local purchase = queueFolder:FindFirstChild("PurchaseSkip")
+			if purchase and purchase:IsA("RemoteEvent") then
+				skipRemote = purchase
 			end
 		end
 
-		-- Backwards compatibility: if not found in MusicRemotes, search old ReplicatedStorage.Music
 		if not skipRemote then
-			local musicFolder = ReplicatedStorage:FindFirstChild("Music")
-			if musicFolder then
-				-- Prefer PurchaseSkip if present
-				local purchase = musicFolder:FindFirstChild("PurchaseSkip")
-				if purchase and purchase:IsA("RemoteEvent") then
-					skipRemote = purchase
-				else
-					skipRemote = musicFolder:FindFirstChild("_skipRequest")
+			for _, v in ipairs(musicRemotes:GetDescendants()) do
+				if v.Name == "_skipRequest" and v:IsA("RemoteEvent") then
+					skipRemote = v
+					break
 				end
 			end
 		end
 	end
 
-	if R.Next then
-		skipB.MouseButton1Click:Connect(function()
-			if isAdmin then
-				R.Next:FireServer()
+	if not skipRemote then
+		local musicFolder = ReplicatedStorage:FindFirstChild("Music")
+		if musicFolder then
+			local purchase = musicFolder:FindFirstChild("PurchaseSkip")
+			if purchase and purchase:IsA("RemoteEvent") then
+				skipRemote = purchase
 			else
-				MarketplaceService:PromptProductPurchase(player, skipProductId)
+				skipRemote = musicFolder:FindFirstChild("_skipRequest")
 			end
-		end)
-	end
-
-	if R.Clear then clearB.MouseButton1Click:Connect(function() R.Clear:FireServer() end) end
-
-	-- Al finalizar compra, notificar al servidor para procesar skip comprado
-	MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
-		if plr ~= player then return end
-		if not wasPurchased then return end
-		if productId ~= skipProductId then return end
-		if skipRemote then
-			pcall(function() skipRemote:FireServer(true) end)
-		else
-			warn("_skipRequest remote no encontrado en ReplicatedStorage.Music; crea _skipRequest para procesar skips pagados")
 		end
+	end
+end
+
+-- Conectar comportamiento del botón SKIP
+skipB.MouseButton1Click:Connect(function()
+	if isAdmin then
+		if R.Next then R.Next:FireServer() end
+	else
+		MarketplaceService:PromptProductPurchase(player, skipProductId)
+	end
+end)
+
+-- CLEAR sólo para admins
+if clearB then
+	clearB.MouseButton1Click:Connect(function()
+		if R.Clear then R.Clear:FireServer() end
 	end)
 end
+
+-- Escuchar finalización de compra y notificar al servidor
+MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
+	if plr ~= player then return end
+	if not wasPurchased then return end
+	if productId ~= skipProductId then return end
+	if skipRemote then
+		pcall(function() skipRemote:FireServer(true) end)
+	else
+		warn("skip remote no encontrado; crea PurchaseSkip o _skipRequest para procesar skips pagados")
+	end
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- PERSONAL VOLUME CONTROL (igual que antes, resumido)
