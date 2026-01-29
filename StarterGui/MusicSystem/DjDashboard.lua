@@ -282,8 +282,9 @@ UI.rounded(header, 16)
 -- Cover de fondo (blur effect) - Muestra el DJ de la canción actual
 headerCoverImage = Instance.new("ImageLabel")
 headerCoverImage.Name = "CoverBackground"
-headerCoverImage.Size = UDim2.new(1.2, 0, 1.2, 0)
-headerCoverImage.Position = UDim2.new(-0.1, 0, -0.1, 0)
+-- Ajustado para cubrir exactamente el header (100%) y respetar el corner del contenedor
+headerCoverImage.Size = UDim2.new(1, 0, 1, 0)
+headerCoverImage.Position = UDim2.new(0, 0, 0, 0)
 headerCoverImage.BackgroundTransparency = 1
 headerCoverImage.Image = ""
 headerCoverImage.ImageTransparency = 0.5
@@ -483,11 +484,13 @@ local miniCover = Instance.new("ImageLabel")
 miniCover.Name = "MiniCover"
 miniCover.Size = UDim2.new(0, 56, 0, 56)
 miniCover.Position = UDim2.new(0, 0, 0, 4)
-miniCover.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+-- Hacemos el fondo transparente para que la imagen respete el corner y se vea limpia
+miniCover.BackgroundTransparency = 1
 miniCover.Image = ""
 miniCover.ScaleType = Enum.ScaleType.Crop
 miniCover.ZIndex = 105
 miniCover.Parent = nowPlayingSection
+miniCover.ClipsDescendants = true
 UI.rounded(miniCover, 8)
 
 local miniCoverStroke = Instance.new("UIStroke")
