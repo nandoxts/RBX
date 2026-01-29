@@ -2,6 +2,7 @@
 -- DJ MUSIC SYSTEM - SERVER SCRIPT (OPTIMIZADO CON BÚSQUEDA)
 -- Virtualización + Búsqueda + Carga bajo demanda
 -- by ignxts
+-- FIXED: Incluye info del DJ en las canciones de la cola
 -- ════════════════════════════════════════════════════════════════
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -107,6 +108,20 @@ local function hasPermission(player, action)
 end
 
 -- ════════════════════════════════════════════════════════════════
+-- ENCONTRAR DJ DE UNA CANCIÓN
+-- ════════════════════════════════════════════════════════════════
+local function findDJForSong(audioId)
+	for djName, djData in pairs(musicDatabase) do
+		for _, songId in ipairs(djData.songIds or {}) do
+			if songId == audioId then
+				return djName, djData.cover
+			end
+		end
+	end
+	return nil, nil
+end
+
+-- ════════════════════════════════════════════════════════════════
 -- CARGA DE DJS (SOLO IDs)
 -- ════════════════════════════════════════════════════════════════
 local function loadDJsInstantly()
@@ -135,10 +150,6 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- METADATA FUNCTIONS (OPTIMIZADO)
 -- ════════════════════════════════════════════════════════════════
-local metadataLoadQueue = {}
-local isLoadingMetadata = false
-
--- Cargar metadata de un batch de IDs
 local function loadMetadataBatch(ids, callback)
 	local results = {}
 	local pending = #ids
@@ -149,7 +160,6 @@ local function loadMetadataBatch(ids, callback)
 	end
 
 	for _, id in ipairs(ids) do
-		-- Si ya está en cache, usar cache
 		if metadataCache[id] and metadataCache[id].loaded then
 			results[id] = metadataCache[id]
 			pending = pending - 1
@@ -157,7 +167,6 @@ local function loadMetadataBatch(ids, callback)
 				callback(results)
 			end
 		else
-			-- Cargar desde MarketplaceService
 			task.spawn(function()
 				local success, info = pcall(function()
 					return MarketplaceService:GetProductInfo(id, Enum.InfoType.Asset)
@@ -189,13 +198,11 @@ local function loadMetadataBatch(ids, callback)
 	end
 end
 
--- Obtener metadata (sync si está en cache, placeholder si no)
 local function getMetadataForId(audioId, forceLoad)
 	if metadataCache[audioId] and metadataCache[audioId].loaded then
 		return metadataCache[audioId]
 	end
 
-	-- Retornar placeholder inmediato
 	local placeholder = {
 		name = "Cargando...",
 		artist = "ID: " .. audioId,
@@ -269,7 +276,6 @@ local function getSongRange(djName, startIndex, endIndex, loadMetadata)
 					loaded = true
 				})
 			else
-				-- Placeholder mientras carga
 				table.insert(songs, {
 					id = id,
 					name = "Cargando...",
@@ -309,7 +315,6 @@ local function searchSongs(djName, query, maxResults)
 	local queryLower = string.lower(query or "")
 	local queryNumber = tonumber(query)
 
-	-- Si la query es un número, buscar por ID primero
 	if queryNumber then
 		for i, id in ipairs(allIds) do
 			if tostring(id):find(tostring(queryNumber), 1, true) then
@@ -327,7 +332,6 @@ local function searchSongs(djName, query, maxResults)
 		end
 	end
 
-	-- Buscar por nombre en cache
 	if #results < maxResults and queryLower ~= "" then
 		for i, id in ipairs(allIds) do
 			local cached = metadataCache[id]
@@ -336,7 +340,6 @@ local function searchSongs(djName, query, maxResults)
 				local artistLower = string.lower(cached.artist or "")
 
 				if nameLower:find(queryLower, 1, true) or artistLower:find(queryLower, 1, true) then
-					-- Evitar duplicados
 					local isDupe = false
 					for _, r in ipairs(results) do
 						if r.id == id then isDupe = true break end
@@ -363,11 +366,10 @@ local function searchSongs(djName, query, maxResults)
 		total = #results,
 		query = query,
 		totalInDJ = #allIds,
-		cachedCount = 0 -- Se calculará abajo
+		cachedCount = 0
 	}
 end
 
--- Contar cuántas canciones tienen metadata cacheada
 local function getCachedCount(djName)
 	if not musicDatabase[djName] then return 0 end
 
@@ -546,7 +548,7 @@ R.Stop.OnServerEvent:Connect(function(player)
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- ADD TO QUEUE
+-- ADD TO QUEUE (MODIFICADO - INCLUYE DJ INFO)
 -- ════════════════════════════════════════════════════════════════
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function sendResponse(response)
@@ -608,13 +610,19 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		finished = true
 		tempSound:Destroy()
 
+		-- BUSCAR EL DJ DE ESTA CANCIÓN
+		local djName, djCover = findDJForSong(id)
+
 		local songInfo = {
 			id = id,
 			name = result.Name or ("Audio " .. id),
 			artist = result.Creator.Name or "Unknown",
 			userId = player.UserId,
 			requestedBy = player.Name,
-			addedAt = os.time()
+			addedAt = os.time(),
+			-- INFO DEL DJ
+			dj = djName,
+			djCover = djCover
 		}
 
 		metadataCache[id] = {name = songInfo.name, artist = songInfo.artist, loaded = true}
@@ -624,7 +632,8 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		sendResponse(createResponse(ResponseCodes.SUCCESS, "Añadido", {
 			songName = songInfo.name,
 			artist = songInfo.artist,
-			position = #playQueue
+			position = #playQueue,
+			dj = djName
 		}))
 
 		updateAllClients()
@@ -696,7 +705,6 @@ R.GetDJs.OnServerEvent:Connect(function(player)
 	R.GetDJs:FireClient(player, {djs = djs})
 end)
 
--- OBTENER INFO INICIAL DEL DJ (sin cargar metadata)
 R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	if not musicDatabase[djName] then
 		R.GetSongsByDJ:FireClient(player, {
@@ -712,28 +720,22 @@ R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	local total = #(djData.songIds or {})
 	local cachedCount = getCachedCount(djName)
 
-	-- Enviar solo la info inicial, sin canciones
 	R.GetSongsByDJ:FireClient(player, {
 		djName = djName,
 		total = total,
 		cachedCount = cachedCount,
-		songs = {} -- El cliente pedirá rangos específicos
+		songs = {}
 	})
 end)
 
--- OBTENER RANGO DE CANCIONES (PARA SCROLL VIRTUAL)
 R.GetSongRange.OnServerEvent:Connect(function(player, djName, startIndex, endIndex)
 	local result = getSongRange(djName, startIndex, endIndex, true)
 	result.djName = djName
 
-	-- Si hay IDs para cargar, cargarlos y enviar actualización
 	if result.idsToLoad and #result.idsToLoad > 0 then
-		-- Primero enviar con placeholders
 		R.GetSongRange:FireClient(player, result)
 
-		-- Luego cargar metadata y enviar actualización
 		loadMetadataBatch(result.idsToLoad, function(metadata)
-			-- Re-obtener el rango con metadata cargada
 			local updatedResult = getSongRange(djName, startIndex, endIndex, false)
 			updatedResult.djName = djName
 			updatedResult.isUpdate = true
@@ -744,7 +746,6 @@ R.GetSongRange.OnServerEvent:Connect(function(player, djName, startIndex, endInd
 	end
 end)
 
--- BÚSQUEDA DE CANCIONES
 R.SearchSongs.OnServerEvent:Connect(function(player, djName, query)
 	local result = searchSongs(djName, query, 50)
 	result.djName = djName
@@ -752,14 +753,12 @@ R.SearchSongs.OnServerEvent:Connect(function(player, djName, query)
 	R.SearchSongs:FireClient(player, result)
 end)
 
--- OBTENER METADATA DE IDs ESPECÍFICOS
 R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
 	if type(audioIds) ~= "table" then return end
 
 	local results = {}
 	local idsToLoad = {}
 
-	-- Primero enviar lo que ya está en cache
 	for i = 1, math.min(#audioIds, 20) do
 		local id = audioIds[i]
 		if type(id) == "number" then
@@ -772,10 +771,8 @@ R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
 		end
 	end
 
-	-- Enviar respuesta inmediata
 	R.GetSongMetadata:FireClient(player, {metadata = results, pending = #idsToLoad})
 
-	-- Si hay IDs por cargar, cargarlos y enviar actualización
 	if #idsToLoad > 0 then
 		loadMetadataBatch(idsToLoad, function(loadedMetadata)
 			R.GetSongMetadata:FireClient(player, {
