@@ -18,14 +18,14 @@ local THEME = {
 	muted    = Color3.fromRGB(132, 142, 151),   -- Texto secundario
 	subtle   = Color3.fromRGB(95, 100, 110),    -- Texto muy sutil
 
-	-- Accent (modern teal)
-	accent      = Color3.fromRGB(0, 171, 157),  -- Teal vibrante
-	accentHover = Color3.fromRGB(64, 216, 201), -- Hover más claro
-	accentMuted = Color3.fromRGB(18, 80, 75),   -- Versión apagada
+	-- Accent (purple)
+	accent      = Color3.fromRGB(147, 76, 255),  -- Morado vibrante
+	accentHover = Color3.fromRGB(186, 129, 255), -- Hover más claro
+	accentMuted = Color3.fromRGB(65, 18, 75),    -- Versión apagada
 
 	-- Buttons
-	btnPrimary      = Color3.fromRGB(12, 160, 140), -- Primary teal
-	btnPrimaryHover = Color3.fromRGB(18, 180, 155),
+	btnPrimary      = Color3.fromRGB(124, 58, 237), -- Primary purple
+	btnPrimaryHover = Color3.fromRGB(165, 115, 255),
 	btnSecondary    = Color3.fromRGB(36, 40, 46),   -- Neutral secondary
 	btnDanger       = Color3.fromRGB(222, 93, 119), -- Soft red
 	btnDangerHover  = Color3.fromRGB(235, 110, 135),
@@ -47,15 +47,15 @@ local THEME = {
 	hover       = Color3.fromRGB(45, 50, 58),
 
 	-- Avatar ring
-	avatarRing     = Color3.fromRGB(0, 171, 157),
-	avatarRingGlow = Color3.fromRGB(64, 216, 201),
+	avatarRing     = Color3.fromRGB(147, 76, 255),
+	avatarRingGlow = Color3.fromRGB(186, 129, 255),
 
 	-- Transparencies
 	overlayAlpha = 0.5,
 	hoverAlpha   = 0.06,
 
 	-- Panel sizes
-	panelWidth  = 550,
+	panelWidth  = 650,
 	panelHeight = 650,
 }
 
