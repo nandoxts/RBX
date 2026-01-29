@@ -14,7 +14,7 @@ if not sound then return end
 
 local pitchModule
 local success = pcall(function()
-	pitchModule = require(script.MODULESCRIPT)
+	pitchModule = require(script.Parent.PitchModule)
 end)
 
 if not success then return end

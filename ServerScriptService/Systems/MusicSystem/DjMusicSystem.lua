@@ -4,6 +4,7 @@
 -- by ignxts
 -- FIXED: Incluye info del DJ en las canciones de la cola
 -- UPDATED: Usa MusicSoundGroup para control de volumen local
+-- UPDATED: Cooldown de 2 segundos para agregar canciones
 -- ════════════════════════════════════════════════════════════════
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +22,7 @@ local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
 local metadataCache = {}  -- Cache de metadata por ID: {name, artist, loaded}
+local playerCooldowns = {} -- UserId -> timestamp del último AddToQueue
 
 -- RESPONSE CODES
 local ResponseCodes = {
@@ -33,6 +35,7 @@ local ResponseCodes = {
 	ERROR_NOT_AUTHORIZED = "ERROR_NOT_AUTHORIZED",
 	ERROR_QUEUE_FULL = "ERROR_QUEUE_FULL",
 	ERROR_PERMISSION = "ERROR_PERMISSION",
+	ERROR_COOLDOWN = "ERROR_COOLDOWN",
 	ERROR_UNKNOWN = "ERROR_UNKNOWN"
 }
 
@@ -569,7 +572,7 @@ if R.ChangeVolume then
 end
 
 -- ════════════════════════════════════════════════════════════════
--- ADD TO QUEUE (MODIFICADO - INCLUYE DJ INFO)
+-- ADD TO QUEUE (CON COOLDOWN)
 -- ════════════════════════════════════════════════════════════════
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function sendResponse(response)
@@ -582,6 +585,29 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		sendResponse(createResponse(ResponseCodes.ERROR_PERMISSION, "No tienes permiso"))
 		return
 	end
+
+	-- ════════════════════════════════════════════════════════════
+	-- VERIFICAR COOLDOWN
+	-- ════════════════════════════════════════════════════════════
+	local cooldownTime = MusicConfig.LIMITS.AddToQueueCooldown or 2
+	local lastAddTime = playerCooldowns[player.UserId]
+	local currentTime = tick()
+
+	if lastAddTime then
+		local timePassed = currentTime - lastAddTime
+		if timePassed < cooldownTime then
+			local remaining = math.ceil(cooldownTime - timePassed)
+			sendResponse(createResponse(
+				ResponseCodes.ERROR_COOLDOWN,
+				"Espera " .. remaining .. "s",
+				{ remainingTime = remaining }
+			))
+			return
+		end
+	end
+
+	-- Actualizar cooldown
+	playerCooldowns[player.UserId] = currentTime
 
 	local id = tonumber(audioId)
 	if not id or #tostring(id) < 6 or #tostring(id) > 19 then
@@ -616,17 +642,23 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	end
 
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
-		sendResponse(createResponse(ResponseCodes.ERROR_QUEUE_FULL, "Cola llena"))
+		sendResponse(createResponse(
+			ResponseCodes.ERROR_QUEUE_FULL,
+			"Cola llena (" .. #playQueue .. "/" .. MusicConfig.LIMITS.MaxQueueSize .. ")",
+			{
+				currentSize = #playQueue,
+				maxSize = MusicConfig.LIMITS.MaxQueueSize
+			}
+		))
 		return
 	end
 
 	local tempSound = Instance.new("Sound")
-	tempSound.SoundId = "rbxassetid://" .. id
 	tempSound.Parent = workspace
 
 	local finished = false
 
-	tempSound.Loaded:Connect(function()
+	local function onSoundLoaded()
 		if finished then return end
 		finished = true
 		tempSound:Destroy()
@@ -662,17 +694,28 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		if not isPlaying and not isPaused and #playQueue == 1 then
 			task.delay(0.3, function() playSong(1) end)
 		end
+	end
+
+	-- Conectar evento ANTES de asignar SoundId
+	tempSound.Loaded:Connect(onSoundLoaded)
+
+	-- Ahora asignar el SoundId
+	tempSound.SoundId = "rbxassetid://" .. id
+
+	-- Verificar si ya está cargado (caché de Roblox)
+	task.defer(function()
+		if tempSound.IsLoaded and not finished then
+			onSoundLoaded()
+		end
 	end)
 
-	task.delay(3, function()
+	task.delay(5, function()
 		if not finished then
 			finished = true
 			tempSound:Destroy()
 			sendResponse(createResponse(ResponseCodes.ERROR_NOT_AUTHORIZED, "Sin permiso para este audio"))
 		end
 	end)
-
-	pcall(function() tempSound:LoadAsync() end)
 end)
 
 -- ════════════════════════════════════════════════════════════════
@@ -839,6 +882,11 @@ Players.PlayerAdded:Connect(function(player)
 			})
 		end
 	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	-- Limpiar cooldown del jugador
+	playerCooldowns[player.UserId] = nil
 end)
 
 -- ════════════════════════════════════════════════════════════════
