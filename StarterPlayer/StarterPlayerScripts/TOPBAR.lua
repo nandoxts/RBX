@@ -165,8 +165,9 @@ if musicSoundGroup then
 			musicSoundGroup.Volume = savedVolume
 			soundIcon:setImage(ICON_SOUND_ON)
 		end
-	end)
 
+		print("[Topbar] Música:", isMuted and "MUTEADA" or "ACTIVADA")
+	end)
 else
 	warn("[Topbar] No se encontró 'MusicSoundGroup' en SoundService - Créalo manualmente en Studio")
 end

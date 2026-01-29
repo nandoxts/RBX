@@ -73,7 +73,6 @@ soundObject.Looped = false
 local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
 if musicSoundGroup then
 	soundObject.SoundGroup = musicSoundGroup
-	print("[MUSIC] QueueSound asignado a MusicSoundGroup")
 else
 	warn("[MUSIC] MusicSoundGroup no encontrado en SoundService - El mute local no funcionará")
 end
@@ -160,8 +159,6 @@ local function loadDJsInstantly()
 			songCount = #songIds
 		}
 	end
-
-	print("[MUSIC] DJs cargados:", #musicDatabase > 0 and "OK" or "VACÍO")
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -601,7 +598,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 				ResponseCodes.ERROR_COOLDOWN,
 				"Espera " .. remaining .. "s",
 				{ remainingTime = remaining }
-			))
+				))
 			return
 		end
 	end
@@ -649,7 +646,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 				currentSize = #playQueue,
 				maxSize = MusicConfig.LIMITS.MaxQueueSize
 			}
-		))
+			))
 		return
 	end
 

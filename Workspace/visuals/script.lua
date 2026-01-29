@@ -110,22 +110,12 @@ local Config = {
 -- ═══════════════════════════════════════════════════════
 -- BUSCAR SONIDO
 -- ═══════════════════════════════════════════════════════
-local SongHolder = workspace:FindFirstChild("CancionSistema") or SoundService:FindFirstChild("THEME")
+local SongHolder = SoundService:FindFirstChild("QueueSound")
 if not SongHolder then
 	UI.SongTitle.Text = "Sin música"
-	UI.Artist.Text = "No se encontró CancionSistema"
-	warn("Music UI: no SongHolder found (CancionSistema / THEME)")
+	UI.Artist.Text = "No se encontró QueueSound"
+	warn("Music UI: no SongHolder found (QueueSound)")
 	return
-end
-
--- Asegurar que SongHolder sea un Sound
-if not SongHolder:IsA("Sound") then
-	local fallback = SoundService:FindFirstChild("THEME")
-	if fallback and fallback:IsA("Sound") then
-		SongHolder = fallback
-	else
-		warn("Music UI: SongHolder no es un Sound. Encontrado:", SongHolder.ClassName)
-	end
 end
 
 local lastSoundId = ""
@@ -308,4 +298,3 @@ task.spawn(animateEqualizer)
 task.spawn(glowPulse)
 task.spawn(animateSeparator)
 
-print("🎵 Music Player conectado a UI existente")
