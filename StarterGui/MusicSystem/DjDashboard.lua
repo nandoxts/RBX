@@ -354,9 +354,9 @@ closeBtn.Text = "×"
 closeBtn.TextColor3 = THEME.muted
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 22
-closeBtn.ZIndex = 105
-closeBtn.Parent = headerContent
-UI.rounded(closeBtn, 18)
+closeBtn.ZIndex = 103
+closeBtn.Parent = header
+UI.rounded(closeBtn, 8)
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTROLES ROW (Volumen + Skip + Clear)
