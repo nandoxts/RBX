@@ -883,7 +883,7 @@ local function drawQueue()
 		local empty = Instance.new("TextLabel")
 		empty.Size = UDim2.new(1, 0, 0, 60)
 		empty.BackgroundTransparency = 1
-		empty.Text = "La cola está vacía\nAgrega canciones desde la biblioteca"
+		empty.Text = "Queue is empty\nAdd songs from the library"
 		empty.TextColor3 = THEME.muted
 		empty.Font = Enum.Font.Gotham
 		empty.TextSize = 14
@@ -902,7 +902,55 @@ local function drawQueue()
 		card.BorderSizePixel = 0
 		card.Parent = queueScroll
 		UI.rounded(card, 8)
-		UI.stroked(card, isActive and 0.6 or 0.3)
+
+		local cardStroke = UI.stroked(card, isActive and 0.6 or 0.3)
+		if isActive then
+			local glowStroke = Instance.new("UIStroke")
+			glowStroke.Color = THEME.avatarRingGlow
+			glowStroke.Thickness = 1.2
+			glowStroke.Transparency = 0.3
+			glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			glowStroke.Parent = card
+
+			task.spawn(function()
+				while card.Parent and isActive do
+					TweenService:Create(glowStroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+						Transparency = 0,
+							Thickness = 1.6
+					}):Play()
+					task.wait(1)
+					TweenService:Create(glowStroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+						Transparency = 0.5,
+							Thickness = 1.2
+					}):Play()
+					task.wait(1)
+				end
+			end)
+
+			local gradientEffect = Instance.new("UIGradient")
+			gradientEffect.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)),
+				ColorSequenceKeypoint.new(0.3, Color3.fromRGB(48, 52, 70)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(68, 72, 100)),
+				ColorSequenceKeypoint.new(0.7, Color3.fromRGB(48, 52, 70)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 28, 32))
+			}
+			gradientEffect.Rotation = 0
+			gradientEffect.Transparency = NumberSequence.new(0.3)
+			gradientEffect.Offset = Vector2.new(-1, 0)
+			gradientEffect.Parent = card
+
+			task.spawn(function()
+				while card.Parent and isActive do
+					TweenService:Create(gradientEffect, TweenInfo.new(2.5, Enum.EasingStyle.Linear), {
+						Offset = Vector2.new(1, 0)
+					}):Play()
+					task.wait(2.5)
+					gradientEffect.Offset = Vector2.new(-1, 0)
+					task.wait(0.5)
+				end
+			end)
+		end
 
 		local avatarOffset = 4
 		local contentLeft = avatarOffset
@@ -912,19 +960,27 @@ local function drawQueue()
 			avatar.Position = UDim2.new(0, avatarOffset, 0.5, -22)
 			avatar.BackgroundTransparency = 1
 			avatar.ZIndex = 2
+			avatar.ImageTransparency = 0
 			avatar.Parent = card
 			UI.rounded(avatar, 22)
 
 			local border = Instance.new("UIStroke")
 			border.Color = isActive and THEME.accent or Color3.fromRGB(100, 100, 110)
 			border.Thickness = isActive and 2 or 1.5
+			border.Transparency = 0
 			border.Parent = avatar
 
 			task.spawn(function()
-				local success, thumb = pcall(function()
-					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+				local success, thumb, isReady = pcall(function()
+					return game.Players:GetUserThumbnailAsync(
+						userId,
+						Enum.ThumbnailType.HeadShot,
+						Enum.ThumbnailSize.Size100x100
+					)
 				end)
-				if success then avatar.Image = thumb end
+				if success and isReady then
+					avatar.Image = thumb
+				end
 			end)
 			contentLeft = avatarOffset + 44 + 8
 		end
@@ -934,18 +990,25 @@ local function drawQueue()
 		padding.PaddingRight = UDim.new(0, 12)
 		padding.Parent = card
 
+		local nameFrame = Instance.new("Frame")
+		nameFrame.Size = UDim2.new(1, -140, 0, 18)
+		nameFrame.Position = UDim2.new(0, contentLeft, 0, 8)
+		nameFrame.BackgroundTransparency = 1
+		nameFrame.ZIndex = 2
+		nameFrame.ClipsDescendants = true
+		nameFrame.Parent = card
+
 		local nameText = Instance.new("TextLabel")
-		nameText.Size = UDim2.new(1, -140, 0, 18)
-		nameText.Position = UDim2.new(0, contentLeft, 0, 8)
+		nameText.Size = UDim2.new(1, 0, 1, 0)
 		nameText.BackgroundTransparency = 1
-		nameText.Text = (song.name or "Unknown") .. "  |  " .. (song.requestedBy or "Unknown")
+		nameText.Text = (song.name or "Unknown") .. "  |  Añadido por " .. (song.requestedBy or "Unknown")
 		nameText.TextColor3 = isActive and Color3.new(1, 1, 1) or THEME.text
 		nameText.Font = Enum.Font.GothamMedium
 		nameText.TextSize = 16
 		nameText.TextXAlignment = Enum.TextXAlignment.Left
 		nameText.TextTruncate = Enum.TextTruncate.AtEnd
 		nameText.ZIndex = 2
-		nameText.Parent = card
+		nameText.Parent = nameFrame
 
 		local artist = Instance.new("TextLabel")
 		artist.Size = UDim2.new(1, -140, 0, 14)
@@ -973,6 +1036,7 @@ local function drawQueue()
 			removeBtn.ZIndex = 2
 			removeBtn.Parent = card
 			UI.rounded(removeBtn, 6)
+
 			removeBtn.MouseButton1Click:Connect(function()
 				if R.Remove then R.Remove:FireServer(i) end
 			end)
