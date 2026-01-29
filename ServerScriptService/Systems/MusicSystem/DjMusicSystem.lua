@@ -849,5 +849,4 @@ end)
 -- INITIALIZATION
 -- ════════════════════════════════════════════════════════════════
 loadDJsInstantly()
-print("[MUSIC] Sistema listo - DJs:", #getAllDJs())
 task.defer(updateAllClients)

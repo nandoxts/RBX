@@ -211,7 +211,7 @@ local function setAddButtonState(state, customMessage)
 		isAddingToQueue = false
 		quickInput.Text = ""
 		qiStroke.Color = THEME.success
-		quickAddBtn.Text = "ADDED"
+		quickAddBtn.Text = "AÑADIDO"
 		quickAddBtn.BackgroundColor3 = THEME.success
 		task.delay(2, function()
 			if quickAddBtn and qiStroke then setAddButtonState("default") end
@@ -230,17 +230,17 @@ local function setAddButtonState(state, customMessage)
 		isAddingToQueue = false
 		quickInput.Text = ""
 		qiStroke.Color = Color3.fromRGB(255, 150, 0)
-		quickAddBtn.Text = "DUPLICATE"
+		quickAddBtn.Text = "DUPLICADO"
 		quickAddBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
-		quickInput.PlaceholderText = customMessage or "Song already in queue"
+		quickInput.PlaceholderText = customMessage or "La canción ya está en la cola"
 		task.delay(3, function()
 			if quickAddBtn and qiStroke then setAddButtonState("default") end
 		end)
 	elseif state == "default" then
 		isAddingToQueue = false
 		qiStroke.Color = THEME.stroke
-		quickInput.PlaceholderText = "Enter Audio ID..."
-		quickAddBtn.Text = "ADD"
+		quickInput.PlaceholderText = "Introduce ID de audio..."
+		quickAddBtn.Text = "AÑADIR"
 		quickAddBtn.BackgroundColor3 = THEME.accent
 		quickAddBtn.AutoButtonColor = true
 	end
@@ -686,8 +686,8 @@ local function createTab(text)
 	return btn
 end
 
-local tQueue = createTab("QUEUE")
-local tLibrary = createTab("LIBRARY")
+local tQueue = createTab("COLA")
+local tLibrary = createTab("BIBLIOTECA")
 
 local underline = Instance.new("Frame")
 underline.Size = UDim2.new(0, 80, 0, 3)
@@ -819,7 +819,7 @@ if R.AddResponse then
 								addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
 								addBtn.AutoButtonColor = false
 							else
-								addBtn.Text = "QUEUE"
+								addBtn.Text = "AÑADIR"
 								addBtn.BackgroundColor3 = THEME.success
 								addBtn.TextColor3 = Color3.new(1, 1, 1)
 								addBtn.AutoButtonColor = true
@@ -883,7 +883,7 @@ local function drawQueue()
 		local empty = Instance.new("TextLabel")
 		empty.Size = UDim2.new(1, 0, 0, 60)
 		empty.BackgroundTransparency = 1
-		empty.Text = "Queue is empty\nAdd songs from the library"
+		empty.Text = "La cola está vacía\nAgrega canciones desde la biblioteca"
 		empty.TextColor3 = THEME.muted
 		empty.Font = Enum.Font.Gotham
 		empty.TextSize = 14
@@ -1147,7 +1147,7 @@ local function createSongCard()
 	addBtn.Size = UDim2.new(0, 70, 0, 30)
 	addBtn.Position = UDim2.new(1, -70, 0.5, -15)
 	addBtn.BackgroundColor3 = THEME.success
-	addBtn.Text = "QUEUE"
+	addBtn.Text = "AÑADIR"
 	addBtn.TextColor3 = Color3.new(1, 1, 1)
 	addBtn.Font = Enum.Font.GothamBold
 	addBtn.TextSize = 16
@@ -1236,7 +1236,7 @@ local function updateSongCard(card, songData, index, isInQueue)
 			addBtn.AutoButtonColor = false
 		else
 			addBtn.BackgroundColor3 = THEME.success
-			addBtn.Text = "QUEUE"
+			addBtn.Text = "AÑADIR"
 			addBtn.TextColor3 = Color3.new(1, 1, 1)
 			addBtn.AutoButtonColor = true
 		end

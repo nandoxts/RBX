@@ -19,12 +19,13 @@ MusicSystemConfig.SYSTEM = {
 -- ADMINISTRADORES
 -- ═══════════════════════════════════════════════════════════
 MusicSystemConfig.ADMINS = {
-	AdminUserIds = {
-		8387751399,  -- nandoxts (Owner)
-		9375636407,  -- Admin2
+	-- Ahora el sistema de administración usa nombres de usuario (strings).
+	AdminUserNames = {
+		"nandoxts", -- ejemplo
+		"AngeloGarciia",
 	},
+	-- Si se quiere usar un módulo externo (en ReplicatedStorage/Config/AdminConfig), dejar true.
 	UseExternalAdminSystem = true,
-	ExternalAdminModule = "CentralAdminConfig",
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -263,28 +264,38 @@ end
 -- ═══════════════════════════════════════════════════════════
 
 -- Verificar si un usuario es admin
-function MusicSystemConfig:IsAdmin(userId)
-	-- Si usa sistema externo
+function MusicSystemConfig:IsAdmin(user)
+	-- Acepta Player instance o nombre string. Convertir a nombre.
+	local name
+	if typeof(user) == "Instance" and user.Name then
+		name = user.Name
+	elseif type(user) == "string" then
+		name = user
+	else
+		return false
+	end
+
+	-- Intentar usar AdminConfig en ReplicatedStorage (más moderno)
 	if self.ADMINS.UseExternalAdminSystem then
-		local success, adminModule = pcall(function()
-			return require(game.ServerStorage:WaitForChild("Config"):WaitForChild(self.ADMINS.ExternalAdminModule))
+		local ok, adminModule = pcall(function()
+			return require(game:GetService("ReplicatedStorage"):WaitForChild("Config"):WaitForChild("AdminConfig"))
 		end)
-		if success and adminModule.isAdmin then
-			return adminModule:isAdmin(userId)
+		if ok and adminModule and adminModule.IsAdmin then
+			return adminModule:IsAdmin(name)
 		end
 	end
 
-	-- Verificar en lista local
-	for _, adminId in ipairs(self.ADMINS.AdminUserIds) do
-		if userId == adminId then 
-			return true 
+	-- Fallback a lista local de nombres
+	for _, adminName in ipairs(self.ADMINS.AdminUserNames or {}) do
+		if adminName == name then
+			return true
 		end
 	end
 	return false
 end
 
 -- Verificar permiso para una acción
-function MusicSystemConfig:HasPermission(userId, action)
+function MusicSystemConfig:HasPermission(userOrPlayer, action)
 	local permission = self.PERMISSIONS[action]
 
 	if not permission then
@@ -294,10 +305,23 @@ function MusicSystemConfig:HasPermission(userId, action)
 	if permission == "everyone" then
 		return true
 	elseif permission == "admin" then
-		return self:IsAdmin(userId)
+		-- userOrPlayer puede ser UserId (number), Player (Instance) o nombre (string)
+		if type(userOrPlayer) == "number" then
+			local Players = game:GetService("Players")
+			local plr = Players:GetPlayerByUserId(userOrPlayer)
+			return self:IsAdmin(plr)
+		else
+			return self:IsAdmin(userOrPlayer)
+		end
 	elseif permission == "vip" then
-		-- Implementar lógica de VIP si es necesario
-		return self:IsAdmin(userId)
+		-- Implementar lógica de VIP si es necesario; por ahora tratar como admin
+		if type(userOrPlayer) == "number" then
+			local Players = game:GetService("Players")
+			local plr = Players:GetPlayerByUserId(userOrPlayer)
+			return self:IsAdmin(plr)
+		else
+			return self:IsAdmin(userOrPlayer)
+		end
 	end
 
 	return false

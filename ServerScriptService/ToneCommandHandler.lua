@@ -5,18 +5,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- ═══════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN
 -- ═══════════════════════════════════════════════════════════════════
+local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
+
 local CONFIG = {
 	prefix = ";tono",
-	whitelist = {
-		"xlm_brem",
-		"AngeloGarciia",
-		"bvwdhfv",
-		"ignxts"
-	},
 	messages = {
 		disabled = "Sistema de tono desactivado.",
 		rainbow = "Modo rainbow activado.",
-		theme = "Modo %s se ha activado.",  -- ← Cambiar aquí
+		theme = "Modo %s se ha activado.",
 	}
 }
 
@@ -121,7 +117,7 @@ local function onChatted(player, message)
 end
 
 local function connectPlayer(player)
-	if table.find(CONFIG.whitelist, player.Name) then
+	if AdminConfig:IsAdmin(player) then
 		player.Chatted:Connect(function(msg) onChatted(player, msg) end)
 	end
 end

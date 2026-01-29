@@ -7,12 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Seed random for unique id generation
 math.randomseed(os.time())
 
-local whitelist = {
-	"xlm_brem",
-	"AngeloGarciia",
-	"bvwdhfv",
-	"ignxts"
-}
+local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 
 local function getUniqueId()
 	return tostring(os.time()) .. tostring(math.random(1000, 9999))
@@ -23,7 +18,7 @@ local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Eve
 local crearAnuncio = eventsFolder:WaitForChild("CrearAnuncio")
 
 Players.PlayerAdded:Connect(function(plr)
-	if table.find(whitelist, plr.Name) then
+	if AdminConfig:IsAdmin(plr) then
 		plr.Chatted:Connect(function(msg)
 			if string.sub(msg, 1, 8) == "/global " then
 				local actualMessage = string.sub(msg, 9)
