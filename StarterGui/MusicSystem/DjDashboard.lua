@@ -233,7 +233,7 @@ if Icon then
 	end
 
 	musicIcon = Icon.new()
-		:setLabel("MUSIC")
+		:setImage("13780950231")
 		:setOrder(1)
 		:bindEvent("selected", function() openUI(false) end)
 		:bindEvent("deselected", function() closeUI() end)
@@ -253,12 +253,7 @@ local modal = ModalManager.new({
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
-	onOpen = function()
-		if musicIcon then musicIcon:setLabel("CLOSE"):select() end
-	end,
-	onClose = function()
-		if musicIcon then musicIcon:setLabel("MUSIC"):deselect() end
-	end
+	
 })
 
 local panel = modal:getPanel()
