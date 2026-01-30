@@ -57,17 +57,10 @@ local ResponseMessages = {
 -- ADMIN CONFIG
 -- ════════════════════════════════════════════════════════════════
 local player = Players.LocalPlayer
-local ADMIN_IDS = {8387751399, 9375636407}
+local MusicSystemConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 local SHOW_ADMIN_UI = false
 
-local function isAdminUser(userId)
-	for _, adminId in ipairs(ADMIN_IDS) do
-		if userId == adminId then return true end
-	end
-	return false
-end
-
-local isAdmin = isAdminUser(player.UserId) or SHOW_ADMIN_UI
+local isAdmin = MusicSystemConfig:IsAdmin(player) and SHOW_ADMIN_UI
 
 -- ════════════════════════════════════════════════════════════════
 -- THEME & CONFIG
@@ -245,6 +238,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
+
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "MusicDashboard",
@@ -253,7 +247,21 @@ local modal = ModalManager.new({
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
+	onClose = function()  
+		-- Limpiar el icono cuando se cierre por cualquier método (overlay, botón, etc.)
+		if musicIcon then
+			pcall(function() musicIcon:setSelected(false) end)
+			pcall(function() musicIcon:deselect() end)
+			pcall(function() musicIcon.Selected = false end)
+			pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
+		end
 
+		-- Desconectar el progress connection
+		if progressConnection then
+			progressConnection:Disconnect()
+			progressConnection = nil
+		end
+	end
 })
 
 local panel = modal:getPanel()
@@ -1753,6 +1761,17 @@ task.defer(function()
 	moveUnderline(tQueue)
 	showPage("Queue")
 end)
+-- ════════════════════════════════════════════════════════════════
+-- ICON CLEANUP FUNCTION (NUEVA)
+-- ════════════════════════════════════════════════════════════════
+local function cleanupIcon()
+	if musicIcon then
+		pcall(function() musicIcon:setSelected(false) end)
+		pcall(function() musicIcon:deselect() end)
+		pcall(function() musicIcon.Selected = false end)
+		pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
+	end
+end
 
 -- ════════════════════════════════════════════════════════════════
 -- UI OPEN/CLOSE
@@ -1773,26 +1792,10 @@ function openUI(openToLibrary)
 	if progressConnection then progressConnection:Disconnect() end
 	progressConnection = RunService.Heartbeat:Connect(updateProgressBar)
 end
-
 function closeUI()
 	if not modal:isModalOpen() then return end
-
-	if progressConnection then
-		progressConnection:Disconnect()
-		progressConnection = nil
-	end
-
-	modal:close()
-
-	-- Resetear el estado del icono del topbar para que el siguiente click lo abra directamente
-	if musicIcon then
-		pcall(function() musicIcon:setSelected(false) end)
-		pcall(function() musicIcon:deselect() end)
-		pcall(function() musicIcon.Selected = false end)
-		pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
-	end
+	modal:close()  
 end
-
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
 -- ════════════════════════════════════════════════════════════════

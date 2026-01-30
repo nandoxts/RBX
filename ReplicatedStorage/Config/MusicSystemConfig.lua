@@ -21,8 +21,7 @@ MusicSystemConfig.SYSTEM = {
 MusicSystemConfig.ADMINS = {
 	-- Ahora el sistema de administración usa nombres de usuario (strings).
 	AdminUserNames = {
-		"nandoxts", -- ejemplo
-		"AngeloGarciia",
+		-- Los admins se obtienen de AdminConfig.lua
 	},
 	-- Si se quiere usar un módulo externo (en ReplicatedStorage/Config/AdminConfig), dejar true.
 	UseExternalAdminSystem = true,
@@ -276,22 +275,14 @@ function MusicSystemConfig:IsAdmin(user)
 		return false
 	end
 
-	-- Intentar usar AdminConfig en ReplicatedStorage (más moderno)
-	if self.ADMINS.UseExternalAdminSystem then
-		local ok, adminModule = pcall(function()
-			return require(game:GetService("ReplicatedStorage"):WaitForChild("Config"):WaitForChild("AdminConfig"))
-		end)
-		if ok and adminModule and adminModule.IsAdmin then
-			return adminModule:IsAdmin(name)
-		end
+	-- Usar AdminConfig en ReplicatedStorage/Config/AdminConfig
+	local ok, adminModule = pcall(function()
+		return require(game:GetService("ReplicatedStorage"):WaitForChild("Config"):WaitForChild("AdminConfig"))
+	end)
+	if ok and adminModule and adminModule.IsAdmin then
+		return adminModule:IsAdmin(name)
 	end
 
-	-- Fallback a lista local de nombres
-	for _, adminName in ipairs(self.ADMINS.AdminUserNames or {}) do
-		if adminName == name then
-			return true
-		end
-	end
 	return false
 end
 
