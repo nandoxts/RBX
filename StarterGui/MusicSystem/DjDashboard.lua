@@ -253,7 +253,7 @@ local modal = ModalManager.new({
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
-	
+
 })
 
 local panel = modal:getPanel()

@@ -5,6 +5,8 @@
 -- FIXED: Incluye info del DJ en las canciones de la cola
 -- UPDATED: Usa MusicSoundGroup para control de volumen local
 -- UPDATED: Cooldown de 2 segundos para agregar canciones
+-- FIXED: Reproducción más robusta y sincronizada
+-- FIXED: Reproducción aleatoria al iniciar si no hay canciones
 -- ════════════════════════════════════════════════════════════════
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,13 +20,21 @@ local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChil
 -- Default playback speed if none defined in PitchModule
 local DEFAULT_PLAYBACK_SPEED = 1
 
+-- ════════════════════════════════════════════════════════════════
+-- CONFIGURACIÓN DEL DESARROLLADOR
+-- ════════════════════════════════════════════════════════════════
+-- Tu UserId de Roblox (lo encuentras en tu URL de perfil: roblox.com/users/AQUI/profile)
+-- Se usa para mostrar tu avatar cuando el sistema reproduce automáticamente
+local DEV_USER_ID = 8387751399 -- ← PON TU USER ID AQUÍ (ej: 123456789)
+local DEV_DISPLAY_NAME = "Sistema" -- Nombre que aparece como "añadido por"
+
 -- STATE
 local musicDatabase = {}  -- DJ name -> {cover, songIds[]}
 local playQueue = {}
 local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
-local fadeEpoch = 0
+local isTransitioning = false -- NUEVO: Evita race conditions durante transiciones
 local metadataCache = {}  -- Cache de metadata por ID: {name, artist, loaded}
 local playerCooldowns = {} -- UserId -> timestamp del último AddToQueue
 
@@ -159,6 +169,32 @@ local function findDJForSong(audioId)
 		end
 	end
 	return nil, nil
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- OBTENER CANCIÓN ALEATORIA DE LA BIBLIOTECA
+-- ════════════════════════════════════════════════════════════════
+local function getRandomSongFromLibrary()
+	-- Recopilar todas las canciones disponibles
+	local allSongs = {}
+
+	for djName, djData in pairs(musicDatabase) do
+		for _, songId in ipairs(djData.songIds or {}) do
+			table.insert(allSongs, {
+				id = songId,
+				dj = djName,
+				djCover = djData.cover
+			})
+		end
+	end
+
+	if #allSongs == 0 then
+		return nil
+	end
+
+	-- Seleccionar aleatoriamente
+	local randomIndex = math.random(1, #allSongs)
+	return allSongs[randomIndex]
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -421,39 +457,80 @@ local function getCachedCount(djName)
 end
 
 -- ════════════════════════════════════════════════════════════════
--- PLAYBACK FUNCTIONS
+-- BROADCAST (MEJORADO)
 -- ════════════════════════════════════════════════════════════════
-local function getCurrentSong()
-	if #playQueue > 0 and currentSongIndex >= 1 and currentSongIndex <= #playQueue then
-		return playQueue[currentSongIndex]
+local function updateAllClients()
+	if R.Update then
+		local djs = getAllDJs()
+		local currentSong = nil
+
+		if #playQueue > 0 and currentSongIndex >= 1 and currentSongIndex <= #playQueue then
+			currentSong = playQueue[currentSongIndex]
+		end
+
+		local dataPacket = {
+			queue = playQueue,
+			currentSong = currentSong,
+			djs = djs,
+			isPlaying = isPlaying,
+			isPaused = isPaused,
+			-- NUEVO: Info adicional para sincronización
+			currentIndex = currentSongIndex,
+			queueLength = #playQueue,
+			timestamp = os.time()
+		}
+
+		for _, player in ipairs(Players:GetPlayers()) do
+			pcall(function()
+				R.Update:FireClient(player, dataPacket)
+			end)
+		end
 	end
-	return nil
 end
 
-local updateAllClients
+-- ════════════════════════════════════════════════════════════════
+-- PLAYBACK FUNCTIONS (MEJORADO Y MÁS ROBUSTO)
+-- ════════════════════════════════════════════════════════════════
+local currentPlaybackId = 0 -- ID único para cada reproducción
 
 local function playSong(index)
-	fadeEpoch = fadeEpoch + 1
-	local myEpoch = fadeEpoch
+	-- Evitar llamadas simultáneas
+	if isTransitioning then
+		return
+	end
+	isTransitioning = true
+
+	-- Incrementar ID de reproducción para invalidar callbacks anteriores
+	currentPlaybackId = currentPlaybackId + 1
+	local myPlaybackId = currentPlaybackId
+
+	-- Detener sonido actual inmediatamente
+	pcall(function()
+		soundObject:Stop()
+	end)
+
 	if #playQueue == 0 then
 		isPlaying = false
-		soundObject:Stop()
+		isPaused = false
+		isTransitioning = false
+		updateAllClients()
 		return
 	end
 
 	index = index or currentSongIndex
-	if index < 1 or index > #playQueue then return end
+	if index < 1 or index > #playQueue then
+		isTransitioning = false
+		return
+	end
 
 	currentSongIndex = index
 	local song = playQueue[currentSongIndex]
 
+	-- Configurar sonido
+	soundObject.Volume = 0
 	soundObject.SoundId = "rbxassetid://" .. song.id
 
-	-- Ensure volume is 0 before starting to avoid pops
-	pcall(function() soundObject:Stop() end)
-	soundObject.Volume = 0
-
-	-- Apply server-side playback speed if available to avoid race with client script
+	-- Apply playback speed
 	local idDigits = tostring(song.id):match("(%d+)")
 	if idDigits and serverPitchLookup[idDigits] then
 		soundObject.PlaybackSpeed = serverPitchLookup[idDigits]
@@ -461,72 +538,111 @@ local function playSong(index)
 		soundObject.PlaybackSpeed = DEFAULT_PLAYBACK_SPEED
 	end
 
-	-- Robust play: wait for Loaded event up to timeout, then Play
-	local played = false
-	local conn
-	local function doPlay()
-		if played then return end
-		played = true
-		-- Protect Play with pcall in case of runtime errors
+	-- Función para iniciar reproducción
+	local hasStarted = false
+	local function startPlayback()
+		-- Verificar que aún somos la reproducción actual
+		if myPlaybackId ~= currentPlaybackId or hasStarted then
+			return
+		end
+		hasStarted = true
+
 		local ok, err = pcall(function()
 			soundObject:Play()
 		end)
-		if not ok then
-			warn("[DjMusicSystem] Failed to Play soundId:", soundObject.SoundId, err)
+
+		if ok then
+			isPlaying = true
+			isPaused = false
+
+			-- Fade in suave
+			local tween = TweenService:Create(
+				soundObject, 
+				TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
+				{Volume = MusicConfig:GetDefaultVolume()}
+			)
+			tween:Play()
+		else
+			warn("[DjMusicSystem] Error al reproducir:", song.id, err)
+			isPlaying = false
 		end
-		isPlaying = true
-		isPaused = false
-		-- Fade in volumen
-		local tween = TweenService:Create(soundObject, TweenInfo.new(0.5), {Volume = MusicConfig:GetDefaultVolume()})
-		tween:Play()
+
+		isTransitioning = false
 		updateAllClients()
-		if conn then conn:Disconnect() end
 	end
 
-	-- Connect Loaded event
-	conn = soundObject.Loaded:Connect(function()
-		doPlay()
-	end)
-
-	-- If already loaded, play immediately
-	local success, isLoaded = pcall(function() return soundObject.IsLoaded end)
-	if success and isLoaded then
-		doPlay()
+	-- Verificar si ya está cargado
+	local success, loaded = pcall(function() return soundObject.IsLoaded end)
+	if success and loaded then
+		startPlayback()
 	else
-		-- Timeout fallback: if not loaded after 6 seconds, attempt to play anyway
-		task.delay(6, function()
-			if not played then
-				warn("[DjMusicSystem] Sound not loaded in time, attempting to Play anyway:", soundObject.SoundId)
-				doPlay()
+		-- Esperar carga con timeout
+		local connection
+		connection = soundObject.Loaded:Connect(function()
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+			startPlayback()
+		end)
+
+		-- Timeout de seguridad (3 segundos para carga rápida)
+		task.delay(3, function()
+			if not hasStarted and myPlaybackId == currentPlaybackId then
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+				warn("[DjMusicSystem] Timeout de carga, intentando reproducir:", song.id)
+				startPlayback()
 			end
 		end)
 	end
 end
 
 local function nextSong()
+	if isTransitioning then
+		return
+	end
+
 	if #playQueue == 0 then
 		isPlaying = false
-		soundObject:Stop()
+		isPaused = false
+		pcall(function() soundObject:Stop() end)
 		updateAllClients()
 		return
 	end
 
+	-- Remover la canción actual
 	table.remove(playQueue, currentSongIndex)
 
 	if #playQueue == 0 then
 		currentSongIndex = 1
 		isPlaying = false
-		soundObject:Stop()
+		isPaused = false
+		pcall(function() soundObject:Stop() end)
+		updateAllClients()
+
+		-- NUEVO: Reproducir canción aleatoria si la cola está vacía
+		task.delay(0.5, function()
+			if #playQueue == 0 and not isPlaying then
+				playRandomSongFromLibrary()
+			end
+		end)
 	else
-		if currentSongIndex > #playQueue then currentSongIndex = 1 end
+		-- Ajustar índice si es necesario
+		if currentSongIndex > #playQueue then
+			currentSongIndex = 1
+		end
 		playSong(currentSongIndex)
 	end
-
-	updateAllClients()
 end
 
 local function stopSong()
-	soundObject:Stop()
+	isTransitioning = false
+	currentPlaybackId = currentPlaybackId + 1
+
+	pcall(function() soundObject:Stop() end)
 	isPlaying = false
 	isPaused = false
 	updateAllClients()
@@ -573,23 +689,60 @@ local function clearQueue()
 end
 
 -- ════════════════════════════════════════════════════════════════
--- BROADCAST
+-- REPRODUCIR CANCIÓN ALEATORIA DE LA BIBLIOTECA
 -- ════════════════════════════════════════════════════════════════
-function updateAllClients()
-	if R.Update then
-		local djs = getAllDJs()
-		local dataPacket = {
-			queue = playQueue,
-			currentSong = getCurrentSong(),
-			djs = djs,
-			isPlaying = isPlaying,
-			isPaused = isPaused
-		}
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			R.Update:FireClient(player, dataPacket)
-		end
+function playRandomSongFromLibrary()
+	if #playQueue > 0 or isPlaying then
+		return -- Ya hay algo en cola o reproduciéndose
 	end
+
+	local randomSong = getRandomSongFromLibrary()
+	if not randomSong then
+		warn("[DjMusicSystem] No hay canciones en la biblioteca para reproducir")
+		return
+	end
+
+	print("[DjMusicSystem] Reproduciendo canción aleatoria:", randomSong.id)
+
+	-- Obtener metadata
+	local success, info = pcall(function()
+		return MarketplaceService:GetProductInfo(randomSong.id, Enum.InfoType.Asset)
+	end)
+
+	local songName = "Audio " .. randomSong.id
+	local artistName = "Unknown"
+
+	if success and info then
+		songName = info.Name or songName
+		artistName = (info.Creator and info.Creator.Name) or artistName
+	end
+
+	-- Agregar a la cola usando la configuración del dev
+	local songInfo = {
+		id = randomSong.id,
+		name = songName,
+		artist = artistName,
+		userId = DEV_USER_ID,
+		requestedBy = DEV_DISPLAY_NAME,
+		addedAt = os.time(),
+		dj = randomSong.dj,
+		djCover = randomSong.djCover,
+		isAutoPlay = true
+	}
+
+	-- Cache metadata
+	metadataCache[randomSong.id] = {
+		name = songName,
+		artist = artistName,
+		loaded = true
+	}
+
+	table.insert(playQueue, songInfo)
+
+	-- Reproducir inmediatamente
+	task.delay(0.2, function()
+		playSong(1)
+	end)
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -598,19 +751,22 @@ end
 R.Play.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "PlaySong") then return end
 	if isPaused then
-		soundObject:Resume()
+		pcall(function() soundObject:Resume() end)
 		isPaused = false
 		isPlaying = true
 		updateAllClients()
+	elseif #playQueue > 0 then
+		playSong(currentSongIndex)
 	else
-		playSong(1)
+		-- Si no hay nada, reproducir aleatoria
+		playRandomSongFromLibrary()
 	end
 end)
 
 R.Pause.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "PauseSong") then return end
 	if isPlaying and not isPaused then
-		soundObject:Pause()
+		pcall(function() soundObject:Pause() end)
 		isPaused = true
 		isPlaying = false
 		updateAllClients()
@@ -643,7 +799,9 @@ end
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function sendResponse(response)
 		if R.AddToQueueResponse then
-			R.AddToQueueResponse:FireClient(player, response)
+			pcall(function()
+				R.AddToQueueResponse:FireClient(player, response)
+			end)
 		end
 	end
 
@@ -727,7 +885,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function onSoundLoaded()
 		if finished then return end
 		finished = true
-		tempSound:Destroy()
+		pcall(function() tempSound:Destroy() end)
 
 		-- BUSCAR EL DJ DE ESTA CANCIÓN
 		local djName, djCover = findDJForSong(id)
@@ -770,7 +928,8 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 
 	-- Verificar si ya está cargado (caché de Roblox)
 	task.defer(function()
-		if tempSound.IsLoaded and not finished then
+		local ok, loaded = pcall(function() return tempSound.IsLoaded end)
+		if ok and loaded and not finished then
 			onSoundLoaded()
 		end
 	end)
@@ -778,7 +937,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	task.delay(5, function()
 		if not finished then
 			finished = true
-			tempSound:Destroy()
+			pcall(function() tempSound:Destroy() end)
 			sendResponse(createResponse(ResponseCodes.ERROR_NOT_AUTHORIZED, "Sin permiso para este audio"))
 		end
 	end)
@@ -790,7 +949,9 @@ end)
 R.RemoveFromQueue.OnServerEvent:Connect(function(player, index)
 	local function sendResponse(response)
 		if R.RemoveFromQueueResponse then
-			R.RemoveFromQueueResponse:FireClient(player, response)
+			pcall(function()
+				R.RemoveFromQueueResponse:FireClient(player, response)
+			end)
 		end
 	end
 
@@ -810,7 +971,9 @@ end)
 R.ClearQueue.OnServerEvent:Connect(function(player)
 	local function sendResponse(response)
 		if R.ClearQueueResponse then
-			R.ClearQueueResponse:FireClient(player, response)
+			pcall(function()
+				R.ClearQueueResponse:FireClient(player, response)
+			end)
 		end
 	end
 
@@ -832,17 +995,21 @@ end)
 -- ════════════════════════════════════════════════════════════════
 R.GetDJs.OnServerEvent:Connect(function(player)
 	local djs = getAllDJs()
-	R.GetDJs:FireClient(player, {djs = djs})
+	pcall(function()
+		R.GetDJs:FireClient(player, {djs = djs})
+	end)
 end)
 
 R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	if not musicDatabase[djName] then
-		R.GetSongsByDJ:FireClient(player, {
-			djName = djName,
-			total = 0,
-			songs = {},
-			cachedCount = 0
-		})
+		pcall(function()
+			R.GetSongsByDJ:FireClient(player, {
+				djName = djName,
+				total = 0,
+				songs = {},
+				cachedCount = 0
+			})
+		end)
 		return
 	end
 
@@ -850,12 +1017,14 @@ R.GetSongsByDJ.OnServerEvent:Connect(function(player, djName)
 	local total = #(djData.songIds or {})
 	local cachedCount = getCachedCount(djName)
 
-	R.GetSongsByDJ:FireClient(player, {
-		djName = djName,
-		total = total,
-		cachedCount = cachedCount,
-		songs = {}
-	})
+	pcall(function()
+		R.GetSongsByDJ:FireClient(player, {
+			djName = djName,
+			total = total,
+			cachedCount = cachedCount,
+			songs = {}
+		})
+	end)
 end)
 
 R.GetSongRange.OnServerEvent:Connect(function(player, djName, startIndex, endIndex)
@@ -863,16 +1032,22 @@ R.GetSongRange.OnServerEvent:Connect(function(player, djName, startIndex, endInd
 	result.djName = djName
 
 	if result.idsToLoad and #result.idsToLoad > 0 then
-		R.GetSongRange:FireClient(player, result)
+		pcall(function()
+			R.GetSongRange:FireClient(player, result)
+		end)
 
 		loadMetadataBatch(result.idsToLoad, function(metadata)
 			local updatedResult = getSongRange(djName, startIndex, endIndex, false)
 			updatedResult.djName = djName
 			updatedResult.isUpdate = true
-			R.GetSongRange:FireClient(player, updatedResult)
+			pcall(function()
+				R.GetSongRange:FireClient(player, updatedResult)
+			end)
 		end)
 	else
-		R.GetSongRange:FireClient(player, result)
+		pcall(function()
+			R.GetSongRange:FireClient(player, result)
+		end)
 	end
 end)
 
@@ -880,7 +1055,9 @@ R.SearchSongs.OnServerEvent:Connect(function(player, djName, query)
 	local result = searchSongs(djName, query, 50)
 	result.djName = djName
 	result.cachedCount = getCachedCount(djName)
-	R.SearchSongs:FireClient(player, result)
+	pcall(function()
+		R.SearchSongs:FireClient(player, result)
+	end)
 end)
 
 R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
@@ -901,38 +1078,44 @@ R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
 		end
 	end
 
-	R.GetSongMetadata:FireClient(player, {metadata = results, pending = #idsToLoad})
+	pcall(function()
+		R.GetSongMetadata:FireClient(player, {metadata = results, pending = #idsToLoad})
+	end)
 
 	if #idsToLoad > 0 then
 		loadMetadataBatch(idsToLoad, function(loadedMetadata)
-			R.GetSongMetadata:FireClient(player, {
-				metadata = loadedMetadata,
-				pending = 0,
-				isUpdate = true
-			})
+			pcall(function()
+				R.GetSongMetadata:FireClient(player, {
+					metadata = loadedMetadata,
+					pending = 0,
+					isUpdate = true
+				})
+			end)
 		end)
 	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- AUTO EVENTS
+-- AUTO EVENTS (MEJORADO - SIN FADE BLOQUEANTE)
 -- ════════════════════════════════════════════════════════════════
 soundObject.Ended:Connect(function()
-	if isPlaying then
-		local myEpoch = fadeEpoch
-		-- Fade out antes de cambiar (solo si sigue siendo la misma epoch)
-		local currentVol = soundObject.Volume
-		task.spawn(function()
-			for i = 10, 1, -1 do
-				if myEpoch ~= fadeEpoch then return end
-				soundObject.Volume = currentVol * (i / 10)
-				task.wait(0.03)
-			end
-		end)
-		task.wait(0.5)
-		if myEpoch == fadeEpoch then
+	-- Solo proceder si realmente estaba reproduciendo
+	if not isPlaying and not isPaused then
+		return
+	end
+
+	-- Verificar que el sonido realmente terminó (no fue detenido manualmente)
+	local timePosition = soundObject.TimePosition
+	local timeLength = soundObject.TimeLength
+
+	-- Si terminó naturalmente (cerca del final)
+	if timeLength > 0 and (timePosition >= timeLength - 0.5 or timePosition == 0) then
+		print("[DjMusicSystem] Canción terminada, pasando a la siguiente...")
+
+		-- Pequeño delay para evitar problemas de timing, pero NO bloqueante
+		task.defer(function()
 			nextSong()
-		end
+		end)
 	end
 end)
 
@@ -943,13 +1126,24 @@ Players.PlayerAdded:Connect(function(player)
 	task.defer(function()
 		if R.Update then
 			local djs = getAllDJs()
-			R.Update:FireClient(player, {
-				queue = playQueue,
-				currentSong = getCurrentSong(),
-				djs = djs,
-				isPlaying = isPlaying,
-				isPaused = isPaused
-			})
+			local currentSong = nil
+
+			if #playQueue > 0 and currentSongIndex >= 1 and currentSongIndex <= #playQueue then
+				currentSong = playQueue[currentSongIndex]
+			end
+
+			pcall(function()
+				R.Update:FireClient(player, {
+					queue = playQueue,
+					currentSong = currentSong,
+					djs = djs,
+					isPlaying = isPlaying,
+					isPaused = isPaused,
+					currentIndex = currentSongIndex,
+					queueLength = #playQueue,
+					timestamp = os.time()
+				})
+			end)
 		end
 	end)
 end)
@@ -963,4 +1157,14 @@ end)
 -- INITIALIZATION
 -- ════════════════════════════════════════════════════════════════
 loadDJsInstantly()
-task.defer(updateAllClients)
+
+-- Esperar un momento y luego actualizar clientes + reproducir aleatoria si está vacío
+task.delay(1, function()
+	updateAllClients()
+
+	-- NUEVO: Si no hay canciones en cola, reproducir una aleatoria
+	if #playQueue == 0 then
+		print("[DjMusicSystem] Cola vacía al iniciar, reproduciendo canción aleatoria...")
+		playRandomSongFromLibrary()
+	end
+end)
