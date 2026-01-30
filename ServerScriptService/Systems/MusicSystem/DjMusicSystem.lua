@@ -130,6 +130,7 @@ local R = {
 	SearchSongs = musicLibraryFolder:FindFirstChild("SearchSongs"),
 	GetSongRange = musicLibraryFolder:FindFirstChild("GetSongRange"),
 	ChangeVolume = musicPlaybackFolder and musicPlaybackFolder:FindFirstChild("ChangeVolume") or nil,
+    PurchaseSkip = musicQueueFolder and musicQueueFolder:FindFirstChild("PurchaseSkip") or nil,
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -777,6 +778,16 @@ R.Next.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "NextSong") then return end
 	nextSong()
 end)
+
+-- PURCHASED SKIP HANDLER (simplificado)
+if R.PurchaseSkip then
+	R.PurchaseSkip.OnServerEvent:Connect(function(player)
+		pcall(function()
+			print("[DjMusicSystem] PurchaseSkip recibido de:", player.Name)
+			nextSong()
+		end)
+	end)
+end
 
 R.Stop.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "StopSong") then return end

@@ -679,11 +679,10 @@ end)
 -- ════════════════════════════════════════════════════════════════
 local skipProductId = 3468988018
 
--- SOLO PurchaseSkip (sin fallbacks)
-local skipRemote =
-	ReplicatedStorage:WaitForChild("MusicRemotes")
-		:WaitForChild("MusicQueue")
-		:WaitForChild("PurchaseSkip")
+-- Use el Remote `PurchaseSkip` en `MusicRemotes/MusicQueue` (no usar Panda)
+local skipRemote = ReplicatedStorage:WaitForChild("MusicRemotes")
+    :WaitForChild("MusicQueue")
+    :WaitForChild("PurchaseSkip")
 
 -- Botón Skip
 skipB.MouseButton1Click:Connect(function()
@@ -707,10 +706,12 @@ end
 
 -- Cuando la compra termina con éxito -> SKIP automático
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
-	if plr ~= player then return end
-	if productId ~= skipProductId then return end
-	if not wasPurchased then return end
-	skipRemote:FireServer(true)
+	if plr ~= player or productId ~= skipProductId or not wasPurchased then return end
+	if skipRemote then
+		pcall(function()
+			skipRemote:FireServer(true)
+		end)
+	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
