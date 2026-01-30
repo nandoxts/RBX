@@ -10,13 +10,13 @@ Animaciones.Ids = {
 	{ID = 99786006678146, Nombre = 'Soul II'},
 	{ID = 82928714109101, Nombre = 'Soul III'}, 
 	{ID = 122584436407402, Nombre = 'Bombastic'},
-	
+
 	{ID = 106725869492202, Nombre = 'Samba I'},
 	{ID = 89111424480965, Nombre = 'Samba II'},
 	{ID = 135274414278380, Nombre = 'Samba III'},
 	{ID = 88477349752052, Nombre = 'Samba IV'},
 	{ID = 16270690701, Nombre = 'Samba V'},
-	
+
 	{ID = 128838190174445, Nombre = 'Arm Sway'},
 	{ID = 98813116714164, Nombre = 'Belly I'},
 	{ID = 101421039901803, Nombre = 'Belly II'},
@@ -179,14 +179,10 @@ Animaciones.Vip = {
 	{ID = 74407321445762, Nombre = 'LATIN III'},
 	{ID = 124209914932987, Nombre = 'LATIN IV'},
 
-
-
-
-	{ID = 130571428528203, Nombre = 'Rebote I'},
-	{ID = 117743822724223, Nombre = 'Rebote II'},
-	{ID = 107109795056101, Nombre = 'Rebote III'},
-	{ID = 72067682558080, Nombre = 'Rebote IV'},
-	{ID = 75256518776176, Nombre = 'Rebote V'},
+	{ID = 117743822724223, Nombre = 'Rebote I'},
+	{ID = 107109795056101, Nombre = 'Rebote II'},
+	{ID = 72067682558080, Nombre = 'Rebote III'},
+	{ID = 75256518776176, Nombre = 'Rebote IV'},
 
 	{ID = 104685509336391, Nombre = 'Jump I'},
 	{ID = 131751661872100, Nombre = 'Jump II'},
@@ -217,11 +213,9 @@ Animaciones.Vip = {
 
 	{ID = 100672487163010, Nombre = 'Golpe I'},
 	{ID = 97079458057304, Nombre = 'Golpe II'},
-	{ID = 99174723293981, Nombre = 'Golpe III'},
-	{ID = 126490613005651, Nombre = 'Golpe IV'},
-	{ID = 73317543628887, Nombre = 'Golpe V'},
-	{ID = 102779295838500, Nombre = 'Golpe VI'},
-	{ID = 126780665379004, Nombre = 'Golpe VII'},
+	{ID = 126490613005651, Nombre = 'Golpe III'},
+	{ID = 102779295838500, Nombre = 'Golpe IV'},
+	{ID = 126780665379004, Nombre = 'Golpe V'},
 
 	{ID = 84112287597268, Nombre = 'Huaska I'},
 	{ID = 84623954062978, Nombre = 'Huaska II'},
