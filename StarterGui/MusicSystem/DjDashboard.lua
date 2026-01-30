@@ -414,7 +414,7 @@ volSliderBg.Parent = volFrame
 UI.rounded(volSliderBg, 6)
 
 local volSliderFill = Instance.new("Frame")
-volSliderFill.Size = UDim2.new(0.8, 0, 1, 0)
+volSliderFill.Size = UDim2.new(1, 0, 1, 0)
 volSliderFill.BackgroundColor3 = THEME.accent
 volSliderFill.BorderSizePixel = 0
 volSliderFill.ZIndex = 106
@@ -425,7 +425,7 @@ local volLabel = Instance.new("TextButton")
 volLabel.Size = UDim2.new(0, 50, 0, 30)
 volLabel.Position = UDim2.new(0, 95, 0, 0)
 volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
-volLabel.Text = "80%"
+volLabel.Text = "100%"
 volLabel.TextColor3 = THEME.text
 volLabel.Font = Enum.Font.GothamBold
 volLabel.TextSize = 13
@@ -439,7 +439,7 @@ local volInput = Instance.new("TextBox")
 volInput.Size = volLabel.Size
 volInput.Position = volLabel.Position
 volInput.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-volInput.Text = "80"
+volInput.Text = "100"
 volInput.TextColor3 = THEME.text
 volInput.Font = Enum.Font.GothamBold
 volInput.TextSize = 13
@@ -595,7 +595,7 @@ totalTimeLabel.Parent = progressContainer
 -- ════════════════════════════════════════════════════════════════
 -- VOLUME LOGIC
 -- ════════════════════════════════════════════════════════════════
-local savedVolume = player:GetAttribute("MusicVolume") or 0.8
+local savedVolume = player:GetAttribute("MusicVolume") or 1
 local currentVolume = savedVolume
 local dragging = false
 
@@ -715,8 +715,25 @@ if clearB then
 end
 
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
-	if plr == player and wasPurchased and productId == skipProductId and skipRemote then
+	if plr ~= player or not wasPurchased or productId ~= skipProductId then return end
+
+	-- Try primary remote first
+	if skipRemote then
 		pcall(function() skipRemote:FireServer(true) end)
+		return
+	end
+
+	-- Fallback: buscar remotes con nombres comunes en ReplicatedStorage
+	local candidates = {"PurchaseSkip", "_skipRequest", "_skipRequestServer", "Skip"}
+	for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+		if v:IsA("RemoteEvent") then
+			for _, name in ipairs(candidates) do
+				if v.Name == name then
+					pcall(function() v:FireServer(true) end)
+					return
+				end
+			end
+		end
 	end
 end)
 -- ════════════════════════════════════════════════════════════════

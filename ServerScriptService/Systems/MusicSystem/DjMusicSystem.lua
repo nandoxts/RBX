@@ -24,6 +24,7 @@ local playQueue = {}
 local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
+local fadeEpoch = 0
 local metadataCache = {}  -- Cache de metadata por ID: {name, artist, loaded}
 local playerCooldowns = {} -- UserId -> timestamp del último AddToQueue
 
@@ -432,6 +433,8 @@ end
 local updateAllClients
 
 local function playSong(index)
+	fadeEpoch = fadeEpoch + 1
+	local myEpoch = fadeEpoch
 	if #playQueue == 0 then
 		isPlaying = false
 		soundObject:Stop()
@@ -447,6 +450,7 @@ local function playSong(index)
 	soundObject.SoundId = "rbxassetid://" .. song.id
 
 	-- Ensure volume is 0 before starting to avoid pops
+	pcall(function() soundObject:Stop() end)
 	soundObject.Volume = 0
 
 	-- Apply server-side playback speed if available to avoid race with client script
@@ -457,16 +461,46 @@ local function playSong(index)
 		soundObject.PlaybackSpeed = DEFAULT_PLAYBACK_SPEED
 	end
 
-	-- Start playback
-	soundObject:Play()
-	isPlaying = true
-	isPaused = false
+	-- Robust play: wait for Loaded event up to timeout, then Play
+	local played = false
+	local conn
+	local function doPlay()
+		if played then return end
+		played = true
+		-- Protect Play with pcall in case of runtime errors
+		local ok, err = pcall(function()
+			soundObject:Play()
+		end)
+		if not ok then
+			warn("[DjMusicSystem] Failed to Play soundId:", soundObject.SoundId, err)
+		end
+		isPlaying = true
+		isPaused = false
+		-- Fade in volumen
+		local tween = TweenService:Create(soundObject, TweenInfo.new(0.5), {Volume = MusicConfig:GetDefaultVolume()})
+		tween:Play()
+		updateAllClients()
+		if conn then conn:Disconnect() end
+	end
 
-	-- Fade in del volumen
-	local tween = TweenService:Create(soundObject, TweenInfo.new(0.5), {Volume = MusicConfig:GetDefaultVolume()})
-	tween:Play()
+	-- Connect Loaded event
+	conn = soundObject.Loaded:Connect(function()
+		doPlay()
+	end)
 
-	updateAllClients()
+	-- If already loaded, play immediately
+	local success, isLoaded = pcall(function() return soundObject.IsLoaded end)
+	if success and isLoaded then
+		doPlay()
+	else
+		-- Timeout fallback: if not loaded after 6 seconds, attempt to play anyway
+		task.delay(6, function()
+			if not played then
+				warn("[DjMusicSystem] Sound not loaded in time, attempting to Play anyway:", soundObject.SoundId)
+				doPlay()
+			end
+		end)
+	end
 end
 
 local function nextSong()
@@ -885,16 +919,20 @@ end)
 -- ════════════════════════════════════════════════════════════════
 soundObject.Ended:Connect(function()
 	if isPlaying then
-		-- Fade out antes de cambiar
+		local myEpoch = fadeEpoch
+		-- Fade out antes de cambiar (solo si sigue siendo la misma epoch)
 		local currentVol = soundObject.Volume
 		task.spawn(function()
 			for i = 10, 1, -1 do
+				if myEpoch ~= fadeEpoch then return end
 				soundObject.Volume = currentVol * (i / 10)
 				task.wait(0.03)
 			end
 		end)
 		task.wait(0.5)
-		nextSong()
+		if myEpoch == fadeEpoch then
+			nextSong()
+		end
 	end
 end)
 
