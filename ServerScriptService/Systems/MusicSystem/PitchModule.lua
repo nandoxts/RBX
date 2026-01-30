@@ -3,6 +3,8 @@ local PitchModule = {}
 
 PitchModule.ids = {	 
 	{id = "111690048646474", pitch = 0.50},
+	-- ID agregado para reproducir a velocidad normal (1x)
+	{id = "135937343313526", pitch = 0.40},--DEMBOW#1
 	{id = "81877136242667", pitch =0.55},
 	{id = "121841468987652", pitch =0.60},
 	{id = "79340392747760", pitch =0.60},
