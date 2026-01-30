@@ -679,63 +679,40 @@ end)
 -- ════════════════════════════════════════════════════════════════
 local skipProductId = 3468988018
 
-local skipRemote = nil
-do
-	local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
-	if musicRemotes then
-		-- Prefer explicit PurchaseSkip in MusicQueue
-		local queueFolder = musicRemotes:FindFirstChild("MusicQueue")
-		if queueFolder then
-			skipRemote = queueFolder:FindFirstChild("PurchaseSkip")
-		end
-		-- Fallback: buscar cualquier RemoteEvent llamado PurchaseSkip o _skipRequest dentro de MusicRemotes
-		if not skipRemote then
-			for _, v in ipairs(musicRemotes:GetDescendants()) do
-				if v:IsA("RemoteEvent") and (v.Name == "PurchaseSkip" or v.Name == "_skipRequest") then
-					skipRemote = v
-					break
-				end
-			end
-		end
-	end
-end
+-- SOLO PurchaseSkip (sin fallbacks)
+local skipRemote =
+	ReplicatedStorage:WaitForChild("MusicRemotes")
+		:WaitForChild("MusicQueue")
+		:WaitForChild("PurchaseSkip")
 
+-- Botón Skip
 skipB.MouseButton1Click:Connect(function()
 	if isAdmin then
-		if R.Next then R.Next:FireServer() end
+		if R.Next then
+			R.Next:FireServer()
+		end
 	else
 		MarketplaceService:PromptProductPurchase(player, skipProductId)
 	end
 end)
 
+-- Botón Clear (si existe)
 if clearB then
 	clearB.MouseButton1Click:Connect(function()
-		if R.Clear then R.Clear:FireServer() end
+		if R.Clear then
+			R.Clear:FireServer()
+		end
 	end)
 end
 
+-- Cuando la compra termina con éxito -> SKIP automático
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
-	if plr ~= player or not wasPurchased or productId ~= skipProductId then return end
-
-	-- Try primary remote first
-	if skipRemote then
-		pcall(function() skipRemote:FireServer(true) end)
-		return
-	end
-
-	-- Fallback: buscar remotes con nombres comunes en ReplicatedStorage
-	local candidates = {"PurchaseSkip", "_skipRequest", "_skipRequestServer", "Skip"}
-	for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-		if v:IsA("RemoteEvent") then
-			for _, name in ipairs(candidates) do
-				if v.Name == name then
-					pcall(function() v:FireServer(true) end)
-					return
-				end
-			end
-		end
-	end
+	if plr ~= player then return end
+	if productId ~= skipProductId then return end
+	if not wasPurchased then return end
+	skipRemote:FireServer(true)
 end)
+
 -- ════════════════════════════════════════════════════════════════
 -- NAVIGATION BAR
 -- ════════════════════════════════════════════════════════════════
