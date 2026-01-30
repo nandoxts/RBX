@@ -10,11 +10,13 @@ Animaciones.Ids = {
 	{ID = 99786006678146, Nombre = 'Soul II'},
 	{ID = 82928714109101, Nombre = 'Soul III'}, 
 	{ID = 122584436407402, Nombre = 'Bombastic'},
-	{ID = 74790864906333, Nombre = 'Snide'},
+	
 	{ID = 106725869492202, Nombre = 'Samba I'},
 	{ID = 89111424480965, Nombre = 'Samba II'},
 	{ID = 135274414278380, Nombre = 'Samba III'},
 	{ID = 88477349752052, Nombre = 'Samba IV'},
+	{ID = 16270690701, Nombre = 'Samba V'},
+	
 	{ID = 128838190174445, Nombre = 'Arm Sway'},
 	{ID = 98813116714164, Nombre = 'Belly I'},
 	{ID = 101421039901803, Nombre = 'Belly II'},
@@ -36,14 +38,12 @@ Animaciones.Ids = {
 	{ID = 87911767600339, Nombre = 'DnB Step'},
 	{ID = 121070617692386, Nombre = 'Daydream'},
 	{ID = 133510433394834, Nombre = 'CrissCross'},
-	{ID = 95012987273322, Nombre = 'Crazy'},
 	{ID = 90051254810946, Nombre = 'Chill'},
 	{ID = 72420765697390, Nombre = 'CanCan'},
 	{ID = 76314116414269, Nombre = 'Billie'},
 	{ID = 84492113139839, Nombre = 'Conceited'},
 	{ID = 107878753518729, Nombre = 'Cannonbal'},
 	{ID = 132611906841113, Nombre = 'Pushing Buttons'},
-	{ID = 129005976068322, Nombre = 'Ner Ner'},
 	{ID = 72433216272255, Nombre = 'Pop'},
 	{ID = 99079687606639, Nombre = 'Baby Bunny'},
 	{ID = 116800653493137, Nombre = 'Bboy'},
@@ -113,8 +113,9 @@ Animaciones.Recomendado = {
 
 	{ID = 122599479076921, Nombre = 'Electro  I'},
 	{ID = 138785676658772, Nombre = 'Electro II'},
-	{ID = 118468821959324, Nombre = 'Electro III'},
-	{ID = 117991470645633, Nombre = 'Electro IV'},
+	{ID = 100618969608942, Nombre = 'Electro III'},
+	{ID = 118468821959324, Nombre = 'Electro IV'},
+	{ID = 117991470645633, Nombre = 'Electro V'},
 
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
@@ -166,15 +167,14 @@ Animaciones.Recomendado = {
 }
 
 Animaciones.Vip = {
-	
+
 
 	{ID = 112455083563294, Nombre = 'Perreo I'},
 	{ID = 89794141549021, Nombre = 'Perreo II'},
 	{ID = 84263289883225, Nombre = 'Perreo III'},
-	{ID = 130919659821789, Nombre = 'Perreo IV'},
-	{ID = 72453237141167, Nombre = 'Perreo V'},
+	{ID = 72453237141167, Nombre = 'Perreo IV'},
 
-	{ID = 95828307734740, Nombre = 'LATIN I'},
+	{ID = 81377469599060, Nombre = 'LATIN I'},
 	{ID = 121540036206716, Nombre = 'LATIN II'},
 	{ID = 74407321445762, Nombre = 'LATIN III'},
 	{ID = 124209914932987, Nombre = 'LATIN IV'},
@@ -195,11 +195,11 @@ Animaciones.Vip = {
 
 	{ID = 80962650363654, Nombre = 'SMOOTH I'},
 	{ID = 113057522886646, Nombre = 'SMOOTH II'},
-	{ID = 91990091528914, Nombre = 'SMOOTH III'},
+	{ID = 106876962974091, Nombre = 'SMOOTH III'},
 
 	{ID = 96072539308174, Nombre = 'FLOW I'},
 	{ID = 103571429590163, Nombre = 'FLOW II'},
-	{ID = 78858697200410, Nombre = 'FLOW III'},
+	{ID = 115310253361374, Nombre = 'FLOW III'},
 	{ID = 121418461728575, Nombre = 'FLOW IV'},
 	{ID = 84450135363865, Nombre = 'FLOW V'},
 
@@ -219,7 +219,7 @@ Animaciones.Vip = {
 	{ID = 97079458057304, Nombre = 'Golpe II'},
 	{ID = 99174723293981, Nombre = 'Golpe III'},
 	{ID = 126490613005651, Nombre = 'Golpe IV'},
-	{ID = 80720157509285, Nombre = 'Golpe V'},
+	{ID = 73317543628887, Nombre = 'Golpe V'},
 	{ID = 102779295838500, Nombre = 'Golpe VI'},
 	{ID = 126780665379004, Nombre = 'Golpe VII'},
 
@@ -262,7 +262,7 @@ Animaciones.Vip = {
 
 	{ID = 91219524625419, Nombre = 'RADIANT I'},
 	{ID = 98837556665887, Nombre = 'RADIANT II'},
-	
+
 	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
 
 }

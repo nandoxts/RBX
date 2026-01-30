@@ -1779,6 +1779,14 @@ function closeUI()
 	end
 
 	modal:close()
+
+	-- Resetear el estado del icono del topbar para que el siguiente click lo abra directamente
+	if musicIcon then
+		pcall(function() musicIcon:setSelected(false) end)
+		pcall(function() musicIcon:deselect() end)
+		pcall(function() musicIcon.Selected = false end)
+		pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
+	end
 end
 
 -- ════════════════════════════════════════════════════════════════
