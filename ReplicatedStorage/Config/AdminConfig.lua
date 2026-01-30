@@ -10,19 +10,18 @@ AdminConfig.AdminUserNames = {
     "ignxts",
 }
 
-function AdminConfig:IsAdminByName(name)
-    if not name then return false end
-    return table.find(self.AdminUserNames, name) ~= nil
-end
-
 -- Acepta un Instance (Player) o un string (nombre)
 function AdminConfig:IsAdmin(playerOrName)
+    local name
     if typeof(playerOrName) == "Instance" and playerOrName.Name then
-        return self:IsAdminByName(playerOrName.Name)
+        name = playerOrName.Name
     elseif type(playerOrName) == "string" then
-        return self:IsAdminByName(playerOrName)
+        name = playerOrName
+    else
+        return false
     end
-    return false
+    if not name then return false end
+    return table.find(self.AdminUserNames, name) ~= nil
 end
 
 return AdminConfig

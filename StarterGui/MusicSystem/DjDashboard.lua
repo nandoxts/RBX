@@ -58,7 +58,7 @@ local ResponseMessages = {
 -- ════════════════════════════════════════════════════════════════
 local player = Players.LocalPlayer
 local MusicSystemConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
-local SHOW_ADMIN_UI = false
+local SHOW_ADMIN_UI = true
 
 local isAdmin = MusicSystemConfig:IsAdmin(player) and SHOW_ADMIN_UI
 

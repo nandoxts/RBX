@@ -265,10 +265,18 @@ end
 
 -- Verificar si un usuario es admin
 function MusicSystemConfig:IsAdmin(user)
-	-- Acepta Player instance o nombre string. Convertir a nombre.
+	-- Acepta Player instance, UserId (number) o nombre string. Convertir a nombre.
 	local name
 	if typeof(user) == "Instance" and user.Name then
 		name = user.Name
+	elseif type(user) == "number" then
+		local Players = game:GetService("Players")
+		local plr = Players:GetPlayerByUserId(user)
+		if plr then
+			name = plr.Name
+		else
+			return false
+		end
 	elseif type(user) == "string" then
 		name = user
 	else
