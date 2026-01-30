@@ -15,6 +15,9 @@ local TweenService = game:GetService("TweenService")
 
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 
+-- Default playback speed if none defined in PitchModule
+local DEFAULT_PLAYBACK_SPEED = 1
+
 -- STATE
 local musicDatabase = {}  -- DJ name -> {cover, songIds[]}
 local playQueue = {}
@@ -75,6 +78,26 @@ if musicSoundGroup then
 	soundObject.SoundGroup = musicSoundGroup
 else
 	warn("[MUSIC] MusicSoundGroup no encontrado en SoundService - El mute local no funcionará")
+end
+
+-- Server-side pitch/speed lookup (fallback to PitchModule if available)
+local serverPitchLookup = {}
+do
+	local ok, pm = pcall(function()
+		return require(script.Parent:FindFirstChild("PitchModule") or script.Parent:FindFirstChild("PitchModule"))
+	end)
+	if ok and type(pm) == "table" and type(pm.ids) == "table" then
+		for _, entry in ipairs(pm.ids) do
+			if entry.id then
+				local idStr = tostring(entry.id)
+				local digits = idStr:match("(%d+)")
+				if digits then
+					local val = tonumber(entry.speed) or tonumber(entry.pitch)
+					if val then serverPitchLookup[digits] = val end
+				end
+			end
+		end
+	end
 end
 
 -- Get RemoteEvents
@@ -422,12 +445,24 @@ local function playSong(index)
 	local song = playQueue[currentSongIndex]
 
 	soundObject.SoundId = "rbxassetid://" .. song.id
+
+	-- Ensure volume is 0 before starting to avoid pops
+	soundObject.Volume = 0
+
+	-- Apply server-side playback speed if available to avoid race with client script
+	local idDigits = tostring(song.id):match("(%d+)")
+	if idDigits and serverPitchLookup[idDigits] then
+		soundObject.PlaybackSpeed = serverPitchLookup[idDigits]
+	else
+		soundObject.PlaybackSpeed = DEFAULT_PLAYBACK_SPEED
+	end
+
+	-- Start playback
 	soundObject:Play()
 	isPlaying = true
 	isPaused = false
 
 	-- Fade in del volumen
-	soundObject.Volume = 0
 	local tween = TweenService:Create(soundObject, TweenInfo.new(0.5), {Volume = MusicConfig:GetDefaultVolume()})
 	tween:Play()
 
