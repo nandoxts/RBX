@@ -16,19 +16,19 @@ local USER_02 = Configuration.USER02_EMOTE
 local USER_03 = Configuration.USER03_EMOTE
 local USER_04 = Configuration.USER04_EMOTE
 
-local Boards = workspace.LeaderBoards.Leaderboards
+local LeaderBoardsRoot = workspace:WaitForChild("LeaderBoards")
+local LeaderboardsFolder = LeaderBoardsRoot:WaitForChild("Leaderboards")
+local DonationsModel = LeaderboardsFolder:WaitForChild("DonationsModel")
+local DonatorModel = LeaderboardsFolder:WaitForChild("DonatorModel")
+local ReceiverModel = LeaderboardsFolder:WaitForChild("ReceiverModel")
+local LikesModel = LeaderboardsFolder:WaitForChild("LikesModel")
+local RachaModel = LeaderboardsFolder:WaitForChild("RachaModel")
 
-local DonationsModel = Boards.DonationsModel
-local DonatorModel = Boards.DonatorModel
-local ReceiverModel = Boards.ReceiverModel
-local LikesModel = Boards.LikesModel
-local RachaModel = Boards.RachaModel
-
-local Users = Boards.Users
-local U01 = Users.ignxts
-local U02 = Users.AngeloGarciia
-local U03 = Users.bvwdhfv
-local U04 = Users.xlm_brem
+local Users = LeaderBoardsRoot:WaitForChild("Users")
+local U01 = Users:WaitForChild("ignxts")
+local U02 = Users:WaitForChild("AngeloGarciia")
+local U03 = Users:WaitForChild("bvwdhfv")
+local U04 = Users:WaitForChild("xlm_brem")
 
 local ModelMapping = {
 	[DonationsModel] = DONATIONS_EMOTE;
