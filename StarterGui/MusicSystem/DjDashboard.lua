@@ -1732,6 +1732,8 @@ local function moveUnderline(btn)
 end
 
 function showPage(name)
+	-- Evitar re-render/animación si ya estamos en la misma página
+	if currentPage == name then return end
 	local previousPage = currentPage
 	currentPage = name
 
