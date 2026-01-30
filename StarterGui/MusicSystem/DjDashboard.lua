@@ -681,8 +681,8 @@ local skipProductId = 3468988018
 
 -- Use el Remote `PurchaseSkip` en `MusicRemotes/MusicQueue` (no usar Panda)
 local skipRemote = ReplicatedStorage:WaitForChild("MusicRemotes")
-    :WaitForChild("MusicQueue")
-    :WaitForChild("PurchaseSkip")
+	:WaitForChild("MusicQueue")
+	:WaitForChild("PurchaseSkip")
 
 -- Botón Skip
 skipB.MouseButton1Click:Connect(function()
@@ -705,8 +705,12 @@ if clearB then
 end
 
 -- Cuando la compra termina con éxito -> SKIP automático
-MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId, wasPurchased)
-	if plr ~= player or productId ~= skipProductId or not wasPurchased then return end
+MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, wasPurchased)
+	-- Comparar UserId, no el objeto Player
+	if userId ~= player.UserId then return end
+	if productId ~= skipProductId then return end
+	if not wasPurchased then return end
+
 	if skipRemote then
 		pcall(function()
 			skipRemote:FireServer(true)
@@ -714,7 +718,7 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(function(plr, productId
 	end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════
 -- NAVIGATION BAR
 -- ════════════════════════════════════════════════════════════════
 -- Colocar la barra de navegación justo debajo del header sin margen extra
