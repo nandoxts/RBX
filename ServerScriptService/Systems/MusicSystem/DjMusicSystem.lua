@@ -258,14 +258,14 @@ end
 local playSong, nextSong, playRandomSong
 
 playSong = function(index)
-	print("[DjMusicSystem] playSong llamado, index:", index, "queue size:", #playQueue)
+
 
 	-- Limpiar estado anterior
 	cleanupSound()
 	isTransitioning = false
 
 	if #playQueue == 0 then
-		print("[DjMusicSystem] Cola vacía en playSong, llamando playRandomSong")
+	
 		isPlaying = false
 		isPaused = false
 		updateAllClients()
@@ -287,7 +287,6 @@ playSong = function(index)
 	end
 
 	currentPlayingId = song.id
-	print("[DjMusicSystem] Preparando reproducción de:", song.id, song.name)
 
 	-- Configurar sonido
 	soundObject.Volume = DEFAULT_VOLUME
@@ -329,9 +328,8 @@ playSong = function(index)
 			return
 		end
 
-		-- Reproducir
+		-- Reproducir (log removed)
 		pcall(function() soundObject:Play() end)
-		print("[DjMusicSystem] Play() llamado para:", song.id, "TimeLength:", soundObject.TimeLength)
 
 		isPlaying = true
 		isPaused = false
@@ -368,7 +366,6 @@ playSong = function(index)
 		if not loaded and currentPlayingId == thisPlayId then
 			local ok, isLoadedNow = pcall(function() return soundObject.IsLoaded end)
 			if ok and isLoadedNow then
-				print("[DjMusicSystem] Audio ya estaba cargado (caché)")
 				startPlaying()
 			end
 		end
@@ -397,18 +394,17 @@ playSong = function(index)
 end
 
 playRandomSong = function()
-	print("[DjMusicSystem] playRandomSong llamado, queue:", #playQueue, "isPlaying:", isPlaying, "isTransitioning:", isTransitioning)
-
+	
 	-- No hacer nada si ya hay algo en cola o reproduciéndose
 	if #playQueue > 0 then
-		print("[DjMusicSystem] Ya hay canciones en cola, reproduciendo desde cola")
+		
 		currentSongIndex = 1
 		task.defer(function() playSong(1) end)
 		return
 	end
 
 	if isTransitioning then
-		print("[DjMusicSystem] Ya está en transición, ignorando")
+	
 		return
 	end
 
@@ -417,8 +413,6 @@ playRandomSong = function()
 		warn("[DjMusicSystem] No hay canciones en la librería")
 		return
 	end
-
-	print("[DjMusicSystem] Seleccionada canción aleatoria:", randomSong.id)
 
 	-- Obtener metadata
 	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, randomSong.id, Enum.InfoType.Asset)
@@ -435,16 +429,14 @@ playRandomSong = function()
 	})
 
 	currentSongIndex = 1
-	print("[DjMusicSystem] Canción aleatoria añadida, iniciando reproducción")
 	task.delay(0.3, function() playSong(1) end)
 end
 
 nextSong = function()
-	print("[DjMusicSystem] nextSong llamado, queue:", #playQueue, "currentIndex:", currentSongIndex, "isTransitioning:", isTransitioning)
+
 
 	-- Evitar múltiples llamadas simultáneas
 	if isTransitioning then 
-		print("[DjMusicSystem] Ya en transición, ignorando nextSong")
 		return 
 	end
 	isTransitioning = true
@@ -456,7 +448,7 @@ nextSong = function()
 
 	-- Si la cola está vacía, ir directo a random
 	if #playQueue == 0 then
-		print("[DjMusicSystem] Cola vacía, yendo a random")
+	
 		updateAllClients()
 		task.delay(0.5, function()
 			isTransitioning = false
@@ -467,14 +459,14 @@ nextSong = function()
 
 	-- Remover la canción actual de la cola
 	local removedSong = table.remove(playQueue, currentSongIndex)
-	print("[DjMusicSystem] Removida canción:", removedSong and removedSong.name or "nil", "Queue restante:", #playQueue)
+
 
 	-- Actualizar UI inmediatamente
 	updateAllClients()
 
 	-- Verificar si quedan canciones
 	if #playQueue == 0 then
-		print("[DjMusicSystem] Cola ahora vacía después de remover, yendo a random")
+		
 		currentSongIndex = 1
 		task.delay(0.5, function()
 			isTransitioning = false
@@ -485,7 +477,7 @@ nextSong = function()
 		if currentSongIndex > #playQueue then 
 			currentSongIndex = 1 
 		end
-		print("[DjMusicSystem] Reproduciendo siguiente, nuevo índice:", currentSongIndex)
+	
 		task.delay(0.3, function()
 			isTransitioning = false
 			playSong(currentSongIndex)
@@ -553,13 +545,11 @@ task.spawn(function()
 
 				-- Debug ocasional
 				if tick() - lastCheckTime > 5 then
-					print("[DjMusicSystem] Polling - Pos:", string.format("%.1f", timePosition), "/", string.format("%.1f", timeLength), "Remaining:", string.format("%.1f", remaining))
 					lastCheckTime = tick()
 				end
 
 				-- Si queda menos de 0.5 segundos, pasar a la siguiente
 				if remaining < 0.5 and remaining >= 0 then
-					print("[DjMusicSystem] Canción terminada detectada, remaining:", remaining)
 					task.defer(nextSong)
 					task.wait(2)  -- Esperar para evitar doble trigger
 				end
@@ -571,7 +561,7 @@ task.spawn(function()
 					local capturedId = currentPlayingId
 					task.delay(1, function()
 						if currentPlayingId == capturedId and soundObject.TimePosition < 0.1 and isPlaying and not isPaused then
-							warn("[DjMusicSystem] Audio trabado detectado por polling, saltando")
+							warn("Audio trabado detectado por polling, saltando")
 							task.defer(nextSong)
 						end
 					end)
