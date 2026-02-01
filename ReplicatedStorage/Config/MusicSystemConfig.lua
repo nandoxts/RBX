@@ -45,6 +45,10 @@ MusicSystemConfig.LIMITS = {
 	MinAudioDuration = 10,
 	MaxAudioDuration = 6000,
 	AddToQueueCooldown = 2,
+	-- Límites por rol (cuántas canciones puede añadir cada jugador a la cola)
+	MaxSongsPerUserNormal = 3,  -- Jugadores normales
+	MaxSongsPerUserVIP = 5,     -- VIP
+	MaxSongsPerUserAdmin = 999, -- Admins (prácticamente infinito)
 }
 
 -- ═══════════════════════════════════════════════════════════

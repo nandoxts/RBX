@@ -10,6 +10,13 @@ local SoundService = game:GetService("SoundService")
 
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 
+-- Cargar GamepassManager para verificar VIP
+local ServerScriptService = game:GetService("ServerScriptService")
+local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
+local Configuration = require(PandaSSS:WaitForChild("Configuration"))
+local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+local VIP_ID = Configuration.VIP
+
 -- ════════════════════════════════════════════════════════════════
 -- CONFIG
 -- ════════════════════════════════════════════════════════════════
@@ -693,6 +700,32 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
 		return send(response(RC.QUEUE_FULL, "Cola llena ("..#playQueue.."/"..MusicConfig.LIMITS.MaxQueueSize..")"))
+	end
+
+	-- VERIFICAR LÍMITE POR ROL
+	local isAdmin = MusicConfig:IsAdmin(player)
+	local hasVIP = GamepassManager.HasGamepass(player, VIP_ID)
+	local maxSongsPerUser
+
+	if isAdmin then
+		maxSongsPerUser = MusicConfig.LIMITS.MaxSongsPerUserAdmin
+	elseif hasVIP then
+		maxSongsPerUser = MusicConfig.LIMITS.MaxSongsPerUserVIP
+	else
+		maxSongsPerUser = MusicConfig.LIMITS.MaxSongsPerUserNormal
+	end
+
+	-- Contar cuántas canciones ha agregado este jugador
+	local userSongCount = 0
+	for _, song in ipairs(playQueue) do
+		if song.userId == player.UserId then
+			userSongCount = userSongCount + 1
+		end
+	end
+
+	if userSongCount >= maxSongsPerUser then
+		local roleLabel = isAdmin and "Admin" or (hasVIP and "VIP" or "Normal")
+		return send(response(RC.QUEUE_FULL, "Límite de canciones alcanzado ("..userSongCount.."/"..maxSongsPerUser.." como "..roleLabel..")"))
 	end
 
 	local canPlay = validateAudioPermission(id)

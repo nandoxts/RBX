@@ -2,6 +2,7 @@
 local PitchModule = {}
 
 PitchModule.ids = {	 
+	
 	{id = "111690048646474", pitch = 0.50},
 	{id = "81877136242667", pitch =0.55},
 	{id = "121841468987652", pitch =0.60},
@@ -6054,8 +6055,21 @@ PitchModule.ids = {
 	{id = "108629470817302", pitch = 0.37},
 	{id = "94798519285324", pitch = 0.37},
 	{id = "70590144720394", pitch = 0.37},
-	{id = "120399062134284", pitch = 0.37}
-
+	{id = "120399062134284", pitch = 0.37},
+	{id = "92586391131497", pitch = 0.37},
+	{id = "128374624565359", pitch = 0.37},
+	{id = "84571807900676", pitch = 0.37},
+	{id = "107999669968875", pitch = 0.37},--DEMBOW#1
+	
+	{id = "79672009991598", pitch = 0.37},--DEMBOW#3
+	{id = "126032896148413", pitch = 0.37},--DEMBOW#4
+	
+	
+	{id = "111420869682644", pitch = 0.37},
+	{id = "131417077145134", pitch = 0.37},
+	{id = "115865825095191", pitch = 0.37},
+	{id = "83048968204109", pitch=0.37},
+	
 	-- El pitch no maneja volumen, en algunos tuve que quitarlo (TEN CUIDADO POR QUE EN ALGUNOS SI JALA, SOLO QUE SUENA COMO ARDILLA POR QUE EL SERVER AÚN NO SE ACTUALIZA ;) )
 }
 
