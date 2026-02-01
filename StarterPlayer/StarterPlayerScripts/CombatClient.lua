@@ -7,27 +7,23 @@ local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
-print("⚙️ [CombatClient] Iniciando...")
-
 -- Obtener remotes desde RemotesGlobal con manejo robusto
 local function getRemotes()
 	local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 30)
 	if not RemotesGlobal then 
 		error("[CombatClient] RemotesGlobal no encontrado después de 30s")
 	end
-	
+
 	local CombatRemotes = RemotesGlobal:WaitForChild("Combat", 30)
 	if not CombatRemotes then 
 		error("[CombatClient] Carpeta Combat no encontrada")
 	end
-	
+
 	local eventPunch = CombatRemotes:WaitForChild("PunchRemote", 30)
 	local eventBlock = CombatRemotes:WaitForChild("BlockRemote", 30)
 	local ringNotificationRemote = CombatRemotes:WaitForChild("RingNotification", 30)
 	local effectRemote = CombatRemotes:WaitForChild("EffectRemote", 30)
-	
-	print("✓ [CombatClient] Todos los remotes conectados")
-	
+
 	return {
 		eventPunch = eventPunch,
 		eventBlock = eventBlock,
@@ -46,13 +42,11 @@ local effectRemote = remotes.effectRemote
 local NotificationSystem
 pcall(function()
 	NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems", 10):WaitForChild("NotificationSystem", 10):WaitForChild("NotificationSystem", 10))
-	print("✓ [CombatClient] NotificationSystem cargado")
 end)
 
 -- Inicializar variables de jugador
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-print("✓ [CombatClient] Personaje detectado")
 
 local humanoid = character:WaitForChild("Humanoid", 10)
 local rootPart = character:WaitForChild("HumanoidRootPart", 10)
@@ -61,14 +55,10 @@ if not humanoid or not rootPart then
 	error("[CombatClient] No se pudo obtener Humanoid o HumanoidRootPart")
 end
 
-print("✓ [CombatClient] Humanoid y RootPart obtenidos")
-
 local COOLDOWN = 0.8
 local inRing = false
 local aux = true
 local punchCounter = 0  -- Contador para IDs únicos de golpes
-
-print("✓ [CombatClient] Variables inicializadas")
 
 -- Actualizar referencias cuando muere o respawnea
 player.CharacterAdded:Connect(function(newCharacter)
@@ -76,7 +66,6 @@ player.CharacterAdded:Connect(function(newCharacter)
 	humanoid = character:WaitForChild("Humanoid", 10)
 	rootPart = character:WaitForChild("HumanoidRootPart", 10)
 	aux = true
-	print("✓ [CombatClient] Personaje respawneado")
 end)
 
 -- Crear animaciones con IDs directos
@@ -129,39 +118,6 @@ end
 effectRemote.OnClientEvent:Connect(function()
 	punchEffect()
 end)
-
--- Escuchar notificación del ring
-local lastRingStatus = false
-if ringNotificationRemote then
-	ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
-		-- Solo mostrar notificación cuando cambia el estado
-		if ringStatus ~= lastRingStatus then
-			if ringStatus then
-				if NotificationSystem then
-					NotificationSystem:Info("Ring", "Has ingresado al ring", 3)
-				end
-			else
-				if NotificationSystem then
-					NotificationSystem:Info("Ring", "Has salido del ring", 3)
-				end
-			end
-			lastRingStatus = ringStatus
-		end
-		inRing = ringStatus  -- Guardar estado del ring
-	end)
-end
-
--- Función para efecto rojo de golpe
-local function punchEffect()
-	-- Rojo intenso en el centro 0.05 segundos
-	local tween = TweenService:Create(redFlash, TweenInfo.new(0.05), {BackgroundTransparency = 0.3})
-	tween:Play()
-	tween.Completed:Connect(function()
-		-- Desvanece lentamente en 0.3 segundos
-		local tweenBack = TweenService:Create(redFlash, TweenInfo.new(0.3), {BackgroundTransparency = 1})
-		tweenBack:Play()
-	end)
-end
 
 -- Función para detectar botones de combate
 function fightButton(actionName, inputState, inputObject)
@@ -219,27 +175,64 @@ function fightButton(actionName, inputState, inputObject)
 				anim:Play()
 			end
 			eventPunch:FireServer(2, punchCounter)
-			task.wait(COOLDOWN)
+			-- Cooldown más largo para el kick (1.2s)
+			task.wait(1.2)
 			aux = true
 		end
 	end
 end
 
--- Registrar botones de combate
-ContextActionService:BindAction("leftPunch", fightButton, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
-ContextActionService:BindAction("rightPunch", fightButton, true, Enum.KeyCode.E, Enum.KeyCode.ButtonR1)
-ContextActionService:BindAction("block", fightButton, true, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
-ContextActionService:BindAction("Patada", fightButton, true, Enum.KeyCode.R, Enum.KeyCode.ButtonB)
+-- Función para mostrar botones de combate
+local function showCombatButtons()
+	ContextActionService:BindAction("leftPunch", fightButton, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
+	ContextActionService:BindAction("rightPunch", fightButton, true, Enum.KeyCode.E, Enum.KeyCode.ButtonR1)
+	ContextActionService:BindAction("block", fightButton, true, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
+	ContextActionService:BindAction("Patada", fightButton, true, Enum.KeyCode.R, Enum.KeyCode.ButtonB)
 
-ContextActionService:SetTitle("leftPunch", "Q")
-ContextActionService:SetTitle("rightPunch", "E")
-ContextActionService:SetTitle("block", "F")
-ContextActionService:SetTitle("Patada", "R")
+	ContextActionService:SetTitle("leftPunch", "Q")
+	ContextActionService:SetTitle("rightPunch", "E")
+	ContextActionService:SetTitle("block", "F")
+	ContextActionService:SetTitle("Patada", "R")
 
-ContextActionService:SetPosition("leftPunch", UDim2.new(-0.1, 0, 0.4, 0))
-ContextActionService:SetPosition("rightPunch", UDim2.new(0.2, 0, 0.4, 0))
-ContextActionService:SetPosition("block", UDim2.new(0.05, 0, 0.1, 0))
-ContextActionService:SetPosition("Patada", UDim2.new(0.05, 0, 0.7, 0))
+	ContextActionService:SetPosition("leftPunch", UDim2.new(-0.1, 0, 0.4, 0))
+	ContextActionService:SetPosition("rightPunch", UDim2.new(0.2, 0, 0.4, 0))
+	ContextActionService:SetPosition("block", UDim2.new(0.05, 0, 0.1, 0))
+	ContextActionService:SetPosition("Patada", UDim2.new(0.05, 0, 0.7, 0))
+end
+
+-- Función para ocultar botones de combate
+local function hideCombatButtons()
+	pcall(function()
+		ContextActionService:UnbindAction("leftPunch")
+		ContextActionService:UnbindAction("rightPunch")
+		ContextActionService:UnbindAction("block")
+		ContextActionService:UnbindAction("Patada")
+	end)
+end
+
+-- Escuchar notificación del ring
+local lastRingStatus = false
+if ringNotificationRemote then
+	ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
+		-- Solo mostrar notificación cuando cambia el estado
+		if ringStatus ~= lastRingStatus then
+			if ringStatus then
+				if NotificationSystem then
+					NotificationSystem:Info("Ring", "Has ingresado al ring", 3)
+				end
+				showCombatButtons()  -- Mostrar botones cuando entra
+			else
+				if NotificationSystem then
+					NotificationSystem:Info("Ring", "Has salido del ring", 3)
+				end
+				hideCombatButtons()  -- Ocultar botones cuando sale
+			end
+			lastRingStatus = ringStatus
+		end
+		inRing = ringStatus  -- Guardar estado del ring
+	end)
+end
+
 
 
 

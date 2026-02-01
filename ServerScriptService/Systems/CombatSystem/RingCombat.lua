@@ -178,36 +178,36 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	if activePunches[punchKey] then return end
 	activePunches[punchKey] = true
 
-	-- Determinar qué parte del cuerpo golpea
-	local bodyPart
-	if num == 0 then
-		bodyPart = player.Character:FindFirstChild("RightHand")
-	elseif num == 1 then
-		bodyPart = player.Character:FindFirstChild("LeftHand")
-	elseif num == 2 then
-		bodyPart = player.Character:FindFirstChild("RightFoot")
-	end
-
-	if not bodyPart then 
-		activePunches[punchKey] = nil
-		return 
-	end
-
+	-- Usar todas las partes del cuerpo para detectar contacto
+	local bodyParts = player.Character:GetChildren()
 	local hitTargets = {}
+	local connections = {}
 
-	-- Conectar detección de toque
-	local connection
-	connection = bodyPart.Touched:Connect(function(hit)
-		local humanoid = hit.Parent:FindFirstChild("Humanoid")
-		if humanoid and hit.Parent ~= player.Character and not hitTargets[hit.Parent] then
-			hitTargets[hit.Parent] = true
-			hitDetection(humanoid, hit.Parent)
-			effectRemote:FireClient(hit.Parent)
+	for _, part in ipairs(bodyParts) do
+		if part:IsA("BasePart") then
+			local connection
+			connection = part.Touched:Connect(function(hit)
+				local targetChar = hit.Parent
+				local humanoid = targetChar:FindFirstChild("Humanoid")
+
+				-- Verificar que es un enemigo y no lo hemos golpeado ya
+				if humanoid and targetChar ~= player.Character and not hitTargets[targetChar] then
+					hitTargets[targetChar] = true
+					hitDetection(humanoid, targetChar)
+					effectRemote:FireClient(targetChar)
+				end
+			end)
+			table.insert(connections, connection)
 		end
-	end)
+	end
 
-	task.wait(0.5)
-	connection:Disconnect()
+	-- Solo escuchar durante la animación del golpe (menos tiempo = menos contacto accidental)
+	local waitTime = (num == 2) and 0.6 or 0.4
+	task.wait(waitTime)
+
+	for _, connection in ipairs(connections) do
+		connection:Disconnect()
+	end
 	activePunches[punchKey] = nil
 end)
 
