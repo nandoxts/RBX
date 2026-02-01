@@ -1,25 +1,28 @@
--- AscensorPRO_Server (LIMPIO)
-local ascensor = workspace.Ascensor
+-- AscensorPRO_Server (CORREGIDO COMPLETO)
 
+local ascensor = workspace.Ascensor
 local tiempoViaje = 2
 local cooldown = {}
+local COOLDOWN_TIMEOUT = 10  -- Timeout de seguridad en segundos
 
 local effectsEvent = Instance.new("RemoteEvent")
 effectsEvent.Name = "AscensorEffects"
 effectsEvent.Parent = game.ReplicatedStorage
 
 -- Servicios y configuración (VIP)
-local MarketplaceService = game:GetService("MarketplaceService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local okConfig, Configuration = pcall(function()
-	return require(ServerScriptService:WaitForChild("Panda ServerScriptService"):WaitForChild("Configuration"))
-end)
-local VIP_ID = (okConfig and Configuration and Configuration.VIP) or nil
--- Crear (o obtener) RemoteEvent para comunicar al cliente que debe comprar VIP
--- Buscar `AscensorVIP` en cualquier subcarpeta de ReplicatedStorage; NO crear uno nuevo
+local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
+local Configuration = require(PandaSSS:WaitForChild("Configuration"))
+local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+
+local VIP_ID = Configuration.VIP
+
+-- Buscar o CREAR AscensorVIP si no existe
 local vipEvent = game.ReplicatedStorage:FindFirstChild("AscensorVIP", true)
 if not vipEvent then
-	vipEvent = nil
+	vipEvent = Instance.new("RemoteEvent")
+	vipEvent.Name = "AscensorVIP"
+	vipEvent.Parent = game.ReplicatedStorage
 end
 
 local parte1 = ascensor.Parte1
@@ -38,76 +41,129 @@ local pisos = {
 	}
 }
 
+-- Función para establecer cooldown con timeout automático
+local function setCooldownConTimeout(userId)
+	cooldown[userId] = true
+
+	-- Auto-limpiar después de timeout por seguridad (evita bloqueos permanentes)
+	task.delay(COOLDOWN_TIMEOUT, function()
+		if cooldown[userId] then
+			cooldown[userId] = nil
+			warn("[Ascensor] Cooldown auto-limpiado para userId: " .. userId)
+		end
+	end)
+end
+
 local function usarAscensor(player, pisoOrigen, pisoDestino)
-	if cooldown[player.UserId] then return end
-	-- Restringir uso solo a propietarios del GamePass VIP (si está configurado)
-	if VIP_ID then
-		local success, hasVIP = pcall(function()
-			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, VIP_ID)
-		end)
-		if not success or not hasVIP then
-			-- Notificar al cliente para que muestre la notificación y abra el prompt de compra
-			if vipEvent and vipEvent.FireClient then
-				pcall(function()
-					vipEvent:FireClient(player, VIP_ID)
-				end)
+	-- Check de cooldown personal
+	if cooldown[player.UserId] then 
+		return 
+	end
+
+	-- Establecer cooldown con timeout automático
+	setCooldownConTimeout(player.UserId)
+
+	-- ENVOLVER TODO EN PCALL PARA SIEMPRE LIMPIAR EL COOLDOWN
+	local success, errorMsg = pcall(function()
+
+		-- Restringir uso solo a propietarios del GamePass VIP (si está configurado)
+		if VIP_ID and GamepassManager then
+			local hasVIP = GamepassManager.HasGamepass(player, VIP_ID)
+
+			-- Si no tiene VIP
+			if not hasVIP then
+				-- Notificar al cliente para que muestre la notificación y abra el prompt de compra
+				if vipEvent then
+					pcall(function()
+						vipEvent:FireClient(player, VIP_ID)
+					end)
+				end
+				return -- Sale del pcall, el cooldown se limpiará al final
 			end
+		end
+
+		local character = player.Character
+		if not character then 
+			return 
+		end
+
+		local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character:FindFirstChild("Humanoid")
+
+		if not humanoidRootPart or not humanoid then 
+			return 
+		end
+
+		-- Verificar que el jugador esté vivo
+		if humanoid.Health <= 0 then
 			return
 		end
-	end
-	cooldown[player.UserId] = true
 
-	local character = player.Character
-	if not character then 
-		cooldown[player.UserId] = nil
-		return 
-	end
+		local destino = pisos[pisoDestino]
+		if not destino or not destino.spawn then 
+			warn("[Ascensor] Destino no encontrado: " .. pisoDestino)
+			return 
+		end
 
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then 
-		cooldown[player.UserId] = nil
-		return 
-	end
+		-- 1. Pantalla negra
+		pcall(function()
+			effectsEvent:FireClient(player, "fadeIn")
+		end)
 
-	local destino = pisos[pisoDestino]
-	if not destino or not destino.spawn then 
-		warn("Destino no encontrado: " .. pisoDestino)
-		cooldown[player.UserId] = nil
-		return 
-	end
+		-- 2. Esperar viaje
+		task.wait(tiempoViaje)
 
-	-- 1. Pantalla negra
-	effectsEvent:FireClient(player, "fadeIn")
+		-- Verificar que el character y humanoid sigan existiendo después del wait
+		if not character.Parent or not humanoidRootPart.Parent or not humanoid.Parent then
+			return
+		end
 
-	-- 2. Esperar viaje
-	task.wait(tiempoViaje)
+		-- Verificar que el jugador siga vivo
+		if humanoid.Health <= 0 then
+			return
+		end
 
-	-- 3. Teletransportar
-	local spawnPos = destino.spawn.Position
-	humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-	humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-	humanoidRootPart.CFrame = CFrame.new(spawnPos.X, spawnPos.Y + 1, spawnPos.Z)
-	task.wait(0.1)
-	humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-	humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		-- 3. Teletransportar
+		local spawnPos = destino.spawn.Position
+		humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+		humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		humanoidRootPart.CFrame = CFrame.new(spawnPos.X, spawnPos.Y + 1, spawnPos.Z)
 
-	-- 4. Quitar pantalla negra
-	effectsEvent:FireClient(player, "fadeOut")
+		task.wait(0.1)
 
-	-- 5. Cooldown
-	task.wait(1)
+		-- Verificar nuevamente que siga existiendo
+		if humanoidRootPart.Parent then
+			humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+			humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		end
+
+		-- 4. Quitar pantalla negra
+		pcall(function()
+			effectsEvent:FireClient(player, "fadeOut")
+		end)
+
+		-- 5. Esperar antes de permitir uso nuevamente
+		task.wait(1)
+
+	end)
+
+	-- SIEMPRE LIMPIAR EL COOLDOWN, SIN IMPORTAR QUÉ PASÓ
 	cooldown[player.UserId] = nil
+
+	-- Log de errores (opcional, para debugging)
+	if not success then
+		warn("[Ascensor] Error para " .. player.Name .. ": " .. tostring(errorMsg))
+	end
 end
 
 local function crearPrompt(parte, texto, pisoOrigen, pisoDestino)
 	local boton = parte:FindFirstChild("BotonPiso1") or parte:FindFirstChild("BotonPiso2")
 	if not boton then 
-		warn("No se encontró botón en " .. parte.Name)
+		warn("[Ascensor] No se encontró botón en " .. parte.Name)
 		return 
 	end
 
 	local target = boton:FindFirstChildWhichIsA("BasePart") or boton
-
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Parent = target
 	prompt.ActionText = texto
@@ -122,5 +178,6 @@ local function crearPrompt(parte, texto, pisoOrigen, pisoDestino)
 	end)
 end
 
+-- Crear prompts
 crearPrompt(parte1, "Subir", "Parte1", "Parte2")
 crearPrompt(parte2, "Bajar", "Parte2", "Parte1")

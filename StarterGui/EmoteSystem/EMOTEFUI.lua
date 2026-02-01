@@ -61,6 +61,11 @@ local Icon = require(ReplicatedStorage:WaitForChild("Icon"))
 
 local VIPGamePassID = ConfigModule.VIP
 
+-- Función para verificar VIP bajo demanda
+local function TieneVIP()
+	return Jugador:GetAttribute("HasVIP") or false
+end
+
 -- ════════════════════════════════════════════════════════════════════════════════
 -- TEMA
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -662,10 +667,10 @@ local function SetSyncOverlay(synced, syncedPlayerName)
 		SyncOverlay.Visible = true
 		SyncOverlay.BackgroundTransparency = 1
 		SyncContainer.Size = UDim2.new(1, -40, 0, 0)
-		
+
 		-- Actualizar nombre del jugador
 		SyncPlayerName.Text = syncedPlayerName or "Desconocido"
-		
+
 		-- Animaciones de entrada
 		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
 		Tween(SyncContainer, 0.4, {Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)}, Enum.EasingStyle.Back)
@@ -813,7 +818,7 @@ local SyncUpdate = RemotesSync:FindFirstChild("SyncUpdate")
 if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 	TrackGlobalConnection(SyncUpdate.OnClientEvent:Connect(function(payload)
 		if not payload then return end
-		
+
 		--  NOTIFICACIÓN DE SEGUIDORES
 		if payload.followerNotification and payload.followerNames then
 			local message = ""
@@ -822,7 +827,7 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 			else
 				message = #payload.followerNames .. " personas te siguen"
 			end
-			
+
 			-- Mostrar notificación usando el método correcto
 			if NotificationSystem then
 				pcall(function()
@@ -831,7 +836,7 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 			end
 			return -- No procesar más si es una notificación
 		end
-		
+
 		-- Mostrar/ocultar overlay de sync
 		if payload.isSynced ~= nil then
 			SetSyncOverlay(payload.isSynced, payload.leaderName)
