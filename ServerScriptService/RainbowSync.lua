@@ -327,19 +327,13 @@ end
 -- COMUNICACIÓN
 -- ═══════════════════════════════════════════════════════════════════
 local function setupRemotes()
-	local toneModeEvent = ReplicatedStorage:FindFirstChild("ToneModeChanged")
-	if not toneModeEvent then
-		toneModeEvent = Instance.new("BindableEvent")
-		toneModeEvent.Name = "ToneModeChanged"
-		toneModeEvent.Parent = ReplicatedStorage
-	end
-
-	local getModeFunction = ReplicatedStorage:FindFirstChild("GetToneMode")
-	if not getModeFunction then
-		getModeFunction = Instance.new("BindableFunction")
-		getModeFunction.Name = "GetToneMode"
-		getModeFunction.Parent = ReplicatedStorage
-	end
+	-- Obtener referencias a RemotesGlobal/Commands
+	local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+	local commandsFolder = remotesGlobal:WaitForChild("Commands")
+	
+	local toneModeEvent = commandsFolder:WaitForChild("ToneModeChanged")
+	local getModeFunction = commandsFolder:WaitForChild("GetToneMode")
+	local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
 
 	getModeFunction.OnInvoke = function()
 		return state.mode
@@ -350,13 +344,6 @@ local function setupRemotes()
 	end)
 
 	-- RemoteFunction para obtener temas disponibles
-	local getThemesFunction = ReplicatedStorage:FindFirstChild("GetAvailableThemes")
-	if not getThemesFunction then
-		getThemesFunction = Instance.new("BindableFunction")
-		getThemesFunction.Name = "GetAvailableThemes"
-		getThemesFunction.Parent = ReplicatedStorage
-	end
-
 	getThemesFunction.OnInvoke = function()
 		return RainbowSync.GetAvailableThemes()
 	end
