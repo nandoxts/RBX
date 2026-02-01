@@ -7,31 +7,76 @@ local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
--- Obtener remotes desde RemotesGlobal
-local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
-local CombatRemotes = RemotesGlobal:WaitForChild("Combat")
-local eventPunch = CombatRemotes:WaitForChild("PunchRemote")
-local eventBlock = CombatRemotes:WaitForChild("BlockRemote")
-local ringNotificationRemote = CombatRemotes:WaitForChild("RingNotification")
+print("⚙️ [CombatClient] Iniciando...")
 
--- Cargar NotificationSystem
-local NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
+-- Obtener remotes desde RemotesGlobal con manejo robusto
+local function getRemotes()
+	local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 30)
+	if not RemotesGlobal then 
+		error("[CombatClient] RemotesGlobal no encontrado después de 30s")
+	end
+	
+	local CombatRemotes = RemotesGlobal:WaitForChild("Combat", 30)
+	if not CombatRemotes then 
+		error("[CombatClient] Carpeta Combat no encontrada")
+	end
+	
+	local eventPunch = CombatRemotes:WaitForChild("PunchRemote", 30)
+	local eventBlock = CombatRemotes:WaitForChild("BlockRemote", 30)
+	local ringNotificationRemote = CombatRemotes:WaitForChild("RingNotification", 30)
+	local effectRemote = CombatRemotes:WaitForChild("EffectRemote", 30)
+	
+	print("✓ [CombatClient] Todos los remotes conectados")
+	
+	return {
+		eventPunch = eventPunch,
+		eventBlock = eventBlock,
+		ringNotificationRemote = ringNotificationRemote,
+		effectRemote = effectRemote
+	}
+end
 
+local remotes = getRemotes()
+local eventPunch = remotes.eventPunch
+local eventBlock = remotes.eventBlock
+local ringNotificationRemote = remotes.ringNotificationRemote
+local effectRemote = remotes.effectRemote
 
-local COOLDOWN = 0.8
+-- Cargar NotificationSystem con manejo de errores
+local NotificationSystem
+pcall(function()
+	NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems", 10):WaitForChild("NotificationSystem", 10):WaitForChild("NotificationSystem", 10))
+	print("✓ [CombatClient] NotificationSystem cargado")
+end)
+
+-- Inicializar variables de jugador
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChild("Humanoid")
-local rootPart = character:FindFirstChild("HumanoidRootPart")
+print("✓ [CombatClient] Personaje detectado")
+
+local humanoid = character:WaitForChild("Humanoid", 10)
+local rootPart = character:WaitForChild("HumanoidRootPart", 10)
+
+if not humanoid or not rootPart then
+	error("[CombatClient] No se pudo obtener Humanoid o HumanoidRootPart")
+end
+
+print("✓ [CombatClient] Humanoid y RootPart obtenidos")
+
+local COOLDOWN = 0.8
 local inRing = false
 local aux = true
+local punchCounter = 0  -- Contador para IDs únicos de golpes
+
+print("✓ [CombatClient] Variables inicializadas")
 
 -- Actualizar referencias cuando muere o respawnea
 player.CharacterAdded:Connect(function(newCharacter)
 	character = newCharacter
-	humanoid = character:FindFirstChild("Humanoid")
-	rootPart = character:FindFirstChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid", 10)
+	rootPart = character:WaitForChild("HumanoidRootPart", 10)
 	aux = true
+	print("✓ [CombatClient] Personaje respawneado")
 end)
 
 -- Crear animaciones con IDs directos
@@ -45,9 +90,9 @@ local animBlock = Instance.new("Animation")
 animBlock.AnimationId = "rbxassetid://125626942999742"
 
 local animKick = Instance.new("Animation")
-animKick.AnimationId = "rbxassetid://75034297494695"
+animKick.AnimationId = "rbxassetid://138408477594658"
 
--- Efecto rojo de golpe en la cámara (salpicadura)
+-- Efecto rojo de golpe en la cámara (salpicadura) - MEJORADO
 local redFlashGui = Instance.new("ScreenGui")
 redFlashGui.Name = "RedFlash"
 redFlashGui.ResetOnSpawn = false
@@ -55,9 +100,9 @@ redFlashGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local redFlash = Instance.new("Frame")
 redFlash.Name = "RedSplash"
-redFlash.Size = UDim2.new(0, 150, 0, 150)
-redFlash.Position = UDim2.new(0.5, -75, 0.5, -75)  -- Centro de la pantalla
-redFlash.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+redFlash.Size = UDim2.new(0, 200, 0, 200)
+redFlash.Position = UDim2.new(0.5, -100, 0.5, -100)  -- Centro de la pantalla
+redFlash.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 redFlash.BackgroundTransparency = 1
 redFlash.BorderSizePixel = 0
 redFlash.ZIndex = 99
@@ -68,20 +113,43 @@ local splashCorner = Instance.new("UICorner")
 splashCorner.CornerRadius = UDim.new(1, 0)
 splashCorner.Parent = redFlash
 
+-- Función para efecto rojo de golpe mejorado
+local function punchEffect()
+	-- Rojo más intenso y más grande
+	local tween = TweenService:Create(redFlash, TweenInfo.new(0.08), {BackgroundTransparency = 0.2})
+	tween:Play()
+	tween.Completed:Connect(function()
+		-- Desvanece rápido
+		local tweenBack = TweenService:Create(redFlash, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+		tweenBack:Play()
+	end)
+end
+
+-- Escuchar cuando el servidor envía confirmación de golpe
+effectRemote.OnClientEvent:Connect(function()
+	punchEffect()
+end)
+
 -- Escuchar notificación del ring
 local lastRingStatus = false
-ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
-	-- Solo mostrar notificación cuando cambia el estado
-	if ringStatus ~= lastRingStatus then
-		if ringStatus then
-			NotificationSystem:Info("Ring", "Has ingresado al ring", 3)
-		else
-			NotificationSystem:Info("Ring", "Has salido del ring", 3)
+if ringNotificationRemote then
+	ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
+		-- Solo mostrar notificación cuando cambia el estado
+		if ringStatus ~= lastRingStatus then
+			if ringStatus then
+				if NotificationSystem then
+					NotificationSystem:Info("Ring", "Has ingresado al ring", 3)
+				end
+			else
+				if NotificationSystem then
+					NotificationSystem:Info("Ring", "Has salido del ring", 3)
+				end
+			end
+			lastRingStatus = ringStatus
 		end
-		lastRingStatus = ringStatus
-	end
-	inRing = ringStatus  -- Guardar estado del ring
-end)
+		inRing = ringStatus  -- Guardar estado del ring
+	end)
+end
 
 -- Función para efecto rojo de golpe
 local function punchEffect()
@@ -99,28 +167,28 @@ end
 function fightButton(actionName, inputState, inputObject)
 	if not inRing then return end  -- Solo funciona en el ring
 	if not humanoid or humanoid.Health <= 0 then return end  -- Validar humanoid
-	
+
 	if actionName == "leftPunch" then
 		if inputState == Enum.UserInputState.Begin and aux then
 			aux = false
+			punchCounter = punchCounter + 1
 			if animPunchL then
 				local anim = humanoid:LoadAnimation(animPunchL)
 				anim:Play()
 			end
-			eventPunch:FireServer(1, true)
-			punchEffect()
+			eventPunch:FireServer(1, punchCounter)
 			task.wait(COOLDOWN)
 			aux = true
 		end
 	elseif actionName == "rightPunch" then
 		if inputState == Enum.UserInputState.Begin and aux then
 			aux = false
+			punchCounter = punchCounter + 1
 			if animPunchR then
 				local anim = humanoid:LoadAnimation(animPunchR)
 				anim:Play()
 			end
-			eventPunch:FireServer(0, true)
-			punchEffect()
+			eventPunch:FireServer(0, punchCounter)
 			task.wait(COOLDOWN)
 			aux = true
 		end
@@ -145,12 +213,12 @@ function fightButton(actionName, inputState, inputObject)
 	elseif actionName == "Patada" then
 		if inputState == Enum.UserInputState.Begin and aux then
 			aux = false
+			punchCounter = punchCounter + 1
 			if animKick then
 				local anim = humanoid:LoadAnimation(animKick)
 				anim:Play()
 			end
-			eventPunch:FireServer(2, true)
-			punchEffect()
+			eventPunch:FireServer(2, punchCounter)
 			task.wait(COOLDOWN)
 			aux = true
 		end
@@ -172,4 +240,6 @@ ContextActionService:SetPosition("leftPunch", UDim2.new(-0.1, 0, 0.4, 0))
 ContextActionService:SetPosition("rightPunch", UDim2.new(0.2, 0, 0.4, 0))
 ContextActionService:SetPosition("block", UDim2.new(0.05, 0, 0.1, 0))
 ContextActionService:SetPosition("Patada", UDim2.new(0.05, 0, 0.7, 0))
+
+
 
