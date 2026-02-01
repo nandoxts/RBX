@@ -61,11 +61,6 @@ local Icon = require(ReplicatedStorage:WaitForChild("Icon"))
 
 local VIPGamePassID = ConfigModule.VIP
 
--- Función para verificar VIP bajo demanda
-local function TieneVIP()
-	return Jugador:GetAttribute("HasVIP") or false
-end
-
 -- ════════════════════════════════════════════════════════════════════════════════
 -- TEMA
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -94,6 +89,11 @@ local Theme = {
 
 local Jugador = Players.LocalPlayer
 local PlayerGui = Jugador:WaitForChild("PlayerGui")
+
+-- Función para verificar VIP bajo demanda
+local function TieneVIP()
+	return Jugador:GetAttribute("HasVIP") or false
+end
 
 local IsMobile = UserInputService.TouchEnabled
 local EmotesFavs = {}
@@ -1074,7 +1074,8 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			return
 		end
 
-		if esVIPBloqueado then
+		-- Verificar VIP solo si el emote lo requiere
+		if esVIP and not TieneVIP() then
 			NotificationSystem:Warning("VIP", "Necesitas VIP para este baile", 3)
 			task.wait(0.3)
 			MarketplaceService:PromptGamePassPurchase(Jugador, VIPGamePassID)
@@ -1452,5 +1453,4 @@ end)
 
 EmotesFavs = ObtenerFavs:InvokeServer() or {}
 EmotesTrending = ObtenerTrending:InvokeServer() or {}
-tieneVIP = Ownership:InvokeServer(VIPGamePassID)
 CargarTodos()
