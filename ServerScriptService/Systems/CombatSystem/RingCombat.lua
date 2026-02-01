@@ -188,13 +188,22 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 			local connection
 			connection = part.Touched:Connect(function(hit)
 				local targetChar = hit.Parent
+				
+				-- Validar que targetChar es un Character válido
+				if not targetChar or not targetChar:FindFirstChild("Humanoid") then return end
+				
 				local humanoid = targetChar:FindFirstChild("Humanoid")
 
 				-- Verificar que es un enemigo y no lo hemos golpeado ya
 				if humanoid and targetChar ~= player.Character and not hitTargets[targetChar] then
 					hitTargets[targetChar] = true
 					hitDetection(humanoid, targetChar)
-					effectRemote:FireClient(targetChar)
+					
+					-- Obtener el Player asociado al Character golpeado
+					local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+					if targetPlayer then
+						effectRemote:FireClient(targetPlayer)
+					end
 				end
 			end)
 			table.insert(connections, connection)
