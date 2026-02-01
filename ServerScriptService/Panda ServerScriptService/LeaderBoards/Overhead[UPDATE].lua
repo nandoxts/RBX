@@ -482,7 +482,7 @@ local function refreshClanTagWithRetry(player, char)
 			local elapsed = 0
 			while elapsed < CLAN_MAX_WAIT do
 				task.wait(CLAN_CHECK_INTERVAL)
-				elapsed += CLAN_CHECK_INTERVAL
+				elapsed = elapsed + CLAN_CHECK_INTERVAL
 
 				if not player or not player.Parent then return end
 				if player.Character ~= char then return end
@@ -790,7 +790,7 @@ for _, player in ipairs(Players:GetPlayers()) do
 	end)
 end
 
--- ✅ LIMPIAR CONEXIONES / CACHES CUANDO EL JUGADOR SALE
+-- LIMPIAR CONEXIONES / CACHES CUANDO EL JUGADOR SALE
 Players.PlayerRemoving:Connect(function(player)
 	disconnectAllPlayerConnections(player.UserId)
 	streakCache[tostring(player.UserId)] = nil
