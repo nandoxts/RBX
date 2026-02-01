@@ -1,0 +1,10 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Crear script para ocultar TopBar",
+			"type": "shell",
+			"command": "cat > 'c:\\Users\\Admin\\SX\\StarterGui\\HideTopbar.lua' << 'EOF'\nlocal StarterGui = game:GetService(\"StarterGui\")\n\n-- Ocultar topbar de Roblox\nStarterGui:SetCoreGuiEnabled(Enum.CoreGui.TopbarContainer, false)\n\nprint(\"✓ TopBar oculto\")\nEOF\n"
+		}
+	]
+}

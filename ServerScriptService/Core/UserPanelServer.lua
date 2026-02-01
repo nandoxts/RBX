@@ -39,40 +39,15 @@ local CONFIG = {
 }
 
 -- ═══════════════════════════════════════════════════════════════
--- CREAR REMOTES
+-- RECOGER REMOTES EXISTENTES
 -- ═══════════════════════════════════════════════════════════════
 
-local musicRemotes = ReplicatedStorage:FindFirstChild("MusicRemotes")
-if not musicRemotes then
-	musicRemotes = Instance.new("Folder")
-	musicRemotes.Name = "MusicRemotes"
-	musicRemotes.Parent = ReplicatedStorage
-end
+local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local userPanelFolder = remotesGlobal:WaitForChild("UserPanel")
 
-local userPanelFolder = musicRemotes:FindFirstChild("UserPanel")
-if not userPanelFolder then
-	userPanelFolder = Instance.new("Folder")
-	userPanelFolder.Name = "UserPanel"
-	userPanelFolder.Parent = musicRemotes
-end
-
-local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses"}
-for _, name in ipairs(remoteNames) do
-	local existing = userPanelFolder:FindFirstChild(name)
-	if existing then existing:Destroy() end
-end
-
-local GetUserData = Instance.new("RemoteFunction")
-GetUserData.Name = "GetUserData"
-GetUserData.Parent = userPanelFolder
-
-local RefreshUserData = Instance.new("RemoteEvent")
-RefreshUserData.Name = "RefreshUserData"
-RefreshUserData.Parent = userPanelFolder
-
-local GetUserDonations = Instance.new("RemoteFunction")
-GetUserDonations.Name = "GetUserDonations"
-GetUserDonations.Parent = userPanelFolder
+local GetUserData = userPanelFolder:WaitForChild("GetUserData")
+local RefreshUserData = userPanelFolder:WaitForChild("RefreshUserData")
+local GetUserDonations = userPanelFolder:WaitForChild("GetUserDonations")
 
 local GetGamePasses = Instance.new("RemoteFunction")
 GetGamePasses.Name = "GetGamePasses"

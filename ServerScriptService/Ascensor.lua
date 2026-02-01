@@ -5,10 +5,6 @@ local tiempoViaje = 2
 local cooldown = {}
 local COOLDOWN_TIMEOUT = 10  -- Timeout de seguridad en segundos
 
-local effectsEvent = Instance.new("RemoteEvent")
-effectsEvent.Name = "AscensorEffects"
-effectsEvent.Parent = game.ReplicatedStorage
-
 -- Servicios y configuración (VIP)
 local ServerScriptService = game:GetService("ServerScriptService")
 local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
@@ -17,13 +13,12 @@ local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitFo
 
 local VIP_ID = Configuration.VIP
 
--- Buscar o CREAR AscensorVIP si no existe
-local vipEvent = game.ReplicatedStorage:FindFirstChild("AscensorVIP", true)
-if not vipEvent then
-	vipEvent = Instance.new("RemoteEvent")
-	vipEvent.Name = "AscensorVIP"
-	vipEvent.Parent = game.ReplicatedStorage
-end
+-- Obtener referencias a RemotesGlobal/Ascensor
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local ascensorFolder = remotesGlobal:WaitForChild("Ascensor")
+local effectsEvent = ascensorFolder:WaitForChild("AscensorEffects")
+local vipEvent = ascensorFolder:WaitForChild("AscensorVIP")
 
 local parte1 = ascensor.Parte1
 local parte2 = ascensor.Parte2

@@ -16,7 +16,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
 -- Cargar remotes
-local remotesFolder = ReplicatedStorage:WaitForChild("MusicRemotes"):WaitForChild("UserPanel")
+local remotesFolder = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("UserPanel")
 local Remotes = {
 	GetUserData = remotesFolder:WaitForChild("GetUserData"),
 	GetUserDonations = remotesFolder:WaitForChild("GetUserDonations"),

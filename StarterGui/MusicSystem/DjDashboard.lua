@@ -119,8 +119,8 @@ local function isValidAudioId(text)
 end
 
 local function getRemote(name)
-	local MusicRemotes = ReplicatedStorage:WaitForChild("MusicRemotes", 10)
-	if not MusicRemotes then return end
+	local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 10)
+	if not RemotesGlobal then return end
 
 	local remoteMap = {
 		NextSong = "MusicPlayback", PlaySong = "MusicPlayback", PauseSong = "MusicPlayback", StopSong = "MusicPlayback",
@@ -131,7 +131,7 @@ local function getRemote(name)
 	}
 
 	local subfolder = remoteMap[name] or "MusicLibrary"
-	local folder = MusicRemotes:FindFirstChild(subfolder)
+	local folder = RemotesGlobal:FindFirstChild(subfolder)
 	return folder and folder:FindFirstChild(name)
 end
 
@@ -687,8 +687,8 @@ end)
 -- ════════════════════════════════════════════════════════════════
 local skipProductId = 3468988018
 
--- Use el Remote `PurchaseSkip` en `MusicRemotes/MusicQueue` (no usar Panda)
-local skipRemote = ReplicatedStorage:WaitForChild("MusicRemotes")
+-- Use el Remote `PurchaseSkip` en `RemotesGlobal/MusicQueue` (no usar Panda)
+local skipRemote = ReplicatedStorage:WaitForChild("RemotesGlobal")
 	:WaitForChild("MusicQueue")
 	:WaitForChild("PurchaseSkip")
 

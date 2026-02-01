@@ -43,8 +43,8 @@ local RC = {
 -- ════════════════════════════════════════════════════════════════
 -- REMOTES SETUP
 -- ════════════════════════════════════════════════════════════════
-local remotesFolder = ReplicatedStorage:FindFirstChild("MusicRemotes")
-if not remotesFolder then warn("[DjMusicSystem] MusicRemotes not found") return end
+local remotesFolder = ReplicatedStorage:FindFirstChild("RemotesGlobal")
+if not remotesFolder then warn("[DjMusicSystem] RemotesGlobal not found") return end
 
 local function getRemote(folder, name)
 	local f = remotesFolder:FindFirstChild(folder)

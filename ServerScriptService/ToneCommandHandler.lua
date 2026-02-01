@@ -19,48 +19,20 @@ local CONFIG = {
 -- ═══════════════════════════════════════════════════════════════════
 -- REMOTES
 -- ═══════════════════════════════════════════════════════════════════
-local toneModeEvent = ReplicatedStorage:WaitForChild("ToneModeChanged")
-local getModeFunction = ReplicatedStorage:WaitForChild("GetToneMode")
+local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local commandsFolder = remotesGlobal:WaitForChild("Commands")
 
-local toneMessageEvent = ReplicatedStorage:FindFirstChild("ToneMessage") or (function()
-	local event = Instance.new("RemoteEvent")
-	event.Name = "ToneMessage"
-	event.Parent = ReplicatedStorage
-	return event
-end)()
+local toneModeEvent = commandsFolder:WaitForChild("ToneModeChanged")
+local getModeFunction = commandsFolder:WaitForChild("GetToneMode")
+local toneMessageEvent = commandsFolder:WaitForChild("ToneMessage")
 
 -- RemoteFunction para obtener temas disponibles de RainbowSync
--- Usar WaitForChild para asegurar que RainbowSync lo cree primero
-local getThemesFunction
-local success = false
-local attempts = 0
-
-while not success and attempts < 30 do  -- Esperar máximo 30 segundos (30 * 1 segundo)
-	local ok, result = pcall(function()
-		return ReplicatedStorage:WaitForChild("GetAvailableThemes", 1)  -- Timeout de 1 segundo
-	end)
-
-	if ok and result then
-		getThemesFunction = result
-		success = true
-	else
-		attempts = attempts + 1
-		task.wait(1)
-	end
-end
-
-if not success then
-	error("[ToneCommandHandler] CRITICAL: GetAvailableThemes no fue encontrada después de 30 segundos. RainbowSync podría no haberse ejecutado.")
-end
+local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
 
 -- ═══════════════════════════════════════════════════════════════════
 -- LÓGICA
 -- ═══════════════════════════════════════════════════════════════════
 local function getAvailableThemes()
-	if not getThemesFunction then
-		return {}
-	end
-	
 	local ok, themes = pcall(function()
 		return getThemesFunction:Invoke()
 	end)

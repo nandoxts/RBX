@@ -28,7 +28,7 @@ local CONFIG = {
 	paths = {
 		{ path = "workspace.visuals.Visualizer", recursive = false },
 		{ 
-			path = "workspace.SalonPro.EstructuraSalon", 
+			path = "workspace.Map", 
 			recursive = true,
 			blacklist = { 
 				"Cir",           -- Solo ignora parts llamadas "Cir"
@@ -366,7 +366,15 @@ local function setupRemotes()
 	if not rainbowValue then
 		rainbowValue = Instance.new("Color3Value")
 		rainbowValue.Name = "RainbowColor"
-		rainbowValue.Value = CONFIG.rainbowColors[1]
+		-- Inicializar como color neutro (usar ThemeConfig.accent si existe) para evitar aplicar un tema al inicio
+		local ok, ThemeConfig = pcall(function()
+			return require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+		end)
+		if ok and ThemeConfig and ThemeConfig.accent then
+			rainbowValue.Value = ThemeConfig.accent
+		else
+			rainbowValue.Value = Color3.fromRGB(255,255,255)
+		end
 		rainbowValue.Parent = ReplicatedStorage
 	end
 
