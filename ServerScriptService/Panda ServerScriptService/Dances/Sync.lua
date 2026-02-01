@@ -220,7 +220,7 @@ end
 -- Notificar a un jugador sobre quién lo sigue
 local function NotifyFollowers(player)
 	if not IsValidPlayer(player) then return end
-	
+
 	local followers = PlayerData[player].Followers
 	if #followers > 0 then
 		local followerNames = {}
@@ -229,7 +229,7 @@ local function NotifyFollowers(player)
 				table.insert(followerNames, follower.Name)
 			end
 		end
-		
+
 		if #followerNames > 0 then
 			pcall(function()
 				SyncUpdate:FireClient(player, {
@@ -426,7 +426,7 @@ local function StopFollowersAnimations(leader, alsoUnsync)
 				-- Limpiar el estado de sincronización cuando el líder se sale
 				if PlayerData[follower] then
 					PlayerData[follower].Following = nil
-					
+
 					-- ACTUALIZAR atributo "following" para DanceLeaderSystem
 					pcall(function()
 						follower:SetAttribute("following", nil)
@@ -585,7 +585,7 @@ local function Follow(follower, leader)
 			PlayAnimationRemote:FireClient(follower, "playAnim", animName)
 		end)
 	end
-	
+
 	-- 🔔 NOTIFICAR al líder que tiene un nuevo seguidor
 	NotifyFollowers(leader)
 
@@ -771,22 +771,22 @@ local function OnCharacterAdded(character)
 				table.insert(PlayerData[player].Connections, diedConnection)
 			end
 		end
-		
+
 		--  RESTAURAR sync después del respawn/;char
 		task.wait(0.5) -- Esperar a que el character esté completamente cargado
-		
+
 		if not IsValidPlayer(player) then return end
-		
+
 		-- Restaurar mis seguidores
 		PlayerData[player].Followers = myFollowers
 		UpdateFollowerCount(player)
-		
+
 		-- Si estaba siguiendo a alguien, RE-SINCRONIZAR
 		if wasFollowing and IsValidPlayer(wasFollowing) then
 			-- Re-establecer la sincronización
 			Follow(player, wasFollowing)
 		end
-		
+
 		-- Notificar a mis seguidores que sigo disponible
 		if #myFollowers > 0 then
 			NotifyFollowers(player)
