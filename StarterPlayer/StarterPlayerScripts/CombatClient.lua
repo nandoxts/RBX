@@ -7,33 +7,15 @@ local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
-print("⚙️ CombatClient iniciando...")
-
 -- Obtener remotes desde RemotesGlobal
-print("🔍 Buscando RemotesGlobal...")
 local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
-print("✓ RemotesGlobal encontrado")
-
-print("🔍 Buscando carpeta Combat...")
 local CombatRemotes = RemotesGlobal:WaitForChild("Combat")
-print("✓ Combat encontrado")
-
-print("🔍 Buscando PunchRemote...")
 local eventPunch = CombatRemotes:WaitForChild("PunchRemote")
-print("✓ PunchRemote encontrado")
-
-print("🔍 Buscando BlockRemote...")
 local eventBlock = CombatRemotes:WaitForChild("BlockRemote")
-print("✓ BlockRemote encontrado")
-
-print("🔍 Buscando RingNotification...")
 local ringNotificationRemote = CombatRemotes:WaitForChild("RingNotification")
-print("✓ RingNotification encontrado")
 
-print("🔍 Cargando NotificationSystem...")
 -- Cargar NotificationSystem
 local NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
-print("✓ NotificationSystem cargado")
 
 
 local COOLDOWN = 0.8
@@ -64,8 +46,6 @@ animBlock.AnimationId = "rbxassetid://125626942999742"
 
 local animKick = Instance.new("Animation")
 animKick.AnimationId = "rbxassetid://75034297494695"
-
-print("✓ Animaciones cargadas con IDs directos")
 
 -- Efecto rojo de golpe en la cámara (salpicadura)
 local redFlashGui = Instance.new("ScreenGui")
@@ -117,45 +97,29 @@ end
 
 -- Función para detectar botones de combate
 function fightButton(actionName, inputState, inputObject)
-	print("🎮 Botón presionado:", actionName, "Estado:", inputState)
-	-- if not inRing then return end  -- Solo funciona en el ring (deshabilitado para permitir prácticas)
-	if not humanoid or humanoid.Health <= 0 then 
-		print("❌ Humanoid no disponible o muerto")
-		return 
-	end
+	if not inRing then return end  -- Solo funciona en el ring
+	if not humanoid or humanoid.Health <= 0 then return end  -- Validar humanoid
 	
 	if actionName == "leftPunch" then
-		print("👊 Golpe izquierdo detectado")
 		if inputState == Enum.UserInputState.Begin and aux then
-			print("➡️ Iniciando golpe izquierdo...")
 			aux = false
 			if animPunchL then
 				local anim = humanoid:LoadAnimation(animPunchL)
 				anim:Play()
-				print("🎬 Animación de golpe izquierdo reproducida")
-			else
-				print("⚠️ Animación de golpe izquierdo no disponible")
 			end
 			eventPunch:FireServer(1, true)
-			print("📡 Evento enviado al servidor")
 			punchEffect()
 			task.wait(COOLDOWN)
 			aux = true
 		end
 	elseif actionName == "rightPunch" then
-		print("👊 Golpe derecho detectado")
 		if inputState == Enum.UserInputState.Begin and aux then
-			print("➡️ Iniciando golpe derecho...")
 			aux = false
 			if animPunchR then
 				local anim = humanoid:LoadAnimation(animPunchR)
 				anim:Play()
-				print("🎬 Animación de golpe derecho reproducida")
-			else
-				print("⚠️ Animación de golpe derecho no disponible")
 			end
 			eventPunch:FireServer(0, true)
-			print("📡 Evento enviado al servidor")
 			punchEffect()
 			task.wait(COOLDOWN)
 			aux = true
