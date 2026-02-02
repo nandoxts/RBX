@@ -52,9 +52,17 @@ if not effectRemote then
 	effectRemote.Parent = CombatFolder
 end
 
+-- Crear remote para sonido de golpe (solo a clientes cercanos)
+local soundRemote = CombatFolder:FindFirstChild("PunchSoundRemote")
+if not soundRemote then
+	soundRemote = Instance.new("RemoteEvent")
+	soundRemote.Name = "PunchSoundRemote"
+	soundRemote.Parent = CombatFolder
+end
+
 
 local DAMAGE = 10  -- Daño base por golpe
-local PUNCH_SOUND_ID = "rbxassetid://4766118952"
+local SOUND_RANGE = 50  -- Rango para escuchar el sonido
 
 -- Obtener efecto de golpe desde ReplicatedStorage (esperar a que cargue)
 local effectPunch = ReplicatedStorage.Effect:WaitForChild("Part")
@@ -78,14 +86,19 @@ end
 -- Tabla para rastrear golpes activos (para evitar múltiples golpes en el mismo evento)
 local activePunches = {}
 
--- Función para reproducir sonido
+-- Función para reproducir sonido solo a clientes cercanos
 local function playPunchSound(character)
-	local soundClone = Instance.new("Sound")
-	soundClone.SoundId = PUNCH_SOUND_ID
-	soundClone.Volume = 0.5
-	soundClone.Parent = character.HumanoidRootPart
-	soundClone:Play()
-	Debris:AddItem(soundClone, 1)
+	local punchPos = character.HumanoidRootPart.Position
+	
+	-- Enviar sonido solo a jugadores dentro del rango
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local distance = (player.Character.HumanoidRootPart.Position - punchPos).Magnitude
+			if distance < SOUND_RANGE then
+				soundRemote:FireClient(player, punchPos)
+			end
+		end
+	end
 end
 
 -- Monitorear si jugadores están en ring
