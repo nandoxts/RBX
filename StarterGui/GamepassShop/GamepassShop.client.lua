@@ -1,6 +1,6 @@
 --[[
 GamepassShop - Tienda de Gamepasses PREMIUM
-Diseño mejorado: Grid 3 columnas + centrado automático
+by ignxts
 ]]
 
 local Players = game:GetService("Players")
@@ -16,6 +16,7 @@ local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChil
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local Configuration = require(ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Configuration"))
+local CheckGamepassOwnership = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Gamepass Gifting"):WaitForChild("Remotes"):WaitForChild("Ownership")
 
 -- ════════════════════════════════════════════════════════════════
 -- COLORES (Extendidos de THEME)
@@ -32,10 +33,57 @@ local COLORS = setmetatable({
 -- ════════════════════════════════════════════════════════════════
 local GRID_CONFIG = {
 	columns = 3,
-	cardWidth = 185,
-	cardHeight = 195,
+	cardWidth = 160,
+	cardHeight = 170,
 	gap = 12,
 }
+
+-- ════════════════════════════════════════════════════════════════
+-- VALIDACIÓN DE GAMEPASSES (OPTIMIZADO)
+-- ════════════════════════════════════════════════════════════════
+local gamepassCache = {} -- [gamePassId] = boolean
+
+local function playerOwnsGamePass(gamePassId)
+	-- Retornar del cache si existe
+	if gamepassCache[gamePassId] ~= nil then
+		return gamepassCache[gamePassId]
+	end
+	
+	local success, ownsGamepass = pcall(function()
+		return CheckGamepassOwnership:InvokeServer(gamePassId)
+	end)
+	
+	local result = success and ownsGamepass
+	gamepassCache[gamePassId] = result
+	return result
+end
+
+local function updateGamepassAttribute(gamePassId)
+	if gamePassId == Configuration.VIP then
+		player:SetAttribute("HasVIP", playerOwnsGamePass(gamePassId))
+	end
+end
+
+-- Listener único para todas las compras (evita memory leak)
+local purchaseListenerConnected = false
+local function setupGlobalPurchaseListener()
+	if purchaseListenerConnected then return end
+	purchaseListenerConnected = true
+	
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(purchasingPlayer, passId, wasPurchased)
+		if purchasingPlayer == player and wasPurchased then
+			-- Actualizar cache
+			gamepassCache[passId] = true
+			updateGamepassAttribute(passId)
+			-- Notificar a todas las cards que se actualizó
+			if _G.GamepassShopPurchaseCallback then
+				_G.GamepassShopPurchaseCallback(passId)
+			end
+		end
+	end)
+end
+
+setupGlobalPurchaseListener()
 
 -- ════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN DE PRODUCTOS
@@ -45,16 +93,16 @@ local FEATURED_PRODUCT = {
 	price = 1500,
 	gamepassId = Configuration.COMMANDS,
 	icon = "128637341143304",
-	tag = "⭐ MÁS POPULAR",
+	tag = "MÁS POPULAR",
 	description = "Acceso a todos los comandos premium"
 }
 
 local PRODUCTS = {
 	{name = "VIP", price = 200, gamepassId = Configuration.VIP, icon = "105371615637765", cmd = "Acceso VIP"},
-	{name = "COLORES", price = 50, gamepassId = Configuration.COLORS, icon = "98089887808291", cmd = ":cl [color]"},
-	{name = "POLICÍA", price = 135, gamepassId = Configuration.TOMBO, icon = "106800054163320", cmd = ":tombo"},
-	{name = "LADRÓN", price = 135, gamepassId = Configuration.CHORO, icon = "84699864716808", cmd = ":choro"},
-	{name = "SEGURIDAD", price = 135, gamepassId = Configuration.SERE, icon = "85734290151599", cmd = ":sere"},
+	{name = "COLORES", price = 50, gamepassId = Configuration.COLORS, icon = "98089887808291", cmd = ";cl [color]"},
+	{name = "POLICÍA", price = 135, gamepassId = Configuration.TOMBO, icon = "106800054163320", cmd = ";tombo"},
+	{name = "LADRÓN", price = 135, gamepassId = Configuration.CHORO, icon = "84699864716808", cmd = ";choro"},
+	{name = "SEGURIDAD", price = 135, gamepassId = Configuration.SERE, icon = "85734290151599", cmd = ";sere"},
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -249,15 +297,6 @@ featuredStroke.Thickness = 2
 featuredStroke.Transparency = 0.4
 featuredStroke.Parent = featuredCard
 
--- Gradiente dorado sutil
-local featuredGradient = Instance.new("UIGradient")
-featuredGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 45, 35)),
-	ColorSequenceKeypoint.new(1, THEME.card)
-})
-featuredGradient.Rotation = 120
-featuredGradient.Parent = featuredCard
-
 -- Tag destacado
 local featuredTag = Instance.new("TextLabel")
 featuredTag.Size = UDim2.new(0, 125, 0, 26)
@@ -341,10 +380,42 @@ local featuredBuyBtn = createPremiumButton(
 )
 
 featuredBuyBtn.MouseButton1Click:Connect(function()
+	if featuredBuyBtn:GetAttribute("IsPurchased") then return end
 	pcall(function()
 		MarketplaceService:PromptGamePassPurchase(player, FEATURED_PRODUCT.gamepassId)
 	end)
 end)
+
+-- Función para actualizar estado del botón destacado
+local function updateFeaturedButton()
+	if playerOwnsGamePass(FEATURED_PRODUCT.gamepassId) then
+		local btnTextLabel = featuredBuyBtn:FindFirstChildOfClass("TextLabel")
+		if btnTextLabel then
+			btnTextLabel.Text = "PROPIETARIO"
+			btnTextLabel.TextColor3 = COLORS.gold
+		end
+		featuredBuyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+		featuredBuyBtn:SetAttribute("IsPurchased", true)
+	else
+		featuredBuyBtn:SetAttribute("IsPurchased", false)
+	end
+end
+
+-- Verificar estado inicial
+updateFeaturedButton()
+
+-- Actualizar cuando se compra cualquier gamepass
+local function setupFeaturedCallback()
+	local oldCallback = _G.GamepassShopPurchaseCallback
+	_G.GamepassShopPurchaseCallback = function(passId)
+		if passId == FEATURED_PRODUCT.gamepassId then
+			updateFeaturedButton()
+		end
+		if oldCallback then oldCallback(passId) end
+	end
+end
+
+setupFeaturedCallback()
 
 -- Hover en card destacada
 featuredCard.InputBegan:Connect(function(input)
@@ -423,6 +494,7 @@ local function createProductCard(product, index)
 	cardStroke.Parent = card
 
 	-- Precio badge (arriba derecha)
+	-- Mantener borde visible
 	local priceBadge = Instance.new("Frame")
 	priceBadge.Size = UDim2.new(0, 70, 0, 24)
 	priceBadge.Position = UDim2.new(1, -10, 0, 10)
@@ -486,22 +558,37 @@ local function createProductCard(product, index)
 	cmdLabel.Text = product.cmd
 	cmdLabel.TextColor3 = COLORS.accent
 	cmdLabel.Font = Enum.Font.GothamMedium
-	cmdLabel.TextSize = 11
+	cmdLabel.TextSize = 14
 	cmdLabel.ZIndex = 106
 	cmdLabel.Parent = cmdBadge
 
-	-- Botón COMPRAR (aparece en hover)
+	-- Overlay oscuro (aparece en hover)
+	local overlay = Instance.new("Frame")
+	overlay.Name = "Overlay"
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.Position = UDim2.new(0, 0, 0, 0)
+	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 1
+	overlay.BorderSizePixel = 0
+	overlay.ZIndex = 107
+	overlay.Parent = card
+
+	local overlayCorner = Instance.new("UICorner")
+	overlayCorner.CornerRadius = UDim.new(0, 12)
+	overlayCorner.Parent = overlay
+
+	-- Botón COMPRAR (centrado en overlay, invisible inicialmente)
 	local buyBtn = Instance.new("TextButton")
 	buyBtn.Name = "BuyBtn"
-	buyBtn.Size = UDim2.new(0, 110, 0, 34)
-	buyBtn.Position = UDim2.new(0.5, 0, 1, -12)
-	buyBtn.AnchorPoint = Vector2.new(0.5, 1)
+	buyBtn.Size = UDim2.new(0, 100, 0, 32)
+	buyBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
+	buyBtn.AnchorPoint = Vector2.new(0.5, 0.5)
 	buyBtn.BackgroundColor3 = COLORS.accent
 	buyBtn.BackgroundTransparency = 1
 	buyBtn.Text = ""
 	buyBtn.AutoButtonColor = false
-	buyBtn.ZIndex = 107
-	buyBtn.Parent = card
+	buyBtn.ZIndex = 108
+	buyBtn.Parent = overlay
 
 	local buyBtnCorner = Instance.new("UICorner")
 	buyBtnCorner.CornerRadius = UDim.new(0, 8)
@@ -515,14 +602,42 @@ local function createProductCard(product, index)
 	buyBtnText.TextTransparency = 1
 	buyBtnText.Font = Enum.Font.GothamBold
 	buyBtnText.TextSize = 12
-	buyBtnText.ZIndex = 108
+	buyBtnText.ZIndex = 109
 	buyBtnText.Parent = buyBtn
+
+	-- Función para marcar como propietario
+	local function markAsPurchased()
+		buyBtn.BackgroundTransparency = 1
+		buyBtnText.Text = "PROPIETARIO"
+		buyBtnText.TextColor3 = COLORS.gold
+		buyBtnText.TextTransparency = 1  -- Mantener invisible hasta hover
+		card:SetAttribute("IsPurchased", true)
+		-- Actualizar atributo del jugador
+		updateGamepassAttribute(product.gamepassId)
+	end
+
+	-- Verificar si ya es propietario
+	if playerOwnsGamePass(product.gamepassId) then
+		markAsPurchased()
+	end
 
 	-- Click comprar
 	buyBtn.MouseButton1Click:Connect(function()
+		if card:GetAttribute("IsPurchased") then return end
 		pcall(function()
 			MarketplaceService:PromptGamePassPurchase(player, product.gamepassId)
 		end)
+	end)
+
+	-- Escuchar actualizaciones del callback global (sin crear listener duplicado)
+	task.spawn(function()
+		local oldCallback = _G.GamepassShopPurchaseCallback
+		_G.GamepassShopPurchaseCallback = function(passId)
+			if passId == product.gamepassId then
+				markAsPurchased()
+			end
+			if oldCallback then oldCallback(passId) end
+		end
 	end)
 
 	-- Hover effects
@@ -531,29 +646,20 @@ local function createProductCard(product, index)
 	card.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			isHovering = true
-			TweenService:Create(card, TweenInfo.new(0.2), {
-				BackgroundColor3 = COLORS.cardHover
-			}):Play()
+			-- Cambiar borde a accent
 			TweenService:Create(cardStroke, TweenInfo.new(0.2), {
 				Color = COLORS.accent,
 				Transparency = 0
 			}):Play()
-			TweenService:Create(iconStroke, TweenInfo.new(0.2), {
-				Transparency = 0
+			-- Mostrar overlay y botón
+			TweenService:Create(overlay, TweenInfo.new(0.2), {
+				BackgroundTransparency = 0.4
 			}):Play()
-			-- Mostrar botón
 			TweenService:Create(buyBtn, TweenInfo.new(0.2), {
 				BackgroundTransparency = 0
 			}):Play()
 			TweenService:Create(buyBtnText, TweenInfo.new(0.2), {
 				TextTransparency = 0
-			}):Play()
-			-- Ocultar comando
-			TweenService:Create(cmdBadge, TweenInfo.new(0.15), {
-				BackgroundTransparency = 1
-			}):Play()
-			TweenService:Create(cmdLabel, TweenInfo.new(0.15), {
-				TextTransparency = 1
 			}):Play()
 		end
 	end)
@@ -561,29 +667,20 @@ local function createProductCard(product, index)
 	card.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			isHovering = false
-			TweenService:Create(card, TweenInfo.new(0.2), {
-				BackgroundColor3 = THEME.card
-			}):Play()
+			-- Restaurar borde original
 			TweenService:Create(cardStroke, TweenInfo.new(0.2), {
 				Color = THEME.stroke,
 				Transparency = 0.5
 			}):Play()
-			TweenService:Create(iconStroke, TweenInfo.new(0.2), {
-				Transparency = 0.5
+			-- Ocultar overlay y botón
+			TweenService:Create(overlay, TweenInfo.new(0.2), {
+				BackgroundTransparency = 1
 			}):Play()
-			-- Ocultar botón
 			TweenService:Create(buyBtn, TweenInfo.new(0.2), {
 				BackgroundTransparency = 1
 			}):Play()
 			TweenService:Create(buyBtnText, TweenInfo.new(0.2), {
 				TextTransparency = 1
-			}):Play()
-			-- Mostrar comando
-			TweenService:Create(cmdBadge, TweenInfo.new(0.15), {
-				BackgroundTransparency = 0
-			}):Play()
-			TweenService:Create(cmdLabel, TweenInfo.new(0.15), {
-				TextTransparency = 0
 			}):Play()
 		end
 	end)
