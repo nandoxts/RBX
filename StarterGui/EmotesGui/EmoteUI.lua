@@ -1421,13 +1421,6 @@ local function ToggleGUI(visible)
 	end
 end
 
-local Icono = Icon.new()
-Icono:setOrder(2)
-Icono:setImage("127784597936941")
-Icono:disableStateOverlay(false)
-Icono.selected:Connect(function() ToggleGUI(true) end)
-Icono.deselected:Connect(function() ToggleGUI(false) end)
-
 -- ════════════════════════════════════════════════════════════════════════════════
 -- LIMPIEZA AL DESTRUIR
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -1454,3 +1447,9 @@ end)
 EmotesFavs = ObtenerFavs:InvokeServer() or {}
 EmotesTrending = ObtenerTrending:InvokeServer() or {}
 CargarTodos()
+
+-- ════════════════════════════════════════════════════════════════════════════════
+-- GLOBAL FUNCTIONS (Para TOPBAR.lua)
+-- ════════════════════════════════════════════════════════════════════════════════
+_G.OpenEmotesUI = function() ToggleGUI(true) end
+_G.CloseEmotesUI = function() ToggleGUI(false) end

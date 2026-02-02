@@ -16,6 +16,9 @@ local FrameGamepass = gamepassUI:WaitForChild("MainFrame")
 local settingsUI = playerGui:WaitForChild("Settings")
 local FrameSettings = settingsUI:WaitForChild("MainFrame")
 
+-- Esperar a que se carguen las GUIs de sistema
+task.wait(2) -- Espera más tiempo para que los scripts se ejecuten y expongan los globales
+
 -- ════════════════════════════════════════════════════════════════
 -- SERVICIOS
 -- ════════════════════════════════════════════════════════════════
@@ -91,22 +94,13 @@ local function toggleSettingsUI()
 	guiDebounce = false
 end
 
-local function toggleInventoryUI()
-	local CoreGuiType = Enum.CoreGuiType.Backpack
-	local isBackpackEnabled = StarterGui:GetCoreGuiEnabled(CoreGuiType)
-	StarterGui:SetCoreGuiEnabled(CoreGuiType, not isBackpackEnabled)
-end
-
-local function setFavoriteOnButtonClick()
-	local success, errorInfo = pcall(function()
-		game:GetService("AvatarEditorService"):PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
-	end)
-end
-
 -- ════════════════════════════════════════════════════════════════
 -- ICONOS DEL TOPBAR
 -- ════════════════════════════════════════════════════════════════
 
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: TIENDA
+-- ════════════════════════════════════════════════════════════════
 Icon.new()
 	:setImage(9405933217)
 	:setName("Tienda")
@@ -115,6 +109,9 @@ Icon.new()
 	:bindEvent("deselected", toggleGMUI)
 	:oneClick()
 
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: CONFIGURACIÓN
+-- ════════════════════════════════════════════════════════════════
 Icon.new()
 	:setImage(9753762469)
 	:setName("Configuración")
@@ -123,6 +120,33 @@ Icon.new()
 	:bindToggleKey(Enum.KeyCode.C)
 	:bindEvent("deselected", toggleSettingsUI)
 	:oneClick()
+
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: CLANES
+-- ════════════════════════════════════════════════════════════════
+_G.ClanSystemIcon = Icon.new()
+	:setLabel("⚔️ CLAN ⚔️ ")
+	:setOrder(2)
+	:bindEvent("selected", function() if _G.OpenClanUI then _G.OpenClanUI() end end)
+	:bindEvent("deselected", function() if _G.CloseClanUI then _G.CloseClanUI() end end)
+
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: EMOTES
+-- ════════════════════════════════════════════════════════════════
+_G.EmotesIcon = Icon.new()
+	:setOrder(2)
+	:setImage("127784597936941")
+	:bindEvent("selected", function() if _G.OpenEmotesUI then _G.OpenEmotesUI() end end)
+	:bindEvent("deselected", function() if _G.CloseEmotesUI then _G.CloseEmotesUI() end end)
+
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: MÚSICA (Dashboard)
+-- ════════════════════════════════════════════════════════════════
+_G.MusicDashboardIcon = Icon.new()
+	:setImage("13780950231")
+	:setOrder(1)
+	:bindEvent("selected", function() if _G.OpenMusicUI then _G.OpenMusicUI() end end)
+	:bindEvent("deselected", function() if _G.CloseMusicUI then _G.CloseMusicUI() end end)
 
 -- ════════════════════════════════════════════════════════════════
 -- SISTEMA DE MÚSICA CON SOUNDGROUP (MUTE LOCAL)

@@ -481,24 +481,6 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 -- ════════════════════════════════════════════════════════════════
--- TOPBAR ICON
--- ════════════════════════════════════════════════════════════════
-task.wait(1)
-
-local Icon = nil
-if _G.HDAdminMain and _G.HDAdminMain.client and _G.HDAdminMain.client.Assets then
-	local iconModule = _G.HDAdminMain.client.Assets:FindFirstChild("Icon")
-	if iconModule then Icon = require(iconModule) end
-end
-
-local clanIcon = nil
-if Icon then
-	if _G.ClanSystemIcon then pcall(function() _G.ClanSystemIcon:destroy() end) end
-	clanIcon = Icon.new():setLabel("⚔️ CLAN ⚔️ "):setOrder(2):setEnabled(true)
-	_G.ClanSystemIcon = clanIcon
-end
-
--- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
 local modal = ModalManager.new({
@@ -509,8 +491,12 @@ local modal = ModalManager.new({
 	cornerRadius = CONFIG.panel.corner,
 	enableBlur = CONFIG.blur.enabled,
 	blurSize = CONFIG.blur.size,
-	onOpen = function() if clanIcon then clanIcon:select() end end,
-	onClose = function() if clanIcon then clanIcon:deselect() end end
+	onClose = function()
+		-- Deseleccionar el icono cuando se cierre el modal
+		if _G.ClanSystemIcon then
+			pcall(function() _G.ClanSystemIcon:deselect() end)
+		end
+	end
 })
 
 local panel = modal:getPanel()
@@ -1242,6 +1228,8 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- OPEN/CLOSE
 -- ════════════════════════════════════════════════════════════════
+-- OPEN/CLOSE FUNCTIONS
+-- ════════════════════════════════════════════════════════════════
 local function openUI()
 	State.isOpen = true
 	State.currentPage = nil -- IMPORTANTE: Reset para que switchTab funcione
@@ -1312,14 +1300,6 @@ btnCrear.MouseButton1Click:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- ICON BINDING
--- ════════════════════════════════════════════════════════════════
-if clanIcon then
-	clanIcon:bindEvent("selected", openUI)
-	clanIcon:bindEvent("deselected", closeUI)
-end
-
--- ════════════════════════════════════════════════════════════════
 -- LISTENER DEL SERVIDOR (Con control estricto)
 -- ════════════════════════════════════════════════════════════════
 local listenerLastTime = 0
@@ -1352,3 +1332,9 @@ end
 task.spawn(function() 
 	ClanClient:Initialize()
 end)
+
+-- ════════════════════════════════════════════════════════════════
+-- EXPORT GLOBAL API (Para TOPBAR.lua)
+-- ════════════════════════════════════════════════════════════════
+_G.OpenClanUI = openUI
+_G.CloseClanUI = closeUI

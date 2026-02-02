@@ -201,39 +201,12 @@ local R = {
 -- ════════════════════════════════════════════════════════════════
 -- ROOT GUI
 -- ════════════════════════════════════════════════════════════════
-local screenGui = script.Parent
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MusicDashboardUI"
+screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
-
--- ════════════════════════════════════════════════════════════════
--- TOPBAR MUSIC BUTTON
--- ════════════════════════════════════════════════════════════════
-local musicIcon = nil
-task.wait(2)
-
-local Icon = nil
-if _G.HDAdminMain then
-	local main = _G.HDAdminMain
-	if main.client and main.client.Assets then
-		local iconModule = main.client.Assets:FindFirstChild("Icon")
-		if iconModule then Icon = require(iconModule) end
-	end
-end
-
-if Icon then
-	if _G.MusicDashboardIcon then
-		pcall(function() _G.MusicDashboardIcon:destroy() end)
-		_G.MusicDashboardIcon = nil
-	end
-
-	musicIcon = Icon.new()
-		:setImage("13780950231")
-		:setOrder(1)
-		:bindEvent("selected", function() openUI(false) end)
-		:bindEvent("deselected", function() closeUI() end)
-		:setEnabled(true)
-
-	_G.MusicDashboardIcon = musicIcon
-end
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
@@ -247,15 +220,12 @@ local modal = ModalManager.new({
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
-	onClose = function()  
-		-- Limpiar el icono cuando se cierre por cualquier método (overlay, botón, etc.)
-		if musicIcon then
-			pcall(function() musicIcon:setSelected(false) end)
-			pcall(function() musicIcon:deselect() end)
-			pcall(function() musicIcon.Selected = false end)
-			pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
+	onClose = function()
+		-- Deseleccionar el icono cuando se cierre el modal
+		if _G.MusicDashboardIcon then
+			pcall(function() _G.MusicDashboardIcon:deselect() end)
 		end
-
+		
 		-- Desconectar el progress connection
 		if progressConnection then
 			progressConnection:Disconnect()
@@ -1761,17 +1731,6 @@ task.defer(function()
 	moveUnderline(tQueue)
 	showPage("Queue")
 end)
--- ════════════════════════════════════════════════════════════════
--- ICON CLEANUP FUNCTION (NUEVA)
--- ════════════════════════════════════════════════════════════════
-local function cleanupIcon()
-	if musicIcon then
-		pcall(function() musicIcon:setSelected(false) end)
-		pcall(function() musicIcon:deselect() end)
-		pcall(function() musicIcon.Selected = false end)
-		pcall(function() if musicIcon.Instance then musicIcon.Instance.Selected = false end end)
-	end
-end
 
 -- ════════════════════════════════════════════════════════════════
 -- UI OPEN/CLOSE
@@ -1912,3 +1871,9 @@ for i = 1, MAX_POOL_SIZE do
 	card.Parent = songsContainer
 	table.insert(cardPool, card)
 end
+
+-- ════════════════════════════════════════════════════════════════
+-- GLOBAL FUNCTIONS (Para TOPBAR.lua)
+-- ════════════════════════════════════════════════════════════════
+_G.OpenMusicUI = function() openUI(false) end
+_G.CloseMusicUI = closeUI
