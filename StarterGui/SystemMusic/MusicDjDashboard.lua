@@ -569,20 +569,18 @@ totalTimeLabel.Parent = progressContainer
 -- ════════════════════════════════════════════════════════════════
 -- VOLUME LOGIC
 -- ════════════════════════════════════════════════════════════════
-local savedVolume = player:GetAttribute("MusicVolume") or 1
+local savedVolume = player:GetAttribute("MusicVolume") or 0.5
 local currentVolume = savedVolume
 local dragging = false
 
 local function updateVolume(volume)
-	local sound = SoundService:FindFirstChild("QueueSound")
-	if sound and sound:GetAttribute("Muted") then return end
 	currentVolume = math.clamp(volume, 0, 1)
 	volSliderFill.Size = UDim2.new(currentVolume, 0, 1, 0)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
-	if sound and sound:IsA("Sound") then sound.Volume = currentVolume end
 	player:SetAttribute("MusicVolume", currentVolume)
-	-- Notificar servidor del cambio de volumen si existe el remote (nuevo sistema)
+	
+	-- Notificar servidor del cambio de volumen usando el remote
 	if R and R.ChangeVolume then
 		pcall(function() R.ChangeVolume:FireServer(currentVolume) end)
 	end
@@ -625,7 +623,7 @@ volInput:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 local function applyVolumeInput()
-	local value = math.clamp(tonumber(volInput.Text) or 1, 1, 100)
+	local value = math.clamp(tonumber(volInput.Text) or 50, 0, 100)
 	updateVolume(value / 100)
 	volInput.Visible = false
 	volLabel.Visible = true
@@ -639,13 +637,6 @@ end)
 
 volLabel.MouseLeave:Connect(function()
 	TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(50, 50, 58)}):Play()
-end)
-
-RunService.Heartbeat:Connect(function()
-	local sound = SoundService:FindFirstChild("QueueSound")
-	if sound and sound:IsA("Sound") and sound.Volume ~= currentVolume then
-		sound.Volume = currentVolume
-	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
@@ -1649,8 +1640,9 @@ end
 -- PROGRESS BAR UPDATE
 -- ════════════════════════════════════════════════════════════════
 local function updateProgressBar()
+	-- Buscar el sound object en workspace
 	if not currentSoundObject then
-		currentSoundObject = SoundService:FindFirstChild("QueueSound")
+		currentSoundObject = workspace:FindFirstChild("QueueSound")
 	end
 
 	if not currentSoundObject or not currentSoundObject:IsA("Sound") or not currentSoundObject.Parent then
@@ -1668,6 +1660,10 @@ local function updateProgressBar()
 		progressFill.Size = UDim2.new(math.clamp(current / total, 0, 1), 0, 1, 0)
 		currentTimeLabel.Text = formatTime(current)
 		totalTimeLabel.Text = formatTime(total)
+	else
+		progressFill.Size = UDim2.new(0, 0, 1, 0)
+		currentTimeLabel.Text = "0:00"
+		totalTimeLabel.Text = "0:00"
 	end
 end
 
@@ -1760,7 +1756,7 @@ function closeUI()
 	if not modal:isModalOpen() then 
 		return 
 	end
-	
+
 	-- Cerrar el modal (dispara onClose automáticamente)
 	modal:close()
 end
@@ -1799,7 +1795,8 @@ if R.Update then
 		currentSong = data.currentSong
 		allDJs = data.djs or allDJs
 
-		currentSoundObject = SoundService:FindFirstChild("QueueSound")
+		-- Buscar QueueSound en workspace
+		currentSoundObject = workspace:FindFirstChild("QueueSound")
 
 		if currentSong then
 			songTitle.Text = currentSong.name .. " - " .. (currentSong.artist or "Unknown")

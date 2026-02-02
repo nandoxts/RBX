@@ -48,7 +48,7 @@ local PRODUCTS = {
 		name = "COLORES",
 		price = 50,
 		gamepassId = Configuration.COLORS,
-		icon = "127784597936941",
+		icon = "98089887808291",
 		cmd = ":cl [color]"
 	},
 	{
@@ -103,21 +103,6 @@ panel.BackgroundColor3 = THEME.bg
 -- ════════════════════════════════════════════════════════════════
 -- FUNCIONES UTILITARIAS
 -- ════════════════════════════════════════════════════════════════
-local function addGlow(parent, color, size)
-	local glow = Instance.new("ImageLabel")
-	glow.Name = "Glow"
-	glow.Size = UDim2.new(1, size or 40, 1, size or 40)
-	glow.Position = UDim2.new(0.5, 0, 0.5, 0)
-	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.BackgroundTransparency = 1
-	glow.Image = "rbxassetid://5028857084"
-	glow.ImageColor3 = color
-	glow.ImageTransparency = 0.7
-	glow.ZIndex = parent.ZIndex - 1
-	glow.Parent = parent
-	return glow
-end
-
 local function createPremiumButton(parent, text, size, position, isPrimary)
 	local btn = Instance.new("TextButton")
 	btn.Name = "BuyButton"
@@ -200,8 +185,6 @@ local function createIconContainer(parent, iconId, size, position, glowColor)
 	icon.ZIndex = container.ZIndex + 1
 	icon.Parent = container
 	
-	addGlow(container, glowColor or COLORS.accent, 60)
-	
 	return container, icon, stroke
 end
 
@@ -239,51 +222,38 @@ title.ZIndex = 102
 title.Parent = header
 
 -- Botón cerrar premium
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 44, 0, 44)
-closeBtn.Position = UDim2.new(1, -60, 0.5, 0)
-closeBtn.AnchorPoint = Vector2.new(0, 0.5)
-closeBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 40)
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 20
-closeBtn.ZIndex = 103
-closeBtn.AutoButtonColor = false
-closeBtn.Parent = header
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 12)
-closeCorner.Parent = closeBtn
+local closeBtn = UI.button({name = "CloseBtn", size = UDim2.new(0, 44, 0, 44), pos = UDim2.new(1, -55, 0.5, -22), bg = THEME.card, text = "×", color = THEME.muted, textSize = 22, z = 103, parent = header, corner = 10})
+UI.stroked(closeBtn, 0.4)
 
 closeBtn.MouseEnter:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
-		BackgroundColor3 = Color3.fromRGB(200, 60, 60),
+		BackgroundColor3 = Color3.fromRGB(180, 60, 60),
 		TextColor3 = Color3.new(1, 1, 1)
 	}):Play()
 end)
 
 closeBtn.MouseLeave:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {
-		BackgroundColor3 = Color3.fromRGB(60, 40, 40),
-		TextColor3 = Color3.fromRGB(255, 100, 100)
+		BackgroundColor3 = THEME.card,
+		TextColor3 = THEME.muted
 	}):Play()
 end)
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENIDO PRINCIPAL
 -- ════════════════════════════════════════════════════════════════
-local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -20, 1, -100), pos = UDim2.new(0, 10, 0, 80), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
+local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -30, 1, -100), pos = UDim2.new(0, 15, 0, 80), bgT = 1, z = 101, parent = panel, corner = 0, clips = false})
 
 local content = Instance.new("ScrollingFrame")
 content.Name = "Content"
-content.Size = UDim2.new(1, 0, 1, 0)
+content.Size = UDim2.new(1, -8, 1, 0)
+content.Position = UDim2.new(0, 0, 0, 0)
 content.BackgroundTransparency = 1
 content.BorderSizePixel = 0
-content.ScrollBarThickness = 6
+content.ScrollBarThickness = 8
 content.ScrollBarImageColor3 = THEME.accent
-content.CanvasSize = UDim2.new(0, 0, 0, 580)
+content.ScrollingDirection = Enum.ScrollingDirection.Y
+content.CanvasSize = UDim2.new(0, 0, 0, 750)
 content.ZIndex = 101
 content.Parent = contentArea
 
@@ -292,8 +262,8 @@ content.Parent = contentArea
 -- ════════════════════════════════════════════════════════════════
 local featuredCard = Instance.new("Frame")
 featuredCard.Name = "FeaturedCard"
-featuredCard.Size = UDim2.new(1, 0, 0, 180)
-featuredCard.Position = UDim2.new(0, 0, 0, 0)
+featuredCard.Size = UDim2.new(1, -20, 0, 180)
+featuredCard.Position = UDim2.new(0, 10, 0, 15)
 featuredCard.BackgroundColor3 = THEME.card
 featuredCard.BorderSizePixel = 0
 featuredCard.ZIndex = 102
@@ -423,36 +393,22 @@ featuredCard.InputEnded:Connect(function(input)
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- TÍTULO DE SECCIÓN
--- ════════════════════════════════════════════════════════════════
-local sectionTitle = Instance.new("TextLabel")
-sectionTitle.Size = UDim2.new(1, 0, 0, 40)
-sectionTitle.Position = UDim2.new(0, 0, 0, 195)
-sectionTitle.BackgroundTransparency = 1
-sectionTitle.Text = "TODOS LOS PRODUCTOS"
-sectionTitle.TextColor3 = THEME.text
-sectionTitle.Font = Enum.Font.GothamBold
-sectionTitle.TextSize = 18
-sectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-sectionTitle.ZIndex = 102
-sectionTitle.Parent = content
-
--- ════════════════════════════════════════════════════════════════
 -- GRID DE PRODUCTOS
 -- ════════════════════════════════════════════════════════════════
 local gridContainer = Instance.new("Frame")
 gridContainer.Name = "GridContainer"
-gridContainer.Size = UDim2.new(1, 0, 0, 350)
-gridContainer.Position = UDim2.new(0, 0, 0, 235)
+gridContainer.Size = UDim2.new(1, -20, 0, 500)
+gridContainer.Position = UDim2.new(0, 10, 0, 210)
 gridContainer.BackgroundTransparency = 1
 gridContainer.ZIndex = 102
 gridContainer.Parent = content
 
 local gridLayout = Instance.new("UIGridLayout")
-gridLayout.CellSize = UDim2.new(0, 270, 0, 165)
-gridLayout.CellPadding = UDim2.new(0, 15, 0, 15)
+gridLayout.CellSize = UDim2.new(0, 230, 0, 150)
+gridLayout.CellPadding = UDim2.new(0, 8, 0, 10)
 gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+gridLayout.FillDirection = Enum.FillDirection.Horizontal
 gridLayout.Parent = gridContainer
 
 -- Función para crear cards de producto
@@ -479,40 +435,56 @@ local function createProductCard(product, layoutOrder)
 	local iconContainer, icon, iconStroke = createIconContainer(
 		card,
 		product.icon,
-		UDim2.new(0, 80, 0, 80),
-		UDim2.new(0, 55, 0, 55),
+		UDim2.new(0, 70, 0, 70),
+		UDim2.new(0.5, 0, 0, 40),
 		COLORS.accent
 	)
 	
+	-- Precio encima del icono
+	local priceLabel = Instance.new("TextLabel")
+	priceLabel.Size = UDim2.new(0, 60, 0, 20)
+	priceLabel.Position = UDim2.new(0.5, -30, 0, 15)
+	priceLabel.AnchorPoint = Vector2.new(0.5, 0)
+	priceLabel.BackgroundTransparency = 1
+	priceLabel.Text = product.price .. " R$"
+	priceLabel.TextColor3 = COLORS.gold
+	priceLabel.Font = Enum.Font.GothamBold
+	priceLabel.TextSize = 14
+	priceLabel.TextXAlignment = Enum.TextXAlignment.Center
+	priceLabel.ZIndex = 105
+	priceLabel.Parent = card
+	
 	-- Información del producto
 	local infoContainer = Instance.new("Frame")
-	infoContainer.Size = UDim2.new(1, -115, 1, -20)
-	infoContainer.Position = UDim2.new(0, 105, 0, 10)
+	infoContainer.Size = UDim2.new(1, -12, 0, 60)
+	infoContainer.Position = UDim2.new(0, 6, 0, 115)
 	infoContainer.BackgroundTransparency = 1
 	infoContainer.ZIndex = 104
 	infoContainer.Parent = card
 	
 	local productName = Instance.new("TextLabel")
-	productName.Size = UDim2.new(1, 0, 0, 28)
-	productName.Position = UDim2.new(0, 0, 0, 5)
+	productName.Size = UDim2.new(1, 0, 0, 20)
+	productName.Position = UDim2.new(0, 0, 0, 0)
 	productName.BackgroundTransparency = 1
 	productName.Text = product.name
 	productName.TextColor3 = THEME.text
 	productName.Font = Enum.Font.GothamBold
-	productName.TextSize = 20
-	productName.TextXAlignment = Enum.TextXAlignment.Left
+	productName.TextSize = 18
+	productName.TextXAlignment = Enum.TextXAlignment.Center
 	productName.ZIndex = 105
 	productName.Parent = infoContainer
 	
 	-- Comando
 	local cmdLabel = Instance.new("TextLabel")
-	cmdLabel.Size = UDim2.new(0, 80, 0, 22)
-	cmdLabel.Position = UDim2.new(0, 0, 0, 72)
+	cmdLabel.Size = UDim2.new(1, 0, 0, 22)
+	cmdLabel.Position = UDim2.new(0, 0, 0, 24)
 	cmdLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
 	cmdLabel.Text = product.cmd
 	cmdLabel.TextColor3 = THEME.accent
 	cmdLabel.Font = Enum.Font.GothamMedium
-	cmdLabel.TextSize = 11
+	cmdLabel.TextSize = 12
+	cmdLabel.TextXAlignment = Enum.TextXAlignment.Center
+	cmdLabel.TextYAlignment = Enum.TextYAlignment.Center
 	cmdLabel.ZIndex = 105
 	cmdLabel.Parent = infoContainer
 	
@@ -520,32 +492,23 @@ local function createProductCard(product, layoutOrder)
 	cmdCorner.CornerRadius = UDim.new(0, 6)
 	cmdCorner.Parent = cmdLabel
 	
-	-- Precio y botón
-	local bottomContainer = Instance.new("Frame")
-	bottomContainer.Size = UDim2.new(1, -20, 0, 40)
-	bottomContainer.Position = UDim2.new(0, 10, 1, -50)
-	bottomContainer.BackgroundTransparency = 1
-	bottomContainer.ZIndex = 104
-	bottomContainer.Parent = card
-	
-	local priceLabel = Instance.new("TextLabel")
-	priceLabel.Size = UDim2.new(0, 80, 1, 0)
-	priceLabel.BackgroundTransparency = 1
-	priceLabel.Text = product.price .. " R$"
-	priceLabel.TextColor3 = COLORS.gold
-	priceLabel.Font = Enum.Font.GothamBold
-	priceLabel.TextSize = 16
-	priceLabel.TextXAlignment = Enum.TextXAlignment.Left
-	priceLabel.ZIndex = 105
-	priceLabel.Parent = bottomContainer
-	
+	-- Botón COMPRAR (invisible por defecto)
 	local buyBtn = createPremiumButton(
-		bottomContainer,
+		card,
 		"COMPRAR",
 		UDim2.new(0, 100, 0, 36),
-		UDim2.new(1, -50, 0.5, 0),
+		UDim2.new(0.5, 0, 0.5, 35),
 		false
 	)
+	buyBtn.BackgroundTransparency = 1
+	buyBtn.TextTransparency = 1
+	
+	-- Hacer el texto invisible también
+	for _, child in pairs(buyBtn:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child.TextTransparency = 1
+		end
+	end
 	
 	buyBtn.MouseButton1Click:Connect(function()
 		pcall(function()
@@ -566,6 +529,20 @@ local function createProductCard(product, layoutOrder)
 			TweenService:Create(iconStroke, TweenInfo.new(0.2), {
 				Transparency = 0
 			}):Play()
+			
+			-- Mostrar botón
+			TweenService:Create(buyBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+				BackgroundTransparency = 0
+			}):Play()
+			
+			-- Mostrar texto del botón
+			for _, child in pairs(buyBtn:GetChildren()) do
+				if child:IsA("TextLabel") then
+					TweenService:Create(child, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+						TextTransparency = 0
+					}):Play()
+				end
+			end
 		end
 	end)
 	
@@ -581,6 +558,20 @@ local function createProductCard(product, layoutOrder)
 			TweenService:Create(iconStroke, TweenInfo.new(0.2), {
 				Transparency = 0.5
 			}):Play()
+			
+			-- Ocultar botón
+			TweenService:Create(buyBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+				BackgroundTransparency = 1
+			}):Play()
+			
+			-- Ocultar texto del botón
+			for _, child in pairs(buyBtn:GetChildren()) do
+				if child:IsA("TextLabel") then
+					TweenService:Create(child, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+						TextTransparency = 1
+					}):Play()
+				end
+			end
 		end
 	end)
 	
@@ -593,7 +584,8 @@ for i, product in ipairs(PRODUCTS) do
 end
 
 -- Actualizar tamaño del canvas
-content.CanvasSize = UDim2.new(0, 0, 0, gridContainer.Position.Y.Offset + gridLayout.AbsoluteContentSize.Y + 30)
+task.wait(0.1)
+content.CanvasSize = UDim2.new(0, 0, 0, gridContainer.Position.Y.Offset + gridLayout.AbsoluteContentSize.Y + 50)
 
 -- ════════════════════════════════════════════════════════════════
 -- FUNCIONES PÚBLICAS
