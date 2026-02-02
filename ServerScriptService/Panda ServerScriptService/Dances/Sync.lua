@@ -400,13 +400,26 @@ local function PropagateToFollowerChain(followers, animId, animName, timePos, sp
 	for _, follower in ipairs(followers) do
 		if IsValidPlayer(follower) and CanAnimate(follower) then
 			if follower.Character and follower.Character.Parent then
-				PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
-				NotifyClient(follower, animName)
+				-- Intentar reproducir con reintentos
+				local success = PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
+				
+				-- Si falló, reintentar una vez más
+				if not success then
+					task.wait(0.1)
+					if IsValidPlayer(follower) and CanAnimate(follower) then
+						success = PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
+					end
+				end
+				
+				-- Solo notificar si tuvo éxito
+				if success then
+					NotifyClient(follower, animName)
 
-				-- Propagar a subfollowers
-				local subFollowers = GetAllFollowers(follower)
-				if #subFollowers > 0 then
-					PropagateToFollowerChain(subFollowers, animId, animName, timePos, speed)
+					-- Propagar a subfollowers
+					local subFollowers = GetAllFollowers(follower)
+					if #subFollowers > 0 then
+						PropagateToFollowerChain(subFollowers, animId, animName, timePos, speed)
+					end
 				end
 			end
 		end
@@ -547,20 +560,46 @@ local function Follow(follower, leader)
 
 	if rootLeader and IsValidPlayer(rootLeader) then
 		local rootData = PlayerData[rootLeader]
-		if rootData.Animation then
-			local animId = rootData.Animation.Animation.AnimationId
-			animName = rootData.AnimationName
-			local timePos = rootData.Animation.TimePosition
-			speed = rootData.Animation.Speed
-			hasAnimation = true
-
-			-- Aplicar animación al nuevo seguidor
-			PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
-
-			-- Propagar a todos mis seguidores usando el helper
-			if #myFollowers > 0 then
-				PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
+		if rootData and rootData.Animation then
+			-- VALIDACIÓN FUERTE: verificar que la animación tiene datos válidos
+			local animTrack = rootData.Animation
+			local animInstance = animTrack and animTrack.Animation
+			local animId = animInstance and animInstance.AnimationId
+			
+			if animId and animId ~= "" then
+				animName = rootData.AnimationName
+				local timePos = animTrack.TimePosition
+				speed = animTrack.Speed
+				
+				-- Aplicar animación al nuevo seguidor
+				if CanAnimate(follower) then
+					if PlayAnimationOnPlayer(follower, animId, animName, timePos, speed) then
+						hasAnimation = true
+						
+						-- Propagar a todos mis seguidores usando el helper
+						if #myFollowers > 0 then
+							PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
+						end
+					else
+						-- Si falla PlayAnimation, intentar una vez más después de un delay
+						task.wait(0.1)
+						if CanAnimate(follower) then
+							if PlayAnimationOnPlayer(follower, animId, animName, timePos, speed) then
+								hasAnimation = true
+								if #myFollowers > 0 then
+									PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
+								end
+							end
+						end
+					end
+				end
+			else
+				-- El líder no tiene una animación válida, aún así sincronizar
+				hasAnimation = false
 			end
+		else
+			-- El líder raíz no tiene animación reproduciendo, sincronizar sin ella
+			hasAnimation = false
 		end
 	end
 
@@ -781,10 +820,29 @@ local function OnCharacterAdded(character)
 		PlayerData[player].Followers = myFollowers
 		UpdateFollowerCount(player)
 
-		-- Si estaba siguiendo a alguien, RE-SINCRONIZAR
+		-- Si estaba siguiendo a alguien, RE-SINCRONIZAR con reintentos
 		if wasFollowing and IsValidPlayer(wasFollowing) then
-			-- Re-establecer la sincronización
-			Follow(player, wasFollowing)
+			-- Intento 1: Re-sincronizar inmediatamente
+			local syncSuccess = Follow(player, wasFollowing)
+			
+			-- Si falló, esperar y reintentar
+			if not syncSuccess then
+				task.wait(0.3)
+				if not IsValidPlayer(player) then return end
+				syncSuccess = Follow(player, wasFollowing)
+			end
+			
+			-- Si falla la segunda vez, notificar al cliente
+			if not syncSuccess and IsValidPlayer(wasFollowing) then
+				-- El líder puede haber desaparecido, intentar desincronizar
+				pcall(function()
+					SyncUpdate:FireClient(player, { 
+						isSynced = false, 
+						leaderName = nil, 
+						animationName = nil 
+					})
+				end)
+			end
 		end
 
 		-- Notificar a mis seguidores que sigo disponible
