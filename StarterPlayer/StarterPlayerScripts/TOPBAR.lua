@@ -166,7 +166,7 @@ if musicSoundGroup then
 			soundIcon:setImage(ICON_SOUND_ON)
 		end
 
-		print("[Topbar] Música:", isMuted and "MUTEADA" or "ACTIVADA")
+		print(" Música:", isMuted and "MUTEADA" or "ACTIVADA")
 	end)
 else
 	warn("[Topbar] No se encontró 'MusicSoundGroup' en SoundService - Créalo manualmente en Studio")

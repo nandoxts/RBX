@@ -296,11 +296,11 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- NAVEGACIÓN ENTRE VISTAS
 -- ════════════════════════════════════════════════════════════════
-local Navigation = { 
-	tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) 
+local Navigation = {
+	tweenInfo = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 }
 
-function Navigation:goto(viewName)
+function Navigation:navigateTo(viewName)
 	if State.currentView == viewName then return end
 	if not State.views[viewName] then return end
 
@@ -774,7 +774,7 @@ local function createMainView(parent, clanData, playerRole)
 		end
 	end
 
-	Memory:track(membersBtn.MouseButton1Click:Connect(function() Navigation:goto("members") end))
+	Memory:track(membersBtn.MouseButton1Click:Connect(function() Navigation:navigateTo("members") end))
 
 	-- SOLICITUDES CARD
 	local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
@@ -783,7 +783,7 @@ local function createMainView(parent, clanData, playerRole)
 		local pendingCard, pendingBtn, pendingSubtitle, pendingDot = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "📩", title = "SOLICITUDES", subtitle = "Cargando...", showNotification = true})
 		pendingCard.LayoutOrder = nextOrder()
 
-		Memory:track(pendingBtn.MouseButton1Click:Connect(function() Navigation:goto("pending") end))
+		Memory:track(pendingBtn.MouseButton1Click:Connect(function() Navigation:navigateTo("pending") end))
 
 		task.spawn(function()
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
@@ -864,7 +864,7 @@ local function createMembersView(parent, clanData, playerRole)
 	local membersView = UI.frame({name = "MembersView", size = UDim2.new(1, 0, 1, 0), pos = UDim2.new(1, 0, 0, 0), bgT = 1, z = 103, parent = parent, clips = true})
 	membersView.Visible = false
 
-	createViewHeader(membersView, "👥 MIEMBROS", function() Navigation:goto("main") end)
+	createViewHeader(membersView, "👥 MIEMBROS", function() Navigation:navigateTo("main") end)
 
 	local listContainer = UI.frame({name = "MembersListContainer", size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = membersView})
 
@@ -893,7 +893,7 @@ local function createPendingView(parent, clanData, playerRole)
 	local pendingView = UI.frame({name = "PendingView", size = UDim2.new(1, 0, 1, 0), pos = UDim2.new(1, 0, 0, 0), bgT = 1, z = 103, parent = parent, clips = true})
 	pendingView.Visible = false
 
-	createViewHeader(pendingView, "📩 SOLICITUDES", function() Navigation:goto("main") end)
+	createViewHeader(pendingView, "📩 SOLICITUDES", function() Navigation:navigateTo("main") end)
 
 	local listContainer = UI.frame({name = "PendingListContainer", size = UDim2.new(1, -8, 1, -56), pos = UDim2.new(0, 4, 0, 52), bgT = 1, z = 104, parent = pendingView})
 
