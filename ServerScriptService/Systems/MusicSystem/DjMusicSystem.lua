@@ -82,14 +82,9 @@ local R = {
 -- ════════════════════════════════════════════════════════════════
 -- SOUND SETUP
 -- ════════════════════════════════════════════════════════════════
-local soundObject = SoundService:FindFirstChild("QueueSound")
-if soundObject then soundObject:Destroy() end
-
-soundObject = Instance.new("Sound")
-soundObject.Name = "QueueSound"
+local soundObject = workspace:FindFirstChild("QueueSound")
 soundObject.Volume = DEFAULT_VOLUME
 soundObject.Looped = false
-soundObject.Parent = SoundService
 
 local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
 if musicSoundGroup then soundObject.SoundGroup = musicSoundGroup end
@@ -233,7 +228,7 @@ local function loadMetadataBatch(ids, callback)
 	for _, id in ipairs(ids) do
 		if metadataCache[id] and metadataCache[id].loaded then
 			results[id] = metadataCache[id]
-			pending = pending - 1
+			pending -= 1
 			if pending == 0 and callback then callback(results) end
 		else
 			task.spawn(function()
@@ -242,7 +237,7 @@ local function loadMetadataBatch(ids, callback)
 					and {name = info.Name or "Audio "..id, artist = (info.Creator and info.Creator.Name) or "Unknown", loaded = true}
 					or {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
 				results[id] = metadataCache[id]
-				pending = pending - 1
+				pending -= 1
 				if pending == 0 and callback then callback(results) end
 			end)
 		end
@@ -494,7 +489,7 @@ local function removeFromQueue(index)
 			playSong(currentSongIndex)
 		end
 	elseif index < currentSongIndex then
-		currentSongIndex = currentSongIndex - 1
+		currentSongIndex -= 1
 	else
 		-- index > currentSongIndex: solo actualizar clientes
 		updateAllClients()
@@ -509,7 +504,7 @@ local function clearQueue()
 
 	if isPlaying and currentSongIndex == 1 then
 		playQueue = {playQueue[1]}
-		count = count - 1
+		count -= 1
 		updateAllClients()
 	else
 		playQueue = {}

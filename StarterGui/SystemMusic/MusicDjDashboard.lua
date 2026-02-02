@@ -20,6 +20,7 @@ local SoundService = game:GetService("SoundService")
 -- ════════════════════════════════════════════════════════════════
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
+local GlobalModalManager = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
@@ -221,12 +222,7 @@ local modal = ModalManager.new({
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
 	onClose = function()
-		-- Deseleccionar el icono cuando se cierre el modal
-		if _G.MusicDashboardIcon then
-			pcall(function() _G.MusicDashboardIcon:deselect() end)
-		end
-		
-		-- Desconectar el progress connection
+		-- Limpiar conexiones cuando se cierre
 		if progressConnection then
 			progressConnection:Disconnect()
 			progressConnection = nil
@@ -1736,7 +1732,10 @@ end)
 -- UI OPEN/CLOSE
 -- ════════════════════════════════════════════════════════════════
 function openUI(openToLibrary)
-	if modal:isModalOpen() then return end
+	-- Si el modal ya está abierto, no hacer nada
+	if modal:isModalOpen() then 
+		return 
+	end
 
 	if openToLibrary then
 		showPage("Library")
@@ -1746,24 +1745,36 @@ function openUI(openToLibrary)
 		moveUnderline(tQueue)
 	end
 
+	-- Abrir el modal
 	modal:open()
 
-	if progressConnection then progressConnection:Disconnect() end
+	-- Conectar la barra de progreso
+	if progressConnection then 
+		progressConnection:Disconnect() 
+	end
 	progressConnection = RunService.Heartbeat:Connect(updateProgressBar)
 end
+
 function closeUI()
-	if not modal:isModalOpen() then return end
-	modal:close()  
+	-- Si el modal no está abierto, no hacer nada
+	if not modal:isModalOpen() then 
+		return 
+	end
+	
+	-- Cerrar el modal (dispara onClose automáticamente)
+	modal:close()
 end
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
 -- ════════════════════════════════════════════════════════════════
-closeBtn.MouseButton1Click:Connect(closeUI)
+closeBtn.MouseButton1Click:Connect(function()
+	GlobalModalManager:closeModal("Music")
+end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if not gameProcessed then
 		if input.KeyCode == Enum.KeyCode.Escape and modal:isModalOpen() then
-			closeUI()
+			GlobalModalManager:closeModal("Music")
 		elseif input.KeyCode == Enum.KeyCode.Return and volInput.Visible then
 			applyVolumeInput()
 		end
@@ -1873,7 +1884,12 @@ for i = 1, MAX_POOL_SIZE do
 end
 
 -- ════════════════════════════════════════════════════════════════
--- GLOBAL FUNCTIONS (Para TOPBAR.lua)
+-- GLOBAL FUNCTIONS (Para TOPBAR.lua y GlobalModalManager)
 -- ════════════════════════════════════════════════════════════════
-_G.OpenMusicUI = function() openUI(false) end
-_G.CloseMusicUI = closeUI
+_G.OpenMusicUI = function() 
+	openUI(false)
+end
+
+_G.CloseMusicUI = function()
+	closeUI()
+end

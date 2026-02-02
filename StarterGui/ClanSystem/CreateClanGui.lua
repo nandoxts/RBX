@@ -23,6 +23,7 @@ local ClanSystemConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitFo
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
+local GlobalModalManager = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
 local MembersList = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("MembersList"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
@@ -492,10 +493,8 @@ local modal = ModalManager.new({
 	enableBlur = CONFIG.blur.enabled,
 	blurSize = CONFIG.blur.size,
 	onClose = function()
-		-- Deseleccionar el icono cuando se cierre el modal
-		if _G.ClanSystemIcon then
-			pcall(function() _G.ClanSystemIcon:deselect() end)
-		end
+		-- GlobalModalManager maneja la deselección del ícono automáticamente
+		-- No hacer nada aquí
 	end
 })
 
@@ -1271,7 +1270,9 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- EVENTS
 -- ════════════════════════════════════════════════════════════════
-closeBtn.MouseButton1Click:Connect(closeUI)
+closeBtn.MouseButton1Click:Connect(function()
+	GlobalModalManager:closeModal("Clan")
+end)
 
 btnCrear.MouseButton1Click:Connect(function()
 	local clanName = inputNombre.Text

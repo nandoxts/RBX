@@ -10,14 +10,16 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- ════════════════════════════════════════════════════════════════
 -- REFERENCIAS A GUIs
 -- ════════════════════════════════════════════════════════════════
-local gamepassUI = playerGui:WaitForChild("GamepassUI")
-local FrameGamepass = gamepassUI:WaitForChild("MainFrame")
-
 local settingsUI = playerGui:WaitForChild("Settings")
 local FrameSettings = settingsUI:WaitForChild("MainFrame")
 
 -- Esperar a que se carguen las GUIs de sistema
-task.wait(2) -- Espera más tiempo para que los scripts se ejecuten y expongan los globales
+task.wait(0.5)
+
+-- ════════════════════════════════════════════════════════════════
+-- MÓDULOS
+-- ════════════════════════════════════════════════════════════════
+local GlobalModalManager = require(game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- SERVICIOS
@@ -47,11 +49,6 @@ local guiDebounce = false
 -- FUNCIONES DE GUI
 -- ════════════════════════════════════════════════════════════════
 
-local function closeAllGUIsExcept(exception)
-	if exception ~= "GMUI" then FrameGamepass.Visible = false end
-	if exception ~= "SettingsUI" then FrameSettings.Visible = false end
-end
-
 local function openGUIAnimation()
 	TweenService:Create(Blur, Info, {Size = 15}):Play()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV - 10}):Play()
@@ -62,22 +59,6 @@ local function closeGUIAnimation()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV}):Play()
 end
 
-local function toggleGMUI()
-	if guiDebounce then return end
-	guiDebounce = true
-
-	if FrameGamepass.Visible then
-		closeGUIAnimation()
-		FrameGamepass.Visible = false
-	else
-		closeAllGUIsExcept("GMUI")
-		openGUIAnimation()
-		FrameGamepass.Visible = true
-	end
-
-	guiDebounce = false
-end
-
 local function toggleSettingsUI()
 	if guiDebounce then return end
 	guiDebounce = true
@@ -86,7 +67,6 @@ local function toggleSettingsUI()
 		closeGUIAnimation()
 		FrameSettings.Visible = false
 	else
-		closeAllGUIsExcept("SettingsUI")
 		openGUIAnimation()
 		FrameSettings.Visible = true
 	end
@@ -101,25 +81,36 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- ICONO: TIENDA
 -- ════════════════════════════════════════════════════════════════
-Icon.new()
+_G.ShopIcon = Icon.new()
 	:setImage(9405933217)
 	:setName("Tienda")
 	:setCaption("Tienda")
 	:bindToggleKey(Enum.KeyCode.T)
-	:bindEvent("deselected", toggleGMUI)
-	:oneClick()
+	:autoDeselect(false)
+
+_G.ShopIcon:bindEvent("selected", function()
+	GlobalModalManager:openModal("Shop")
+end)
+
+_G.ShopIcon:bindEvent("deselected", function()
+	GlobalModalManager:closeModal("Shop")
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- ICONO: CONFIGURACIÓN
 -- ════════════════════════════════════════════════════════════════
-Icon.new()
+local configIcon = Icon.new()
 	:setImage(9753762469)
 	:setName("Configuración")
 	:setCaption("Configuración")
 	:align("Right")
 	:bindToggleKey(Enum.KeyCode.C)
-	:bindEvent("deselected", toggleSettingsUI)
+	:autoDeselect(false)
 	:oneClick()
+
+configIcon:bindEvent("deselected", function()
+	toggleSettingsUI()
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- ICONO: CLANES
@@ -127,8 +118,15 @@ Icon.new()
 _G.ClanSystemIcon = Icon.new()
 	:setLabel("⚔️ CLAN ⚔️ ")
 	:setOrder(2)
-	:bindEvent("selected", function() if _G.OpenClanUI then _G.OpenClanUI() end end)
-	:bindEvent("deselected", function() if _G.CloseClanUI then _G.CloseClanUI() end end)
+	:autoDeselect(false)
+
+_G.ClanSystemIcon:bindEvent("selected", function(icon)
+	GlobalModalManager:openModal("Clan")
+end)
+
+_G.ClanSystemIcon:bindEvent("deselected", function(icon)
+	GlobalModalManager:closeModal("Clan")
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- ICONO: EMOTES
@@ -136,8 +134,15 @@ _G.ClanSystemIcon = Icon.new()
 _G.EmotesIcon = Icon.new()
 	:setOrder(2)
 	:setImage("127784597936941")
-	:bindEvent("selected", function() if _G.OpenEmotesUI then _G.OpenEmotesUI() end end)
-	:bindEvent("deselected", function() if _G.CloseEmotesUI then _G.CloseEmotesUI() end end)
+	:autoDeselect(false)
+
+_G.EmotesIcon:bindEvent("selected", function(icon)
+	GlobalModalManager:openModal("Emotes")
+end)
+
+_G.EmotesIcon:bindEvent("deselected", function(icon)
+	GlobalModalManager:closeModal("Emotes")
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- ICONO: MÚSICA (Dashboard)
@@ -145,8 +150,15 @@ _G.EmotesIcon = Icon.new()
 _G.MusicDashboardIcon = Icon.new()
 	:setImage("13780950231")
 	:setOrder(1)
-	:bindEvent("selected", function() if _G.OpenMusicUI then _G.OpenMusicUI() end end)
-	:bindEvent("deselected", function() if _G.CloseMusicUI then _G.CloseMusicUI() end end)
+	:autoDeselect(false)
+
+_G.MusicDashboardIcon:bindEvent("selected", function(icon)
+	GlobalModalManager:openModal("Music")
+end)
+
+_G.MusicDashboardIcon:bindEvent("deselected", function(icon)
+	GlobalModalManager:closeModal("Music")
+end)
 
 -- ════════════════════════════════════════════════════════════════
 -- SISTEMA DE MÚSICA CON SOUNDGROUP (MUTE LOCAL)
@@ -162,6 +174,7 @@ if musicSoundGroup then
 		:setName("SoundToggle")
 		:setCaption("Música")
 		:bindToggleKey(Enum.KeyCode.M)
+		:autoDeselect(false)
 		:oneClick()
 
 	-- ════════════════════════════════════════════════════════════
@@ -174,7 +187,7 @@ if musicSoundGroup then
 	local ICON_SOUND_OFF = 14861812886
 
 	-- ════════════════════════════════════════════════════════════
-	-- TOGGLE MUTE (SIMPLE Y LIMPIO)
+	-- TOGGLE MUTE
 	-- ════════════════════════════════════════════════════════════
 	soundIcon:bindEvent("deselected", function()
 		isMuted = not isMuted

@@ -100,31 +100,19 @@ function ModalManager.new(config)
 end
 
 function ModalManager:_createOverlay()
-	self.overlay = Instance.new("TextButton")
+	self.overlay = Instance.new("Frame")
 	self.overlay.Name = "Overlay"
 	self.overlay.BackgroundColor3 = THEME.bg
-	self.overlay.AutoButtonColor = false
 	self.overlay.BorderSizePixel = 0
 	self.overlay.Size = UDim2.fromScale(1, 1)
 	self.overlay.Position = UDim2.fromScale(0, 0)
 	self.overlay.BackgroundTransparency = 1
 	self.overlay.Visible = false
 	self.overlay.ZIndex = 95
-	self.overlay.Text = ""
 	self.overlay.Parent = self.screenGui
-
-	-- Click en overlay cierra el modal solo si es fuera del panel
-	self.overlayConnection = self.overlay.MouseButton1Click:Connect(function()
-		local mousePos = game:GetService("UserInputService"):GetMouseLocation()
-		local panelPos = self.panel.AbsolutePosition
-		local panelSize = self.panel.AbsoluteSize
-
-		-- Verificar si el click fue fuera del panel
-		if mousePos.X < panelPos.X or mousePos.X > panelPos.X + panelSize.X or
-			mousePos.Y < panelPos.Y or mousePos.Y > panelPos.Y + panelSize.Y then
-			self:close()
-		end
-	end)
+	
+	-- Overlay solo visual - NO detecta clics
+	-- Los modales se cierran SOLO con el botón que los abrió o el botón X
 end
 
 function ModalManager:_createBlur()
