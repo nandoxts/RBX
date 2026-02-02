@@ -48,11 +48,11 @@ local function playerOwnsGamePass(gamePassId)
 	if gamepassCache[gamePassId] ~= nil then
 		return gamepassCache[gamePassId]
 	end
-	
+
 	local success, ownsGamepass = pcall(function()
 		return CheckGamepassOwnership:InvokeServer(gamePassId)
 	end)
-	
+
 	local result = success and ownsGamepass
 	gamepassCache[gamePassId] = result
 	return result
@@ -69,7 +69,7 @@ local purchaseListenerConnected = false
 local function setupGlobalPurchaseListener()
 	if purchaseListenerConnected then return end
 	purchaseListenerConnected = true
-	
+
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(purchasingPlayer, passId, wasPurchased)
 		if purchasingPlayer == player and wasPurchased then
 			-- Actualizar cache
@@ -642,7 +642,7 @@ local function createProductCard(product, index)
 
 	-- Hover effects
 	local isHovering = false
-	
+
 	card.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			isHovering = true

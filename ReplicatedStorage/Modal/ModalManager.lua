@@ -110,7 +110,7 @@ function ModalManager:_createOverlay()
 	self.overlay.Visible = false
 	self.overlay.ZIndex = 95
 	self.overlay.Parent = self.screenGui
-	
+
 	-- Overlay solo visual - NO detecta clics
 	-- Los modales se cierran SOLO con el botón que los abrió o el botón X
 end
