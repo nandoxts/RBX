@@ -20,7 +20,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
 local Animaciones = require(ReplicatedStorage:WaitForChild("Emotes_Sync"):WaitForChild("Emotes_Modules"):WaitForChild("Animaciones"))
-local Settings = require(script.Settings)
+
+-- Configuración inline
+local Settings = {
+	ResetAnimationOnRespawn = true
+}
 
 local Remotes = ReplicatedStorage:WaitForChild("Emotes_Sync")
 
@@ -415,9 +419,28 @@ end
 
 -- Detener animaciones de todos los seguidores (y opcionalmente desincronizarlos)
 local function StopFollowersAnimations(leader, alsoUnsync)
-	if not IsValidPlayer(leader) then return end
+	-- Si el leader no tiene PlayerData, no hay nada que hacer
+	if not PlayerData[leader] then return end
 
-	local allFollowers = GetAllFollowers(leader)
+	-- Obtener seguidores directamente sin validar si el leader está en Players
+	-- (esto es importante para OnPlayerRemoving donde player.Parent ya no es Players)
+	local allFollowers = {}
+	local function collectFollowers(currentPlayer, visited)
+		visited = visited or {}
+		if visited[currentPlayer] then return end
+		visited[currentPlayer] = true
+		
+		local data = PlayerData[currentPlayer]
+		if not data or not data.Followers then return end
+		
+		for _, follower in ipairs(data.Followers) do
+			if follower and follower.Parent == Players and PlayerData[follower] and not visited[follower] then
+				table.insert(allFollowers, follower)
+				collectFollowers(follower, visited)
+			end
+		end
+	end
+	collectFollowers(leader)
 
 	for _, follower in ipairs(allFollowers) do
 		-- Validar que el seguidor sigue siendo válido
