@@ -72,8 +72,15 @@ local function GetBestGamepassRank(player)
 	local bestRankName, bestRankId = nil, nil
 
 	for gamepassId, rankName in pairs(GAMEPASS_RANKS) do
-		local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or
-			GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+		local isGifted = false
+		local success, result = pcall(function()
+			return GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+		end)
+		if success and result then
+			isGifted = true
+		end
+		
+		local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
 		if ownsGamepass then
 			local rankId = hd:GetRankId(rankName)
@@ -107,8 +114,15 @@ local function CheckAllGamepasses(player)
 		end)
 
 		if success and productInfo then
-			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or
-				GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+			local isGifted = false
+			local giftSuccess, giftResult = pcall(function()
+				return GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+			end)
+			if giftSuccess and giftResult then
+				isGifted = true
+			end
+			
+			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
 			-- Verificar si ya existe un BoolValue para este gamepass
 			local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)

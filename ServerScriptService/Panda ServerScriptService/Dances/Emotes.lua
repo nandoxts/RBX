@@ -57,8 +57,19 @@ end
 AnadirFav.OnServerInvoke = function(jugador, id) 
 	local Jugador = jugador
 	local ID = id
-	local FavoritosJugador = Favoritos:GetAsync(Jugador.UserId)
-	local FavoritosJugador = FavoritosJugador or {}
+	
+	-- Cargar favoritos con pcall
+	local ok, FavoritosJugador = pcall(function()
+		return Favoritos:GetAsync(Jugador.UserId)
+	end)
+	
+	if not ok then
+		warn("Error al cargar favoritos:", FavoritosJugador)
+		return false
+	end
+	
+	FavoritosJugador = FavoritosJugador or {}
+	
 	local EstaId = false
 	for i,v in pairs(FavoritosJugador) do
 		if v == ID then
@@ -71,11 +82,13 @@ AnadirFav.OnServerInvoke = function(jugador, id)
 		table.insert(FavoritosJugador, ID)
 	end
 
+	-- Guardar con pcall
 	local succ, err = pcall(function()
 		Favoritos:SetAsync(Jugador.UserId, FavoritosJugador)
 	end)
 
-	if err then
+	if not succ then
+		warn("Error al guardar favoritos:", err)
 		return false
 	end
 
@@ -88,7 +101,16 @@ end
 
 ObtenerFavs.OnServerInvoke = function(jugador)
 	local Jugador = jugador
-	local FavoritosJugador = Favoritos:GetAsync(Jugador.UserId)
-	local FavoritosJugador = FavoritosJugador or {}
-	return FavoritosJugador
+	
+	-- Cargar favoritos con pcall
+	local ok, FavoritosJugador = pcall(function()
+		return Favoritos:GetAsync(Jugador.UserId)
+	end)
+	
+	if not ok then
+		warn("Error al cargar favoritos:", FavoritosJugador)
+		return {}
+	end
+	
+	return FavoritosJugador or {}
 end
