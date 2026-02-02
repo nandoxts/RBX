@@ -83,59 +83,11 @@ local R = {
 -- SOUND SETUP
 -- ════════════════════════════════════════════════════════════════
 local soundObject = workspace:FindFirstChild("QueueSound")
-
--- Si no existe en workspace, buscarlo en otros lugares o crearlo
-if not soundObject then
-	print("[DjMusicSystem] QueueSound no encontrado en workspace, buscando en otros lugares...")
-	soundObject = game:FindFirstDescendant("QueueSound")
-	
-	if not soundObject then
-		print("[DjMusicSystem] QueueSound no existe, creando uno nuevo en workspace...")
-		soundObject = Instance.new("Sound")
-		soundObject.Name = "QueueSound"
-		soundObject.Volume = DEFAULT_VOLUME
-		soundObject.Looped = false
-		soundObject.Parent = workspace
-	else
-		print("[DjMusicSystem] QueueSound encontrado en: " .. soundObject.Parent:GetFullName())
-	end
-else
-	print("[DjMusicSystem] QueueSound encontrado en workspace")
-end
-
--- Validar que soundObject existe antes de usarlo
-if not soundObject then
-	warn("[DjMusicSystem] CRÍTICO: No se pudo crear o encontrar QueueSound")
-	return
-end
-
 soundObject.Volume = DEFAULT_VOLUME
 soundObject.Looped = false
 
 local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
-if musicSoundGroup then 
-	soundObject.SoundGroup = musicSoundGroup
-	print("[DjMusicSystem] SoundGroup asignado correctamente")
-	print("[DjMusicSystem] SoundGroup Volume:", musicSoundGroup.Volume)
-else
-	print("[DjMusicSystem] MusicSoundGroup no encontrado - el volumen funcionará sin SoundGroup")
-end
-
--- ════════════════════════════════════════════════════════════════
--- DEBUG INFO
--- ════════════════════════════════════════════════════════════════
-task.defer(function()
-	print("\n[DjMusicSystem] ════ ESTADO ACTUAL ════")
-	print("[DjMusicSystem] soundObject:", soundObject)
-	print("[DjMusicSystem] soundObject.Volume:", soundObject and soundObject.Volume or "N/A")
-	print("[DjMusicSystem] soundObject.Parent:", soundObject and soundObject.Parent:GetFullName() or "N/A")
-	if musicSoundGroup then
-		print("[DjMusicSystem] musicSoundGroup.Volume:", musicSoundGroup.Volume)
-		print("[DjMusicSystem] soundObject.SoundGroup:", soundObject.SoundGroup)
-	end
-	print("[DjMusicSystem] ════════════════════════")
-end)
-end
+if musicSoundGroup then soundObject.SoundGroup = musicSoundGroup end
 
 -- ════════════════════════════════════════════════════════════════
 -- PITCH MODULE
@@ -706,18 +658,8 @@ end
 
 if R.ChangeVolume then
 	R.ChangeVolume.OnServerEvent:Connect(function(player, vol)
-		if type(vol) ~= "number" then return end
-		if not hasPermission(player, "ChangeVolume") then return end
-		
-		-- Validar que soundObject existe
-		if not soundObject then
-			soundObject = workspace:FindFirstChild("QueueSound")
-			if not soundObject then return end
-		end
-		
-		local volumeValue = math.clamp(vol, 0, 1)
-		soundObject.Volume = volumeValue
-		print("[DjMusicSystem] Volumen cambiado a:", volumeValue, "por:", player.Name)
+		if type(vol) ~= "number" or not hasPermission(player, "ChangeVolume") then return end
+		soundObject.Volume = math.clamp(vol, 0, 1)
 	end)
 end
 

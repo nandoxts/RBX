@@ -124,7 +124,7 @@ local function getRemote(name)
 	if not RemotesGlobal then return end
 
 	local remoteMap = {
-		NextSong = "MusicPlayback", PlaySong = "MusicPlayback", PauseSong = "MusicPlayback", StopSong = "MusicPlayback",
+		NextSong = "MusicPlayback", PlaySong = "MusicPlayback", PauseSong = "MusicPlayback", StopSong = "MusicPlayback", ChangeVolume = "MusicPlayback",
 		AddToQueue = "MusicQueue", AddToQueueResponse = "MusicQueue", RemoveFromQueue = "MusicQueue",
 		RemoveFromQueueResponse = "MusicQueue", ClearQueue = "MusicQueue", ClearQueueResponse = "MusicQueue",
 		UpdateUI = "UI", GetDJs = "MusicLibrary", GetSongsByDJ = "MusicLibrary", GetSongRange = "MusicLibrary",
@@ -184,6 +184,9 @@ end
 -- ════════════════════════════════════════════════════════════════
 local R = {
 	Next = getRemote("NextSong"),
+	Play = getRemote("PlaySong"),
+	Pause = getRemote("PauseSong"),
+	Stop = getRemote("StopSong"),
 	Add = getRemote("AddToQueue"),
 	AddResponse = getRemote("AddToQueueResponse"),
 	Remove = getRemote("RemoveFromQueue"),
@@ -420,7 +423,8 @@ volInput.TextSize = 13
 volInput.BorderSizePixel = 0
 volInput.ZIndex = 106
 volInput.Visible = false
-volInput.ClearTextOnFocus = false
+volInput.ClearTextOnFocus = true
+volInput.MultiLine = false
 volInput.TextXAlignment = Enum.TextXAlignment.Center
 volInput.Parent = volFrame
 UI.rounded(volInput, 6)
@@ -623,13 +627,24 @@ volInput:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 local function applyVolumeInput()
-	local value = math.clamp(tonumber(volInput.Text) or 50, 0, 100)
+	local value = tonumber(volInput.Text) or 50
+	value = math.clamp(value, 0, 100)
 	updateVolume(value / 100)
 	volInput.Visible = false
 	volLabel.Visible = true
 end
 
-volInput.FocusLost:Connect(applyVolumeInput)
+volInput.FocusLost:Connect(function(enterPressed)
+	applyVolumeInput()
+end)
+
+-- También permitir presionar Enter para aplicar
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.Return and volInput.Visible and volInput:IsFocused() then
+		applyVolumeInput()
+	end
+end)
 
 volLabel.MouseEnter:Connect(function()
 	TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 70, 80)}):Play()
