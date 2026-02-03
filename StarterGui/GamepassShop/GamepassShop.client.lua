@@ -130,6 +130,72 @@ local modal = ModalManager.new({
 
 local panel = modal:getPanel()
 panel.BackgroundColor3 = THEME.bg
+panel.ClipsDescendants = true
+
+-- ════════════════════════════════════════════════════════════════
+-- PATRÓN DE GRID (DECORACIÓN DE FONDO)
+-- ════════════════════════════════════════════════════════════════
+local gridPattern = Instance.new("Frame")
+gridPattern.Name = "GridPattern"
+gridPattern.Size = UDim2.new(1, -20, 1, -20)
+gridPattern.Position = UDim2.new(0, 10, 0, 10)
+gridPattern.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+gridPattern.Transparency = 0.92
+gridPattern.BorderSizePixel = 0
+gridPattern.ClipsDescendants = true
+gridPattern.ZIndex = 99
+gridPattern.Parent = panel
+
+-- Función para crear líneas con tamaño actual
+local function createGridLines()
+	-- Limpiar líneas existentes
+	for _, child in ipairs(gridPattern:GetChildren()) do
+		child:Destroy()
+	end
+	
+	task.wait(0.01) -- Esperar a que se resuelva el tamaño
+	
+	local gridWidth = gridPattern.AbsoluteSize.X
+	local gridHeight = gridPattern.AbsoluteSize.Y
+	
+	-- Líneas horizontales (solo del centro, sin bordes)
+	for i = 1, 9 do
+		local hLine = Instance.new("Frame")
+		hLine.Name = "HLine_" .. i
+		hLine.Size = UDim2.new(1, 0, 0, 2)
+		hLine.Position = UDim2.new(0, 0, 0, (gridHeight / 10) * i)
+		hLine.BackgroundColor3 = COLORS.accent
+		hLine.Transparency = 0.55
+		hLine.BorderSizePixel = 0
+		hLine.ZIndex = 99
+		hLine.Parent = gridPattern
+		
+		local hLineCorner = Instance.new("UICorner")
+		hLineCorner.CornerRadius = UDim.new(0, 20)
+		hLineCorner.Parent = hLine
+	end
+
+	-- Líneas verticales (solo del centro, sin bordes)
+	for i = 1, 9 do
+		local vLine = Instance.new("Frame")
+		vLine.Name = "VLine_" .. i
+		vLine.Size = UDim2.new(0, 2, 1, 0)
+		vLine.Position = UDim2.new(0, (gridWidth / 10) * i, 0, 0)
+		vLine.BackgroundColor3 = COLORS.accent
+		vLine.Transparency = 0.55
+		vLine.BorderSizePixel = 0
+		vLine.ZIndex = 99
+		vLine.Parent = gridPattern
+		
+		local vLineCorner = Instance.new("UICorner")
+		vLineCorner.CornerRadius = UDim.new(0, 20)
+		vLineCorner.Parent = vLine
+	end
+end
+
+-- Crear líneas cuando el grid esté listo
+task.wait(0.1)
+createGridLines()
 
 -- ════════════════════════════════════════════════════════════════
 -- FUNCIONES UTILITARIAS
@@ -268,7 +334,7 @@ content.Size = UDim2.new(1, -8, 1, 0)
 content.Position = UDim2.new(0, 0, 0, 0)
 content.BackgroundTransparency = 1
 content.BorderSizePixel = 0
-content.ScrollBarThickness = 6
+content.ScrollBarThickness = 0
 content.ScrollBarImageColor3 = THEME.accent
 content.ScrollingDirection = Enum.ScrollingDirection.Y
 content.CanvasSize = UDim2.new(0, 0, 0, 750)
@@ -299,8 +365,8 @@ featuredStroke.Parent = featuredCard
 
 -- Tag destacado
 local featuredTag = Instance.new("TextLabel")
-featuredTag.Size = UDim2.new(0, 125, 0, 26)
-featuredTag.Position = UDim2.new(0, 15, 0, 15)
+featuredTag.Size = UDim2.new(0, 100, 0, 22)
+featuredTag.Position = UDim2.new(0, 15, 0, 18)
 featuredTag.BackgroundColor3 = COLORS.gold
 featuredTag.Text = FEATURED_PRODUCT.tag
 featuredTag.TextColor3 = Color3.fromRGB(30, 25, 10)
@@ -437,7 +503,7 @@ end)
 -- ════════════════════════════════════════════════════════════════
 local separator = Instance.new("Frame")
 separator.Size = UDim2.new(1, -60, 0, 1)
-separator.Position = UDim2.new(0.5, 0, 0, 180)
+separator.Position = UDim2.new(0.5, 0, 0, 220)
 separator.AnchorPoint = Vector2.new(0.5, 0)
 separator.BackgroundColor3 = THEME.stroke
 separator.BackgroundTransparency = 0.6
@@ -446,14 +512,14 @@ separator.ZIndex = 102
 separator.Parent = content
 
 local separatorLabel = Instance.new("TextLabel")
-separatorLabel.Size = UDim2.new(0, 130, 0, 20)
-separatorLabel.Position = UDim2.new(0.5, 0, 0, 170)
+separatorLabel.Size = UDim2.new(0, 180, 0, 26)
+separatorLabel.Position = UDim2.new(0.5, 0, 0, 205)
 separatorLabel.AnchorPoint = Vector2.new(0.5, 0)
 separatorLabel.BackgroundColor3 = THEME.bg
 separatorLabel.Text = "MÁS GAMEPASSES"
 separatorLabel.TextColor3 = THEME.muted
 separatorLabel.Font = Enum.Font.GothamBold
-separatorLabel.TextSize = 10
+separatorLabel.TextSize = 13
 separatorLabel.ZIndex = 103
 separatorLabel.Parent = content
 
@@ -463,7 +529,7 @@ separatorLabel.Parent = content
 local gridContainer = Instance.new("Frame")
 gridContainer.Name = "GridContainer"
 gridContainer.Size = UDim2.new(1, -20, 0, 450)
-gridContainer.Position = UDim2.new(0, 10, 0, 200)
+gridContainer.Position = UDim2.new(0, 10, 0, 250)
 gridContainer.BackgroundTransparency = 1
 gridContainer.ZIndex = 102
 gridContainer.Parent = content
