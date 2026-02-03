@@ -659,7 +659,9 @@ end
 if R.ChangeVolume then
 	R.ChangeVolume.OnServerEvent:Connect(function(player, vol)
 		if type(vol) ~= "number" or not hasPermission(player, "ChangeVolume") then return end
-		soundObject.Volume = math.clamp(vol, 0, 1)
+		local minVol = MusicConfig.PLAYBACK.MinVolume or 0
+		local maxVol = MusicConfig.PLAYBACK.MaxVolume or 1.5
+		soundObject.Volume = math.clamp(vol, minVol, maxVol)
 	end)
 end
 

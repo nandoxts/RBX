@@ -573,13 +573,18 @@ totalTimeLabel.Parent = progressContainer
 -- ════════════════════════════════════════════════════════════════
 -- VOLUME LOGIC
 -- ════════════════════════════════════════════════════════════════
-local savedVolume = player:GetAttribute("MusicVolume") or 0.5
+local defaultVol = MusicSystemConfig.PLAYBACK.DefaultVolume
+local savedVolume = player:GetAttribute("MusicVolume") or defaultVol
 local currentVolume = savedVolume
 local dragging = false
 
+local maxVolume = MusicSystemConfig.PLAYBACK.MaxVolume
+local minVolume = MusicSystemConfig.PLAYBACK.MinVolume
+
 local function updateVolume(volume)
-	currentVolume = math.clamp(volume, 0, 1)
-	volSliderFill.Size = UDim2.new(currentVolume, 0, 1, 0)
+	currentVolume = math.clamp(volume, minVolume, maxVolume)
+	local sliderFill = (currentVolume - minVolume) / (maxVolume - minVolume)
+	volSliderFill.Size = UDim2.new(sliderFill, 0, 1, 0)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 	player:SetAttribute("MusicVolume", currentVolume)
@@ -622,13 +627,15 @@ volInput:GetPropertyChangedSignal("Text"):Connect(function()
 	local text = volInput.Text:gsub("[^%d]", "")
 	if #text > 3 then text = string.sub(text, 1, 3) end
 	local value = tonumber(text)
-	if value and value > 100 then text = "100" end
+	local maxPercent = math.floor(maxVolume * 100)
+	if value and value > maxPercent then text = tostring(maxPercent) end
 	volInput.Text = text
 end)
 
 local function applyVolumeInput()
-	local value = tonumber(volInput.Text) or 50
-	value = math.clamp(value, 0, 100)
+	local value = tonumber(volInput.Text) or 100
+	local maxPercent = math.floor(maxVolume * 100)
+	value = math.clamp(value, 0, maxPercent)
 	updateVolume(value / 100)
 	volInput.Visible = false
 	volLabel.Visible = true
