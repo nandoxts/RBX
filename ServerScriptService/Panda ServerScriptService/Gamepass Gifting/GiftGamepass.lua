@@ -190,6 +190,33 @@ local function handleGiftPurchase(receiptInfo)
 					UserId, 
 					gamepass[1]
 				)
+				
+				local recipientPlayer = Players:GetPlayerByUserId(Recipient)
+				if recipientPlayer then
+					local Folder = recipientPlayer:FindFirstChild("Gamepasses")
+					if not Folder then
+						Folder = Instance.new("Folder")
+						Folder.Name = "Gamepasses"
+						Folder.Parent = recipientPlayer
+					end
+
+					-- Obtener el nombre del gamepass
+					local success, Asset = pcall(function()
+						return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+					end)
+
+					if success and Asset then
+						local existingValue = Folder:FindFirstChild(Asset.Name)
+						if not existingValue then
+							local GamepassValue = Instance.new("BoolValue")
+							GamepassValue.Name = Asset.Name
+							GamepassValue.Value = true
+							GamepassValue.Parent = Folder
+						else
+							existingValue.Value = true
+						end
+					end
+				end
 
 				-- Notificar al donante de que se completó la compra
 				local donor = game.Players:GetPlayerByUserId(UserId)
