@@ -37,6 +37,7 @@ local CONFIG = {
 			}
 		},
 		{ path = "workspace.Effects.Parts.SoundParts", recursive = false },
+		{ path = "workspace.2doo piso.EsferaGiratoria", recursive = true },
 	},
 	-- UI elements (SurfaceGuis, ScreenGuis, etc.)
 	uiPaths = {
