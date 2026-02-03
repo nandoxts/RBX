@@ -583,7 +583,7 @@ local function updateVolume(volume)
 	volLabel.Text = math.floor(currentVolume * 100) .. "%"
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 	player:SetAttribute("MusicVolume", currentVolume)
-	
+
 	-- Notificar servidor del cambio de volumen usando el remote
 	if R and R.ChangeVolume then
 		pcall(function() R.ChangeVolume:FireServer(currentVolume) end)
