@@ -28,19 +28,18 @@ local CONFIG = {
 	paths = {
 		{ path = "workspace.visuals.Visualizer", recursive = false },
 		{ 
-			path = "workspace.Map", 
+			path = "workspace.Pista", 
 			recursive = true,
 			blacklist = { 
 				"Cir",           -- Solo ignora parts llamadas "Cir"
 				"Cosas/",
-				"B1/",        -- Ignora TODA la carpeta Cosas
+				"B1/",
 			}
 		},
 		{ path = "workspace.Effects.Parts.SoundParts", recursive = false },
 	},
 	-- UI elements (SurfaceGuis, ScreenGuis, etc.)
 	uiPaths = {
-		{ path = "workspace.visuals.MusicPlayerUI.Main.Equalizer", pattern = "Bar" },
 		{ path = "workspace.visuals.MusicPlayerUI.Main.ProgressBg.ProgressFill" },
 	},
 	themes = {
@@ -330,7 +329,7 @@ local function setupRemotes()
 	-- Obtener referencias a RemotesGlobal/Commands
 	local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
 	local commandsFolder = remotesGlobal:WaitForChild("Commands")
-	
+
 	local toneModeEvent = commandsFolder:WaitForChild("ToneModeChanged")
 	local getModeFunction = commandsFolder:WaitForChild("GetToneMode")
 	local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
