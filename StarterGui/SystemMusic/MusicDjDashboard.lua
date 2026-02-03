@@ -589,6 +589,12 @@ local function updateVolume(volume)
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 	player:SetAttribute("MusicVolume", currentVolume)
 
+	--  APLICAR VOLUMEN LOCALMENTE (solo para este cliente)
+	local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
+	if musicSoundGroup then
+		musicSoundGroup.Volume = currentVolume
+	end
+
 	-- Notificar servidor del cambio de volumen usando el remote
 	if R and R.ChangeVolume then
 		pcall(function() R.ChangeVolume:FireServer(currentVolume) end)

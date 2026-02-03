@@ -2,8 +2,12 @@ local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 local GiftedGamepassesData = DataStoreService:GetDataStore("Gifting.1")
+local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Inicializar queue con delay de 0.12s
+local DataStoreQueue = DataStoreQueueManager.new(GiftedGamepassesData, "HDConnectQueue", 0.12)
 
 -- Configuración HD Admin
 local SetupHd = ReplicatedStorage:WaitForChild("HDAdminSetup", 10)
@@ -73,12 +77,11 @@ local function GetBestGamepassRank(player)
 
 	for gamepassId, rankName in pairs(GAMEPASS_RANKS) do
 		local isGifted = false
-		local success, result = pcall(function()
-			return GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+		
+		-- Usar queue en lugar de GetAsync directo
+		DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(success, result)
+			isGifted = success and result or false
 		end)
-		if success and result then
-			isGifted = true
-		end
 		
 		local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
@@ -115,12 +118,11 @@ local function CheckAllGamepasses(player)
 
 		if success and productInfo then
 			local isGifted = false
-			local giftSuccess, giftResult = pcall(function()
-				return GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+			
+			-- Usar queue en lugar de GetAsync directo
+			DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(giftSuccess, giftResult)
+				isGifted = giftSuccess and giftResult or false
 			end)
-			if giftSuccess and giftResult then
-				isGifted = true
-			end
 			
 			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
@@ -246,12 +248,13 @@ local function DoesUserOwnGamePass(player, gamepassId)
 	end)
 	if success and owns then return true end
 
-	-- Verificar en DataStore
-	success, owns = pcall(function()
-		return GiftedGamepassesData:GetAsync(player.UserId .. "-" .. gamepassId)
+	-- Verificar en DataStore con queue
+	local gifted = false
+	DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(s, r)
+		gifted = s and r or false
 	end)
 
-	return success and owns or false
+	return gifted
 end
 
 -- Exportar funciones para uso en otros scripts

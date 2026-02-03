@@ -6,6 +6,7 @@ local HttpService = game:GetService("HttpService")
 
 local DataStoreService = game:GetService("DataStoreService")
 local GiftedGamepassesData = DataStoreService:GetDataStore("Gifting.1")
+local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
 local GamepassGifting = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Gifting
 local Ownership = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Ownership
@@ -16,6 +17,9 @@ local BADGES_Gift = Configuration.BADGES_Gift
 
 -- Al inicio del script de regalos:
 local CentralPurchaseHandler = require(script.ManagerProcess)
+
+-- Inicializar queue para DataStore con delay de 0.15s
+local DataStoreQueue = DataStoreQueueManager.new(GiftedGamepassesData, "GiftedGamepasses", 0.15)
 
 local PlayersGifted = {}
 local Username = nil
@@ -94,8 +98,16 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	for _, purchaseablegamepass in pairs(getAllPurchaseables()) do
 		if purchaseablegamepass[1] == gamepass[1] and purchaseablegamepass[2] == gamepass[2] then
 			if player.UserId ~= userId then
-				local owns = MarketplaceService:UserOwnsGamePassAsync(userId, gamepass[1]) or 
-					GiftedGamepassesData:GetAsync(userId .. "-" .. gamepass[1])
+				local owns = MarketplaceService:UserOwnsGamePassAsync(userId, gamepass[1])
+				local hasGift = false
+				
+				if not owns then
+					-- Usar queue para verificar DataStore (no bloqueante)
+					DataStoreQueue:GetAsync(userId .. "-" .. gamepass[1], function(success, result)
+						hasGift = success and result or false
+					end)
+					owns = hasGift
+				end
 
 				if not owns then
 					PlayersGifted[player.UserId] = userId
@@ -125,8 +137,14 @@ game.Players.PlayerAdded:Connect(function(player)
 	local function handleGamepasses()
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
-			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, GamepassID) or
-				GiftedGamepassesData:GetAsync(player.UserId .. "-" .. GamepassID)
+			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, GamepassID)
+			
+			if not ownsGamepass then
+				-- Verificar DataStore con queue (no bloqueante)
+				DataStoreQueue:GetAsync(player.UserId .. "-" .. GamepassID, function(success, result)
+					ownsGamepass = success and result or false
+				end)
+			end
 
 			if ownsGamepass then
 				local success, Asset = pcall(function()
@@ -178,11 +196,15 @@ local function handleGiftPurchase(receiptInfo)
 
 			PlayersGifted[receiptInfo.PlayerId] = nil
 
-			local success, err = pcall(function()
-				-- Guardar en DataStore que el receptor recibió el gamepass
-				GiftedGamepassesData:SetAsync(Recipient .. "-" .. gamepass[1], true)
+			local success = false
+			
+			-- Guardar en DataStore usando queue
+			DataStoreQueue:SetAsync(Recipient .. "-" .. gamepass[1], true, function(s, r)
+				success = s
+			end)
 
-				-- Enviar notificación a Discord
+			-- Enviar notificación a Discord
+			pcall(function()
 				SendDiscordWebhook(
 					game:GetService("Players"):GetNameFromUserIdAsync(Recipient),
 					Recipient, 
@@ -190,45 +212,45 @@ local function handleGiftPurchase(receiptInfo)
 					UserId, 
 					gamepass[1]
 				)
-				
-				local recipientPlayer = Players:GetPlayerByUserId(Recipient)
-				if recipientPlayer then
-					local Folder = recipientPlayer:FindFirstChild("Gamepasses")
-					if not Folder then
-						Folder = Instance.new("Folder")
-						Folder.Name = "Gamepasses"
-						Folder.Parent = recipientPlayer
-					end
-
-					-- Obtener el nombre del gamepass
-					local success, Asset = pcall(function()
-						return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-					end)
-
-					if success and Asset then
-						local existingValue = Folder:FindFirstChild(Asset.Name)
-						if not existingValue then
-							local GamepassValue = Instance.new("BoolValue")
-							GamepassValue.Name = Asset.Name
-							GamepassValue.Value = true
-							GamepassValue.Parent = Folder
-						else
-							existingValue.Value = true
-						end
-					end
-				end
-
-				-- Notificar al donante de que se completó la compra
-				local donor = game.Players:GetPlayerByUserId(UserId)
-				if donor then
-					GamepassGifting:FireClient(donor, "Purchase")
-
-					-- Aquí otorgamos el Badge al donante si aún no lo tiene
-					if not BadgeService:UserHasBadgeAsync(donor.UserId, BADGES_Gift) then
-						BadgeService:AwardBadge(donor.UserId, BADGES_Gift)
-					end
-				end
 			end)
+			
+			local recipientPlayer = Players:GetPlayerByUserId(Recipient)
+			if recipientPlayer then
+				local Folder = recipientPlayer:FindFirstChild("Gamepasses")
+				if not Folder then
+					Folder = Instance.new("Folder")
+					Folder.Name = "Gamepasses"
+					Folder.Parent = recipientPlayer
+				end
+
+				-- Obtener el nombre del gamepass
+				local gpSuccess, Asset = pcall(function()
+					return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+				end)
+
+				if gpSuccess and Asset then
+					local existingValue = Folder:FindFirstChild(Asset.Name)
+					if not existingValue then
+						local GamepassValue = Instance.new("BoolValue")
+						GamepassValue.Name = Asset.Name
+						GamepassValue.Value = true
+						GamepassValue.Parent = Folder
+					else
+						existingValue.Value = true
+					end
+				end
+			end
+
+			-- Notificar al donante de que se completó la compra
+			local donor = game.Players:GetPlayerByUserId(UserId)
+			if donor then
+				GamepassGifting:FireClient(donor, "Purchase")
+
+				-- Otorgar Badge al donante si aún no lo tiene
+				if not BadgeService:UserHasBadgeAsync(donor.UserId, BADGES_Gift) then
+					BadgeService:AwardBadge(donor.UserId, BADGES_Gift)
+				end
+			end
 
 			return success and Enum.ProductPurchaseDecision.PurchaseGranted or 
 				Enum.ProductPurchaseDecision.NotProcessedYet

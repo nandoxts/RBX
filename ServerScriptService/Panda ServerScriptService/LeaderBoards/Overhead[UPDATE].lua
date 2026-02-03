@@ -40,6 +40,11 @@ local Colors = require(PandaSSS.Effects.ColorEffectsModule)
 local ModulesFolder = PandaSSS:WaitForChild("Modules")
 local GroupRolesModule = require(ModulesFolder:WaitForChild("GroupRolesModule"))
 local LevelConfigModule = require(ModulesFolder:WaitForChild("LevelConfigModule"))
+local DataStoreQueue = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
+
+-- DataStore Queues para manejo de rate limit
+local streakQueue = DataStoreQueue.new(streakStore, "StreakQueue")
+local topRachaQueue = DataStoreQueue.new(TopRachaStore, "TopRachaQueue")
 
 --// Constantes
 local GroupID = Configuration.GroupID
@@ -249,21 +254,6 @@ local function safeUpdateAsync(store, key, transformFn)
 	return false, nil
 end
 
-local function safeSetAsync(store, key, value)
-	local maxRetries = 5
-	for attempt = 1, maxRetries do
-		local ok, err = pcall(function()
-			store:SetAsync(key, value)
-		end)
-		if ok then
-			return true
-		end
-		warn(string.format("[RACHA] SetAsync error (intento %d/%d): %s", attempt, maxRetries, tostring(err)))
-		task.wait(2 * attempt)
-	end
-	return false
-end
-
 local function getSavedStreak(player)
 	if not player or not player.UserId then return 1 end
 	local userId = tostring(player.UserId)
@@ -273,19 +263,20 @@ local function getSavedStreak(player)
 		return cached.streak
 	end
 
-	local success, data = pcall(function()
-		return streakStore:GetAsync(userId)
+	local result = 1
+	streakQueue:GetAsync(userId, function(success, data)
+		if success and data and data.streak then
+			streakCache[userId] = {
+				streak = data.streak,
+				lastDay = data.lastLoginDay or data.lastDay or 0
+			}
+			result = data.streak
+		end
 	end)
 
-	if success and data and data.streak then
-		streakCache[userId] = {
-			streak = data.streak,
-			lastDay = data.lastLoginDay or data.lastDay or 0
-		}
-		return data.streak
-	end
-
-	return 1
+	-- Pequeña espera para permitir que callback execute
+	task.wait(0.05)
+	return result
 end
 
 -- ✅ No pisa la racha si GetAsync falla
@@ -299,9 +290,14 @@ local function updateStreak(player)
 		return cached.streak
 	end
 
-	local success, data = pcall(function()
-		return streakStore:GetAsync(userId)
+	local success, data = false, nil
+	streakQueue:GetAsync(userId, function(s, d)
+		success = s
+		data = d
 	end)
+
+	-- Pequeña espera para permitir que callback execute
+	task.wait(0.05)
 
 	if not success then
 		if cached then return cached.streak end
@@ -349,7 +345,7 @@ local function updateStreak(player)
 		end)
 
 		if ok then
-			safeSetAsync(TopRachaStore, userId, newStreak)
+			topRachaQueue:SetAsync(userId, newStreak, function() end)
 		end
 		streakCache[userId] = { streak = newStreak, lastDay = today }
 	end
@@ -364,15 +360,13 @@ local function setStreakManual(player, amount)
 
 	amount = math.max(1, tonumber(amount) or 1)
 
-	safeUpdateAsync(streakStore, userId, function(_old)
-		return {
-			streak = amount,
-			lastLoginDay = today,
-			lastDay = today
-		}
-	end)
-
-	safeSetAsync(TopRachaStore, userId, amount)
+	local newStreakData = {
+		streak = amount,
+		lastLoginDay = today,
+		lastDay = today
+	}
+	streakQueue:SetAsync(userId, newStreakData, function() end)
+	topRachaQueue:SetAsync(userId, amount, function() end)
 	streakCache[userId] = { streak = amount, lastDay = today }
 
 	renderDisplayName(player, amount)
