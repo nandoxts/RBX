@@ -1,4 +1,4 @@
--- ToneCommandHandler.lua (Optimizado)
+-- GlobalCommandHandler.lua (Optimizado)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -6,9 +6,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- CONFIGURACIÓN
 -- ═══════════════════════════════════════════════════════════════════
 local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
+local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
 
 local CONFIG = {
 	prefix = ";tono",
+	eventPrefix = ";event",
+	uneventPrefix = ";unevent",
 	messages = {
 		disabled = "Sistema de tono desactivado.",
 		rainbow = "Modo rainbow activado.",
@@ -25,9 +28,32 @@ local commandsFolder = remotesGlobal:WaitForChild("Commands")
 local toneModeEvent = commandsFolder:WaitForChild("ToneModeChanged")
 local getModeFunction = commandsFolder:WaitForChild("GetToneMode")
 local toneMessageEvent = commandsFolder:WaitForChild("ToneMessage")
+local eventMessageEvent = commandsFolder:WaitForChild("EventMessage")
 
 -- RemoteFunction para obtener temas disponibles de RainbowSync
 local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ESTADO GLOBAL
+-- ═══════════════════════════════════════════════════════════════════
+local eventModeActive = MusicConfig.EVENT_MODE.Enabled or false
+
+-- Exportar a _G para que otros scripts puedan acceder
+_G.EventModeActive = eventModeActive
+
+local function fireAllClients(remote, message)
+	if remote then
+		for _, p in ipairs(Players:GetPlayers()) do
+			pcall(function() remote:FireClient(p, message) end)
+		end
+	end
+end
+
+-- Actualizar _G cuando cambia el estado
+local function setEventMode(value)
+	eventModeActive = value
+	_G.EventModeActive = value
+end
 
 -- ═══════════════════════════════════════════════════════════════════
 -- LÓGICA
@@ -82,9 +108,31 @@ end
 
 local function onChatted(player, message)
 	local lower = message:lower()
+
+	-- Procesar comando ;tono
 	if lower:sub(1, #CONFIG.prefix) == CONFIG.prefix then
 		local args = message:sub(#CONFIG.prefix + 1)
 		handleCommand(args)
+	end
+
+	-- Procesar comando ;event
+	if lower == CONFIG.eventPrefix then
+		if MusicConfig:IsAdmin(player) then
+			setEventMode(true)
+			local msg = "MODO EVENTO ACTIVADO"
+			print("Modo Evento ACTIVADO por: " .. player.Name)
+			fireAllClients(eventMessageEvent, msg)
+		end
+	end
+
+	-- Procesar comando ;unevent
+	if lower == CONFIG.uneventPrefix then
+		if MusicConfig:IsAdmin(player) then
+			setEventMode(false)
+			local msg = " MODO EVENTO DESACTIVADO"
+			print("Modo Evento DESACTIVADO por: " .. player.Name)
+			fireAllClients(eventMessageEvent, msg)
+		end
 	end
 end
 

@@ -63,6 +63,16 @@ MusicSystemConfig.PLAYBACK = {
 }
 
 -- ═══════════════════════════════════════════════════════════
+-- MODO EVENTO (Bloquea skip y cambios de cola)
+-- ═══════════════════════════════════════════════════════════
+MusicSystemConfig.EVENT_MODE = {
+	Enabled = false,
+	ActivateCommand = ";event",
+	DeactivateCommand = ";unevent",
+	BlockedActions = {"NextSong", "AddToQueue", "RemoveFromQueue", "ClearQueue"},
+}
+
+-- ═══════════════════════════════════════════════════════════
 -- VALIDACIÓN DE MÚSICA
 -- ═══════════════════════════════════════════════════════════
 MusicSystemConfig.VALIDATION = {

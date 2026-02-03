@@ -44,14 +44,15 @@ local RC = {
 	SUCCESS = "SUCCESS", INVALID_ID = "ERROR_INVALID_ID", BLACKLISTED = "ERROR_BLACKLISTED",
 	DUPLICATE = "ERROR_DUPLICATE", NOT_FOUND = "ERROR_NOT_FOUND", NOT_AUDIO = "ERROR_NOT_AUDIO",
 	NOT_AUTHORIZED = "ERROR_NOT_AUTHORIZED", QUEUE_FULL = "ERROR_QUEUE_FULL",
-	PERMISSION = "ERROR_PERMISSION", COOLDOWN = "ERROR_COOLDOWN", UNKNOWN = "ERROR_UNKNOWN"
+	PERMISSION = "ERROR_PERMISSION", COOLDOWN = "ERROR_COOLDOWN", UNKNOWN = "ERROR_UNKNOWN",
+	EVENT_LOCKED = "ERROR_EVENT_LOCKED"
 }
 
 -- ════════════════════════════════════════════════════════════════
 -- REMOTES SETUP
 -- ════════════════════════════════════════════════════════════════
 local remotesFolder = ReplicatedStorage:FindFirstChild("RemotesGlobal")
-if not remotesFolder then warn("[DjMusicSystem] RemotesGlobal not found") return end
+if not remotesFolder then warn("RemotesGlobal not found") return end
 
 local function getRemote(folder, name)
 	local f = remotesFolder:FindFirstChild(folder)
@@ -133,6 +134,21 @@ local function hasPermission(player, action)
 	return MusicConfig:HasPermission(player.UserId, action)
 end
 
+-- Verificar si una acción está bloqueada en modo evento
+local function isActionBlockedByEventMode(action, player)
+	-- Obtener estado de GlobalCommandHandler o usar estado local
+	local eventActive = _G.EventModeActive or false
+	if not eventActive then return false end
+
+	-- Los admins pueden hacer todo incluso en modo evento
+	if player and MusicConfig:IsAdmin(player) then return false end
+
+	for _, blockedAction in ipairs(MusicConfig.EVENT_MODE.BlockedActions or {}) do
+		if blockedAction == action then return true end
+	end
+	return false
+end
+
 local function isInQueue(audioId)
 	if MusicConfig.LIMITS.AllowDuplicatesInQueue then return false end
 	for _, s in ipairs(playQueue) do
@@ -161,6 +177,14 @@ end
 
 local function fireClient(remote, player, data)
 	if remote then pcall(function() remote:FireClient(player, data) end) end
+end
+
+local function fireAllClients(remote, message)
+	if remote then
+		for _, p in ipairs(Players:GetPlayers()) do
+			pcall(function() remote:FireClient(p, message) end)
+		end
+	end
 end
 
 local function updateAllClients()
@@ -640,7 +664,8 @@ end)
 
 R.Next.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "NextSong") then return end
-	print("[DjMusicSystem] SKIP por:", player.Name)
+	if isActionBlockedByEventMode("NextSong", player) then return end
+	print("SKIP por:", player.Name)
 	nextSong()
 end)
 
@@ -651,7 +676,7 @@ end)
 
 if R.PurchaseSkip then
 	R.PurchaseSkip.OnServerEvent:Connect(function(player)
-		print("[DjMusicSystem] Skip pagado por:", player.Name)
+		print("Skip pagado por:", player.Name)
 		nextSong()
 	end)
 end
@@ -667,6 +692,10 @@ end
 
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function send(r) fireClient(R.AddResponse, player, r) end
+
+	if isActionBlockedByEventMode("AddToQueue", player) then
+		return send(response(RC.EVENT_LOCKED, "Modo evento activo - No se pueden añadir canciones"))
+	end
 
 	if not hasPermission(player, "AddToQueue") then
 		return send(response(RC.PERMISSION, "No tienes permiso"))
@@ -749,6 +778,9 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 end)
 
 R.RemoveFromQueue.OnServerEvent:Connect(function(player, index)
+	if isActionBlockedByEventMode("RemoveFromQueue", player) then
+		return fireClient(R.RemoveResponse, player, response(RC.EVENT_LOCKED, "Modo evento activo - No se pueden eliminar canciones"))
+	end
 	if not hasPermission(player, "RemoveFromQueue") then
 		return fireClient(R.RemoveResponse, player, response(RC.PERMISSION, "Sin permiso"))
 	end
@@ -759,6 +791,9 @@ R.RemoveFromQueue.OnServerEvent:Connect(function(player, index)
 end)
 
 R.ClearQueue.OnServerEvent:Connect(function(player)
+	if isActionBlockedByEventMode("ClearQueue", player) then
+		return fireClient(R.ClearResponse, player, response(RC.EVENT_LOCKED, "Modo evento activo - No se puede limpiar la cola"))
+	end
 	if not hasPermission(player, "ClearQueue") then
 		return fireClient(R.ClearResponse, player, response(RC.PERMISSION, "Sin permiso"))
 	end
@@ -820,7 +855,7 @@ R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
 	end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════
 -- PLAYER EVENTS
 -- ════════════════════════════════════════════════════════════════
 Players.PlayerAdded:Connect(function(player)
