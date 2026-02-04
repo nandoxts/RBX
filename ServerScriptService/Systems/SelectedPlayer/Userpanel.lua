@@ -81,6 +81,10 @@ local SendLike = Instance.new("RemoteEvent")
 SendLike.Name = "SendLike"
 SendLike.Parent = userPanelFolder
 
+local CheckGamePass = Instance.new("RemoteFunction")
+CheckGamePass.Name = "CheckGamePass"
+CheckGamePass.Parent = userPanelFolder
+
 -- ═══════════════════════════════════════════════════════════════
 -- CACHÉ
 -- ═══════════════════════════════════════════════════════════════
@@ -368,13 +372,65 @@ RefreshUserData.OnServerEvent:Connect(function(requestingPlayer, targetUserId)
 	RefreshUserData:FireClient(requestingPlayer, freshData)
 end)
 
-GetUserDonations.OnServerInvoke = function(_, targetUserId)
+GetUserDonations.OnServerInvoke = function(player, targetUserId)
 	if not targetUserId then return {} end
-	return getUserDonations(targetUserId)
+	local donations = getUserDonations(targetUserId)
+	
+	-- Validar cada donación en PARALELO con MarketplaceService
+	if player and donations and #donations > 0 then
+		local completed = 0
+		local total = #donations
+		
+		for i, donation in ipairs(donations) do
+			task.spawn(function()
+				local success, owns = pcall(function()
+					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, donation.passId)
+				end)
+				donation.hasPass = (success and owns) or false
+				completed = completed + 1
+			end)
+		end
+		
+		-- Esperar a que TODAS las validaciones terminen (máximo 5 segundos)
+		local startTime = tick()
+		while completed < total and (tick() - startTime) < 5 do
+			task.wait(0.05)
+		end
+		
+		print("[UserPanel Server] Validadas", completed, "/", total, "donaciones para", player.Name)
+	end
+	
+	return donations
 end
 
-GetGamePasses.OnServerInvoke = function()
-	return getGamePasses()
+GetGamePasses.OnServerInvoke = function(player)
+	local passes = getGamePasses()
+	
+	-- Validar cada pass en PARALELO con MarketplaceService
+	if player and passes and #passes > 0 then
+		local completed = 0
+		local total = #passes
+		
+		for i, pass in ipairs(passes) do
+			task.spawn(function()
+				local success, owns = pcall(function()
+					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, pass.passId)
+				end)
+				pass.hasPass = (success and owns) or false
+				completed = completed + 1
+			end)
+		end
+		
+		-- Esperar a que TODAS las validaciones terminen (máximo 5 segundos)
+		local startTime = tick()
+		while completed < total and (tick() - startTime) < 5 do
+			task.wait(0.05)
+		end
+		
+		print("[UserPanel Server] Validados", completed, "/", total, "game passes para", player.Name)
+	end
+	
+	return passes
 end
 
 SendLike.OnServerEvent:Connect(function(donatingPlayer, targetUserId)
@@ -383,6 +439,20 @@ SendLike.OnServerEvent:Connect(function(donatingPlayer, targetUserId)
 	print("[UserPanel] 👍 Like recibido: " .. donatingPlayer.Name .. " le dio like a usuario " .. targetUserId)
 	-- Aquí puedes agregar lógica adicional como guardar en DataStore, efectos visuales, etc.
 end)
+
+CheckGamePass.OnServerInvoke = function(player, passId)
+	if not player or not passId then return false end
+	
+	local success, hasPass = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+	end)
+	
+	if success then
+		return hasPass
+	end
+	
+	return false
+end
 
 -- ═══════════════════════════════════════════════════════════════
 -- INICIO

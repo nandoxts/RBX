@@ -27,7 +27,8 @@ local Remotes = {
 	DonationNotify = remotesFolder:FindFirstChild("DonationNotify"),
 	DonationMessage = remotesFolder:FindFirstChild("DonationMessage"),
 	SendLike = remotesFolder:FindFirstChild("SendLike"),
-	SendSuperLike = remotesFolder:FindFirstChild("SendSuperLike")
+	SendSuperLike = remotesFolder:FindFirstChild("SendSuperLike"),
+	CheckGamePass = remotesFolder:WaitForChild("CheckGamePass")
 }
 
 -- Sistema de sincronización (Emotes_Sync)
@@ -560,6 +561,104 @@ local function createAvatarSection(panel, data, playerColor)
 		Parent = avatarSection
 	})
 
+	-- Botones pequeños de Like y SuperLike (parte superior izquierda - vertical)
+	local likeButtonsContainer = createFrame({
+		Size = UDim2.new(0, 28, 0, 60),
+		Position = UDim2.new(0, 10, 0, 10),
+		BackgroundTransparency = 1,
+		ZIndex = 15,
+		Parent = avatarSection
+	})
+
+	create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Top,
+		Padding = UDim.new(0, 4),
+		Parent = likeButtonsContainer
+	})
+
+	-- Botón Like (Imagen)
+	local likeBtn = create("ImageButton", {
+		Size = UDim2.new(0, 28, 0, 28),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://118393090095169",  -- Reemplaza con tu ID de imagen de corazón
+		ScaleType = Enum.ScaleType.Fit,
+		AutoButtonColor = false,
+		ZIndex = 15,
+		Parent = likeButtonsContainer
+	})
+
+	local lastLikeClick = 0
+	addConnection(likeBtn.MouseButton1Click:Connect(function()
+		if not State.userId or State.userId == player.UserId then return end
+		
+		local now = tick()
+		if now - lastLikeClick < 0.3 then return end
+		lastLikeClick = now
+		
+		local canLike, lastLikeTime = checkLocalCooldown(State.userId)
+		
+		if canLike then
+			-- Disparar evento de Like
+			if GiveLikeEvent then
+				GiveLikeEvent:FireServer("GiveLike", State.userId)
+			elseif Remotes.SendLike then
+				Remotes.SendLike:FireServer(State.userId)
+			end
+			
+			-- Crear efecto de corazones
+			createHeartEffect(avatarSection, false)
+			updateLocalCooldown(State.userId)
+		else
+			local remainingTime = LIKE_COOLDOWN - (tick() - lastLikeTime)
+			showCooldownNotification(remainingTime)
+		end
+	end))
+
+	addConnection(likeBtn.MouseEnter:Connect(function()
+		tween(likeBtn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST)
+	end))
+
+	addConnection(likeBtn.MouseLeave:Connect(function()
+		tween(likeBtn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST)
+	end))
+
+	-- Botón SuperLike (Imagen)
+	local superLikeBtn = create("ImageButton", {
+		Size = UDim2.new(0, 28, 0, 28),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://9412108006",  -- Reemplaza con tu ID de imagen de estrella
+		ScaleType = Enum.ScaleType.Fit,
+		AutoButtonColor = false,
+		ZIndex = 15,
+		Parent = likeButtonsContainer
+	})
+
+	addConnection(superLikeBtn.MouseButton1Click:Connect(function()
+		if not State.userId or State.userId == player.UserId then return end
+		
+		if GiveSuperLikeEvent then
+			GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
+		end
+		
+		-- Crear efecto de estrellas para super like
+		createHeartEffect(avatarSection, true)
+		
+		-- Mostrar prompt de compra
+		pcall(function()
+			MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID)
+		end)
+	end))
+
+	addConnection(superLikeBtn.MouseEnter:Connect(function()
+		tween(superLikeBtn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST)
+	end))
+
+	addConnection(superLikeBtn.MouseLeave:Connect(function()
+		tween(superLikeBtn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST)
+	end))
+
 	return avatarSection
 end
 
@@ -624,34 +723,28 @@ local function switchToButtons()
 	State.currentView = "buttons"
 
 	if State.dynamicSection then
-		tween(State.dynamicSection, { Position = UDim2.new(1, 0, 0, State.dynamicSection.Position.Y.Offset) }, CONFIG.ANIM_NORMAL)
-		task.delay(CONFIG.ANIM_NORMAL, function()
+		tween(State.dynamicSection, { Position = UDim2.new(1, 0, 0, State.dynamicSection.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
+		task.delay(0.15, function()
 			if State.dynamicSection then State.dynamicSection:Destroy() State.dynamicSection = nil end
 		end)
 	end
 
 	if State.buttonsFrame then
 		State.buttonsFrame.Visible = true
-		tween(State.buttonsFrame, { Position = UDim2.new(0, CONFIG.PANEL_PADDING, 0, State.buttonsFrame.Position.Y.Offset) }, CONFIG.ANIM_NORMAL)
+		tween(State.buttonsFrame, { Position = UDim2.new(0, CONFIG.PANEL_PADDING, 0, State.buttonsFrame.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
 	end
 end
 
-local function showDynamicSection(viewType, items, targetName, playerColor)
-	State.currentView = viewType
-
-	if State.buttonsFrame then
-		tween(State.buttonsFrame, { Position = UDim2.new(-1, 0, 0, State.buttonsFrame.Position.Y.Offset) }, CONFIG.ANIM_NORMAL)
-		task.delay(CONFIG.ANIM_NORMAL, function()
-			if State.buttonsFrame then State.buttonsFrame.Visible = false end
-		end)
-	end
+local function renderDynamicSection(viewType, items, targetName, playerColor)
+	if not State.panel or not State.panel.Parent then return end
 
 	local startY = CONFIG.AVATAR_HEIGHT + 8
 	local availableHeight = math.max(80, State.panel.AbsoluteSize.Y - startY - CONFIG.PANEL_PADDING)
 
+	-- Crear sección
 	State.dynamicSection = createFrame({
 		Size = UDim2.new(1, -2 * CONFIG.PANEL_PADDING, 0, availableHeight),
-		Position = UDim2.new(1, 0, 0, startY),
+		Position = UDim2.new(0, CONFIG.PANEL_PADDING, 0, startY),
 		Parent = State.panel
 	})
 
@@ -742,21 +835,24 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 			})
 			addCorner(img, CONFIG.CARD_SIZE / 2)
 
+			-- Usar valor ya validado del servidor
+			local hasPass = item.hasPass == true
+
 			-- Precio overlay
 			local priceOverlay = createFrame({
 				Size = UDim2.new(1, 0, 0.35, 0),
 				Position = UDim2.new(0, 0, 1, 0),
 				AnchorPoint = Vector2.new(0, 1),
-				BackgroundColor3 = THEME.head,
-				BackgroundTransparency = 0.3,
+				BackgroundColor3 = hasPass and THEME.panel or THEME.head,
+				BackgroundTransparency = hasPass and 0.5 or 0.3,
 				ZIndex = 2,
 				Parent = circle
 			})
 
-			createLabel({
+			local priceText = createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
-				Text = tostring(item.price or 0),
-				TextColor3 = playerColor or THEME.accent,
+				Text = hasPass and "Adquirida" or (utf8.char(0xE002) .. tostring(item.price or 0)),
+				TextColor3 = hasPass and Color3.fromRGB(100, 220, 100) or (playerColor or THEME.accent),
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
@@ -772,14 +868,18 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 			})
 
 			addConnection(clickBtn.MouseEnter:Connect(function()
-			tween(circleStroke, { Color = playerColor or THEME.accent, Thickness = 2.5 }, CONFIG.ANIM_FAST)
-		end))
+				tween(circleStroke, { Color = playerColor or THEME.accent, Thickness = 2.5 }, CONFIG.ANIM_FAST)
+			end))
 			addConnection(clickBtn.MouseLeave:Connect(function()
 				tween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, CONFIG.ANIM_FAST)
 			end))
 
 			addConnection(clickBtn.MouseButton1Click:Connect(function()
-				if item.passId then
+				if hasPass then
+					if NotificationSystem then
+						NotificationSystem:Info("Game Pass", "Ya tienes este pase", 2)
+					end
+				elseif item.passId then
 					pcall(function() MarketplaceService:PromptGamePassPurchase(player, item.passId) end)
 				end
 			end))
@@ -793,10 +893,22 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 			Parent = scroll
 		})
 	end
+end
 
-	task.defer(function()
-		tween(State.dynamicSection, { Position = UDim2.new(0, CONFIG.PANEL_PADDING, 0, startY) }, 0.25)
-	end)
+local function showDynamicSection(viewType, items, targetName, playerColor)
+	State.currentView = viewType
+
+	if State.buttonsFrame then
+		tween(State.buttonsFrame, { Position = UDim2.new(-1, 0, 0, State.buttonsFrame.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
+		task.delay(0.15, function()
+			if State.buttonsFrame then State.buttonsFrame.Visible = false end
+		end)
+	end
+
+	-- El servidor ya devuelve los items con hasPass validado
+	-- No necesitamos validación async en el cliente
+	print("[UserPanel] Renderizando " .. (items and #items or 0) .. " items (ya validados por servidor)")
+	renderDynamicSection(viewType, items, targetName, playerColor)
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -989,71 +1101,6 @@ local function createPanel(data)
 	})
 
 	createAvatarSection(panel, data, playerColor)
-
-	-- Click handler al avatar para Like/SuperLike
-	local avatarSection = panel:FindFirstChildOfClass("Frame") -- Avatar section es el primer frame
-	if avatarSection then
-		local avatarClickable = createFrame({
-			Size = UDim2.new(0.8, 0, 0.8, 0),
-			Position = UDim2.new(0.1, 0, 0.05, 0),
-			AnchorPoint = Vector2.new(0, 0),
-			BackgroundTransparency = 1,
-			ZIndex = 5,
-			Parent = avatarSection
-		})
-		
-		local avatarButton = create("TextButton", {
-			Size = UDim2.new(1, 0, 1, 0),
-			BackgroundTransparency = 1,
-			Text = "",
-			ZIndex = 5,
-			Parent = avatarClickable
-		})
-		
-		local lastLikeClick = 0
-		addConnection(avatarButton.MouseButton1Click:Connect(function()
-			if not State.userId or State.userId == player.UserId then return end
-			
-			local now = tick()
-			if now - lastLikeClick < 0.3 then return end
-			lastLikeClick = now
-			
-			local canLike, lastLikeTime = checkLocalCooldown(State.userId)
-			
-			if canLike then
-				-- Disparar evento de Like
-				if GiveLikeEvent then
-					GiveLikeEvent:FireServer("GiveLike", State.userId)
-				elseif Remotes.SendLike then
-					Remotes.SendLike:FireServer(State.userId)
-				end
-				
-				-- Crear efecto de corazones
-				createHeartEffect(avatarSection, false)
-				updateLocalCooldown(State.userId)
-			else
-				local remainingTime = LIKE_COOLDOWN - (tick() - lastLikeTime)
-				showCooldownNotification(remainingTime)
-			end
-		end))
-		
-		-- Super Like con clic derecho
-		addConnection(avatarButton.MouseButton2Click:Connect(function()
-			if not State.userId or State.userId == player.UserId then return end
-			
-			if GiveSuperLikeEvent then
-				GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
-			end
-			
-			-- Crear efecto de estrellas para super like
-			createHeartEffect(avatarSection, true)
-			
-			-- Mostrar prompt de compra
-			pcall(function()
-				MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID)
-			end)
-		end))
-	end
 	
 	local target
 	for _, p in ipairs(Players:GetPlayers()) do
