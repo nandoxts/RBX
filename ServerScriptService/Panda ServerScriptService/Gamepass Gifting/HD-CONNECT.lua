@@ -77,11 +77,19 @@ local function GetBestGamepassRank(player)
 
 	for gamepassId, rankName in pairs(GAMEPASS_RANKS) do
 		local isGifted = false
+		local isComplete = false
 		
-		-- Usar queue en lugar de GetAsync directo
+		-- Usar queue y ESPERAR la respuesta
 		DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(success, result)
 			isGifted = success and result or false
+			isComplete = true
 		end)
+		
+		-- Esperar a que se complete (máximo 500ms)
+		local startTime = tick()
+		while not isComplete and (tick() - startTime) < 0.5 do
+			task.wait(0.01)
+		end
 		
 		local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
@@ -118,11 +126,19 @@ local function CheckAllGamepasses(player)
 
 		if success and productInfo then
 			local isGifted = false
+			local isComplete = false
 			
-			-- Usar queue en lugar de GetAsync directo
+			-- Usar queue y ESPERAR la respuesta
 			DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(giftSuccess, giftResult)
 				isGifted = giftSuccess and giftResult or false
+				isComplete = true
 			end)
+			
+			-- Esperar a que se complete (máximo 500ms)
+			local startTime = tick()
+			while not isComplete and (tick() - startTime) < 0.5 do
+				task.wait(0.01)
+			end
 			
 			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
@@ -250,9 +266,17 @@ local function DoesUserOwnGamePass(player, gamepassId)
 
 	-- Verificar en DataStore con queue
 	local gifted = false
+	local isComplete = false
 	DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(s, r)
 		gifted = s and r or false
+		isComplete = true
 	end)
+	
+	-- Esperar a que se complete (máximo 500ms)
+	local startTime = tick()
+	while not isComplete and (tick() - startTime) < 0.5 do
+		task.wait(0.01)
+	end
 
 	return gifted
 end

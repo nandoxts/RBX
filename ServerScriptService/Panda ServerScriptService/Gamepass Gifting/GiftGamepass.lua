@@ -70,6 +70,36 @@ local function SendDiscordWebhook(recipientsplayername, recipientsuserid, donors
 	HttpService:PostAsync(url, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson)
 end
 
+-- Función auxiliar para verificar si un usuario tiene un gamepass (comprado o regalado)
+-- Usa DataStoreQueue para respetar throttling
+local function checkUserGamepassOwnership(userId, gamepassId)
+	-- Primero verificar compra directa (sincrónico)
+	local success, owns = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(userId, gamepassId)
+	end)
+	
+	if success and owns then
+		return true
+	end
+	
+	-- Si no lo compró, verificar si fue regalado usando DataStore
+	local result = false
+	local done = false
+	
+	DataStoreQueue:GetAsync(userId .. "-" .. gamepassId, function(dsSuccess, dsResult)
+		result = dsSuccess and dsResult or false
+		done = true
+	end)
+	
+	-- Esperar a que se complete (máximo 5 segundos)
+	local startTime = tick()
+	while not done and (tick() - startTime) < 5 do
+		task.wait(0.05)
+	end
+	
+	return result
+end
+
 -- Evento para iniciar el proceso de regalo
 GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, username, identifier)
 	--// -- // -- // -- // -- // --
@@ -98,16 +128,8 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	for _, purchaseablegamepass in pairs(getAllPurchaseables()) do
 		if purchaseablegamepass[1] == gamepass[1] and purchaseablegamepass[2] == gamepass[2] then
 			if player.UserId ~= userId then
-				local owns = MarketplaceService:UserOwnsGamePassAsync(userId, gamepass[1])
-				local hasGift = false
-				
-				if not owns then
-					-- Usar queue para verificar DataStore (no bloqueante)
-					DataStoreQueue:GetAsync(userId .. "-" .. gamepass[1], function(success, result)
-						hasGift = success and result or false
-					end)
-					owns = hasGift
-				end
+				--  Verificar correctamente si tiene el gamepass (comprado O regalado)
+				local owns = checkUserGamepassOwnership(userId, gamepass[1])
 
 				if not owns then
 					PlayersGifted[player.UserId] = userId
@@ -137,14 +159,9 @@ game.Players.PlayerAdded:Connect(function(player)
 	local function handleGamepasses()
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
-			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, GamepassID)
 			
-			if not ownsGamepass then
-				-- Verificar DataStore con queue (no bloqueante)
-				DataStoreQueue:GetAsync(player.UserId .. "-" .. GamepassID, function(success, result)
-					ownsGamepass = success and result or false
-				end)
-			end
+			-- ✅ Verificar correctamente si tiene el gamepass (comprado O regalado)
+			local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
 
 			if ownsGamepass then
 				local success, Asset = pcall(function()
@@ -196,14 +213,16 @@ local function handleGiftPurchase(receiptInfo)
 
 			PlayersGifted[receiptInfo.PlayerId] = nil
 
-			local success = false
+			-- ✅ Guardar en DataStore usando DataStoreQueue para respetar throttling
+			local saveSuccess = false
+			local saveDone = false
 			
-			-- Guardar en DataStore usando queue
-			DataStoreQueue:SetAsync(Recipient .. "-" .. gamepass[1], true, function(s, r)
-				success = s
+			DataStoreQueue:SetAsync(Recipient .. "-" .. gamepass[1], true, function(dsSuccess, dsResult)
+				saveSuccess = dsSuccess
+				saveDone = true
 			end)
 
-			-- Enviar notificación a Discord
+			-- Enviar notificación a Discord (sin esperar)
 			pcall(function()
 				SendDiscordWebhook(
 					game:GetService("Players"):GetNameFromUserIdAsync(Recipient),
@@ -252,8 +271,8 @@ local function handleGiftPurchase(receiptInfo)
 				end
 			end
 
-			return success and Enum.ProductPurchaseDecision.PurchaseGranted or 
-				Enum.ProductPurchaseDecision.NotProcessedYet
+			-- Retornar inmediatamente (el DataStore se guardará en background)
+			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end
 	return Enum.ProductPurchaseDecision.NotProcessedYet

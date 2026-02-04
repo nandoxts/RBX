@@ -186,24 +186,28 @@ if musicSoundGroup then
 	local ICON_SOUND_ON = 166377448
 	local ICON_SOUND_OFF = 14861812886
 
+	-- Sincronizar estado global para otros scripts
+	_G.MusicMutedState = false
+
 	-- ════════════════════════════════════════════════════════════
 	-- TOGGLE MUTE
 	-- ════════════════════════════════════════════════════════════
 	soundIcon:bindEvent("deselected", function()
 		isMuted = not isMuted
+		_G.MusicMutedState = isMuted  -- Actualizar estado global
 
 		if isMuted then
 			-- Guardar volumen actual del grupo y mutear
 			savedVolume = musicSoundGroup.Volume
 			musicSoundGroup.Volume = 0
 			soundIcon:setImage(ICON_SOUND_OFF)
+			print("Música: MUTEADA")
 		else
 			-- Restaurar volumen del grupo
 			musicSoundGroup.Volume = savedVolume
 			soundIcon:setImage(ICON_SOUND_ON)
+			print("Música: ACTIVADA")
 		end
-
-		print(" Música:", isMuted and "MUTEADA" or "ACTIVADA")
 	end)
 else
 	warn("[Topbar] No se encontró 'MusicSoundGroup' en SoundService - Créalo manualmente en Studio")
