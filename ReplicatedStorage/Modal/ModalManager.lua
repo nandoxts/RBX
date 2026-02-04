@@ -30,9 +30,12 @@ local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight)
 	local isMobile = isMobileDevice()
 
 	if isMobile then
-		-- En celular: usa 90% del ancho, máximo 85% del alto con padding
-		local width = screenSize.X * 0.9
-		local height = math.min(screenSize.Y * 0.85, baseHeight * 0.8)
+		-- En celular: máximo 95% del ancho y 90% del alto con espacios mínimos
+		local width = math.min(screenSize.X * 0.95, baseWidth)
+		local height = math.min(screenSize.Y * 0.90, baseHeight)
+		-- Asegurar que el tamaño mínimo sea razonable
+		width = math.max(width, 280)
+		height = math.max(height, 300)
 		return width, height
 	else
 		-- En desktop: usa tamaño base pero respeta pantalla mínima

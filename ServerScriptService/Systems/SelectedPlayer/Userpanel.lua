@@ -6,9 +6,13 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local DataStoreService = game:GetService("DataStoreService")
 
 local UNIVERSE_ID = game.GameId
 local PLACE_ID = game.PlaceId
+
+-- Acceso directo al DataStore de likes
+local LikesDataStore = DataStoreService:GetDataStore("LikesData")
 
 -- ═══════════════════════════════════════════════════════════════
 -- ⚠️ GAME PASSES MANUALES DE TU JUEGO
@@ -51,7 +55,7 @@ if not userPanelFolder then
 	userPanelFolder.Parent = remotesGlobal
 end
 
-local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses"}
+local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses", "SendLike"}
 for _, name in ipairs(remoteNames) do
 	local existing = userPanelFolder:FindFirstChild(name)
 	if existing then existing:Destroy() end
@@ -72,6 +76,10 @@ GetUserDonations.Parent = userPanelFolder
 local GetGamePasses = Instance.new("RemoteFunction")
 GetGamePasses.Name = "GetGamePasses"
 GetGamePasses.Parent = userPanelFolder
+
+local SendLike = Instance.new("RemoteEvent")
+SendLike.Name = "SendLike"
+SendLike.Parent = userPanelFolder
 
 -- ═══════════════════════════════════════════════════════════════
 -- CACHÉ
@@ -111,13 +119,32 @@ end
 -- ESTADÍSTICAS
 -- ═══════════════════════════════════════════════════════════════
 
+local function getTotalLikes(userId)
+	-- Primero intenta obtener del jugador en memoria
+	local player = Players:FindFirstChild(tostring(userId))
+	if player then
+		return player:GetAttribute("TotalLikes") or 0
+	end
+
+	-- Si no está en memoria, obtener del DataStore
+	local success, data = pcall(function()
+		return LikesDataStore:GetAsync("Player_" .. userId)
+	end)
+
+	if success and data and data.TotalLikes then
+		return data.TotalLikes
+	end
+
+	return 0
+end
+
 local function getUserStats(userId)
 	local cached = Cache.stats[userId]
 	if isCacheValid(cached, CONFIG.STATS_CACHE_TIME) then
 		return cached.data
 	end
 
-	local stats = { followers = 0, following = 0, friends = 0 }
+	local stats = { followers = 0, following = 0, friends = 0, likes = 0 }
 
 	local followersData = httpGet(CONFIG.FRIENDS_API .. userId .. "/followers/count")
 	if followersData and followersData.count then
@@ -133,6 +160,9 @@ local function getUserStats(userId)
 	if friendsData and friendsData.count then
 		stats.friends = friendsData.count
 	end
+
+	-- Obtener TotalLikes del DataStore o del atributo del jugador
+	stats.likes = getTotalLikes(userId)
 
 	Cache.stats[userId] = { data = stats, timestamp = os.time() }
 	return stats
@@ -346,6 +376,13 @@ end
 GetGamePasses.OnServerInvoke = function()
 	return getGamePasses()
 end
+
+SendLike.OnServerEvent:Connect(function(donatingPlayer, targetUserId)
+	if not donatingPlayer or not targetUserId then return end
+	
+	print("[UserPanel] 👍 Like recibido: " .. donatingPlayer.Name .. " le dio like a usuario " .. targetUserId)
+	-- Aquí puedes agregar lógica adicional como guardar en DataStore, efectos visuales, etc.
+end)
 
 -- ═══════════════════════════════════════════════════════════════
 -- INICIO

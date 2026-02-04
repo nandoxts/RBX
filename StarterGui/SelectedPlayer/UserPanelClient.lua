@@ -16,12 +16,54 @@ local remotesFolder = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChi
 local Remotes = {
 	GetUserData = remotesFolder:WaitForChild("GetUserData"),
 	GetUserDonations = remotesFolder:WaitForChild("GetUserDonations"),
-	GetGamePasses = remotesFolder:WaitForChild("GetGamePasses")
+	GetGamePasses = remotesFolder:WaitForChild("GetGamePasses"),
+	DonationNotify = remotesFolder:FindFirstChild("DonationNotify"),
+	DonationMessage = remotesFolder:FindFirstChild("DonationMessage"),
+	SendLike = remotesFolder:FindFirstChild("SendLike"),
+	SendSuperLike = remotesFolder:FindFirstChild("SendSuperLike")
 }
 
+-- Sistema de likes existente
+local LikesEvents = ReplicatedStorage:FindFirstChild("LikesEvents")
+local GiveLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveLikeEvent")
+local GiveSuperLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveSuperLikeEvent")
+
 -- ═══════════════════════════════════════════════════════════════
--- CARGAR TEMA
+-- CONFIGURACION DE LIKES
 -- ═══════════════════════════════════════════════════════════════
+local LIKE_COOLDOWN = 60  -- 60 segundos entre likes
+local SUPER_LIKE_PRODUCT_ID = require(ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Configuration")).SUPER_LIKE
+
+-- ═══════════════════════════════════════════════════════════════
+-- SISTEMA DE LIKES OPTIMIZADO
+-- ═══════════════════════════════════════════════════════════════
+local LikesSystem = {
+	Cooldowns = {
+		Like = {}
+	},
+	IsSending = false
+}
+
+local function checkLocalCooldown(targetUserId)
+	local userId = player.UserId
+	local cooldownKey = userId .. "_" .. targetUserId
+
+	local lastTime = LikesSystem.Cooldowns.Like[cooldownKey] or 0
+	local elapsed = tick() - lastTime
+
+	return elapsed >= LIKE_COOLDOWN, lastTime
+end
+
+local function updateLocalCooldown(targetUserId)
+	local userId = player.UserId
+	local cooldownKey = userId .. "_" .. targetUserId
+	LikesSystem.Cooldowns.Like[cooldownKey] = tick()
+end
+
+local function showCooldownNotification(remainingTime)
+	local minutes = math.ceil(remainingTime / 60)
+	print(string.format("[UserPanel] Espera %d minuto%s para dar otro like", minutes, minutes > 1 and "s" or ""))
+end
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
 -- ═══════════════════════════════════════════════════════════════
@@ -42,7 +84,7 @@ local CONFIG = {
 	BUTTON_GAP = 8,
 	BUTTON_CORNER = 10,
 
-	CARD_SIZE = 56,
+	CARD_SIZE = 75,
 
 	ANIM_FAST = 0.12,
 	ANIM_NORMAL = 0.2,
@@ -151,8 +193,59 @@ local function getAvatarImage(userId)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- EFECTOS
+-- EFECTOS Y PARTÍCULAS
 -- ═══════════════════════════════════════════════════════════════
+local function createHeartParticle(container, startPos, isSuperLike)
+	-- Crea una partícula de corazón que flota hacia arriba
+	local heart = create("TextLabel", {
+		Size = UDim2.new(0, isSuperLike and 36 or 24, 0, isSuperLike and 36 or 24),
+		Position = startPos,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Text = isSuperLike and "⭐" or "❤",
+		TextColor3 = isSuperLike and THEME.accent or Color3.fromRGB(255, 105, 180),
+		TextSize = isSuperLike and 32 or 22,
+		Font = Enum.Font.GothamBold,
+		ZIndex = 100,
+		Parent = container
+	})
+	
+	-- Animación de flotamiento y desvanecimiento
+	local endY = startPos.Y.Offset - 100
+	tween(heart, {
+		Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + math.random(-30, 30), startPos.Y.Scale, endY),
+		BackgroundTransparency = 1
+	}, isSuperLike and 1.5 or 1.2, Enum.EasingStyle.Quint)
+	
+	task.delay(isSuperLike and 1.5 or 1.2, function()
+		if heart and heart.Parent then heart:Destroy() end
+	end)
+end
+
+local function createHeartEffect(avatarElement, isSuperLike)
+	-- Crea múltiples corazones partiendo del avatar
+	local absPos = avatarElement.AbsolutePosition
+	local absSize = avatarElement.AbsoluteSize
+	local centerX = absPos.X + absSize.X / 2
+	local centerY = absPos.Y + absSize.Y / 2
+	
+	local screenGui = State.container.Parent
+	
+	local particleCount = isSuperLike and 12 or 8
+	for i = 1, particleCount do
+		local angle = (i / particleCount) * math.pi * 2
+		local offsetX = math.cos(angle) * 30
+		local offsetY = math.sin(angle) * 30
+		
+		task.delay(i * 0.05, function()
+			if State.ui and screenGui then
+				local startPosUDim2 = UDim2.new(0, centerX + offsetX, 0, centerY + offsetY)
+				createHeartParticle(screenGui, startPosUDim2, isSuperLike)
+			end
+		end)
+	end
+end
+
 local function createRipple(button, container, x, y)
 	local pos = button.AbsolutePosition
 	local ripple = createFrame({
@@ -191,6 +284,41 @@ local function closePanel()
 			connections = {}, refreshThread = nil, currentView = "buttons",
 			buttonsFrame = nil, dynamicSection = nil, isPanelOpening = false, lastClickTime = 0
 		}
+	end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- LISTENERS DE DONACIONES Y LIKES (NEW SYSTEM)
+-- ═══════════════════════════════════════════════════════════════
+if Remotes.DonationNotify then
+	Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
+		-- Solo para debug, no modifica stats
+		print("[UserPanel] Donación: " .. donatorId .. " donó R$" .. amount .. " a " .. recipientId)
+	end)
+end
+
+if Remotes.DonationMessage then
+	Remotes.DonationMessage.OnClientEvent:Connect(function(donatorName, amount, recipientName)
+		print("[UserPanel] Donación recibida: " .. donatorName .. " donó R$" .. amount .. " a " .. recipientName)
+	end)
+end
+
+-- Listeners del sistema de likes existente
+if GiveLikeEvent then
+	GiveLikeEvent.OnClientEvent:Connect(function(action, data)
+		if action == "LikeSuccess" then
+			print("[UserPanel] ❤ Like enviado exitosamente")
+		elseif action == "Error" then
+			print("[UserPanel] Error al enviar like: " .. tostring(data))
+		end
+	end)
+end
+
+if GiveSuperLikeEvent then
+	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data)
+		if action == "SuperLikeSuccess" then
+			print("[UserPanel] ⭐ Super Like enviado exitosamente")
+		end
 	end)
 end
 
@@ -250,7 +378,7 @@ local function createAvatarSection(panel, data)
 		Size = UDim2.new(0, CONFIG.STATS_WIDTH, 1, 0),
 		Position = UDim2.new(1, -CONFIG.STATS_WIDTH, 0, 0),
 		BackgroundColor3 = THEME.panel,
-		BackgroundTransparency = 0.3,
+		BackgroundTransparency = 1,
 		ZIndex = 10,
 		Parent = avatarSection
 	})
@@ -263,10 +391,11 @@ local function createAvatarSection(panel, data)
 		Parent = statsBar
 	})
 
-	-- Stats: followers y friends
+	-- Stats: followers, friends y likes
 	local stats = {
 		{ key = "followers", label = "Seguidores" },
 		{ key = "friends", label = "Amigos" },
+		{ key = "likes", label = "Likes" },
 	}
 
 	for _, stat in ipairs(stats) do
@@ -307,7 +436,7 @@ local function createAvatarSection(panel, data)
 		Size = UDim2.new(1, -CONFIG.STATS_WIDTH - 16, 0, 24),
 		Position = UDim2.new(0, 10, 1, -52),
 		Text = data.displayName,
-		TextColor3 = Color3.new(1, 1, 1),
+		TextColor3 = THEME.accent,
 		TextSize = 18,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -320,7 +449,7 @@ local function createAvatarSection(panel, data)
 		Size = UDim2.new(1, -CONFIG.STATS_WIDTH - 16, 0, 18),
 		Position = UDim2.new(0, 10, 1, -28),
 		Text = "@" .. data.username,
-		TextColor3 = Color3.fromRGB(180, 180, 180),
+		TextColor3 = THEME.muted,
 		TextSize = 13,
 		Font = Enum.Font.GothamMedium,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -333,20 +462,12 @@ local function createAvatarSection(panel, data)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- BOTON GHOST (gris minimalista)
+-- BOTON (estilo EmoteUI - minimalista con hover suave)
 -- ═══════════════════════════════════════════════════════════════
-local BUTTON_COLORS = {
-	base = Color3.fromRGB(45, 45, 50),
-	hover = Color3.fromRGB(55, 55, 62),
-	stroke = Color3.fromRGB(65, 65, 72),
-	strokeHover = Color3.fromRGB(90, 90, 100),
-	text = Color3.fromRGB(220, 220, 220),
-}
-
 local function createButton(parent, text, layoutOrder)
 	local button = create("TextButton", {
 		Size = UDim2.new(1, 0, 0, CONFIG.BUTTON_HEIGHT),
-		BackgroundColor3 = BUTTON_COLORS.base,
+		BackgroundColor3 = THEME.elevated,
 		Text = "",
 		AutoButtonColor = false,
 		ClipsDescendants = true,
@@ -354,13 +475,14 @@ local function createButton(parent, text, layoutOrder)
 		Parent = parent
 	})
 	addCorner(button, CONFIG.BUTTON_CORNER)
-	local stroke = addStroke(button, BUTTON_COLORS.stroke, 1, 0.3)
+	local stroke = addStroke(button, THEME.stroke, 1, 0.7)
 
 	local textLabel = createLabel({
 		Size = UDim2.new(1, 0, 1, 0),
 		Text = text,
-		TextColor3 = BUTTON_COLORS.text,
-		TextSize = 12,
+		TextColor3 = THEME.text,
+		TextSize = 14,
+		Font = Enum.Font.GothamBold,
 		ZIndex = 3,
 		Parent = button
 	})
@@ -373,15 +495,15 @@ local function createButton(parent, text, layoutOrder)
 	})
 	addCorner(rippleContainer, CONFIG.BUTTON_CORNER)
 
-	-- Hover minimo
+	-- Hover suave (mezcla del color elevated con accent)
 	addConnection(button.MouseEnter:Connect(function()
-		tween(button, { BackgroundColor3 = BUTTON_COLORS.hover }, CONFIG.ANIM_FAST)
-		tween(stroke, { Color = BUTTON_COLORS.strokeHover, Transparency = 0 }, CONFIG.ANIM_FAST)
+		tween(button, { BackgroundColor3 = THEME.elevated:Lerp(THEME.accent, 0.15) }, CONFIG.ANIM_FAST)
+		tween(stroke, { Transparency = 0.3 }, CONFIG.ANIM_FAST)
 	end))
 
 	addConnection(button.MouseLeave:Connect(function()
-		tween(button, { BackgroundColor3 = BUTTON_COLORS.base }, CONFIG.ANIM_FAST)
-		tween(stroke, { Color = BUTTON_COLORS.stroke, Transparency = 0.3 }, CONFIG.ANIM_FAST)
+		tween(button, { BackgroundColor3 = THEME.elevated }, CONFIG.ANIM_FAST)
+		tween(stroke, { Transparency = 0.7 }, CONFIG.ANIM_FAST)
 	end))
 
 	-- Ripple on click
@@ -436,9 +558,9 @@ local function showDynamicSection(viewType, items, targetName)
 
 	local backBtn = create("TextButton", {
 		Size = UDim2.new(0, 28, 0, 28),
-		BackgroundColor3 = BUTTON_COLORS.base,
+		BackgroundColor3 = THEME.elevated,
 		Text = "<",
-		TextColor3 = BUTTON_COLORS.text,
+		TextColor3 = THEME.text,
 		TextSize = 14,
 		Font = Enum.Font.GothamBold,
 		AutoButtonColor = false,
@@ -446,8 +568,8 @@ local function showDynamicSection(viewType, items, targetName)
 	})
 	addCorner(backBtn, 6)
 
-	addConnection(backBtn.MouseEnter:Connect(function() tween(backBtn, { BackgroundColor3 = BUTTON_COLORS.hover }, CONFIG.ANIM_FAST) end))
-	addConnection(backBtn.MouseLeave:Connect(function() tween(backBtn, { BackgroundColor3 = BUTTON_COLORS.base }, CONFIG.ANIM_FAST) end))
+	addConnection(backBtn.MouseEnter:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(THEME.accent, 0.15) }, CONFIG.ANIM_FAST) end))
+	addConnection(backBtn.MouseLeave:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated }, CONFIG.ANIM_FAST) end))
 	addConnection(backBtn.MouseButton1Click:Connect(switchToButtons))
 
 	local title = viewType == "donations" and ("Donar a " .. (targetName or "Usuario")) or "Regalar Pase"
@@ -455,8 +577,8 @@ local function showDynamicSection(viewType, items, targetName)
 		Size = UDim2.new(1, -36, 0, 28),
 		Position = UDim2.new(0, 34, 0, 0),
 		Text = title,
-		TextColor3 = Color3.new(1, 1, 1),
-		TextSize = 12,
+		TextColor3 = THEME.accent,
+		TextSize = 16,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -470,7 +592,7 @@ local function showDynamicSection(viewType, items, targetName)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Color3.fromRGB(100, 100, 110),
+		ScrollBarImageColor3 = THEME.accent,
 		ScrollBarImageTransparency = 0.3,
 		ScrollingDirection = Enum.ScrollingDirection.X,
 		AutomaticCanvasSize = Enum.AutomaticSize.X,
@@ -500,15 +622,15 @@ local function showDynamicSection(viewType, items, targetName)
 			local circle = createFrame({
 				Size = UDim2.new(0, CONFIG.CARD_SIZE, 0, CONFIG.CARD_SIZE),
 				Position = UDim2.new(0.5, -CONFIG.CARD_SIZE / 2, 0.5, -CONFIG.CARD_SIZE / 2),
-				BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+				BackgroundColor3 = THEME.panel,
 				BackgroundTransparency = 0,
 				ClipsDescendants = true,
 				Parent = card
 			})
 			addCorner(circle, CONFIG.CARD_SIZE / 2)
-			local circleStroke = addStroke(circle, Color3.fromRGB(50, 50, 60), 1.5)
+			local circleStroke = addStroke(circle, THEME.stroke, 1.5)
 
-			create("ImageLabel", {
+			local img = create("ImageLabel", {
 				Size = UDim2.new(1, 0, 1, 0),
 				BackgroundTransparency = 1,
 				Image = item.icon or "",
@@ -516,14 +638,15 @@ local function showDynamicSection(viewType, items, targetName)
 				ZIndex = 1,
 				Parent = circle
 			})
+			addCorner(img, CONFIG.CARD_SIZE / 2)
 
 			-- Precio overlay
 			local priceOverlay = createFrame({
 				Size = UDim2.new(1, 0, 0.35, 0),
 				Position = UDim2.new(0, 0, 1, 0),
 				AnchorPoint = Vector2.new(0, 1),
-				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-				BackgroundTransparency = 0.4,
+				BackgroundColor3 = THEME.head,
+				BackgroundTransparency = 0.3,
 				ZIndex = 2,
 				Parent = circle
 			})
@@ -531,7 +654,7 @@ local function showDynamicSection(viewType, items, targetName)
 			createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
 				Text = tostring(item.price or 0),
-				TextColor3 = Color3.fromRGB(85, 255, 127),
+				TextColor3 = THEME.accent,
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
@@ -547,11 +670,11 @@ local function showDynamicSection(viewType, items, targetName)
 			})
 
 			addConnection(clickBtn.MouseEnter:Connect(function()
-				tween(circleStroke, { Color = Color3.fromRGB(88, 101, 242), Thickness = 2.5 }, CONFIG.ANIM_FAST)
+				tween(circleStroke, { Color = THEME.accent, Thickness = 2.5 }, CONFIG.ANIM_FAST)
 			end))
 
 			addConnection(clickBtn.MouseLeave:Connect(function()
-				tween(circleStroke, { Color = Color3.fromRGB(50, 50, 60), Thickness = 1.5 }, CONFIG.ANIM_FAST)
+				tween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, CONFIG.ANIM_FAST)
 			end))
 
 			addConnection(clickBtn.MouseButton1Click:Connect(function()
@@ -564,7 +687,7 @@ local function showDynamicSection(viewType, items, targetName)
 		createLabel({
 			Size = UDim2.new(1, 0, 1, 0),
 			Text = "No hay items disponibles",
-			TextColor3 = Color3.fromRGB(120, 120, 130),
+			TextColor3 = THEME.muted,
 			TextSize = 11,
 			Parent = scroll
 		})
@@ -626,6 +749,8 @@ local function createButtonsSection(panel, target)
 			showDynamicSection("passes", passes, nil)
 		end)
 	end))
+
+	-- Los botones Like/SuperLike ahora se disparan al hacer click en el avatar
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -658,8 +783,8 @@ local function createPanel(data)
 	local dragIndicator = createFrame({
 		Size = UDim2.new(0, 44, 0, 5),
 		Position = UDim2.new(0.5, -22, 0.5, -2),
-		BackgroundColor3 = Color3.fromRGB(100, 100, 110),
-		BackgroundTransparency = 0.15,
+		BackgroundColor3 = THEME.accent,
+		BackgroundTransparency = 0.3,
 		Parent = dragHandle
 	})
 	addCorner(dragIndicator, 999)
@@ -698,13 +823,13 @@ local function createPanel(data)
 	local panel = createFrame({
 		Size = UDim2.new(1, 0, 1, -22),
 		Position = UDim2.new(0, 0, 0, 22),
-		BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+		BackgroundColor3 = THEME.panel,
 		BackgroundTransparency = 0,
 		ClipsDescendants = true,
 		Parent = State.container
 	})
 	addCorner(panel, 12)
-	addStroke(panel, Color3.fromRGB(70, 70, 80), 1.5)
+	addStroke(panel, THEME.accent, 1.5)
 
 	-- Sombra
 	create("ImageLabel", {
@@ -722,6 +847,71 @@ local function createPanel(data)
 
 	createAvatarSection(panel, data)
 
+	-- Click handler al avatar para Like/SuperLike
+	local avatarSection = panel:FindFirstChildOfClass("Frame") -- Avatar section es el primer frame
+	if avatarSection then
+		local avatarClickable = createFrame({
+			Size = UDim2.new(0.8, 0, 0.8, 0),
+			Position = UDim2.new(0.1, 0, 0.05, 0),
+			AnchorPoint = Vector2.new(0, 0),
+			BackgroundTransparency = 1,
+			ZIndex = 5,
+			Parent = avatarSection
+		})
+		
+		local avatarButton = create("TextButton", {
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = 5,
+			Parent = avatarClickable
+		})
+		
+		local lastLikeClick = 0
+		addConnection(avatarButton.MouseButton1Click:Connect(function()
+			if not State.userId or State.userId == player.UserId then return end
+			
+			local now = tick()
+			if now - lastLikeClick < 0.3 then return end
+			lastLikeClick = now
+			
+			local canLike, lastLikeTime = checkLocalCooldown(State.userId)
+			
+			if canLike then
+				-- Disparar evento de Like
+				if GiveLikeEvent then
+					GiveLikeEvent:FireServer("GiveLike", State.userId)
+				elseif Remotes.SendLike then
+					Remotes.SendLike:FireServer(State.userId)
+				end
+				
+				-- Crear efecto de corazones
+				createHeartEffect(avatarSection, false)
+				updateLocalCooldown(State.userId)
+			else
+				local remainingTime = LIKE_COOLDOWN - (tick() - lastLikeTime)
+				showCooldownNotification(remainingTime)
+			end
+		end))
+		
+		-- Super Like con clic derecho
+		addConnection(avatarButton.MouseButton2Click:Connect(function()
+			if not State.userId or State.userId == player.UserId then return end
+			
+			if GiveSuperLikeEvent then
+				GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
+			end
+			
+			-- Crear efecto de estrellas para super like
+			createHeartEffect(avatarSection, true)
+			
+			-- Mostrar prompt de compra
+			pcall(function()
+				MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID)
+			end)
+		end))
+	end
+	
 	local target
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p.UserId == data.userId then target = p break end
@@ -758,7 +948,8 @@ local function openPanel(target)
 			displayName = target.DisplayName,
 			avatar = getAvatarImage(target.UserId),
 			followers = 0,
-			friends = 0
+			friends = 0,
+			likes = 0
 		})
 	end)
 
