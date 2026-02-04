@@ -8,6 +8,7 @@ local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild(
 -- Módulos
 local CentralPurchaseHandler = require(ServerScriptService["Gamepass Gifting"].GiftGamepass.ManagerProcess)
 local Configuration = require(ServerScriptService.Configuration)
+local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
 -- Datastore
 local LikesDataStore = DataStoreService:GetDataStore("LikesData")
@@ -17,6 +18,10 @@ local LeaderboardDataStore = DataStoreService:GetOrderedDataStore('TopLikes')
 local LikesDataStore = DataStoreService:GetDataStore("LikesDataHalloween")
 local LeaderboardDataStore = DataStoreService:GetOrderedDataStore('TopLikesHalloween')
 ]]
+
+-- 🎯 QUEUE MANAGERS
+local likesQueue = DataStoreQueueManager.new(LikesDataStore, "LikesQueue")
+local leaderboardQueue = DataStoreQueueManager.new(LeaderboardDataStore, "LeaderboardQueue")
 
 -- Eventos
 local LikesEvents = ReplicatedStorage:WaitForChild("LikesEvents")
@@ -151,20 +156,13 @@ local function saveBatch()
 		local player = Players:GetPlayerByUserId(userId)
 		if player and PlayerData[userId] and canSavePlayer(userId) then
 			task.spawn(function()
-				local success, err = pcall(function()
-					LikesDataStore:SetAsync("Player_" .. userId, {
-						TotalLikes = PlayerData[userId].TotalLikes
-					})
-				end)
-
-				if success then
-					PlayerData[userId].LastSave = tick()
-					LastSaveTime[userId] = tick()
-					DirtyData[userId] = nil -- Solo borrar si guardó exitosamente
-					saveCount = saveCount + 1
-				else
-					warn("⚠️ Error guardando jugador " .. userId .. ": " .. tostring(err))
-				end
+				likesQueue:SetAsync("Player_" .. userId, {
+					TotalLikes = PlayerData[userId].TotalLikes
+				})
+				PlayerData[userId].LastSave = tick()
+				LastSaveTime[userId] = tick()
+				DirtyData[userId] = nil
+				saveCount = saveCount + 1
 			end)
 		else
 			skippedCount = skippedCount + 1
@@ -175,16 +173,11 @@ local function saveBatch()
 	task.spawn(function()
 		local leaderboardCount = 0
 		for userId, data in pairs(LeaderboardQueue) do
-			if leaderboardCount >= 5 then break end -- Limitar leaderboard updates
+			if leaderboardCount >= 5 then break end
 
-			local success = pcall(function()
-				LeaderboardDataStore:SetAsync(userId, data.likes)
-			end)
-
-			if success then
-				LeaderboardQueue[userId] = nil
-				leaderboardCount = leaderboardCount + 1
-			end
+			leaderboardQueue:SetAsync(tostring(userId), data.likes)
+			LeaderboardQueue[userId] = nil
+			leaderboardCount = leaderboardCount + 1
 
 			task.wait(0.1)
 		end
@@ -199,20 +192,12 @@ end
 local function savePlayerData(userId, forceWait)
 	if not PlayerData[userId] then return false end
 
-	local success, err = pcall(function()
-		LikesDataStore:SetAsync("Player_" .. userId, {
-			TotalLikes = PlayerData[userId].TotalLikes
-		})
-	end)
-
-	if success then
-		LastSaveTime[userId] = tick()
-		DirtyData[userId] = nil
-		return true
-	else
-		warn("⚠️ Error guardando jugador " .. userId .. ": " .. tostring(err))
-		return false
-	end
+	likesQueue:SetAsync("Player_" .. userId, {
+		TotalLikes = PlayerData[userId].TotalLikes
+	})
+	LastSaveTime[userId] = tick()
+	DirtyData[userId] = nil
+	return true
 end
 
 -- ============================================

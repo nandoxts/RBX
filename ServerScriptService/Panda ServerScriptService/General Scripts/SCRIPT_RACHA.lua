@@ -11,6 +11,9 @@ local ID_BADGE = Configuration.BADGES_TopRacha
 -- VARIABLES --
 local LEADERBOARD_COUNT = 50
 local Datastore = DatastoreService:GetOrderedDataStore('TopRacha')
+local rachaCache = {}
+local lastRachaUpdate = 0
+local CACHE_TTL = 300 -- 5 minutos
 
 -- Ruta del leaderboard
 local Leaderboard = workspace.LeaderBoards.Leaderboards.RachaLeaderboard
@@ -141,6 +144,14 @@ local function AddItem(Rank, Data)
 end
 
 local function UpdateLeaderboard()
+	-- Si hay cache y es reciente, reutilizarlo
+	if rachaCache[1] and (tick() - lastRachaUpdate) < CACHE_TTL then
+		for rank, item in ipairs(rachaCache) do
+			AddItem(rank, item)
+		end
+		return
+	end
+
 	for _, Child in pairs(Scrolling:GetChildren()) do
 		if Child.Name ~= "Template" and Child.Name ~= "ListLayout" then
 			Child:Destroy()
@@ -153,6 +164,8 @@ local function UpdateLeaderboard()
 
 	if success and data then
 		local currentPage = data:GetCurrentPage()
+		rachaCache = currentPage
+		lastRachaUpdate = tick()
 		for rank, item in ipairs(currentPage) do
 			AddItem(rank, item)
 		end
@@ -203,6 +216,6 @@ end
 task.spawn(function()
 	while true do
 		SafeUpdateLeaderboard()
-		task.wait(180) -- 3 minutos
+		task.wait(300) -- 5 minutos
 	end
 end)
