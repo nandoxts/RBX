@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
+local TextChatService = game:GetService("TextChatService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -22,12 +23,11 @@ local SELECTED_CURSOR = "rbxassetid://84923889690331"
 local remotesFolder = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("UserPanel")
 local Remotes = {
 	GetUserData = remotesFolder:WaitForChild("GetUserData"),
+	RefreshUserData = remotesFolder:FindFirstChild("RefreshUserData"),  -- Puede no existir
 	GetUserDonations = remotesFolder:WaitForChild("GetUserDonations"),
 	GetGamePasses = remotesFolder:WaitForChild("GetGamePasses"),
 	DonationNotify = remotesFolder:FindFirstChild("DonationNotify"),
 	DonationMessage = remotesFolder:FindFirstChild("DonationMessage"),
-	SendLike = remotesFolder:FindFirstChild("SendLike"),
-	SendSuperLike = remotesFolder:FindFirstChild("SendSuperLike"),
 	CheckGamePass = remotesFolder:WaitForChild("CheckGamePass")
 }
 
@@ -42,9 +42,9 @@ local NotificationSystem = pcall(function()
 end) and require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem")) or nil
 
 -- Sistema de likes existente
-local LikesEvents = ReplicatedStorage:FindFirstChild("LikesEvents")
-local GiveLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveLikeEvent")
-local GiveSuperLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveSuperLikeEvent")
+local LikesEvents = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):WaitForChild("LikesEvents")
+local GiveLikeEvent = LikesEvents:WaitForChild("GiveLikeEvent")
+local GiveSuperLikeEvent = LikesEvents:WaitForChild("GiveSuperLikeEvent")
 
 -- Highlight del SelectedPlayer
 local SelectedPlayerModule = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("SelectedPlayer")
@@ -402,34 +402,78 @@ if Remotes.DonationMessage then
 	end)
 end
 
--- Listeners del sistema de likes existente (GLOBALES - PERSISTENTES)
+-- Listener único para likes (GLOBAL - PERSISTENTE)
+local function handleLikeEvent(action, isSuperLike)
+	if not NotificationSystem then return end
+	local likeType = isSuperLike and "Super Like" or "Like"
+	if action == "LikeSuccess" or action == "SuperLikeSuccess" then
+		NotificationSystem:Success(likeType, likeType .. " enviado exitosamente", isSuperLike and 3 or 2)
+	elseif action == "Error" then
+		NotificationSystem:Error(likeType, "Error al enviar " .. likeType:lower(), 3)
+	end
+end
+
 if GiveLikeEvent then
-	GiveLikeEvent.OnClientEvent:Connect(function(action, data)
-		if action == "LikeSuccess" then
-			if NotificationSystem then
-				NotificationSystem:Success("Like", "Like enviado exitosamente", 2)
-			end
-		elseif action == "Error" then
-			if NotificationSystem then
-				NotificationSystem:Error("Like", "Error al enviar like", 3)
-			end
-		end
-	end)
+	GiveLikeEvent.OnClientEvent:Connect(function(action, data) handleLikeEvent(action, false) end)
 end
 
 if GiveSuperLikeEvent then
-	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data)
-		if action == "SuperLikeSuccess" then
-			if NotificationSystem then
-				NotificationSystem:Success("Super Like", "Super Like enviado exitosamente", 3)
+	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data) handleLikeEvent(action, true) end)
+end
+
+-- Listener para donaciones (GLOBAL - PERSISTENTE)
+if Remotes.DonationMessage then
+	Remotes.DonationMessage.OnClientEvent:Connect(function(donatingPlayer, amount, donatedPlayer)
+		local TextChannels = TextChatService:WaitForChild("TextChannels")
+		local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+
+		-- Verificar si el receptor de la donación debe ser reemplazado
+		local displayName = donatedPlayer
+		if donatedPlayer == "Panda Mania' [Games]" or donatedPlayer == "Panda15Fps" or donatedPlayer == "Panda Mania' [UGC]" then
+			displayName = "Zona Peruana"
+		end
+
+		-- Mostrar mensaje de donación en el chat del sistema
+		RBXSystem:DisplaySystemMessage(
+			'<font color="#8762FF"><b>' .. donatingPlayer .. " donó " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+		)
+	end)
+end
+
+-- Listener para notificaciones de likes en chat
+local BroadcastEvent = LikesEvents:FindFirstChild("BroadcastEvent")
+if BroadcastEvent then
+	BroadcastEvent.OnClientEvent:Connect(function(action, data)
+		if action == "LikeNotification" then
+			local TextChatService = game:GetService("TextChatService")
+			local message
+			if data.IsSuperLike then
+				message = '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
+			else
+				message = '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
 			end
+
+			pcall(function()
+				local TextChannels = TextChatService:WaitForChild("TextChannels")
+				local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+				RBXSystem:DisplaySystemMessage(message)
+			end)
 		end
 	end)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- AUTO REFRESH
+-- HELPERS DE ACTUALIZACION
 -- ═══════════════════════════════════════════════════════════════
+local function updateStats(data, excludeLikes)
+	if not data or not State.statsLabels then return end
+	for key, label in pairs(State.statsLabels) do
+		if (not excludeLikes or key ~= "likes") and data[key] and label and label.Parent then
+			label.Text = tostring(data[key] or 0)
+		end
+	end
+end
+
 local function startAutoRefresh()
 	if State.refreshThread then task.cancel(State.refreshThread) end
 
@@ -442,13 +486,7 @@ local function startAutoRefresh()
 				return Remotes.GetUserData:InvokeServer(State.userId)
 			end)
 
-			if success and data then
-				for key, label in pairs(State.statsLabels) do
-					if data[key] and label and label.Parent then
-						label.Text = tostring(data[key] or 0)
-					end
-				end
-			end
+			if success then updateStats(data, true) end
 		end
 	end)
 end
@@ -578,86 +616,46 @@ local function createAvatarSection(panel, data, playerColor)
 		Parent = likeButtonsContainer
 	})
 
-	-- Botón Like (Imagen)
-	local likeBtn = create("ImageButton", {
-		Size = UDim2.new(0, 28, 0, 28),
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://118393090095169",  -- Reemplaza con tu ID de imagen de corazón
-		ScaleType = Enum.ScaleType.Fit,
-		AutoButtonColor = false,
-		ZIndex = 15,
-		Parent = likeButtonsContainer
-	})
+	-- Helper para crear botones de like con hover
+	local function createLikeButton(imageId, onClick)
+		local btn = create("ImageButton", {
+			Size = UDim2.new(0, 28, 0, 28),
+			BackgroundTransparency = 1,
+			Image = imageId,
+			ScaleType = Enum.ScaleType.Fit,
+			AutoButtonColor = false,
+			ZIndex = 15,
+			Parent = likeButtonsContainer
+		})
+		addConnection(btn.MouseButton1Click:Connect(onClick))
+		addConnection(btn.MouseEnter:Connect(function() tween(btn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST) end))
+		addConnection(btn.MouseLeave:Connect(function() tween(btn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST) end))
+		return btn
+	end
 
+	-- Botón Like
 	local lastLikeClick = 0
-	addConnection(likeBtn.MouseButton1Click:Connect(function()
-		if not State.userId or State.userId == player.UserId then return end
-		
-		local now = tick()
-		if now - lastLikeClick < 0.3 then return end
-		lastLikeClick = now
+	createLikeButton("rbxassetid://118393090095169", function()
+		if not State.userId or State.userId == player.UserId or tick() - lastLikeClick < 0.3 then return end
+		lastLikeClick = tick()
 		
 		local canLike, lastLikeTime = checkLocalCooldown(State.userId)
-		
 		if canLike then
-			-- Disparar evento de Like
-			if GiveLikeEvent then
-				GiveLikeEvent:FireServer("GiveLike", State.userId)
-			elseif Remotes.SendLike then
-				Remotes.SendLike:FireServer(State.userId)
-			end
-			
-			-- Crear efecto de corazones
+			GiveLikeEvent:FireServer("GiveLike", State.userId)
 			createHeartEffect(avatarSection, false)
 			updateLocalCooldown(State.userId)
 		else
-			local remainingTime = LIKE_COOLDOWN - (tick() - lastLikeTime)
-			showCooldownNotification(remainingTime)
+			showCooldownNotification(LIKE_COOLDOWN - (tick() - lastLikeTime))
 		end
-	end))
+	end)
 
-	addConnection(likeBtn.MouseEnter:Connect(function()
-		tween(likeBtn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST)
-	end))
-
-	addConnection(likeBtn.MouseLeave:Connect(function()
-		tween(likeBtn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST)
-	end))
-
-	-- Botón SuperLike (Imagen)
-	local superLikeBtn = create("ImageButton", {
-		Size = UDim2.new(0, 28, 0, 28),
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://9412108006",  -- Reemplaza con tu ID de imagen de estrella
-		ScaleType = Enum.ScaleType.Fit,
-		AutoButtonColor = false,
-		ZIndex = 15,
-		Parent = likeButtonsContainer
-	})
-
-	addConnection(superLikeBtn.MouseButton1Click:Connect(function()
+	-- Botón SuperLike
+	createLikeButton("rbxassetid://9412108006", function()
 		if not State.userId or State.userId == player.UserId then return end
-		
-		if GiveSuperLikeEvent then
-			GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
-		end
-		
-		-- Crear efecto de estrellas para super like
+		GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
 		createHeartEffect(avatarSection, true)
-		
-		-- Mostrar prompt de compra
-		pcall(function()
-			MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID)
-		end)
-	end))
-
-	addConnection(superLikeBtn.MouseEnter:Connect(function()
-		tween(superLikeBtn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST)
-	end))
-
-	addConnection(superLikeBtn.MouseLeave:Connect(function()
-		tween(superLikeBtn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST)
-	end))
+		pcall(function() MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID) end)
+	end)
 
 	return avatarSection
 end
@@ -837,6 +835,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 			-- Usar valor ya validado del servidor
 			local hasPass = item.hasPass == true
+			local isValidating = item.hasPass == nil  -- nil = no validado aún
 
 			-- Precio overlay
 			local priceOverlay = createFrame({
@@ -851,13 +850,31 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 			local priceText = createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
-				Text = hasPass and "Adquirida" or (utf8.char(0xE002) .. tostring(item.price or 0)),
+				Text = hasPass and "ADQUIRIDO" or (utf8.char(0xE002) .. tostring(item.price or 0)),
 				TextColor3 = hasPass and Color3.fromRGB(100, 220, 100) or (playerColor or THEME.accent),
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
 				Parent = priceOverlay
 			})
+			
+			-- Validación lazy: Si no está validado, validar ahora en background
+			if isValidating and item.passId then
+				task.spawn(function()
+					local ok, result = pcall(function()
+						return Remotes.CheckGamePass:InvokeServer(item.passId)
+					end)
+					item.hasPass = (ok and result) or false
+					
+					-- Actualizar UI cuando termine
+					if item.hasPass and priceText.Parent then
+						priceText.Text = "ADQUIRIDO"
+						priceText.TextColor3 = Color3.fromRGB(100, 220, 100)
+						priceOverlay.BackgroundColor3 = THEME.panel
+						priceOverlay.BackgroundTransparency = 0.5
+					end
+				end)
+			end
 
 			local clickBtn = create("TextButton", {
 				Size = UDim2.new(1, 0, 1, 0),
@@ -907,7 +924,6 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 
 	-- El servidor ya devuelve los items con hasPass validado
 	-- No necesitamos validación async en el cliente
-	print("[UserPanel] Renderizando " .. (items and #items or 0) .. " items (ya validados por servidor)")
 	renderDynamicSection(viewType, items, targetName, playerColor)
 end
 
@@ -1108,6 +1124,49 @@ local function createPanel(data)
 	end
 	State.target = target
 
+-- ✅ LISTENER DE ATRIBUTOS: Fuente única de verdad para likes
+	if State.target then
+		local lastLikesValue = State.target:GetAttribute("TotalLikes") or 0
+		local isAnimating = false
+		
+		addConnection(State.target:GetAttributeChangedSignal("TotalLikes"):Connect(function()
+			local newLikes = State.target:GetAttribute("TotalLikes") or 0
+			
+			-- Ignorar si el valor no cambió realmente
+			if newLikes == lastLikesValue then return end
+			
+			if State.statsLabels and State.statsLabels.likes and State.statsLabels.likes.Parent then
+				-- Actualizar texto inmediatamente
+				State.statsLabels.likes.Text = tostring(newLikes)
+				
+				-- Efecto visual solo si el valor aumentó (y no estamos ya animando)
+				if newLikes > lastLikesValue and not isAnimating then
+					isAnimating = true
+					local originalSize = State.statsLabels.likes.TextSize
+					local increase = newLikes - lastLikesValue
+					local sizeIncrease = increase >= 10 and 6 or 4
+					
+					tween(State.statsLabels.likes, { TextSize = originalSize + sizeIncrease }, 0.15)
+					task.delay(0.15, function()
+						if State.statsLabels.likes and State.statsLabels.likes.Parent then
+							tween(State.statsLabels.likes, { TextSize = originalSize }, 0.15)
+							task.delay(0.15, function()
+								isAnimating = false
+							end)
+						end
+					end)
+				end
+			end
+			
+			lastLikesValue = newLikes
+		end))
+		
+		-- Sincronizar valor inicial inmediatamente
+		if State.statsLabels and State.statsLabels.likes then
+			State.statsLabels.likes.Text = tostring(lastLikesValue)
+		end
+	end
+
 	createButtonsSection(panel, target, playerColor)
 
 	-- Animación de entrada suave con escala y posición
@@ -1156,16 +1215,20 @@ local function openPanel(target)
 		attachHighlight(target)
 
 		task.spawn(function()
-			local ok, data = pcall(function() return Remotes.GetUserData:InvokeServer(target.UserId) end)
-			if ok and data and State.ui then
-				for key, label in pairs(State.statsLabels) do
-					if data[key] and label and label.Parent then
-						label.Text = tostring(data[key] or 0)
-					end
-				end
+			-- Forzar refresh sin caché al abrir panel (solo followers y friends, NO likes)
+			if Remotes.RefreshUserData then
+				Remotes.RefreshUserData:FireServer(target.UserId)
+				local refreshConn
+				refreshConn = Remotes.RefreshUserData.OnClientEvent:Connect(function(freshData)
+					if State.ui then updateStats(freshData, true) end
+					refreshConn:Disconnect()
+				end)
+			else
+				local ok, data = pcall(function() return Remotes.GetUserData:InvokeServer(target.UserId) end)
+				if ok and State.ui then updateStats(data, true) end
 			end
-			State.isPanelOpening = false
 		end)
+		State.isPanelOpening = false
 	else
 		State.isPanelOpening = false
 		warn("[UserPanel] Error creando panel:", result)
@@ -1233,24 +1296,14 @@ local function trySelectAtPosition(position)
 end
 
 -- Input handlers
-local function startPress() end
-local function endPress(pos) trySelectAtPosition(pos) end
-
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then startPress() end
-end)
-
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then endPress(Vector2.new(mouse.X, mouse.Y)) end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		trySelectAtPosition(Vector2.new(mouse.X, mouse.Y))
+	end
 end)
 
-UserInputService.TouchStarted:Connect(function(input, processed)
-	if not processed then startPress() end
-end)
-
-UserInputService.TouchEnded:Connect(function(input)
-	endPress(input.Position)
+UserInputService.TouchEnded:Connect(function(input, processed)
+	if not processed then trySelectAtPosition(input.Position) end
 end)
 
 -- ═══════════════════════════════════════════════════════════════

@@ -14,6 +14,17 @@ local PLACE_ID = game.PlaceId
 -- Acceso directo al DataStore de likes
 local LikesDataStore = DataStoreService:GetDataStore("LikesData")
 
+-- Sistema de Likes Events
+local LikesEvents = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage") 
+	and ReplicatedStorage["Panda ReplicatedStorage"]:FindFirstChild("LikesEvents")
+
+-- Importar GamePassManager para validar pases (comprados + regalados)
+local GamePassManager = require(game.ServerScriptService["Panda ServerScriptService"]["Gamepass Gifting"]["GamepassManager"])
+
+-- Importar Config con lista de gamepasses
+local ReplicatedStoragePanda = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage")
+local Config = require(ReplicatedStoragePanda["Gamepass Gifting"].Modules.Config)
+
 -- ═══════════════════════════════════════════════════════════════
 -- ⚠️ GAME PASSES MANUALES DE TU JUEGO
 -- Agrega los IDs de tus game passes aquí:
@@ -35,6 +46,10 @@ local CONFIG = {
 	GAMEPASSES_CACHE_TIME = 120,
 	MAX_GAMES_TO_SEARCH = 5,
 	HTTP_DELAY = 0.1,
+	
+	-- Límites de performance
+	MAX_ITEMS_TO_SHOW = 15,  -- Máximo de items a mostrar (evita lag)
+	MAX_ITEMS_TO_VALIDATE = 10,  -- Validar solo los primeros N inmediatamente
 
 	-- APIs (rotunnel funciona para donaciones)
 	FRIENDS_API = "https://friends.roproxy.com/v1/users/",
@@ -55,7 +70,7 @@ if not userPanelFolder then
 	userPanelFolder.Parent = remotesGlobal
 end
 
-local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses", "SendLike"}
+local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses"}
 for _, name in ipairs(remoteNames) do
 	local existing = userPanelFolder:FindFirstChild(name)
 	if existing then existing:Destroy() end
@@ -77,10 +92,6 @@ local GetGamePasses = Instance.new("RemoteFunction")
 GetGamePasses.Name = "GetGamePasses"
 GetGamePasses.Parent = userPanelFolder
 
-local SendLike = Instance.new("RemoteEvent")
-SendLike.Name = "SendLike"
-SendLike.Parent = userPanelFolder
-
 local CheckGamePass = Instance.new("RemoteFunction")
 CheckGamePass.Name = "CheckGamePass"
 CheckGamePass.Parent = userPanelFolder
@@ -95,6 +106,12 @@ local Cache = {
 	gamePasses = nil,
 	gamePassesTime = 0
 }
+
+-- Función para validar si un jugador tiene un pase (comprado o regalado)
+local function checkPlayerGamePass(player, passId)
+	if not player or not passId then return false end
+	return GamePassManager.HasGamepass(player, passId)
+end
 
 local function isCacheValid(cacheEntry, maxAge)
 	if not cacheEntry then return false end
@@ -261,34 +278,35 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 local function getGamePasses()
-	if Cache.gamePasses and os.time() - Cache.gamePassesTime < CONFIG.GAMEPASSES_CACHE_TIME then
-		return Cache.gamePasses
-	end
-
 	local passes = {}
 
-	-- Método 1: Intentar API
-	print("[UserPanel] Intentando cargar passes via API...")
-	passes = getGamePassesFromAPI(UNIVERSE_ID)
+	-- Cargar desde Config.Gamepasses (lista estática, igual que SelectedPlayer)
+	print("[UserPanel] Cargando game passes desde Config...")
 
-	-- Método 2: Si API falló, usar manuales
-	if #passes == 0 then
-		print("[UserPanel] API no devolvió passes, intentando manuales...")
-		passes = getGamePassesManual()
+	if Config.Gamepasses then
+		for _, gamepass in ipairs(Config.Gamepasses) do
+			local gamepassId = gamepass[1]
+			local productId = gamepass[2]
+
+			local passInfo = getGamePassInfo(gamepassId)
+			if passInfo then
+				table.insert(passes, passInfo)
+				print("[UserPanel] ✓ Pass cargado:", passInfo.name, "R$" .. passInfo.price)
+			else
+				warn("[UserPanel] ✗ Pass no válido o sin precio:", gamepassId)
+			end
+		end
 	end
 
 	-- Ordenar por precio
 	table.sort(passes, function(a, b) return a.price < b.price end)
 
-	Cache.gamePasses = passes
-	Cache.gamePassesTime = os.time()
-
 	print("[UserPanel] Game passes cargados:", #passes)
 
 	if #passes == 0 then
 		warn("[UserPanel] ══════════════════════════════════════")
-		warn("[UserPanel] ⚠️ NO HAY GAME PASSES CONFIGURADOS")
-		warn("[UserPanel] Agrega los IDs en MANUAL_GAMEPASS_IDS")
+		warn("[UserPanel] ⚠️ NO HAY GAME PASSES EN CONFIG")
+		warn("[UserPanel] Verifica Config.Gamepasses")
 		warn("[UserPanel] ══════════════════════════════════════")
 	end
 
@@ -376,28 +394,42 @@ GetUserDonations.OnServerInvoke = function(player, targetUserId)
 	if not targetUserId then return {} end
 	local donations = getUserDonations(targetUserId)
 	
-	-- Validar cada donación en PARALELO con MarketplaceService
+	-- Limitar cantidad de items (performance)
+	if #donations > CONFIG.MAX_ITEMS_TO_SHOW then
+		local limited = {}
+		for i = 1, CONFIG.MAX_ITEMS_TO_SHOW do
+			table.insert(limited, donations[i])
+		end
+		donations = limited
+		print("[UserPanel Server] Limitadas donaciones a", CONFIG.MAX_ITEMS_TO_SHOW, "items")
+	end
+	
+	-- Validar solo primeros N items en PARALELO (lazy loading)
 	if player and donations and #donations > 0 then
+		local toValidate = math.min(#donations, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
-		local total = #donations
 		
-		for i, donation in ipairs(donations) do
+		for i = 1, toValidate do
+			local donation = donations[i]
 			task.spawn(function()
-				local success, owns = pcall(function()
-					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, donation.passId)
-				end)
-				donation.hasPass = (success and owns) or false
+				-- Valida comprados + regalados (con fallback)
+				donation.hasPass = checkPlayerGamePass(player, donation.passId)
 				completed = completed + 1
 			end)
 		end
 		
-		-- Esperar a que TODAS las validaciones terminen (máximo 5 segundos)
+		-- Marcar el resto como "no validado" (el cliente validará bajo demanda)
+		for i = toValidate + 1, #donations do
+			donations[i].hasPass = nil  -- nil = no validado aún
+		end
+		
+		-- Esperar a que terminen las validaciones inmediatas
 		local startTime = tick()
-		while completed < total and (tick() - startTime) < 5 do
+		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
 		
-		print("[UserPanel Server] Validadas", completed, "/", total, "donaciones para", player.Name)
+		print("[UserPanel Server] Validadas", completed, "/", toValidate, "donaciones (" .. #donations .. " total)")
 	end
 	
 	return donations
@@ -406,52 +438,89 @@ end
 GetGamePasses.OnServerInvoke = function(player)
 	local passes = getGamePasses()
 	
-	-- Validar cada pass en PARALELO con MarketplaceService
+	-- Limitar cantidad de items (performance)
+	if #passes > CONFIG.MAX_ITEMS_TO_SHOW then
+		local limited = {}
+		for i = 1, CONFIG.MAX_ITEMS_TO_SHOW do
+			table.insert(limited, passes[i])
+		end
+		passes = limited
+		print("[UserPanel Server] Limitados game passes a", CONFIG.MAX_ITEMS_TO_SHOW, "items")
+	end
+	
+	-- Validar solo primeros N items en PARALELO (lazy loading)
 	if player and passes and #passes > 0 then
+		local toValidate = math.min(#passes, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
-		local total = #passes
 		
-		for i, pass in ipairs(passes) do
+		for i = 1, toValidate do
+			local pass = passes[i]
 			task.spawn(function()
-				local success, owns = pcall(function()
-					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, pass.passId)
-				end)
-				pass.hasPass = (success and owns) or false
+				-- Valida comprados + regalados (con fallback)
+				pass.hasPass = checkPlayerGamePass(player, pass.passId)
 				completed = completed + 1
 			end)
 		end
 		
-		-- Esperar a que TODAS las validaciones terminen (máximo 5 segundos)
+		-- Marcar el resto como "no validado" (el cliente validará bajo demanda)
+		for i = toValidate + 1, #passes do
+			passes[i].hasPass = nil  -- nil = no validado aún
+		end
+		
+		-- Esperar a que terminen las validaciones inmediatas
 		local startTime = tick()
-		while completed < total and (tick() - startTime) < 5 do
+		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
 		
-		print("[UserPanel Server] Validados", completed, "/", total, "game passes para", player.Name)
+		print("[UserPanel Server] Validados", completed, "/", toValidate, "game passes (" .. #passes .. " total)")
 	end
 	
 	return passes
 end
 
-SendLike.OnServerEvent:Connect(function(donatingPlayer, targetUserId)
-	if not donatingPlayer or not targetUserId then return end
-	
-	print("[UserPanel] 👍 Like recibido: " .. donatingPlayer.Name .. " le dio like a usuario " .. targetUserId)
-	-- Aquí puedes agregar lógica adicional como guardar en DataStore, efectos visuales, etc.
-end)
-
 CheckGamePass.OnServerInvoke = function(player, passId)
 	if not player or not passId then return false end
 	
-	local success, hasPass = pcall(function()
-		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
-	end)
+	-- Valida comprados + regalados (con fallback)
+	return checkPlayerGamePass(player, passId)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- INVALIDAR CACHÉ CUANDO SE ACTUALIZAN LIKES
+-- ═══════════════════════════════════════════════════════════════
+local function invalidateStatsCache(userId)
+	Cache.stats[userId] = nil
+end
+
+-- Escuchar eventos de likes para invalidar caché
+if LikesEvents then
+	local GiveLikeEvent = LikesEvents:FindFirstChild("GiveLikeEvent")
+	local GiveSuperLikeEvent = LikesEvents:FindFirstChild("GiveSuperLikeEvent")
 	
-	if success then
-		return hasPass
+	if GiveLikeEvent then
+		GiveLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
+			if action == "GiveLike" and targetUserId then
+				-- Invalidar caché del jugador que recibió el like
+				task.delay(0.5, function()
+					invalidateStatsCache(targetUserId)
+				end)
+			end
+		end)
 	end
 	
-	return false
+	if GiveSuperLikeEvent then
+		GiveSuperLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
+			if action == "GiveSuperLike" and targetUserId then
+				task.delay(0.5, function()
+					invalidateStatsCache(targetUserId)
+				end)
+			end
+			if action == "SetSuperLikeTarget" and targetUserId then
+				-- No invalidar aquí, solo cuando se complete la compra
+			end
+		end)
+	end
 end
 
 -- ═══════════════════════════════════════════════════════════════

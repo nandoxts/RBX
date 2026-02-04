@@ -606,6 +606,7 @@ local function loadGiftGamepasses()
 			gamepassFrame.Name = "GiftGamepass_" .. gamepassId
 			gamepassFrame.Icon.Image = "rbxassetid://" .. passInfo.IconImageAssetId
 			gamepassFrame.Price.Text = utf8.char(0xE002) .. tostring(passInfo.PriceInRobux)
+			gamepassFrame.Lock.Visible = playerHasGamepass(LocalPlayer, gamepassId)
 
 			gamepassFrame.Icon.MouseButton1Click:Connect(function()
 				pcall(function()
