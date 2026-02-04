@@ -76,22 +76,32 @@ local function GetBestGamepassRank(player)
 	local bestRankName, bestRankId = nil, nil
 
 	for gamepassId, rankName in pairs(GAMEPASS_RANKS) do
-		local isGifted = false
-		local isComplete = false
-		
-		-- Usar queue y ESPERAR la respuesta
-		DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(success, result)
-			isGifted = success and result or false
-			isComplete = true
+		local ownsGamepass = false
+
+		-- 1. Verificar compra directa (con protección)
+		local success, purchased = pcall(function()
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
 		end)
-		
-		-- Esperar a que se complete (máximo 500ms)
-		local startTime = tick()
-		while not isComplete and (tick() - startTime) < 0.5 do
-			task.wait(0.01)
+		if success and purchased then
+			ownsGamepass = true
+		else
+			-- 2. Si no lo compró, verificar si fue regalado
+			local isGifted = false
+			local isComplete = false
+
+			DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(dsSuccess, dsResult)
+				isGifted = dsSuccess and dsResult or false
+				isComplete = true
+			end)
+
+			-- Esperar resultado (máximo 1 segundo)
+			local startTime = tick()
+			while not isComplete and (tick() - startTime) < 1 do
+				task.wait(0.02)
+			end
+
+			ownsGamepass = isGifted
 		end
-		
-		local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
 		if ownsGamepass then
 			local rankId = hd:GetRankId(rankName)
@@ -125,22 +135,32 @@ local function CheckAllGamepasses(player)
 		end)
 
 		if success and productInfo then
-			local isGifted = false
-			local isComplete = false
-			
-			-- Usar queue y ESPERAR la respuesta
-			DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(giftSuccess, giftResult)
-				isGifted = giftSuccess and giftResult or false
-				isComplete = true
+			local ownsGamepass = false
+
+			-- 1. Verificar compra directa (con protección)
+			local purchaseSuccess, purchased = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
 			end)
-			
-			-- Esperar a que se complete (máximo 500ms)
-			local startTime = tick()
-			while not isComplete and (tick() - startTime) < 0.5 do
-				task.wait(0.01)
+			if purchaseSuccess and purchased then
+				ownsGamepass = true
+			else
+				-- 2. Si no lo compró, verificar si fue regalado
+				local isGifted = false
+				local isComplete = false
+
+				DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(dsSuccess, dsResult)
+					isGifted = dsSuccess and dsResult or false
+					isComplete = true
+				end)
+
+				-- Esperar resultado (máximo 1 segundo)
+				local startTime = tick()
+				while not isComplete and (tick() - startTime) < 1 do
+					task.wait(0.02)
+				end
+
+				ownsGamepass = isGifted
 			end
-			
-			local ownsGamepass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId) or isGifted
 
 			-- Verificar si ya existe un BoolValue para este gamepass
 			local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)
@@ -169,7 +189,7 @@ local function AssignAppropriateRank(player)
 
 	-- 1. Obtener rango actual
 	local currentRankId, currentRankName = hd:GetRank(player)
-	
+
 	-- Si es dueño del servidor privado, darle directamente "DJ House"
 	if game.PrivateServerOwnerId ~= 0 and player.UserId == game.PrivateServerOwnerId then
 		local djRankId = hd:GetRankId("DJ House")
@@ -239,6 +259,21 @@ for _, player in ipairs(Players:GetPlayers()) do
 	end)
 end
 
+--  Detectar compras de gamepass en tiempo real
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamepassId, wasPurchased)
+	if not wasPurchased then return end
+	if not player or not player.Parent then return end
+
+	-- Solo procesar si es un gamepass de nuestro sistema
+	if not GAMEPASS_RANKS[gamepassId] then return end
+
+	-- Actualizar inmediatamente
+	task.spawn(function()
+		pcall(CheckAllGamepasses, player)
+		pcall(AssignAppropriateRank, player)
+	end)
+end)
+
 -- Función para verificar un gamepass específico
 local function DoesUserOwnGamePass(player, gamepassId)
 	if not player or not player:IsDescendantOf(game) then return false end
@@ -258,24 +293,24 @@ local function DoesUserOwnGamePass(player, gamepassId)
 		end
 	end
 
-	-- Verificar compra directa
+	-- Verificar compra directa primero
 	local success, owns = pcall(function()
 		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
 	end)
 	if success and owns then return true end
 
-	-- Verificar en DataStore con queue
+	-- Si no lo compró, verificar si fue regalado
 	local gifted = false
 	local isComplete = false
-	DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(s, r)
-		gifted = s and r or false
+	DataStoreQueue:GetAsync(player.UserId .. "-" .. gamepassId, function(dsSuccess, dsResult)
+		gifted = dsSuccess and dsResult or false
 		isComplete = true
 	end)
-	
-	-- Esperar a que se complete (máximo 500ms)
+
+	-- Esperar a que se complete (máximo 1 segundo)
 	local startTime = tick()
-	while not isComplete and (tick() - startTime) < 0.5 do
-		task.wait(0.01)
+	while not isComplete and (tick() - startTime) < 1 do
+		task.wait(0.02)
 	end
 
 	return gifted

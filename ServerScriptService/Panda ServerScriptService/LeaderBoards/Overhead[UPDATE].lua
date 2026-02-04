@@ -230,11 +230,7 @@ end
 --------------------------------------------------------------------------------------------------------
 --// Funciones para el sistema de racha
 local function getCurrentDay()
-	local now = os.date("!*t") -- UTC
-	now.hour = 0
-	now.min = 0
-	now.sec = 0
-	return math.floor(os.time(now) / 86400)
+	return math.floor(os.time() / 86400) -- Días desde epoch (24h completas)
 end
 
 local streakCache = {}
@@ -264,6 +260,8 @@ local function getSavedStreak(player)
 	end
 
 	local result = 1
+	local isComplete = false
+	
 	streakQueue:GetAsync(userId, function(success, data)
 		if success and data and data.streak then
 			streakCache[userId] = {
@@ -272,10 +270,15 @@ local function getSavedStreak(player)
 			}
 			result = data.streak
 		end
+		isComplete = true
 	end)
 
-	-- Pequeña espera para permitir que callback execute
-	task.wait(0.05)
+	-- Esperar hasta que se complete (máximo 1 segundo)
+	local startTime = tick()
+	while not isComplete and (tick() - startTime) < 1 do
+		task.wait(0.02)
+	end
+	
 	return result
 end
 
@@ -291,13 +294,19 @@ local function updateStreak(player)
 	end
 
 	local success, data = false, nil
+	local isComplete = false
+	
 	streakQueue:GetAsync(userId, function(s, d)
 		success = s
 		data = d
+		isComplete = true
 	end)
 
-	-- Pequeña espera para permitir que callback execute
-	task.wait(0.05)
+	-- Esperar hasta que se complete (máximo 1 segundo)
+	local startTime = tick()
+	while not isComplete and (tick() - startTime) < 1 do
+		task.wait(0.02)
+	end
 
 	if not success then
 		if cached then return cached.streak end

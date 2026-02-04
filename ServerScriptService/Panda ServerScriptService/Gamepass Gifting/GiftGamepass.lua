@@ -203,6 +203,52 @@ game.Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(handleGamepasses)
 end)
 
+--  Detectar compras directas de gamepass en tiempo real
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamepassId, wasPurchased)
+	if not wasPurchased then return end
+	if not player or not player.Parent then return end
+	
+	-- Verificar si es uno de nuestros gamepasses
+	local isOurGamepass = false
+	for _, gamepass in ipairs(getAllPurchaseables()) do
+		if gamepass[1] == gamepassId then
+			isOurGamepass = true
+			break
+		end
+	end
+	
+	if not isOurGamepass then return end
+	
+	-- Actualizar carpeta Gamepasses inmediatamente
+	local Folder = player:FindFirstChild("Gamepasses")
+	if not Folder then
+		Folder = Instance.new("Folder")
+		Folder.Name = "Gamepasses"
+		Folder.Parent = player
+	end
+	
+	local success, Asset = pcall(function()
+		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
+	end)
+	
+	if success and Asset then
+		local existingValue = Folder:FindFirstChild(Asset.Name)
+		if not existingValue then
+			local GamepassValue = Instance.new("BoolValue")
+			GamepassValue.Name = Asset.Name
+			GamepassValue.Value = true
+			GamepassValue.Parent = Folder
+		else
+			existingValue.Value = true
+		end
+		
+		--  Actualizar atributo HasVIP si compró el VIP
+		if gamepassId == Configuration.VIP then
+			player:SetAttribute("HasVIP", true)
+		end
+	end
+end)
+
 
 -- Reemplazar la función ProcessReceipt actual con:
 local function handleGiftPurchase(receiptInfo)
@@ -256,6 +302,11 @@ local function handleGiftPurchase(receiptInfo)
 						GamepassValue.Parent = Folder
 					else
 						existingValue.Value = true
+					end
+					
+					--  Actualizar atributo HasVIP si recibió el VIP de regalo
+					if gamepass[1] == Configuration.VIP then
+						recipientPlayer:SetAttribute("HasVIP", true)
 					end
 				end
 			end

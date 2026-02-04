@@ -315,17 +315,17 @@ toggleGui = toggleGui_Internal
 
 function setupTargetDeathListener(targetPlayer)
 	if not targetPlayer or not targetPlayer.Character then return end
-	
+
 	local character = targetPlayer.Character
 	local humanoid = character:FindFirstChild("Humanoid")
-	
+
 	if humanoid then
 		local deathConnection
 		deathConnection = humanoid.Died:Connect(function()
 			if deathConnection then
 				deathConnection:Disconnect()
 			end
-			
+
 			-- Si el jugador seleccionado muere, cerrar panel
 			if currentTarget == targetPlayer then
 				toggleGui(false)
@@ -341,14 +341,14 @@ function monitorTargetCharacter(targetPlayer)
 	if targetCharacterConnection then
 		targetCharacterConnection:Disconnect()
 	end
-	
+
 	if targetPlayer then
 		targetCharacterConnection = targetPlayer.CharacterAdded:Connect(function(newCharacter)
 			-- Cuando reaparece, limpiar old listeners y crear nuevos
 			task.wait(0.1)
 			setupTargetDeathListener(targetPlayer)
 		end)
-		
+
 		-- Setup listener inicial
 		setupTargetDeathListener(targetPlayer)
 	end
@@ -642,7 +642,7 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 
 	-- Consultar estado actual de sincronización
 	local ok, info = pcall(function() return GetSyncState:InvokeServer() end)
-	
+
 	-- Si ya estoy sincronizado con ALGUIEN (no importa quién), desincronizar
 	if ok and info and info.isSynced then
 		SyncRemote:FireServer("unsync")
@@ -652,7 +652,7 @@ SYNC_BUTTON.MouseButton1Click:Connect(function()
 		end)
 
 		toggleGui(false)
-	-- Si NO estoy sincronizado, sincronizar con el target actual
+		-- Si NO estoy sincronizado, sincronizar con el target actual
 	else
 		if currentTarget and currentTarget ~= LocalPlayer then
 			SyncRemote:FireServer("sync", currentTarget)
