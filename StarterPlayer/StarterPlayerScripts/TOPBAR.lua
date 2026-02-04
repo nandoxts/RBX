@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════
 -- TOPBAR CONTROLLER - LocalScript en StarterPlayerScripts
--- Usando SoundGroup para mute LOCAL sin entrecortes
+-- Optimizado para móvil con scrolling automático
 -- ════════════════════════════════════════════════════════════════
 
 local Icon = require(game:GetService("ReplicatedStorage").Icon)
@@ -10,16 +10,14 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- ════════════════════════════════════════════════════════════════
 -- REFERENCIAS A GUIs
 -- ════════════════════════════════════════════════════════════════
+local systemMusicUI = playerGui:WaitForChild("SystemMusic")
+local FrameMusic = systemMusicUI:WaitForChild("MusicGui")
+
+local gamepassUI = playerGui:WaitForChild("GamepassUI")
+local FrameGamepass = gamepassUI:WaitForChild("MainFrame")
+
 local settingsUI = playerGui:WaitForChild("Settings")
 local FrameSettings = settingsUI:WaitForChild("MainFrame")
-
--- Esperar a que se carguen las GUIs de sistema
-task.wait(0.5)
-
--- ════════════════════════════════════════════════════════════════
--- MÓDULOS
--- ════════════════════════════════════════════════════════════════
-local GlobalModalManager = require(game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- SERVICIOS
@@ -43,122 +41,108 @@ local Camera = game.Workspace.CurrentCamera
 local FOV = Camera.FieldOfView
 
 -- Debounce para las GUIs
-local guiDebounce = false
+local Debounce = false
 
 -- ════════════════════════════════════════════════════════════════
 -- FUNCIONES DE GUI
 -- ════════════════════════════════════════════════════════════════
 
+-- Función para cerrar todas las GUIs excepto la especificada
+local function closeAllGUIsExcept(exception)
+	if exception ~= "MusicUI" then FrameMusic.Visible = false end
+	if exception ~= "GMUI" then FrameGamepass.Visible = false end
+	if exception ~= "SettingsUI" then FrameSettings.Visible = false end
+end
+
+-- Función para aplicar animaciones al abrir una GUI
 local function openGUIAnimation()
 	TweenService:Create(Blur, Info, {Size = 15}):Play()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV - 10}):Play()
 end
 
+-- Función para aplicar animaciones al cerrar una GUI
 local function closeGUIAnimation()
 	TweenService:Create(Blur, Info, {Size = 0}):Play()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV}):Play()
 end
 
+-- Función para abrir o cerrar la interfaz de MusicUI
+local function toggleMusicUI()
+	if Debounce then return end
+	Debounce = true
+
+	if FrameMusic.Visible then
+		closeGUIAnimation()
+		FrameMusic.Visible = false
+	else
+		closeAllGUIsExcept("MusicUI")
+		openGUIAnimation()
+		FrameMusic.Visible = true
+	end
+
+	Debounce = false
+end
+
+local function toggleGMUI()
+	if Debounce then return end
+	Debounce = true
+
+	if FrameGamepass.Visible then
+		closeGUIAnimation()
+		FrameGamepass.Visible = false
+	else
+		closeAllGUIsExcept("GMUI")
+		openGUIAnimation()
+		FrameGamepass.Visible = true
+	end
+
+	Debounce = false
+end
+
 local function toggleSettingsUI()
-	if guiDebounce then return end
-	guiDebounce = true
+	if Debounce then return end
+	Debounce = true
 
 	if FrameSettings.Visible then
 		closeGUIAnimation()
 		FrameSettings.Visible = false
 	else
+		closeAllGUIsExcept("SettingsUI")
 		openGUIAnimation()
 		FrameSettings.Visible = true
 	end
 
-	guiDebounce = false
+	Debounce = false
 end
 
 -- ════════════════════════════════════════════════════════════════
 -- ICONOS DEL TOPBAR
 -- ════════════════════════════════════════════════════════════════
 
--- ════════════════════════════════════════════════════════════════
--- ICONO: TIENDA
--- ════════════════════════════════════════════════════════════════
-_G.ShopIcon = Icon.new()
+Icon.new()
+	:setImage(13780950231)
+	:setName("Musica")
+	:setCaption("Música")
+	:bindToggleKey(Enum.KeyCode.M)
+	:bindEvent("deselected", toggleMusicUI)
+	:oneClick()
+
+Icon.new()
 	:setImage(9405933217)
 	:setName("Tienda")
 	:setCaption("Tienda")
 	:bindToggleKey(Enum.KeyCode.T)
-	:autoDeselect(false)
+	:bindEvent("deselected", toggleGMUI)
+	:oneClick()
 
-_G.ShopIcon:bindEvent("selected", function()
-	GlobalModalManager:openModal("Shop")
-end)
-
-_G.ShopIcon:bindEvent("deselected", function()
-	GlobalModalManager:closeModal("Shop")
-end)
-
--- ════════════════════════════════════════════════════════════════
--- ICONO: CONFIGURACIÓN
--- ════════════════════════════════════════════════════════════════
-local configIcon = Icon.new()
+Icon.new()
 	:setImage(9753762469)
 	:setName("Configuración")
 	:setCaption("Configuración")
 	:align("Right")
 	:bindToggleKey(Enum.KeyCode.C)
-	:autoDeselect(false)
+	:bindEvent("deselected", toggleSettingsUI)
 	:oneClick()
-
-configIcon:bindEvent("deselected", function()
-	toggleSettingsUI()
-end)
-
--- ════════════════════════════════════════════════════════════════
--- ICONO: CLANES
--- ════════════════════════════════════════════════════════════════
-_G.ClanSystemIcon = Icon.new()
-	:setLabel("⚔️ CLAN ⚔️ ")
-	:setOrder(2)
-	:autoDeselect(false)
-
-_G.ClanSystemIcon:bindEvent("selected", function(icon)
-	GlobalModalManager:openModal("Clan")
-end)
-
-_G.ClanSystemIcon:bindEvent("deselected", function(icon)
-	GlobalModalManager:closeModal("Clan")
-end)
-
--- ════════════════════════════════════════════════════════════════
--- ICONO: EMOTES
--- ════════════════════════════════════════════════════════════════
-_G.EmotesIcon = Icon.new()
-	:setOrder(2)
-	:setImage("127784597936941")
-	:autoDeselect(false)
-
-_G.EmotesIcon:bindEvent("selected", function(icon)
-	GlobalModalManager:openModal("Emotes")
-end)
-
-_G.EmotesIcon:bindEvent("deselected", function(icon)
-	GlobalModalManager:closeModal("Emotes")
-end)
-
--- ════════════════════════════════════════════════════════════════
--- ICONO: MÚSICA (Dashboard)
--- ════════════════════════════════════════════════════════════════
-_G.MusicDashboardIcon = Icon.new()
-	:setImage("13780950231")
-	:setOrder(1)
-	:autoDeselect(false)
-
-_G.MusicDashboardIcon:bindEvent("selected", function(icon)
-	GlobalModalManager:openModal("Music")
-end)
-
-_G.MusicDashboardIcon:bindEvent("deselected", function(icon)
-	GlobalModalManager:closeModal("Music")
-end)
 
 -- ════════════════════════════════════════════════════════════════
 -- SISTEMA DE MÚSICA CON SOUNDGROUP (MUTE LOCAL)

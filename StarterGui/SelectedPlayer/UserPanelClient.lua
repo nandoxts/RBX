@@ -8,9 +8,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- Cursores
+local DEFAULT_CURSOR = "rbxassetid://13335399499"
+local SELECTED_CURSOR = "rbxassetid://84923889690331"
 
 local remotesFolder = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("UserPanel")
 local Remotes = {
@@ -23,10 +30,25 @@ local Remotes = {
 	SendSuperLike = remotesFolder:FindFirstChild("SendSuperLike")
 }
 
+-- Sistema de sincronización (Emotes_Sync)
+local RemotesSync = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Emotes_Sync")
+local SyncRemote = RemotesSync and RemotesSync:FindFirstChild("Sync")
+local GetSyncState = RemotesSync and RemotesSync:FindFirstChild("GetSyncState")
+
+-- Notificación System
+local NotificationSystem = pcall(function()
+	return require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
+end) and require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem")) or nil
+
 -- Sistema de likes existente
 local LikesEvents = ReplicatedStorage:FindFirstChild("LikesEvents")
 local GiveLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveLikeEvent")
 local GiveSuperLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveSuperLikeEvent")
+
+-- Highlight del SelectedPlayer
+local SelectedPlayerModule = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("SelectedPlayer")
+local Highlight = SelectedPlayerModule and SelectedPlayerModule:FindFirstChild("Highlight")
+local ColorEffects = Highlight and require(SelectedPlayerModule:FindFirstChild("COLORS")) or nil
 
 -- ═══════════════════════════════════════════════════════════════
 -- CONFIGURACION DE LIKES
@@ -34,9 +56,49 @@ local GiveSuperLikeEvent = LikesEvents and LikesEvents:FindFirstChild("GiveSuper
 local LIKE_COOLDOWN = 60  -- 60 segundos entre likes
 local SUPER_LIKE_PRODUCT_ID = require(ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Configuration")).SUPER_LIKE
 
+-- Función para obtener color del jugador
+local function getPlayerColor(targetPlayer)
+	if not ColorEffects then return Color3.fromRGB(255, 255, 255) end
+	local colorName = targetPlayer:GetAttribute("SelectedColor") or "default"
+	return ColorEffects.colors[colorName] or ColorEffects.defaultSelectedColor or Color3.fromRGB(0, 255, 0)
+end
+
 -- ═══════════════════════════════════════════════════════════════
--- SISTEMA DE LIKES OPTIMIZADO
+-- SISTEMA DE SINCRONIZACION
 -- ═══════════════════════════════════════════════════════════════
+local function syncWithPlayer(targetPlayer)
+	if not SyncRemote or not GetSyncState then
+		return
+	end
+	
+	-- Consultar estado actual
+	local ok, syncInfo = pcall(function()
+		return GetSyncState:InvokeServer()
+	end)
+	
+	if not ok then
+		if NotificationSystem then
+			NotificationSystem:Error("Sync", "Error al consultar sincronización", 3)
+		end
+		return
+	end
+	
+	-- Si ya estoy sincronizado con ALGUIEN, desincronizar
+	if syncInfo and syncInfo.isSynced then
+		SyncRemote:FireServer("unsync")
+		if NotificationSystem then
+			NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
+		end
+	-- Si NO estoy sincronizado, sincronizar con el target actual
+	else
+		if targetPlayer and targetPlayer ~= player then
+			SyncRemote:FireServer("sync", targetPlayer)
+			if NotificationSystem then
+				NotificationSystem:Success("Sync", "Ahora estás sincronizado con: " .. targetPlayer.DisplayName, 4)
+			end
+		end
+	end
+end
 local LikesSystem = {
 	Cooldowns = {
 		Like = {}
@@ -70,8 +132,8 @@ local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("The
 -- CONFIGURACION
 -- ═══════════════════════════════════════════════════════════════
 local CONFIG = {
-	PANEL_WIDTH = 300,
-	PANEL_HEIGHT = 380,
+	PANEL_WIDTH = 280,
+	PANEL_HEIGHT = 350,
 	PANEL_PADDING = 12,
 
 	AVATAR_HEIGHT = 200,
@@ -193,6 +255,25 @@ local function getAvatarImage(userId)
 end
 
 -- ═══════════════════════════════════════════════════════════════
+-- HIGHLIGHT (Línea alrededor del jugador seleccionado)
+-- ═══════════════════════════════════════════════════════════════
+local function attachHighlight(targetPlayer)
+	if not Highlight or not targetPlayer or not targetPlayer.Character then return end
+	local color = ColorEffects and ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"] or Color3.fromRGB(0, 255, 0)
+	Highlight.FillColor = color
+	Highlight.OutlineColor = color
+	Highlight.Adornee = targetPlayer.Character
+	Highlight.Enabled = true
+end
+
+local function detachHighlight()
+	if Highlight then
+		Highlight.Adornee = nil
+		Highlight.Enabled = false
+	end
+end
+
+-- ═══════════════════════════════════════════════════════════════
 -- EFECTOS Y PARTÍCULAS
 -- ═══════════════════════════════════════════════════════════════
 local function createHeartParticle(container, startPos, isSuperLike)
@@ -271,13 +352,23 @@ local function closePanel()
 	if State.closing or not State.ui then return end
 	State.closing = true
 
+	-- Cancelar threads
 	if State.refreshThread then task.cancel(State.refreshThread) end
+	
+	-- Desconectar eventos del panel
 	clearConnections()
+	
+	-- Desattach highlight
+	detachHighlight()
 
-	tween(State.container, { Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, 50) }, 0.25)
+	-- Animación de salida
+	tween(State.container, { Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, 50) }, 0.5, Enum.EasingStyle.Quint)
 
-	task.delay(0.25, function()
-		if State.ui then State.ui:Destroy() end
+	task.delay(0.5, function()
+		-- Destruir UI completamente
+		if State.ui and State.ui.Parent then State.ui:Destroy() end
+		
+		-- Resetear estado
 		State = {
 			ui = nil, container = nil, panel = nil, statsLabels = {},
 			userId = nil, target = nil, closing = false, dragging = false,
@@ -288,7 +379,7 @@ local function closePanel()
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- LISTENERS DE DONACIONES Y LIKES (NEW SYSTEM)
+-- LISTENERS DE DONACIONES Y LIKES (GLOBALES - PERSISTENTES)
 -- ═══════════════════════════════════════════════════════════════
 if Remotes.DonationNotify then
 	Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
@@ -303,7 +394,7 @@ if Remotes.DonationMessage then
 	end)
 end
 
--- Listeners del sistema de likes existente
+-- Listeners del sistema de likes existente (GLOBALES - PERSISTENTES)
 if GiveLikeEvent then
 	GiveLikeEvent.OnClientEvent:Connect(function(action, data)
 		if action == "LikeSuccess" then
@@ -351,15 +442,13 @@ end
 -- ═══════════════════════════════════════════════════════════════
 -- SECCION AVATAR CON STATS LATERALES
 -- ═══════════════════════════════════════════════════════════════
-local function createAvatarSection(panel, data)
+local function createAvatarSection(panel, data, playerColor)
 	local avatarSection = createFrame({
 		Size = UDim2.new(1, 0, 0, CONFIG.AVATAR_HEIGHT),
-		BackgroundColor3 = THEME.head,
-		BackgroundTransparency = 0,
+		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		Parent = panel
 	})
-	addCorner(avatarSection, 12)
 
 	-- Imagen avatar
 	create("ImageLabel", {
@@ -410,7 +499,7 @@ local function createAvatarSection(panel, data)
 			Size = UDim2.new(1, 0, 0, 22),
 			Position = UDim2.new(0, 0, 0, 4),
 			Text = tostring(data[stat.key] or 0),
-			TextColor3 = THEME.accent,
+			TextColor3 = playerColor,
 			TextSize = 16,
 			Font = Enum.Font.GothamBold,
 			TextXAlignment = Enum.TextXAlignment.Center,
@@ -436,7 +525,7 @@ local function createAvatarSection(panel, data)
 		Size = UDim2.new(1, -CONFIG.STATS_WIDTH - 16, 0, 24),
 		Position = UDim2.new(0, 10, 1, -52),
 		Text = data.displayName,
-		TextColor3 = THEME.accent,
+		TextColor3 = playerColor,
 		TextSize = 18,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -464,7 +553,7 @@ end
 -- ═══════════════════════════════════════════════════════════════
 -- BOTON (estilo EmoteUI - minimalista con hover suave)
 -- ═══════════════════════════════════════════════════════════════
-local function createButton(parent, text, layoutOrder)
+local function createButton(parent, text, layoutOrder, playerColor)
 	local button = create("TextButton", {
 		Size = UDim2.new(1, 0, 0, CONFIG.BUTTON_HEIGHT),
 		BackgroundColor3 = THEME.elevated,
@@ -475,7 +564,7 @@ local function createButton(parent, text, layoutOrder)
 		Parent = parent
 	})
 	addCorner(button, CONFIG.BUTTON_CORNER)
-	local stroke = addStroke(button, THEME.stroke, 1, 0.7)
+	local stroke = addStroke(button, playerColor or THEME.stroke, 1, 0.7)
 
 	local textLabel = createLabel({
 		Size = UDim2.new(1, 0, 1, 0),
@@ -495,9 +584,9 @@ local function createButton(parent, text, layoutOrder)
 	})
 	addCorner(rippleContainer, CONFIG.BUTTON_CORNER)
 
-	-- Hover suave (mezcla del color elevated con accent)
+	-- Hover suave (mezcla del color elevated con playerColor)
 	addConnection(button.MouseEnter:Connect(function()
-		tween(button, { BackgroundColor3 = THEME.elevated:Lerp(THEME.accent, 0.15) }, CONFIG.ANIM_FAST)
+		tween(button, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.15) }, CONFIG.ANIM_FAST)
 		tween(stroke, { Transparency = 0.3 }, CONFIG.ANIM_FAST)
 	end))
 
@@ -534,7 +623,7 @@ local function switchToButtons()
 	end
 end
 
-local function showDynamicSection(viewType, items, targetName)
+local function showDynamicSection(viewType, items, targetName, playerColor)
 	State.currentView = viewType
 
 	if State.buttonsFrame then
@@ -568,7 +657,7 @@ local function showDynamicSection(viewType, items, targetName)
 	})
 	addCorner(backBtn, 6)
 
-	addConnection(backBtn.MouseEnter:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(THEME.accent, 0.15) }, CONFIG.ANIM_FAST) end))
+	addConnection(backBtn.MouseEnter:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.15) }, CONFIG.ANIM_FAST) end))
 	addConnection(backBtn.MouseLeave:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated }, CONFIG.ANIM_FAST) end))
 	addConnection(backBtn.MouseButton1Click:Connect(switchToButtons))
 
@@ -577,7 +666,7 @@ local function showDynamicSection(viewType, items, targetName)
 		Size = UDim2.new(1, -36, 0, 28),
 		Position = UDim2.new(0, 34, 0, 0),
 		Text = title,
-		TextColor3 = THEME.accent,
+		TextColor3 = playerColor or THEME.accent,
 		TextSize = 16,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -592,7 +681,7 @@ local function showDynamicSection(viewType, items, targetName)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = THEME.accent,
+		ScrollBarImageColor3 = playerColor or THEME.accent,
 		ScrollBarImageTransparency = 0.3,
 		ScrollingDirection = Enum.ScrollingDirection.X,
 		AutomaticCanvasSize = Enum.AutomaticSize.X,
@@ -654,7 +743,7 @@ local function showDynamicSection(viewType, items, targetName)
 			createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
 				Text = tostring(item.price or 0),
-				TextColor3 = THEME.accent,
+				TextColor3 = playerColor or THEME.accent,
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
@@ -670,9 +759,8 @@ local function showDynamicSection(viewType, items, targetName)
 			})
 
 			addConnection(clickBtn.MouseEnter:Connect(function()
-				tween(circleStroke, { Color = THEME.accent, Thickness = 2.5 }, CONFIG.ANIM_FAST)
-			end))
-
+			tween(circleStroke, { Color = playerColor or THEME.accent, Thickness = 2.5 }, CONFIG.ANIM_FAST)
+		end))
 			addConnection(clickBtn.MouseLeave:Connect(function()
 				tween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, CONFIG.ANIM_FAST)
 			end))
@@ -701,7 +789,7 @@ end
 -- ═══════════════════════════════════════════════════════════════
 -- SECCION DE BOTONES
 -- ═══════════════════════════════════════════════════════════════
-local function createButtonsSection(panel, target)
+local function createButtonsSection(panel, target, playerColor)
 	State.panel = panel
 
 	local startY = CONFIG.AVATAR_HEIGHT + CONFIG.BUTTON_GAP
@@ -722,35 +810,46 @@ local function createButtonsSection(panel, target)
 	})
 
 	-- Ver Perfil
-	local profileBtn = createButton(State.buttonsFrame, "Ver Perfil", 1)
+	local profileBtn = createButton(State.buttonsFrame, "Ver Perfil", 1, playerColor)
 	addConnection(profileBtn.MouseButton1Click:Connect(function()
 		if target then pcall(function() GuiService:InspectPlayerFromUserId(target.UserId) end) end
 	end))
 
 	-- Donar
-	local donateBtn, donateText = createButton(State.buttonsFrame, "Donar", 2)
+	local donateBtn, donateText = createButton(State.buttonsFrame, "Donar", 2, playerColor)
 	addConnection(donateBtn.MouseButton1Click:Connect(function()
 		if not State.userId then return end
 		donateText.Text = "Cargando..."
 		task.spawn(function()
 			local donations = Remotes.GetUserDonations:InvokeServer(State.userId)
 			donateText.Text = "Donar"
-			showDynamicSection("donations", donations, target and target.DisplayName)
+			showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
 		end)
 	end))
 
 	-- Regalar Pase
-	local giftBtn, giftText = createButton(State.buttonsFrame, "Regalar Pase", 3)
+	local giftBtn, giftText = createButton(State.buttonsFrame, "Regalar Pase", 3, playerColor)
 	addConnection(giftBtn.MouseButton1Click:Connect(function()
 		giftText.Text = "Cargando..."
 		task.spawn(function()
 			local passes = Remotes.GetGamePasses:InvokeServer()
 			giftText.Text = "Regalar Pase"
-			showDynamicSection("passes", passes, nil)
+			showDynamicSection("passes", passes, nil, playerColor)
 		end)
 	end))
 
-	-- Los botones Like/SuperLike ahora se disparan al hacer click en el avatar
+	-- Sincronizar
+	local syncBtn = createButton(State.buttonsFrame, "Sincronizar", 4, playerColor)
+	local debounceSyncBtn = false
+	addConnection(syncBtn.MouseButton1Click:Connect(function()
+		if debounceSyncBtn or not target then return end
+		debounceSyncBtn = true
+		
+		syncWithPlayer(target)
+		
+		task.wait(0.5)
+		debounceSyncBtn = false
+	end))
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -777,13 +876,20 @@ local function createPanel(data)
 		Parent = screenGui
 	})
 
+	-- Obtener color del jugador seleccionado (ANTES de usarlo)
+	local targetPlayer
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.UserId == data.userId then targetPlayer = p break end
+	end
+	local playerColor = targetPlayer and getPlayerColor(targetPlayer) or THEME.accent
+
 	-- Drag handle
 	local dragHandle = createFrame({ Size = UDim2.new(1, 0, 0, 18), Parent = State.container })
 
 	local dragIndicator = createFrame({
 		Size = UDim2.new(0, 44, 0, 5),
 		Position = UDim2.new(0.5, -22, 0.5, -2),
-		BackgroundColor3 = THEME.accent,
+		BackgroundColor3 = playerColor,
 		BackgroundTransparency = 0.3,
 		Parent = dragHandle
 	})
@@ -819,17 +925,17 @@ local function createPanel(data)
 		end
 	end))
 
-	-- Panel principal
-	local panel = createFrame({
-		Size = UDim2.new(1, 0, 1, -22),
+	-- Contenedor con bordes redondeados (para clip correcto)
+	local panelContainer = createFrame({
+		Size = UDim2.new(1, 0, 0, CONFIG.PANEL_HEIGHT),
 		Position = UDim2.new(0, 0, 0, 22),
 		BackgroundColor3 = THEME.panel,
 		BackgroundTransparency = 0,
 		ClipsDescendants = true,
 		Parent = State.container
 	})
-	addCorner(panel, 12)
-	addStroke(panel, THEME.accent, 1.5)
+	addCorner(panelContainer, 12)
+	addStroke(panelContainer, playerColor, 1.5)
 
 	-- Sombra
 	create("ImageLabel", {
@@ -842,10 +948,34 @@ local function createPanel(data)
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(23, 23, 277, 277),
 		ZIndex = -1,
+		Parent = panelContainer
+	})
+
+	-- ScrollingFrame interno (transparente)
+	local panel = create("ScrollingFrame", {
+		Size = UDim2.new(1, -2, 1, -2),
+		Position = UDim2.new(0, 1, 0, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = playerColor,
+		ScrollBarImageTransparency = 0.5,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		ClipsDescendants = true,
+		Parent = panelContainer
+	})
+	
+	-- Padding interno para respetar los bordes redondeados
+	create("UIPadding", {
+		PaddingTop = UDim.new(0, 0),
+		PaddingBottom = UDim.new(0, 0),
+		PaddingLeft = UDim.new(0, 0),
+		PaddingRight = UDim.new(0, 0),
 		Parent = panel
 	})
 
-	createAvatarSection(panel, data)
+	createAvatarSection(panel, data, playerColor)
 
 	-- Click handler al avatar para Like/SuperLike
 	local avatarSection = panel:FindFirstChildOfClass("Frame") -- Avatar section es el primer frame
@@ -918,10 +1048,17 @@ local function createPanel(data)
 	end
 	State.target = target
 
-	createButtonsSection(panel, target)
+	createButtonsSection(panel, target, playerColor)
 
+	-- Animación de entrada suave con escala y posición
+	State.container.Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, 50)
+	State.container.Size = UDim2.new(0, CONFIG.PANEL_WIDTH, 0, CONFIG.PANEL_HEIGHT)
+	
 	task.defer(function()
-		tween(State.container, { Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, -(CONFIG.PANEL_HEIGHT + 20)) }, CONFIG.ANIM_SLOW, Enum.EasingStyle.Back)
+		-- Entrada suave: aparece desde abajo con escala y fade in
+		tween(State.container, {
+			Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, -(CONFIG.PANEL_HEIGHT + 90))
+		}, 0.5, Enum.EasingStyle.Quint)
 	end)
 
 	startAutoRefresh()
@@ -956,6 +1093,7 @@ local function openPanel(target)
 	if success and result then
 		State.ui = result
 		State.target = target
+		attachHighlight(target)
 
 		task.spawn(function()
 			local ok, data = pcall(function() return Remotes.GetUserData:InvokeServer(target.UserId) end)
@@ -1053,6 +1191,27 @@ end)
 
 UserInputService.TouchEnded:Connect(function(input)
 	endPress(input.Position)
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- CAMBIO DE CURSOR
+-- ═══════════════════════════════════════════════════════════════
+RunService.RenderStepped:Connect(function()
+	if State.ui then return end -- Si panel está abierto, no cambiar cursor
+	
+	local mousePos = UserInputService:GetMouseLocation()
+	local unitRay = camera:ScreenPointToRay(mousePos.X, mousePos.Y)
+	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.MAX_RAYCAST_DISTANCE)
+
+	if raycast and raycast.Instance then
+		local hoveredPlayer = getPlayerFromPart(raycast.Instance)
+		if hoveredPlayer and hoveredPlayer ~= player then
+			mouse.Icon = SELECTED_CURSOR
+			return
+		end
+	end
+	
+	mouse.Icon = DEFAULT_CURSOR
 end)
 
 -- ═══════════════════════════════════════════════════════════════
