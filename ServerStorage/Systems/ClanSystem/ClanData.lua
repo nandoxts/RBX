@@ -3,6 +3,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ClanSystemConfig"))
+local DataStoreQueueManager = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
 local ClanData = {}
 
@@ -12,6 +13,13 @@ local ClanData = {}
 local clanStore = DataStoreService:GetDataStore(Config.DATABASE.ClanStoreName)
 local playerClanStore = DataStoreService:GetDataStore(Config.DATABASE.PlayerClanStoreName)
 local indexStore = DataStoreService:GetDataStore("ClansIndex_v1")
+
+-- ============================================
+-- QUEUE MANAGERS
+-- ============================================
+local clanStoreQueue = DataStoreQueueManager.new(clanStore, "ClanDataQueue")
+local playerClanStoreQueue = DataStoreQueueManager.new(playerClanStore, "PlayerClanQueue")
+local indexStoreQueue = DataStoreQueueManager.new(indexStore, "IndexQueue")
 
 -- ============================================
 -- CACHE (10 segundos para optimizar)
@@ -89,10 +97,8 @@ local function getIndex()
 end
 
 local function saveIndex(index)
-	local success, err = pcall(function()
-		indexStore:SetAsync("clans_index", index)
-	end)
-	return success, err
+	indexStoreQueue:SetAsync("clans_index", index)
+	return true
 end
 
 local function addToIndex(clanId, clanName, clanTag)
@@ -165,9 +171,7 @@ function ClanData:GetClan(clanId)
 
 		if needsMigration then
 			data.miembros_data = newMiembrosData
-			pcall(function()
-				clanStore:SetAsync("clan:" .. clanId, data)
-			end)
+			clanStoreQueue:SetAsync("clan:" .. clanId, data)
 		end
 	end
 
@@ -304,15 +308,9 @@ function ClanData:CreateClan(clanName, ownerId, clanTag, clanLogo, clanDesc, cla
 		_migrated = false
 	}
 
-	-- Guardar en DataStore
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, fullClanData)
-		playerClanStore:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner", fechaUnion = now})
-	end)
-
-	if not success then
-		return false, nil, err and tostring(err) or "Error al guardar en DataStore"
-	end
+	-- Guardar en DataStore usando queues
+	clanStoreQueue:SetAsync("clan:" .. clanId, fullClanData)
+	playerClanStoreQueue:SetAsync("player:" .. tostring(ownerId), {clanId = clanId, rol = "owner", fechaUnion = now})
 
 	-- Agregar al índice
 	addToIndex(clanId, clanName, upperTag)
@@ -350,27 +348,18 @@ function ClanData:AddOwner(clanId, userId)
 			fechaUnion = os.time()
 		}
 
-		pcall(function()
-			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = os.time()})
-		end)
+		playerClanStoreQueue:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = os.time()})
 	else
 		-- Ya es miembro, cambiar a owner
 		clanData.miembros_data[userIdStr].rol = "owner"
-		pcall(function()
-			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
-		end)
+		playerClanStoreQueue:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "owner", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
 	end
 
 	-- Guardar
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and "Owner agregado" or err
+	return true, "Owner agregado"
 end
 
 -- ============================================
@@ -401,21 +390,14 @@ function ClanData:RemoveOwner(clanId, userId)
 	local userIdStr = tostring(userId)
 	if clanData.miembros_data and clanData.miembros_data[userIdStr] then
 		clanData.miembros_data[userIdStr].rol = "miembro"
-		pcall(function()
-			playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "miembro", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
-		end)
+		playerClanStoreQueue:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = "miembro", fechaUnion = clanData.miembros_data[userIdStr].fechaUnion})
 	end
 
 	-- Guardar
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and "Owner removido" or err
+	return true, "Owner removido"
 end
 
 -- ============================================
@@ -447,40 +429,34 @@ function ClanData:UpdateClan(clanId, updates)
 		clanData[k] = v
 	end
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	-- LIMPIAR CACHE para que se recargue
+	clanCache[clanId] = nil
+	clanCacheTime[clanId] = nil
 
-	if success then
-		-- LIMPIAR CACHE para que se recargue
-		clanCache[clanId] = nil
-		clanCacheTime[clanId] = nil
+	-- Actualizar índice si cambió nombre o tag
+	if updates.clanName or updates.clanTag then
+		local index = getIndex()
 
-		-- Actualizar índice si cambió nombre o tag
-		if updates.clanName or updates.clanTag then
-			local index = getIndex()
-
-			if updates.clanName then
-				index.names[string.lower(oldName)] = nil
-				index.names[string.lower(updates.clanName)] = clanId
-			end
-			if updates.clanTag then
-				index.tags[string.upper(oldTag)] = nil
-				index.tags[string.upper(updates.clanTag)] = clanId
-			end
-
-			index.clans[clanId] = {
-				name = clanData.clanName,
-				tag = clanData.clanTag
-			}
-
-			saveIndex(index)
+		if updates.clanName then
+			index.names[string.lower(oldName)] = nil
+			index.names[string.lower(updates.clanName)] = clanId
+		end
+		if updates.clanTag then
+			index.tags[string.upper(oldTag)] = nil
+			index.tags[string.upper(updates.clanTag)] = clanId
 		end
 
-		clanDataUpdatedEvent:Fire()
+		index.clans[clanId] = {
+			name = clanData.clanName,
+			tag = clanData.clanTag
+		}
+
+		saveIndex(index)
 	end
 
-	return success, success and clanData or err
+	clanDataUpdatedEvent:Fire()
+	return true, clanData
 end
 
 -- ============================================
@@ -515,19 +491,14 @@ function ClanData:AddMember(clanId, userId, rol)
 		fechaUnion = os.time()
 	}
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-		playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = rol or "miembro", fechaUnion = os.time()})
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	playerClanStoreQueue:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = rol or "miembro", fechaUnion = os.time()})
+	-- LIMPIAR CACHE
+	clanCache[clanId] = nil
+	clanCacheTime[clanId] = nil
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		-- LIMPIAR CACHE
-		clanCache[clanId] = nil
-		clanCacheTime[clanId] = nil
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and clanData or err
+	return true, clanData
 end
 
 -- ============================================
@@ -566,19 +537,14 @@ function ClanData:RemoveMember(clanId, userId)
 		end
 	end
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-		playerClanStore:RemoveAsync("player:" .. userIdStr)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	playerClanStoreQueue:SetAsync("player:" .. userIdStr, nil)
+	-- LIMPIAR CACHE
+	clanCache[clanId] = nil
+	clanCacheTime[clanId] = nil
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		-- LIMPIAR CACHE
-		clanCache[clanId] = nil
-		clanCacheTime[clanId] = nil
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and clanData or err
+	return true, clanData
 end
 
 -- ============================================
@@ -620,16 +586,11 @@ function ClanData:ChangeRole(clanId, userId, newRole)
 
 	clanData.miembros_data[userIdStr].rol = newRole
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-		playerClanStore:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = newRole})
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	playerClanStoreQueue:SetAsync("player:" .. userIdStr, {clanId = clanId, rol = newRole})
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and clanData or err
+	return true, clanData
 end
 
 -- ============================================
@@ -643,25 +604,18 @@ function ClanData:DissolveClan(clanId)
 
 	if clanData.miembros_data then
 		for userIdStr, _ in pairs(clanData.miembros_data) do
-			pcall(function()
-				playerClanStore:RemoveAsync("player:" .. userIdStr)
-			end)
+			playerClanStoreQueue:SetAsync("player:" .. userIdStr, nil)
 		end
 	end
 
-	local success, err = pcall(function()
-		clanStore:RemoveAsync("clan:" .. clanId)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, nil)
+	-- LIMPIAR CACHE
+	clanCache[clanId] = nil
+	clanCacheTime[clanId] = nil
+	removeFromIndex(clanId, clanData.clanName, clanData.clanTag)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		-- LIMPIAR CACHE
-		clanCache[clanId] = nil
-		clanCacheTime[clanId] = nil
-		removeFromIndex(clanId, clanData.clanName, clanData.clanTag)
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, err
+	return true, "Clan disuelto"
 end
 
 -- ============================================
@@ -702,15 +656,10 @@ function ClanData:RequestJoinClan(clanId, playerId)
 		status = "pending"
 	}
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and "Solicitud enviada" or err
+	return true, "Solicitud enviada"
 end
 
 -- APROBAR SOLICITUD DE UNIÓN
@@ -743,9 +692,7 @@ function ClanData:ApproveJoinRequest(clanId, approverId, targetUserId)
 	if clanData.miembros_data and clanData.miembros_data[targetIdStr] then
 		-- Limpiar solicitud si ya es miembro
 		clanData.joinRequests[targetIdStr] = nil
-		pcall(function()
-			clanStore:SetAsync("clan:" .. clanId, clanData)
-		end)
+		clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
 		clanDataUpdatedEvent:Fire()
 		return false, "El jugador ya es miembro del clan"
 	end
@@ -757,9 +704,7 @@ function ClanData:ApproveJoinRequest(clanId, approverId, targetUserId)
 		clanData = self:GetClan(clanId) -- Recargar datos actualizados
 		if clanData.joinRequests then
 			clanData.joinRequests[targetIdStr] = nil
-			pcall(function()
-				clanStore:SetAsync("clan:" .. clanId, clanData)
-			end)
+			clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
 		end
 		clanDataUpdatedEvent:Fire()
 	end
@@ -796,15 +741,10 @@ function ClanData:RejectJoinRequest(clanId, rejectorId, targetUserId)
 	-- Rechazar solicitud
 	clanData.joinRequests[targetIdStr] = nil
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and "Solicitud rechazada" or err
+	return true, "Solicitud rechazada"
 end
 
 -- OBTENER SOLICITUDES PENDIENTES
@@ -898,12 +838,8 @@ function ClanData:CreateDefaultClans()
 
 				-- Guardar si hay cambios
 				if needsUpdate then
-					local updateSuccess = pcall(function()
-						clanStore:SetAsync("clan:" .. clanId, clanData)
-					end)
-					if updateSuccess then
-						print("  ✅ Atributos adicionales agregados al clan:", defaultClan.clanName)
-					end
+					clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+					print("  ✅ Atributos adicionales agregados al clan:", defaultClan.clanName)
 				end
 			end
 
@@ -977,15 +913,10 @@ function ClanData:CancelJoinRequest(clanId, playerId)
 	-- Cancelar solicitud
 	clanData.joinRequests[playerIdStr] = nil
 
-	local success, err = pcall(function()
-		clanStore:SetAsync("clan:" .. clanId, clanData)
-	end)
+	clanStoreQueue:SetAsync("clan:" .. clanId, clanData)
+	clanDataUpdatedEvent:Fire()
 
-	if success then
-		clanDataUpdatedEvent:Fire()
-	end
-
-	return success, success and "Solicitud cancelada" or err
+	return true, "Solicitud cancelada"
 end
 
 -- CANCELAR TODAS LAS SOLICITUDES DE UNIÓN DEL USUARIO
@@ -997,9 +928,7 @@ function ClanData:CancelAllJoinRequests(playerId)
 		local clanData = self:GetClan(clanInfo.clanId)
 		if clanData and clanData.joinRequests and clanData.joinRequests[userIdStr] then
 			clanData.joinRequests[userIdStr] = nil
-			pcall(function()
-				clanStore:SetAsync("clan:" .. clanInfo.clanId, clanData)
-			end)
+			clanStoreQueue:SetAsync("clan:" .. clanInfo.clanId, clanData)
 			count = count + 1
 		end
 	end
