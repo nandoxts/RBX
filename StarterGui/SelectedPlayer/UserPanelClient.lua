@@ -124,7 +124,9 @@ end
 
 local function showCooldownNotification(remainingTime)
 	local minutes = math.ceil(remainingTime / 60)
-	print(string.format("[UserPanel] Espera %d minuto%s para dar otro like", minutes, minutes > 1 and "s" or ""))
+	if NotificationSystem then
+		NotificationSystem:Info("Like", "Espera " .. minutes .. " minuto" .. (minutes > 1 and "s" or "") .. " para dar otro like", 3)
+	end
 end
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
@@ -383,14 +385,19 @@ end
 -- ═══════════════════════════════════════════════════════════════
 if Remotes.DonationNotify then
 	Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
-		-- Solo para debug, no modifica stats
-		print("[UserPanel] Donación: " .. donatorId .. " donó R$" .. amount .. " a " .. recipientId)
+		-- Notificación de donación recibida
+		if NotificationSystem then
+			NotificationSystem:Success("Donación", "Recibiste una donación de R$" .. amount, 4)
+		end
 	end)
 end
 
 if Remotes.DonationMessage then
 	Remotes.DonationMessage.OnClientEvent:Connect(function(donatorName, amount, recipientName)
-		print("[UserPanel] Donación recibida: " .. donatorName .. " donó R$" .. amount .. " a " .. recipientName)
+		-- Notificación de donación realizada
+		if NotificationSystem then
+			NotificationSystem:Success("Donación", "Donaste R$" .. amount .. " a " .. recipientName, 4)
+		end
 	end)
 end
 
@@ -398,9 +405,13 @@ end
 if GiveLikeEvent then
 	GiveLikeEvent.OnClientEvent:Connect(function(action, data)
 		if action == "LikeSuccess" then
-			print("[UserPanel] ❤ Like enviado exitosamente")
+			if NotificationSystem then
+				NotificationSystem:Success("Like", "Like enviado exitosamente", 2)
+			end
 		elseif action == "Error" then
-			print("[UserPanel] Error al enviar like: " .. tostring(data))
+			if NotificationSystem then
+				NotificationSystem:Error("Like", "Error al enviar like", 3)
+			end
 		end
 	end)
 end
@@ -408,7 +419,9 @@ end
 if GiveSuperLikeEvent then
 	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data)
 		if action == "SuperLikeSuccess" then
-			print("[UserPanel] ⭐ Super Like enviado exitosamente")
+			if NotificationSystem then
+				NotificationSystem:Success("Super Like", "Super Like enviado exitosamente", 3)
+			end
 		end
 	end)
 end
