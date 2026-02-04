@@ -336,8 +336,8 @@ local function createRipple(button, container, x, y)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0, x - pos.X, 0, y - pos.Y),
 		Size = UDim2.new(0, 0, 0, 0),
-		BackgroundColor3 = THEME.accent,
-		BackgroundTransparency = 0.5,
+		BackgroundColor3 = Color3.fromRGB(200, 200, 200),
+		BackgroundTransparency = 0.6,
 		ZIndex = 1,
 		Parent = container
 	})
@@ -551,7 +551,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Size = UDim2.new(1, 0, 0, 22),
 			Position = UDim2.new(0, 0, 0, 4),
 			Text = tostring(data[stat.key] or 0),
-			TextColor3 = playerColor,
+			TextColor3 = THEME.text,
 			TextSize = 16,
 			Font = Enum.Font.GothamBold,
 			TextXAlignment = Enum.TextXAlignment.Center,
@@ -600,62 +600,65 @@ local function createAvatarSection(panel, data, playerColor)
 	})
 
 	-- Botones pequeños de Like y SuperLike (parte superior izquierda - vertical)
-	local likeButtonsContainer = createFrame({
-		Size = UDim2.new(0, 28, 0, 60),
-		Position = UDim2.new(0, 10, 0, 10),
-		BackgroundTransparency = 1,
-		ZIndex = 15,
-		Parent = avatarSection
-	})
-
-	create("UIListLayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = Enum.VerticalAlignment.Top,
-		Padding = UDim.new(0, 4),
-		Parent = likeButtonsContainer
-	})
-
-	-- Helper para crear botones de like con hover
-	local function createLikeButton(imageId, onClick)
-		local btn = create("ImageButton", {
-			Size = UDim2.new(0, 28, 0, 28),
+	-- Solo mostrar si no es el propio jugador
+	if data.userId ~= player.UserId then
+		local likeButtonsContainer = createFrame({
+			Size = UDim2.new(0, 28, 0, 60),
+			Position = UDim2.new(0, 10, 0, 10),
 			BackgroundTransparency = 1,
-			Image = imageId,
-			ScaleType = Enum.ScaleType.Fit,
-			AutoButtonColor = false,
 			ZIndex = 15,
+			Parent = avatarSection
+		})
+
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Top,
+			Padding = UDim.new(0, 4),
 			Parent = likeButtonsContainer
 		})
-		addConnection(btn.MouseButton1Click:Connect(onClick))
-		addConnection(btn.MouseEnter:Connect(function() tween(btn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST) end))
-		addConnection(btn.MouseLeave:Connect(function() tween(btn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST) end))
-		return btn
-	end
 
-	-- Botón Like
-	local lastLikeClick = 0
-	createLikeButton("rbxassetid://118393090095169", function()
-		if not State.userId or State.userId == player.UserId or tick() - lastLikeClick < 0.3 then return end
-		lastLikeClick = tick()
-		
-		local canLike, lastLikeTime = checkLocalCooldown(State.userId)
-		if canLike then
-			GiveLikeEvent:FireServer("GiveLike", State.userId)
-			createHeartEffect(avatarSection, false)
-			updateLocalCooldown(State.userId)
-		else
-			showCooldownNotification(LIKE_COOLDOWN - (tick() - lastLikeTime))
+		-- Helper para crear botones de like con hover
+		local function createLikeButton(imageId, onClick)
+			local btn = create("ImageButton", {
+				Size = UDim2.new(0, 28, 0, 28),
+				BackgroundTransparency = 1,
+				Image = imageId,
+				ScaleType = Enum.ScaleType.Fit,
+				AutoButtonColor = false,
+				ZIndex = 15,
+				Parent = likeButtonsContainer
+			})
+			addConnection(btn.MouseButton1Click:Connect(onClick))
+			addConnection(btn.MouseEnter:Connect(function() tween(btn, { ImageTransparency = 0.3 }, CONFIG.ANIM_FAST) end))
+			addConnection(btn.MouseLeave:Connect(function() tween(btn, { ImageTransparency = 0 }, CONFIG.ANIM_FAST) end))
+			return btn
 		end
-	end)
 
-	-- Botón SuperLike
-	createLikeButton("rbxassetid://9412108006", function()
-		if not State.userId or State.userId == player.UserId then return end
-		GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
-		createHeartEffect(avatarSection, true)
-		pcall(function() MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID) end)
-	end)
+		-- Botón Like
+		local lastLikeClick = 0
+		createLikeButton("rbxassetid://118393090095169", function()
+			if not State.userId or State.userId == player.UserId or tick() - lastLikeClick < 0.3 then return end
+			lastLikeClick = tick()
+			
+			local canLike, lastLikeTime = checkLocalCooldown(State.userId)
+			if canLike then
+				GiveLikeEvent:FireServer("GiveLike", State.userId)
+				createHeartEffect(avatarSection, false)
+				updateLocalCooldown(State.userId)
+			else
+				showCooldownNotification(LIKE_COOLDOWN - (tick() - lastLikeTime))
+			end
+		end)
+
+		-- Botón SuperLike
+		createLikeButton("rbxassetid://9412108006", function()
+			if not State.userId or State.userId == player.UserId then return end
+			GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
+			createHeartEffect(avatarSection, true)
+			pcall(function() MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID) end)
+		end)
+	end
 
 	return avatarSection
 end
@@ -770,7 +773,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 		Size = UDim2.new(1, -36, 0, 28),
 		Position = UDim2.new(0, 34, 0, 0),
 		Text = title,
-		TextColor3 = playerColor or THEME.accent,
+		TextColor3 = THEME.text,
 		TextSize = 16,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -851,7 +854,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 			local priceText = createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
 				Text = hasPass and "ADQUIRIDO" or (utf8.char(0xE002) .. tostring(item.price or 0)),
-				TextColor3 = hasPass and Color3.fromRGB(100, 220, 100) or (playerColor or THEME.accent),
+				TextColor3 = hasPass and Color3.fromRGB(100, 220, 100) or THEME.accent,
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
@@ -951,13 +954,13 @@ local function createButtonsSection(panel, target, playerColor)
 	})
 
 	-- Ver Perfil
-	local profileBtn = createButton(State.buttonsFrame, "Ver Perfil", 1, playerColor)
+	local profileBtn = createButton(State.buttonsFrame, "Ver Perfil", 2, playerColor)
 	addConnection(profileBtn.MouseButton1Click:Connect(function()
 		if target then pcall(function() GuiService:InspectPlayerFromUserId(target.UserId) end) end
 	end))
 
 	-- Donar
-	local donateBtn, donateText = createButton(State.buttonsFrame, "Donar", 2, playerColor)
+	local donateBtn, donateText = createButton(State.buttonsFrame, "Donar", 3, playerColor)
 	addConnection(donateBtn.MouseButton1Click:Connect(function()
 		if not State.userId then return end
 		donateText.Text = "Cargando..."
@@ -968,19 +971,21 @@ local function createButtonsSection(panel, target, playerColor)
 		end)
 	end))
 
-	-- Regalar Pase
-	local giftBtn, giftText = createButton(State.buttonsFrame, "Regalar Pase", 3, playerColor)
-	addConnection(giftBtn.MouseButton1Click:Connect(function()
-		giftText.Text = "Cargando..."
-		task.spawn(function()
-			local passes = Remotes.GetGamePasses:InvokeServer()
-			giftText.Text = "Regalar Pase"
-			showDynamicSection("passes", passes, nil, playerColor)
-		end)
-	end))
+	-- Regalar Pase (solo si no es el propio jugador)
+	if State.userId ~= player.UserId then
+		local giftBtn, giftText = createButton(State.buttonsFrame, "Regalar Pase", 4, playerColor)
+		addConnection(giftBtn.MouseButton1Click:Connect(function()
+			giftText.Text = "Cargando..."
+			task.spawn(function()
+				local passes = Remotes.GetGamePasses:InvokeServer()
+				giftText.Text = "Regalar Pase"
+				showDynamicSection("passes", passes, nil, playerColor)
+			end)
+		end))
+	end
 
 	-- Sincronizar
-	local syncBtn = createButton(State.buttonsFrame, "Sincronizar", 4, playerColor)
+	local syncBtn = createButton(State.buttonsFrame, "Sincronizar", 1, playerColor)
 	local debounceSyncBtn = false
 	addConnection(syncBtn.MouseButton1Click:Connect(function()
 		if debounceSyncBtn or not target then return end
@@ -1066,17 +1071,17 @@ local function createPanel(data)
 		end
 	end))
 
-	-- Contenedor con bordes redondeados (para clip correcto)
+	-- Contenedor con bordes redondeados (para clip correcto) - Efecto ghost
 	local panelContainer = createFrame({
 		Size = UDim2.new(1, 0, 0, CONFIG.PANEL_HEIGHT),
 		Position = UDim2.new(0, 0, 0, 22),
 		BackgroundColor3 = THEME.panel,
-		BackgroundTransparency = 0,
+		BackgroundTransparency = 0.15,
 		ClipsDescendants = true,
 		Parent = State.container
 	})
 	addCorner(panelContainer, 12)
-	addStroke(panelContainer, playerColor, 1.5)
+	addStroke(panelContainer, playerColor, 2)
 
 	-- Sombra
 	create("ImageLabel", {
