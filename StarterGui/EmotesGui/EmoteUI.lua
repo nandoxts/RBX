@@ -21,7 +21,6 @@ local Config = {
 	Movil_MargenIzquierdo = 5,
 	Movil_OffsetVertical = 10,
 
-	Movil_MostrarSlider = true,
 	Movil_MostrarBusqueda = true,
 }
 
@@ -109,7 +108,6 @@ local currentLeaderUserId = nil -- UserId del jugador que sigo (nil si no sigo a
 local CardConnections = {}
 local ActiveTweens = {}
 local GlobalConnections = {}
--- (removed SyncOnOffConnection) ahora usamos `SyncUpdate` RemoteEvent desde el servidor
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- UTILIDADES
@@ -142,8 +140,18 @@ local function CreateStroke(parent, color, thickness, transparency)
 	return s
 end
 
+-- Función reutilizable para oscurecer colores (como en UserPanelClient)
+local function DarkenColor(color, factor)
+	factor = factor or 0.7
+	return Color3.new(
+		color.R * factor,
+		color.G * factor,
+		color.B * factor
+	)
+end
+
 local function GetCardHeight()
-	return IsMobile and 32 or 42
+	return IsMobile and 30 or 36 -- Mismo tamaño que SearchContainer
 end
 
 local function EncontrarDatos(BaileId)
@@ -240,17 +248,14 @@ local function AplicarEfectoActivo(card)
 
 	local border = card:FindFirstChild("ActiveBorder")
 	local overlay = card:FindFirstChild("ActiveOverlay")
-	local cardHeight = GetCardHeight()
 
 	if border then
 		TrackTween(card, Tween(border, 0.3, {Transparency = 0, Thickness = 2}))
 	end
 
 	if overlay then
-		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.8}))
+		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.85}))
 	end
-
-	TrackTween(card, Tween(card, 0.25, {Size = UDim2.new(1, 4, 0, cardHeight + 2)}, Enum.EasingStyle.Back))
 end
 
 local function RemoverEfectoActivo(card)
@@ -258,7 +263,6 @@ local function RemoverEfectoActivo(card)
 
 	local border = card:FindFirstChild("ActiveBorder")
 	local overlay = card:FindFirstChild("ActiveOverlay")
-	local cardHeight = GetCardHeight()
 
 	if border then
 		TrackTween(card, Tween(border, 0.2, {Transparency = 1, Thickness = 2}))
@@ -267,8 +271,6 @@ local function RemoverEfectoActivo(card)
 	if overlay then
 		TrackTween(card, Tween(overlay, 0.2, {BackgroundTransparency = 1}))
 	end
-
-	TrackTween(card, Tween(card, 0.2, {Size = UDim2.new(1, 0, 0, cardHeight)}))
 end
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -284,7 +286,8 @@ ScreenGui.Parent = PlayerGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.BackgroundColor3 = Theme.Background
+MainFrame.BackgroundColor3 = Theme.Background:Lerp(Theme.Primary, 0.08)
+MainFrame.BackgroundTransparency = 0.25 -- ✨ Semi-transparente (glassmorphism global)
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.AnchorPoint = Vector2.new(0, 0.5)
@@ -312,7 +315,8 @@ local TabsContainer = Instance.new("Frame")
 TabsContainer.Name = "TabsContainer"
 TabsContainer.Size = UDim2.new(1, -16, 0, IsMobile and 28 or 34)
 TabsContainer.Position = UDim2.new(0, 8, 0, 8)
-TabsContainer.BackgroundColor3 = Theme.BackgroundSecondary
+TabsContainer.BackgroundColor3 = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
+TabsContainer.BackgroundTransparency = 0.2 -- ✨ Semi-transparente
 TabsContainer.BorderSizePixel = 0
 TabsContainer.Parent = MainFrame
 CreateCorner(TabsContainer, 8)
@@ -364,7 +368,8 @@ if mostrarBusqueda then
 	SearchContainer.Name = "SearchContainer"
 	SearchContainer.Size = UDim2.new(1, -16, 0, IsMobile and 30 or 36)
 	SearchContainer.Position = UDim2.new(0, 8, 0, posY)
-	SearchContainer.BackgroundColor3 = Theme.BackgroundSecondary
+	SearchContainer.BackgroundColor3 = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
+	SearchContainer.BackgroundTransparency = 0
 	SearchContainer.BorderSizePixel = 0
 	SearchContainer.ClipsDescendants = true
 	SearchContainer.Parent = MainFrame
@@ -431,146 +436,7 @@ if mostrarBusqueda then
 	posY = posY + (IsMobile and 34 or 40)
 end
 
--- ════════════════════════════════════════════════════════════════════════════════
--- SLIDER MODERNO (Rediseño completo con botones +/-)
--- ════════════════════════════════════════════════════════════════════════════════
 
-local mostrarSlider = IsMobile and Config.Movil_MostrarSlider or true
-local currentSpeedIndex = 6
-local speedValues = {0.01, 0.05, 0.3, 0.5, 0.7, 1, 1.3, 1.6, 1.9, 2.2, 2.5}
-local SpeedValue = nil -- Declarar aquí, asignado más abajo
-
-if mostrarSlider then
-	local SliderSection = Instance.new("Frame")
-	SliderSection.Name = "SliderSection"
-	SliderSection.Size = UDim2.new(1, -16, 0, IsMobile and 30 or 34)
-	SliderSection.Position = UDim2.new(0, 8, 0, posY)
-	SliderSection.BackgroundColor3 = Theme.BackgroundSecondary
-	SliderSection.BorderSizePixel = 0
-	SliderSection.ClipsDescendants = false
-	SliderSection.Parent = MainFrame
-	CreateCorner(SliderSection, 8)
-
-	-- Track del slider
-	local SliderTrack = Instance.new("Frame")
-	SliderTrack.Name = "SliderTrack"
-	SliderTrack.Size = UDim2.new(1, -20, 0, IsMobile and 6 or 8)
-	SliderTrack.Position = UDim2.new(0, 10, 0.5, IsMobile and -3 or -4)
-	SliderTrack.BackgroundColor3 = Theme.BackgroundTertiary
-	SliderTrack.BorderSizePixel = 0
-	SliderTrack.Parent = SliderSection
-	CreateCorner(SliderTrack, 4)
-
-	-- Fill del slider
-	local SliderFill = Instance.new("Frame")
-	SliderFill.Name = "SliderFill"
-	SliderFill.Size = UDim2.new(0.5, 0, 1, 0)
-	SliderFill.BackgroundColor3 = Theme.Primary
-	SliderFill.BorderSizePixel = 0
-	SliderFill.ZIndex = 2
-	SliderFill.Parent = SliderTrack
-	CreateCorner(SliderFill, 4)
-
-	-- Knob minimalista
-	local SliderKnob = Instance.new("Frame")
-	SliderKnob.Name = "SliderKnob"
-	SliderKnob.Size = UDim2.new(0, IsMobile and 6 or 8, 0, IsMobile and 16 or 20)
-	SliderKnob.Position = UDim2.new(0.5, IsMobile and -3 or -4, 0.5, IsMobile and -8 or -10)
-	SliderKnob.BackgroundColor3 = Theme.TextPrimary
-	SliderKnob.BorderSizePixel = 0
-	SliderKnob.ZIndex = 3
-	SliderKnob.Parent = SliderTrack
-	CreateCorner(SliderKnob, 3)
-
-	-- Raya dentro del knob
-	local KnobLine = Instance.new("Frame")
-	KnobLine.Name = "KnobLine"
-	KnobLine.Size = UDim2.new(0, 2, 0.6, 0)
-	KnobLine.Position = UDim2.new(0.5, -1, 0.2, 0)
-	KnobLine.BackgroundColor3 = Theme.BackgroundTertiary
-	KnobLine.BorderSizePixel = 0
-	KnobLine.ZIndex = 4
-	KnobLine.Parent = SliderKnob
-	CreateCorner(KnobLine, 1)
-
-	-- Valor de velocidad (abajo del knob)
-	SpeedValue = Instance.new("TextLabel")
-	SpeedValue.Name = "SpeedValue"
-	SpeedValue.Size = UDim2.new(0, 40, 0, 12)
-	SpeedValue.Position = UDim2.new(0.5, -20, 1, 1)
-	SpeedValue.BackgroundTransparency = 1
-	SpeedValue.Font = Enum.Font.GothamBold
-	SpeedValue.Text = "1.00x"
-	SpeedValue.TextColor3 = Theme.TextPrimary
-	SpeedValue.TextSize = IsMobile and 10 or 11
-	SpeedValue.ZIndex = 5
-	SpeedValue.Visible = false
-	SpeedValue.Parent = SliderKnob
-
-	local sliderDragging = false
-
-	local function UpdateSlider(pct)
-		pct = math.clamp(pct, 0, 1)
-		SliderFill.Size = UDim2.new(pct, 0, 1, 0)
-		SliderKnob.Position = UDim2.new(pct, IsMobile and -3 or -4, 0.5, IsMobile and -8 or -10)
-
-		local idx = math.clamp(math.floor(pct * (#speedValues - 1) + 0.5) + 1, 1, #speedValues)
-		local speed = speedValues[idx]
-		SpeedValue.Text = string.format("%.2fx", speed)
-
-		if idx ~= currentSpeedIndex then
-			currentSpeedIndex = idx
-			PlayAnimationRemote:FireServer("speed", speed)
-		end
-	end
-
-	SliderTrack.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			sliderDragging = true
-			SpeedValue.Visible = true
-			UpdateSlider((input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X)
-		end
-	end)
-
-	SliderKnob.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			sliderDragging = true
-			SpeedValue.Visible = true
-		end
-	end)
-
-	TrackGlobalConnection(UserInputService.InputChanged:Connect(function(input)
-		if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			UpdateSlider((input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X)
-		end
-	end))
-
-	TrackGlobalConnection(UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			sliderDragging = false
-			SpeedValue.Visible = false
-		end
-	end))
-
-	-- Doble click para resetear a 1.0x
-	local lastClickTime = 0
-	SliderTrack.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			local now = tick()
-			if now - lastClickTime < 0.3 then
-				currentSpeedIndex = 6
-				UpdateSlider(0.5)
-			end
-			lastClickTime = now
-		end
-	end)
-
-	UpdateSlider(0.5)
-
-	posY = posY + (IsMobile and 34 or 38)
-else
-	posY = posY + 4
-end
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- CONTENEDOR DE SCROLL
@@ -581,7 +447,7 @@ ContentArea.Name = "ContentArea"
 ContentArea.Size = UDim2.new(1, -16, 1, -(posY + 8))
 ContentArea.Position = UDim2.new(0, 8, 0, posY)
 ContentArea.BackgroundTransparency = 1
-ContentArea.ClipsDescendants = true
+ContentArea.ClipsDescendants = false
 ContentArea.Parent = MainFrame
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -716,18 +582,80 @@ local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Name = "ScrollFrame"
 ScrollFrame.Size = UDim2.new(1, 0, 1, 0)
 ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.ScrollBarImageColor3 = Theme.TextMuted
-ScrollFrame.ScrollBarImageTransparency = 0.6
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 0 -- Ocultar scrollbar tradicional
+ScrollFrame.ScrollBarImageTransparency = 1
 ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 ScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
 ScrollFrame.Parent = ContentArea
 
+-- Scrollbar moderna personalizada (lado izquierdo)
+local ScrollbarContainer = Instance.new("Frame")
+ScrollbarContainer.Name = "ScrollbarContainer"
+ScrollbarContainer.Size = UDim2.new(0, 4, 1, -12)
+ScrollbarContainer.Position = UDim2.new(0, -4.5, 0, 6)
+ScrollbarContainer.BackgroundTransparency = 1
+ScrollbarContainer.ZIndex = 10
+ScrollbarContainer.Parent = ContentArea
+
+local ScrollbarTrack = Instance.new("Frame")
+ScrollbarTrack.Name = "ScrollbarTrack"
+ScrollbarTrack.Size = UDim2.new(1, 0, 1, 0)
+ScrollbarTrack.BackgroundColor3 = Theme.Border
+ScrollbarTrack.BackgroundTransparency = 0.93
+ScrollbarTrack.BorderSizePixel = 0
+ScrollbarTrack.Parent = ScrollbarContainer
+CreateCorner(ScrollbarTrack, 4)
+
+local ScrollbarThumb = Instance.new("Frame")
+ScrollbarThumb.Name = "ScrollbarThumb"
+ScrollbarThumb.Size = UDim2.new(1, 0, 0.3, 0)
+ScrollbarThumb.Position = UDim2.new(0, 0, 0, 0)
+ScrollbarThumb.BackgroundColor3 = Theme.Primary
+ScrollbarThumb.BackgroundTransparency = 0.4
+ScrollbarThumb.BorderSizePixel = 0
+ScrollbarThumb.ZIndex = 11
+ScrollbarThumb.Parent = ScrollbarContainer
+CreateCorner(ScrollbarThumb, 4)
+
+-- Actualizar posición del thumb en scroll
+local function UpdateScrollbar()
+	local canvasSize = ScrollFrame.AbsoluteCanvasSize.Y
+	local windowSize = ScrollFrame.AbsoluteWindowSize.Y
+	
+	if canvasSize <= windowSize then
+		ScrollbarContainer.Visible = false
+		return
+	else
+		ScrollbarContainer.Visible = true
+	end
+	
+	local scrollPercent = ScrollFrame.CanvasPosition.Y / (canvasSize - windowSize)
+	local thumbHeight = math.max(0.1, windowSize / canvasSize)
+	local maxThumbY = 1 - thumbHeight
+	
+	ScrollbarThumb.Size = UDim2.new(1, 0, thumbHeight, 0)
+	ScrollbarThumb.Position = UDim2.new(0, 0, scrollPercent * maxThumbY, 0)
+end
+
+TrackGlobalConnection(ScrollFrame:GetPropertyChangedSignal("CanvasPosition"):Connect(UpdateScrollbar))
+TrackGlobalConnection(ScrollFrame:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(UpdateScrollbar))
+TrackGlobalConnection(ScrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(UpdateScrollbar))
+
+-- Hover en scrollbar
+TrackGlobalConnection(ScrollbarThumb.MouseEnter:Connect(function()
+	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = 0.1})
+end))
+
+TrackGlobalConnection(ScrollbarThumb.MouseLeave:Connect(function()
+	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = 0.4})
+end))
+
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Padding = UDim.new(0, IsMobile and 3 or 6)
-ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 ListLayout.Parent = ScrollFrame
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -801,8 +729,6 @@ if PlayAnimationRemote and PlayAnimationRemote.IsA and PlayAnimationRemote:IsA("
 	TrackGlobalConnection(PlayAnimationRemote.OnClientEvent:Connect(function(action, payload)
 		if action == "playAnim" and type(payload) == "string" then
 			setActiveByName(payload)
-		elseif action == "speed" then
-			-- opcional: actualizar el slider si el servidor fuerza una velocidad
 		end
 	end))
 end
@@ -813,7 +739,7 @@ if StopAnimationRemote and StopAnimationRemote.IsA and StopAnimationRemote:IsA("
 	end))
 end
 
--- Escuchar actualizaciones de sincronización desde el servidor (payload: isSynced, leaderName, animationName, speed)
+-- Escuchar actualizaciones de sincronización desde el servidor
 local SyncUpdate = RemotesSync:FindFirstChild("SyncUpdate")
 if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 	TrackGlobalConnection(SyncUpdate.OnClientEvent:Connect(function(payload)
@@ -842,6 +768,13 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 			SetSyncOverlay(payload.isSynced, payload.leaderName)
 		end
 
+		-- Mostrar error de sincronización si existe
+		if payload.syncError then
+			pcall(function()
+				NotificationSystem:Info("Sync Error", payload.syncError, 3)
+			end)
+		end
+
 		-- Mantener UserId del líder que sigo (nil si ya no sigo a nadie)
 		if payload.leaderUserId ~= nil then
 			currentLeaderUserId = payload.leaderUserId
@@ -857,24 +790,6 @@ if SyncUpdate and SyncUpdate.IsA and SyncUpdate:IsA("RemoteEvent") then
 		elseif payload.animationName == nil then
 			-- si el servidor indica nil, limpiar activo
 			clearActive()
-		end
-
-		-- Sincronizar velocidad si el servidor la envía
-		if payload.speed and type(payload.speed) == "number" then
-			-- Encontrar el índice de speedValues más cercano a payload.speed
-			local closestIdx = 1
-			local closestDiff = math.huge
-			for i, v in ipairs(speedValues) do
-				local diff = math.abs(v - payload.speed)
-				if diff < closestDiff then
-					closestDiff = diff
-					closestIdx = i
-				end
-			end
-			currentSpeedIndex = closestIdx
-			if SpeedValue then
-				SpeedValue.Text = string.format("%.2fx", speedValues[currentSpeedIndex])
-			end
 		end
 	end))
 end
@@ -896,23 +811,6 @@ if SyncBroadcast and SyncBroadcast.IsA and SyncBroadcast:IsA("RemoteEvent") then
 					setActiveByName(payload.animationName)
 				end
 			end
-
-			if payload.speed then
-				-- Actualizar indicador de velocidad al valor más cercano disponible
-				local closestIdx = 1
-				local closestDiff = math.huge
-				for i, v in ipairs(speedValues) do
-					local diff = math.abs(v - payload.speed)
-					if diff < closestDiff then
-						closestDiff = diff
-						closestIdx = i
-					end
-				end
-				currentSpeedIndex = closestIdx
-				if SpeedValue then
-					SpeedValue.Text = string.format("%.2fx", speedValues[currentSpeedIndex])
-				end
-			end
 		end
 	end))
 end
@@ -920,8 +818,8 @@ end
 local ContentPadding = Instance.new("UIPadding")
 ContentPadding.PaddingTop = UDim.new(0, IsMobile and 2 or 4)
 ContentPadding.PaddingBottom = UDim.new(0, IsMobile and 4 or 10)
-ContentPadding.PaddingLeft = UDim.new(0, IsMobile and 4 or 6)
-ContentPadding.PaddingRight = UDim.new(0, IsMobile and 4 or 6)
+ContentPadding.PaddingLeft = UDim.new(0, 0)
+ContentPadding.PaddingRight = UDim.new(0, 0)
 ContentPadding.Parent = ScrollFrame
 
 local EmptyMessage = Instance.new("TextLabel")
@@ -929,7 +827,7 @@ EmptyMessage.Name = "EmptyMessage"
 EmptyMessage.Size = UDim2.new(0, 0, 0, 0)
 EmptyMessage.BackgroundTransparency = 1
 EmptyMessage.Font = Enum.Font.GothamMedium
-EmptyMessage.Text = "Sin favoritos\nToca ★ en cualquier baile"
+EmptyMessage.Text = "Sin favoritos\nToca el ícono en cualquier baile"
 EmptyMessage.TextColor3 = Theme.TextMuted
 EmptyMessage.TextSize = IsMobile and 13 or 15
 EmptyMessage.Visible = false
@@ -970,15 +868,18 @@ local function CrearSeparador(texto, icono, color, orden)
 end
 
 local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
-	local cardColor = Theme.Card -- Color uniforme para todas las tarjetas
 	local esFavorito = EstaEnFavoritos(id)
-	local esVIPBloqueado = esVIP and not tieneVIP
 	local cardHeight = GetCardHeight()
+
+	-- Mismo color que el input de búsqueda
+	local cardColorNormal = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
+	local cardColorHover = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.14)
 
 	local card = Instance.new("TextButton")
 	card.Name = "Card_" .. id
 	card.Size = UDim2.new(1, 0, 0, cardHeight)
-	card.BackgroundColor3 = cardColor
+	card.BackgroundColor3 = cardColorNormal
+	card.BackgroundTransparency = 0
 	card.BorderSizePixel = 0
 	card.LayoutOrder = orden
 	card.Text = ""
@@ -989,10 +890,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	card:SetAttribute("IsFavorite", esFavorito)
 	card.Parent = ScrollFrame
 
-	CreateCorner(card, IsMobile and 5 or 8)
-
-	-- Borde sutil para definir la tarjeta
-	CreateStroke(card, Theme.Border, 1, 0.7)
+	CreateCorner(card, IsMobile and 6 or 8)
 
 	-- Overlay para efecto activo
 	local activeOverlay = Instance.new("Frame")
@@ -1028,24 +926,25 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	nameLabel.ZIndex = 3
 	nameLabel.Parent = card
 
-	-- Contenedor del botón favorito (para mejor control de animaciones)
+	-- Contenedor del botón favorito (más pequeño, pegado a la derecha)
 	local favContainer = Instance.new("Frame")
 	favContainer.Name = "FavContainer"
-	favContainer.Size = UDim2.new(0, IsMobile and 24 or 32, 1, 0)
-	favContainer.Position = UDim2.new(1, IsMobile and -24 or -32, 0, 0)
+	favContainer.Size = UDim2.new(0, IsMobile and 18 or 22, 0, IsMobile and 18 or 22)
+	favContainer.Position = UDim2.new(1, IsMobile and -8 or -10, 0.5, 0)
+	favContainer.AnchorPoint = Vector2.new(1, 0.5)
 	favContainer.BackgroundTransparency = 1
 	favContainer.ZIndex = 4
 	favContainer.Parent = card
 
-	-- Botón favorito
-	local favBtn = Instance.new("TextButton")
+	-- Botón favorito (ImageButton para mejor calidad)
+	local favBtn = Instance.new("ImageButton")
 	favBtn.Name = "FavBtn"
 	favBtn.Size = UDim2.new(1, 0, 1, 0)
 	favBtn.BackgroundTransparency = 1
-	favBtn.Text = esFavorito and "★" or "☆"
-	favBtn.TextColor3 = esFavorito and Theme.Warning or Color3.fromRGB(120, 120, 120)
-	favBtn.TextSize = IsMobile and 16 or 20
-	favBtn.Font = Enum.Font.GothamBold
+	-- Assets diferentes: sin favorito (130993498569336) vs con favorito (80912525064014)
+	favBtn.Image = esFavorito and "rbxassetid://80912525064014" or "rbxassetid://130993498569336"
+	favBtn.ImageColor3 = Theme.Primary
+	favBtn.ImageTransparency = esFavorito and 0 or 0.2
 	favBtn.ZIndex = 5
 	favBtn.Parent = favContainer
 
@@ -1054,15 +953,11 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 
 	-- Hover en tarjeta
 	TrackConnection(card, card.MouseEnter:Connect(function()
-		if not isProcessingFav then
-			Tween(card, 0.15, {BackgroundColor3 = Theme.Card:Lerp(Theme.Primary, 0.15)})
-		end
+		Tween(card, 0.15, {BackgroundColor3 = cardColorHover})
 	end))
 
 	TrackConnection(card, card.MouseLeave:Connect(function()
-		if not isProcessingFav then
-			Tween(card, 0.15, {BackgroundColor3 = Theme.Card})
-		end
+		Tween(card, 0.15, {BackgroundColor3 = cardColorNormal})
 	end))
 
 	-- Click tarjeta (reproducir baile)
@@ -1099,13 +994,13 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 		end
 	end))
 
-	-- Click favorito (MEJORADO - animación suave)
+	-- Click favorito
 	TrackConnection(card, favBtn.MouseButton1Click:Connect(function()
 		if isProcessingFav then return end
 		isProcessingFav = true
 
-		-- Animación de feedback inmediato
-		Tween(favBtn, 0.1, {TextSize = IsMobile and 20 or 24})
+		-- Feedback visual inmediato
+		Tween(favBtn, 0.1, {ImageTransparency = esFavorito and 0.5 or 0})
 
 		local success, status = pcall(function()
 			return AnadirFav:InvokeServer(id)
@@ -1113,57 +1008,43 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 
 		if not success then
 			isProcessingFav = false
-			Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
 			NotificationSystem:Error("Error", "Error de conexión", 2)
 			return
 		end
 
 		if status == "Anadido" then
-			-- Añadido a favoritos
 			table.insert(EmotesFavs, id)
 			card:SetAttribute("IsFavorite", true)
 
-			-- Animación suave de estrella
-			Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
-			favBtn.Text = "★"
-			Tween(favBtn, 0.2, {TextColor3 = Theme.Warning})
+			Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0})
+			favBtn.Image = "rbxassetid://80912525064014"
 
-			-- Actualizar todas las cards con el mismo ID
+			-- Sincronizar otras cards con el mismo ID
 			for _, child in ipairs(ScrollFrame:GetChildren()) do
 				if child:GetAttribute("ID") == id and child ~= card then
-					local btn = child:FindFirstChild("FavContainer")
-					if btn then
-						local innerBtn = btn:FindFirstChild("FavBtn")
-						if innerBtn then
-							innerBtn.Text = "★"
-							innerBtn.TextColor3 = Theme.Warning
-						end
+					local innerBtn = child:FindFirstChild("FavContainer"):FindFirstChild("FavBtn")
+					if innerBtn then
+						innerBtn.Image = "rbxassetid://80912525064014"
+						innerBtn.ImageColor3 = Theme.Primary
+						innerBtn.ImageTransparency = 0
 					end
-				end
+			end
 			end
 
 			NotificationSystem:Success("Favorito", nombre .. " añadido", 2)
 
 		elseif status == "Eliminada" then
-			-- Eliminado de favoritos
 			local idx = table.find(EmotesFavs, id)
 			if idx then table.remove(EmotesFavs, idx) end
 			card:SetAttribute("IsFavorite", false)
 
 			if TabActual == "Favoritos" then
-				-- Animación de salida suave
-				favBtn.Text = "☆"
-				Tween(favBtn, 0.1, {TextColor3 = Color3.fromRGB(120, 120, 120)})
-				Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
+				Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0.5})
+				favBtn.Image = "rbxassetid://130993498569336"
 
-				-- Limpiar conexiones ANTES de animar
 				CleanupCard(card)
 
-				-- Animación de desvanecimiento
-				local fadeOut = Tween(card, 0.25, {
-					BackgroundTransparency = 0.8
-				})
-
+				Tween(card, 0.25, {BackgroundTransparency = 0.8})
 				task.delay(0.1, function()
 					if card and card.Parent then
 						local shrink = Tween(card, 0.2, {
@@ -1172,35 +1053,25 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 
 						if shrink then
 							shrink.Completed:Connect(function()
-								if card and card.Parent then
-									card:Destroy()
+								if card and card.Parent then card:Destroy() end
+								if #EmotesFavs == 0 then
+									MostrarEmptyMessage(true, "Sin favoritos\nToca el ícono en cualquier baile")
 								end
-								-- Verificar si quedan favoritos
-								task.defer(function()
-									if #EmotesFavs == 0 then
-										MostrarEmptyMessage(true, "Sin favoritos\nToca ★ en cualquier baile")
-									end
-								end)
 							end)
 						end
 					end
 				end)
 			else
-				-- Solo actualizar visual en tab Todos
-				Tween(favBtn, 0.15, {TextSize = IsMobile and 16 or 20})
-				favBtn.Text = "☆"
-				Tween(favBtn, 0.2, {TextColor3 = Color3.fromRGB(120, 120, 120)})
-
-				-- Actualizar otras cards
+				Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0.5})
+				favBtn.Image = "rbxassetid://130993498569336"
+				-- Sincronizar otras cards
 				for _, child in ipairs(ScrollFrame:GetChildren()) do
 					if child:GetAttribute("ID") == id and child ~= card then
-						local btn = child:FindFirstChild("FavContainer")
-						if btn then
-							local innerBtn = btn:FindFirstChild("FavBtn")
-							if innerBtn then
-								innerBtn.Text = "☆"
-								innerBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
-							end
+						local innerBtn = child:FindFirstChild("FavContainer"):FindFirstChild("FavBtn")
+						if innerBtn then
+							innerBtn.Image = "rbxassetid://130993498569336"
+							innerBtn.ImageColor3 = Theme.Primary
+							innerBtn.ImageTransparency = 0.5
 						end
 					end
 				end
@@ -1209,10 +1080,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			NotificationSystem:Success("Favorito", nombre .. " quitado", 2)
 		end
 
-		-- Pequeño delay antes de permitir otro click
-		task.delay(0.3, function()
-			isProcessingFav = false
-		end)
+		task.delay(0.3, function() isProcessingFav = false end)
 	end))
 
 	return card
@@ -1256,61 +1124,41 @@ local function CargarTodos(filtro)
 		return filtro == "" or nombre:lower():find(filtro, 1, true)
 	end
 
+	-- TRENDING
 	if EmotesTrending and #EmotesTrending > 0 then
-		local hayVisibles = false
 		for _, id in ipairs(EmotesTrending) do
 			local nombre = EncontrarDatos(id)
 			if pasaFiltro(nombre) then
-				if not hayVisibles then
-					CrearSeparador("TRENDING", nil, Theme.Primary, orden)
-					orden = orden + 1
-					hayVisibles = true
-				end
 				CrearTarjeta(nombre, id, "Trending", orden, false)
 				orden = orden + 1
 			end
 		end
 	end
 
+	-- VIP
 	if Modulo.Vip and #Modulo.Vip > 0 then
-		local hayVisibles = false
 		for _, v in ipairs(Modulo.Vip) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
-				if not hayVisibles then
-					CrearSeparador("VIP", nil, Theme.Primary, orden)
-					orden = orden + 1
-					hayVisibles = true
-				end
 				CrearTarjeta(v.Nombre, v.ID, "VIP", orden, true)
 				orden = orden + 1
 			end
 		end
 	end
 
+	-- RECOMENDADOS
 	if Modulo.Recomendado and #Modulo.Recomendado > 0 then
-		local hayVisibles = false
 		for _, v in ipairs(Modulo.Recomendado) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
-				if not hayVisibles then
-					CrearSeparador("RECOMENDADOS", nil, Theme.Primary, orden)
-					orden = orden + 1
-					hayVisibles = true
-				end
 				CrearTarjeta(v.Nombre, v.ID, "Recommended", orden, false)
 				orden = orden + 1
 			end
 		end
 	end
 
+	-- TODOS
 	if Modulo.Ids and #Modulo.Ids > 0 then
-		local hayVisibles = false
 		for _, v in ipairs(Modulo.Ids) do
 			if not table.find(EmotesTrending or {}, v.ID) and pasaFiltro(v.Nombre) then
-				if not hayVisibles then
-					CrearSeparador("TODOS", nil, Theme.Primary, orden)
-					orden = orden + 1
-					hayVisibles = true
-				end
 				CrearTarjeta(v.Nombre, v.ID, "Normal", orden, false)
 				orden = orden + 1
 			end
@@ -1433,14 +1281,8 @@ end
 ScreenGui.Destroying:Connect(function()
 	CleanupAllCards()
 
-	-- Desconectar SyncOnOff
-	-- (removed SyncOnOffConnection) ya no es usado
-
-	-- Desconectar todas las conexiones globales
 	for _, conn in ipairs(GlobalConnections) do
-		if conn then
-			pcall(function() conn:Disconnect() end)
-		end
+		if conn then pcall(function() conn:Disconnect() end) end
 	end
 	GlobalConnections = {}
 end)

@@ -386,31 +386,71 @@ local function PlayAnimationOnPlayer(player, animationId, animationName, timePos
 	return true
 end
 
--- Obtener followers válidos de un jugador
+-- Obtener followers válidos de un jugador (SIN recursión)
 local function GetValidFollowers(player)
 	if not IsValidPlayer(player) then return {} end
 
 	local validFollowers = {}
 	for _, follower in ipairs(PlayerData[player].Followers) do
-		if IsValidPlayer(follower) then
+		-- Validar que sea un jugador válido ANTES de agregarlo
+		if follower and follower.Parent == Players and PlayerData[follower] then
 			table.insert(validFollowers, follower)
 		end
 	end
 	return validFollowers
 end
 
--- Propagar animación a una cadena de followers recursivamente
+-- Agregar seguidor SIN duplicados (más rápido que table.find)
+local function AddFollower(leader, follower)
+	if not IsValidPlayer(leader) or not IsValidPlayer(follower) then return false end
+	
+	-- Verificar si ya existe en la lista
+	for _, existing in ipairs(PlayerData[leader].Followers) do
+		if existing == follower then
+			return false -- Ya existe, no agregar
+		end
+	end
+	
+	table.insert(PlayerData[leader].Followers, follower)
+	return true
+end
+
+-- Remover seguidor de forma segura
+local function RemoveFollower(leader, follower)
+	if not IsValidPlayer(leader) then return end
+	SafeRemoveFromArray(PlayerData[leader].Followers, follower)
+end
+
+-- Propagar animación a seguidores de forma ITERATIVA (sin recursión profunda)
 local function PropagateToFollowerChain(followers, animId, animName, timePos, speed)
+	local queue = {}
+	local processed = {}
+	
+	-- Agregar followers iniciales a la cola
 	for _, follower in ipairs(followers) do
-		if IsValidPlayer(follower) and CanAnimate(follower) then
-			if follower.Character and follower.Character.Parent then
+		if IsValidPlayer(follower) then
+			table.insert(queue, follower)
+		end
+	end
+	
+	-- Procesar cola de forma iterativa
+	while #queue > 0 do
+		local follower = table.remove(queue, 1)
+		
+		-- Evitar procesar el mismo follower dos veces
+		if not processed[follower] then
+			processed[follower] = true
+			
+			if CanAnimate(follower) and follower.Character and follower.Character.Parent then
 				PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
 				NotifyClient(follower, animName)
-
-				-- Propagar a subfollowers
-				local subFollowers = GetAllFollowers(follower)
-				if #subFollowers > 0 then
-					PropagateToFollowerChain(subFollowers, animId, animName, timePos, speed)
+				
+				-- Agregar sub-followers de este follower a la cola (sin recursión)
+				local subFollowers = GetValidFollowers(follower)
+				for _, subFollower in ipairs(subFollowers) do
+					if not processed[subFollower] then
+						table.insert(queue, subFollower)
+					end
 				end
 			end
 		end
@@ -494,7 +534,7 @@ local function Unfollow(player)
 
 	if currentLeader and IsValidPlayer(currentLeader) then
 		-- Remover de la lista de seguidores del líder anterior
-		SafeRemoveFromArray(PlayerData[currentLeader].Followers, player)
+		RemoveFollower(currentLeader, player)
 		-- ACTUALIZAR atributo del líder para que Dance Leader System se entere
 		UpdateFollowerCount(currentLeader)
 	end
@@ -535,7 +575,7 @@ local function Follow(follower, leader)
 	local followerData = PlayerData[follower]
 	local currentLeader = followerData.Following
 	if currentLeader and IsValidPlayer(currentLeader) then
-		SafeRemoveFromArray(PlayerData[currentLeader].Followers, follower)
+		RemoveFollower(currentLeader, follower)
 		-- ACTUALIZAR atributo del líder anterior para que Dance Leader System se entere
 		UpdateFollowerCount(currentLeader)
 	end
@@ -551,10 +591,8 @@ local function Follow(follower, leader)
 		follower:SetAttribute("following", leader.Name)
 	end)
 
-	-- Agregar a la lista de seguidores del nuevo líder
-	if not table.find(PlayerData[leader].Followers, follower) then
-		table.insert(PlayerData[leader].Followers, follower)
-	end
+	-- Agregar a la lista de seguidores del nuevo líder (sin duplicados)
+	AddFollower(leader, follower)
 
 	-- ACTUALIZAR atributo del nuevo líder para que Dance Leader System se entere
 	UpdateFollowerCount(leader)
@@ -587,7 +625,7 @@ local function Follow(follower, leader)
 		end
 	end
 
-	-- ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
+	-- ✅ ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
 	local leaderUserId = rootLeader and rootLeader.UserId or leader.UserId
 
 	local success = pcall(function()
@@ -596,21 +634,21 @@ local function Follow(follower, leader)
 			leaderName = leader.Name, 
 			leaderUserId = leaderUserId, 
 			animationName = animName, 
-			speed = speed 
+			speed = speed,
+			success = true -- ✅ Indicador explícito de éxito
 		})
 	end)
 
-	-- Si falla, se reintentará en el próximo ciclo
-
-	-- También enviar PlayAnimationRemote si hay animación activa
+	-- ✅ También enviar PlayAnimationRemote si hay animación activa
+	-- (esto sincroniza la UI en EmoteUI.lua)
 	if hasAnimation and animName then
 		pcall(function()
 			PlayAnimationRemote:FireClient(follower, "playAnim", animName)
 		end)
 	end
 
-	-- 🔔 NOTIFICAR al líder que tiene un nuevo seguidor
-	NotifyFollowers(leader)
+	-- ✅ NOTA: NotifyFollowers() ahora se llama desde OnSyncAction DESPUÉS de confirmar éxito
+	-- (movido fuera de Follow para evitar notificaciones prematuras)
 
 	return true
 end
@@ -644,23 +682,6 @@ local function OnPlayAnimation(player, action, animationData)
 				PropagateToFollowerChain(myFollowers, animId, animationData, 0, 1)
 			end
 		end
-
-	elseif action == "speed" and type(animationData) == "number" then
-		local data = PlayerData[player]
-		if data.Animation then
-			local animId = data.Animation.Animation.AnimationId
-			local animName = data.AnimationName
-			local timePos = data.Animation.TimePosition
-
-			-- Recrear animación con nueva velocidad
-			if PlayAnimationOnPlayer(player, animId, animName, timePos, animationData) then
-				-- Propagar cambio de velocidad a seguidores
-				local followers = GetValidFollowers(player)
-				if #followers > 0 then
-					PropagateToFollowerChain(followers, animId, animName, timePos, animationData)
-				end
-			end
-		end
 	end
 end
 
@@ -689,8 +710,70 @@ local function OnSyncAction(player, action, target)
 			targetPlayer = FindPlayerByName(target)
 		end
 
-		if targetPlayer and IsValidPlayer(targetPlayer) and player ~= targetPlayer then
-			Follow(player, targetPlayer)
+		-- ✅ VALIDACIONES TEMPRANAS: Verificar TODO antes de ejecutar Follow()
+		
+		-- Validación 1: Jugador no encontrado
+		if not targetPlayer or not IsValidPlayer(targetPlayer) then
+			pcall(function()
+				SyncUpdate:FireClient(player, { 
+					isSynced = false, 
+					leaderName = nil, 
+					animationName = nil, 
+					speed = nil,
+					syncError = "Jugador no encontrado"
+				})
+			end)
+			return
+		end
+		
+		-- Validación 2: Intentar sincronizarse consigo mismo
+		if player == targetPlayer then
+			pcall(function()
+				SyncUpdate:FireClient(player, { 
+					isSynced = false, 
+					leaderName = nil, 
+					animationName = nil, 
+					speed = nil,
+					syncError = "No puedes sincronizarte contigo mismo"
+				})
+			end)
+			return
+		end
+		
+		-- Validación 3: Prevenir loops (el target ya me sigue directa o indirectamente)
+		local allMyFollowers = GetAllFollowers(player)
+		for _, f in ipairs(allMyFollowers) do
+			if f == targetPlayer then
+				pcall(function()
+					SyncUpdate:FireClient(player, { 
+						isSynced = false, 
+						leaderName = nil, 
+						animationName = nil, 
+						speed = nil,
+						syncError = "No puedes sincronizarte con " .. targetPlayer.Name .. " (ya te sigue)"
+					})
+				end)
+				return
+			end
+		end
+		
+		-- ✅ AHORA sí, ejecutar Follow (todas las validaciones pasaron)
+		local syncSuccess = Follow(player, targetPlayer)
+		
+		if syncSuccess then
+			-- ✅ Solo notificar al líder si la sincronización fue exitosa
+			NotifyFollowers(targetPlayer)
+		else
+			-- Si Follow falló por alguna razón inesperada, notificar error
+			pcall(function()
+				SyncUpdate:FireClient(player, { 
+					isSynced = false, 
+					leaderName = nil, 
+					animationName = nil, 
+					speed = nil,
+					syncError = "Error al sincronizar con " .. targetPlayer.Name
+				})
+			end)
 		end
 
 	elseif action == "unsync" then
@@ -721,15 +804,13 @@ local function OnCharacterAdded(character)
 
 	-- 🔄 IMPORTANTE: GUARDAR estado de sync ANTES de limpiar
 	local wasFollowing = PlayerData[player].Following
-	local myFollowers = ShallowCopy(PlayerData[player].Followers)
+	local myFollowers = GetValidFollowers(player) -- Validar followers ANTES de copiar
 
 	-- LIMPIAR referencias stale en TODOS los demás jugadores
 	-- (previene que la animación se propague al nuevo character)
 	for otherPlayer, data in pairs(PlayerData) do
-		if otherPlayer ~= player and data and data.Followers then
-			SafeRemoveFromArray(data.Followers, player)
-			-- ACTUALIZAR atributo de followers para este jugador
-			UpdateFollowerCount(otherPlayer)
+		if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
+			RemoveFollower(otherPlayer, player)
 		end
 	end
 
@@ -774,20 +855,18 @@ local function OnCharacterAdded(character)
 				-- SIEMPRE limpiar referencias stale en TODOS los casos
 				-- (esto previene que se propague animaciones al respawnear)
 				for otherPlayer, data in pairs(PlayerData) do
-					if otherPlayer ~= player and data and data.Followers then
-						SafeRemoveFromArray(data.Followers, player)
-						-- ACTUALIZAR atributo de followers para este jugador
-						UpdateFollowerCount(otherPlayer)
-					end
+				if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
+					RemoveFollower(otherPlayer, player)
 				end
+			end
 
-				if Settings.ResetAnimationOnRespawn then
-					-- Notificar a seguidores que ya no hay animación
-					StopFollowersAnimations(player)
+			if Settings.ResetAnimationOnRespawn then
+				-- Notificar a seguidores que ya no hay animación
+				StopFollowersAnimations(player)
 
-					-- Limpiar seguidores
-					PlayerData[player].Followers = {}
-				end
+				-- Limpiar seguidores
+				PlayerData[player].Followers = {}
+			end
 			end)
 
 			if PlayerData[player] then
@@ -867,10 +946,8 @@ local function OnPlayerRemoving(player)
 
 	-- Remover de la lista de seguidores de otros jugadores
 	for otherPlayer, data in pairs(PlayerData) do
-		if otherPlayer ~= player and data.Followers then
-			SafeRemoveFromArray(data.Followers, player)
-			-- ACTUALIZAR atributo de followers para este jugador
-			UpdateFollowerCount(otherPlayer)
+		if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
+			RemoveFollower(otherPlayer, player)
 		end
 	end
 

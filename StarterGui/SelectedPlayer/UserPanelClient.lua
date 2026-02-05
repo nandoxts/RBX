@@ -38,6 +38,7 @@ local Remotes = {
 local RemotesSync = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Emotes_Sync")
 local SyncRemote = RemotesSync and RemotesSync:FindFirstChild("Sync")
 local GetSyncState = RemotesSync and RemotesSync:FindFirstChild("GetSyncState")
+local SyncUpdate = RemotesSync and RemotesSync:FindFirstChild("SyncUpdate")
 
 -- Notificación System
 local NotificationSystem = pcall(function()
@@ -118,12 +119,17 @@ local function syncWithPlayer(targetPlayer)
 		end
 		-- Si NO estoy sincronizado, sincronizar con el target actual
 	else
-		if targetPlayer and targetPlayer ~= player then
-			SyncRemote:FireServer("sync", targetPlayer)
+		-- ✅ Validación local: no sincronizarse consigo mismo
+		if not targetPlayer or targetPlayer == player then
 			if NotificationSystem then
-				NotificationSystem:Success("Sync", "Ahora estás sincronizado con: " .. targetPlayer.DisplayName, 4)
+				NotificationSystem:Warning("Sync", "No puedes sincronizarte contigo mismo", 3)
 			end
+			return
 		end
+
+		-- ✅ Enviar request al servidor SIN mostrar notificación todavía
+		-- La notificación se mostrará cuando el servidor confirme mediante SyncUpdate
+		SyncRemote:FireServer("sync", targetPlayer)
 	end
 end
 local LikesSystem = {
@@ -450,6 +456,21 @@ if BroadcastEvent then
 				local RBXSystem = TextChannels:WaitForChild("RBXSystem")
 				RBXSystem:DisplaySystemMessage(message)
 			end)
+		end
+	end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- LISTENER DE SINCRONIZACIÓN (GLOBAL - PERSISTENTE)
+-- ═══════════════════════════════════════════════════════════════
+if SyncUpdate then
+	SyncUpdate.OnClientEvent:Connect(function(payload)
+		if not NotificationSystem or not payload then return end
+		
+		-- ✅ Mostrar notificación de ÉXITO cuando se sincroniza correctamente
+		-- (EmoteUI.lua maneja los errores y la actualización visual)
+		if payload.success and payload.isSynced and payload.leaderName then
+			NotificationSystem:Success("Sync", "Sincronizado con: " .. payload.leaderName, 4)
 		end
 	end)
 end
