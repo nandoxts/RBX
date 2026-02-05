@@ -26,7 +26,7 @@ local ReplicatedStoragePanda = ReplicatedStorage:WaitForChild("Panda ReplicatedS
 local Config = require(ReplicatedStoragePanda["Gamepass Gifting"].Modules.Config)
 
 -- ═══════════════════════════════════════════════════════════════
--- ⚠️ GAME PASSES MANUALES DE TU JUEGO
+--  GAME PASSES MANUALES DE TU JUEGO
 -- Agrega los IDs de tus game passes aquí:
 -- ═══════════════════════════════════════════════════════════════
 
@@ -254,35 +254,11 @@ local function getGamePassesFromAPI(universeId)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- GAME PASSES MANUALES (para tu juego)
--- ═══════════════════════════════════════════════════════════════
-
-local function getGamePassesManual()
-	local passes = {}
-
-	for _, passId in ipairs(MANUAL_GAMEPASS_IDS) do
-		local passInfo = getGamePassInfo(passId)
-		if passInfo then
-			table.insert(passes, passInfo)
-			print("[UserPanel] ✓ Pass cargado:", passInfo.name, "R$" .. passInfo.price)
-		else
-			warn("[UserPanel] ✗ Pass no válido o sin precio:", passId)
-		end
-	end
-
-	return passes
-end
-
--- ═══════════════════════════════════════════════════════════════
 -- OBTENER GAME PASSES DEL JUEGO ACTUAL
 -- ═══════════════════════════════════════════════════════════════
 
 local function getGamePasses()
 	local passes = {}
-
-	-- Cargar desde Config.Gamepasses (lista estática, igual que SelectedPlayer)
-	print("[UserPanel] Cargando game passes desde Config...")
-
 	if Config.Gamepasses then
 		for _, gamepass in ipairs(Config.Gamepasses) do
 			local gamepassId = gamepass[1]
@@ -291,25 +267,11 @@ local function getGamePasses()
 			local passInfo = getGamePassInfo(gamepassId)
 			if passInfo then
 				table.insert(passes, passInfo)
-				print("[UserPanel] ✓ Pass cargado:", passInfo.name, "R$" .. passInfo.price)
-			else
-				warn("[UserPanel] ✗ Pass no válido o sin precio:", gamepassId)
 			end
 		end
 	end
-
 	-- Ordenar por precio
 	table.sort(passes, function(a, b) return a.price < b.price end)
-
-	print("[UserPanel] Game passes cargados:", #passes)
-
-	if #passes == 0 then
-		warn("[UserPanel] ══════════════════════════════════════")
-		warn("[UserPanel] ⚠️ NO HAY GAME PASSES EN CONFIG")
-		warn("[UserPanel] Verifica Config.Gamepasses")
-		warn("[UserPanel] ══════════════════════════════════════")
-	end
-
 	return passes
 end
 

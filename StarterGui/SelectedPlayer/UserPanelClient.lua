@@ -389,7 +389,7 @@ if Remotes.DonationNotify then
 	Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
 		-- Notificación de donación recibida
 		if NotificationSystem then
-			NotificationSystem:Success("Donación", "Recibiste una donación de R$" .. amount, 4)
+			NotificationSystem:Success("Donación", "Recibiste una donación de " .. utf8.char(0xE002) .. amount, 4)
 		end
 	end)
 end
@@ -398,7 +398,7 @@ if Remotes.DonationMessage then
 	Remotes.DonationMessage.OnClientEvent:Connect(function(donatorName, amount, recipientName)
 		-- Notificación de donación realizada
 		if NotificationSystem then
-			NotificationSystem:Success("Donación", "Donaste R$" .. amount .. " a " .. recipientName, 4)
+			NotificationSystem:Success("Donación", "Donaste " .. utf8.char(0xE002) .. amount .. " a " .. recipientName, 4)
 		end
 	end)
 end
@@ -756,7 +756,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 	local backBtn = create("TextButton", {
 		Size = UDim2.new(0, 28, 0, 28),
 		BackgroundColor3 = THEME.elevated,
-		Text = "<",
+		Text = "‹",
 		TextColor3 = THEME.text,
 		TextSize = 14,
 		Font = Enum.Font.GothamBold,
