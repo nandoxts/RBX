@@ -682,8 +682,8 @@ local module = {
 			end
 		end;
 	};
-	
-	
+
+
 	{
 		Name = "hornsred";
 		Aliases = {};
@@ -850,7 +850,7 @@ local module = {
 			end
 		end;
 	};
-	
+
 	{
 		Name = "headless"; 
 		Aliases = {"headless", "hless"};
@@ -917,7 +917,7 @@ local module = {
 					local desc = humanoid:GetAppliedDescription()
 					desc.RightLeg = 139607718 -- ID de pierna Korblox
 					humanoid:ApplyDescription(desc)
-					
+
 					--[[
 					-- Remover accesorios de pierna si existen
 					for _, v in ipairs(plr.Character:GetChildren()) do

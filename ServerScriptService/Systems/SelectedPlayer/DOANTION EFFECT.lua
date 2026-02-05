@@ -65,7 +65,7 @@ local DONATION_EFFECTS = {
 	{MaxAmount = 100,   Attachment = "sayayin1",  Duration = 4,    SoundId = "rbxassetid://7727672197",       Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 200,   Attachment = "sayayin2",  Duration = 4.5,  SoundId = "rbxassetid://972919590",        Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 300,   Attachment = "sayayin3",  Duration = 4.5,  SoundId = "rbxassetid://2261507666",       Volume = 0.5, GiantEffect = false},
-	{MaxAmount = 500,   Attachment = "bajo1",     Duration = 3,    SoundId = "rbxassetid://4612383790",       Volume = 0.5, GiantEffect = false},
+	{MaxAmount = 500,   Attachment = "Explosion", Duration = 3.5,  SoundId = "rbxassetid://4612383790",       Volume = 0.6, GiantEffect = false},
 	{MaxAmount = 600,   Attachment = "bajo2",     Duration = 3,    SoundId = "rbxassetid://84795270640054",   Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 700,   Attachment = "bajo3",     Duration = 3,    SoundId = "rbxassetid://119398240584172",  Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 800,   Attachment = "bajo4",     Duration = 5,    SoundId = "rbxassetid://137651128719857",  Volume = 0.5, GiantEffect = false},
@@ -73,6 +73,7 @@ local DONATION_EFFECTS = {
 	{MaxAmount = 2000,  Attachment = "bajo6",     Duration = 21,   SoundId = "rbxassetid://74948903354832",   Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 3000,  Attachment = "bajo7",     Duration = 22,   SoundId = "rbxassetid://18866194712",      Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 5000,  Attachment = "bajo8",     Duration = 23,   SoundId = "rbxassetid://9043179746",       Volume = 0.5, GiantEffect = false},
+	{MaxAmount = 7000,  Attachment = "bajo9",     Duration = 24,   SoundId = "rbxassetid://8982060550",       Volume = 0.8, GiantEffect = false},
 	{MaxAmount = 10000, Attachment = "bajo10",    Duration = 25,   SoundId = "rbxassetid://8982060550",       Volume = 1,   GiantEffect = true},
 	{MaxAmount = math.huge, Attachment = "bajo9", Duration = 30,   SoundId = "rbxassetid://8982060550",       Volume = 1.2, GiantEffect = true}
 }
@@ -125,11 +126,11 @@ local function applyDonationEffect(targetPlayer, amount, donatingPlayer)
 	local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	-- Buscar efecto apropiado
+	-- Buscar efecto apropiado (el más alto que sea <= al monto)
 	local selectedEffect = nil
-	for _, effect in ipairs(DONATION_EFFECTS) do
-		if amount <= effect.MaxAmount then
-			selectedEffect = effect
+	for i = #DONATION_EFFECTS, 1, -1 do
+		if amount >= DONATION_EFFECTS[i].MaxAmount then
+			selectedEffect = DONATION_EFFECTS[i]
 			break
 		end
 	end
@@ -560,7 +561,7 @@ function handleCommand(player, message)
 			DonationNotify:FireClient(targetPlayer, player.UserId, amount, targetPlayer.UserId)
 		end
 		if DonationMessage then
-			DonationMessage:FireClient(player, player.Name, amount, targetPlayer.Name)
+			DonationMessage:FireAllClients(player.Name, amount, targetPlayer.Name)
 		end
 
 		-- Aplicar efectos

@@ -81,8 +81,8 @@ return{
 	-- VIP SERVER OWNER
 	VipServerOwner = "NonAdmin";
 
-	-- FREE ADMIN (⚠️ TESTING: Todos tienen acceso completo - CAMBIAR EN PRODUCCIÓN)
-	FreeAdmin = "Owner";
+	-- FREE ADMIN
+	FreeAdmin = "NonAdmin";
 
 	--------------| BANLAND |--------------
 	Banned = {"",0};
@@ -195,7 +195,7 @@ return{
 	};
 
 	SetCommandRankByName = {
-		
+
 
 		-- Owner 
 		["morph"] = "Owner";
@@ -288,7 +288,7 @@ return{
 		["vote"] = "Head Admin";
 		["directBan"] = "Owner";
 		-- Administrador
-		["sword"] = "Help Creator";
+		["sword"] = "Owner";
 		["timeBan"] = "Owner";
 		["alert"] = "Owner";
 		["nightVision"] = "Administrador";
@@ -296,7 +296,7 @@ return{
 		["respawn"] = "Help Creator";
 		["cmds"] = "Moderador";
 		["give"] = "Help Creator";
-		["size"] = "Moderador";
+		["size"] = "Socio";
 		["privateMessage"] = "Moderador";
 		["chatLogs"] = "Moderador";
 		["logs"] = "Moderador";
@@ -311,14 +311,14 @@ return{
 		["volume"] = "DJ";
 		["countdown2"] = "DJ";
 		["pitch"] = "DJ";
-		["buildingTools"] = "DJ";
+		["buildingTools"] = "Owner";
 		["ranks"] = "DJ";
-		["warp"] = "DJ";
+		["warp"] = "Owner";
 		-- Influencer
 		["title"] = "Influencer";
 		-- Socios
-		["jail"] = "Help Creator";
-		["gear"] = "Help Creator";
+		["jail"] = "Owner";
+		["gear"] = "Owner";
 		["material"] = "Socio";
 		["transparency"] = "Socio";
 		["ice"] = "Help Creator";
@@ -358,19 +358,19 @@ return{
 		["to"] = "COMMANDS";
 		["fiesta"] = "Owner";
 		["pulse"] = "Owner";
-		["quake"] = "Help Creator";
+		["quake"] = "Owner";
 		["invisible"] = "Help Creator";
 		-- FREE
 		["hideGuis"] = "NonAdmin";
 		["showGuis"] = "NonAdmin";
-		
-		
+
+
 		-- Influencer
 		-- ["COMANDO"]
 		-- "ROL"
 		-- ["COMANDO"] = "ROL";
-		
-		
+
+
 	};	
 
 
