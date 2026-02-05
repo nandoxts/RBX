@@ -165,6 +165,7 @@ local CONFIG = {
 -- ESTADO Y CACHE
 -- ═══════════════════════════════════════════════════════════════
 local avatarCache = {}
+local userDataCache = {}  -- Cache de datos de usuarios: userId -> { followers, friends, lastUpdate }
 
 local State = {
 	ui = nil,
@@ -1202,16 +1203,23 @@ local function openPanel(target)
 
 	State.userId = target.UserId
 
+	-- Verificar si tenemos datos en caché recientes (menos de 30 segundos)
+	local cachedData = userDataCache[target.UserId]
+	local hasCachedData = cachedData and (tick() - cachedData.lastUpdate) < 30
+	
+	-- Datos iniciales (cache o defaults)
+	local initialData = {
+		userId = target.UserId,
+		username = target.Name,
+		displayName = target.DisplayName,
+		avatar = getAvatarImage(target.UserId),
+		followers = hasCachedData and cachedData.followers or 0,
+		friends = hasCachedData and cachedData.friends or 0,
+		likes = 0
+	}
+
 	local success, result = pcall(function()
-		return createPanel({
-			userId = target.UserId,
-			username = target.Name,
-			displayName = target.DisplayName,
-			avatar = getAvatarImage(target.UserId),
-			followers = 0,
-			friends = 0,
-			likes = 0
-		})
+		return createPanel(initialData)
 	end)
 
 	if success and result then
@@ -1219,20 +1227,24 @@ local function openPanel(target)
 		State.target = target
 		attachHighlight(target)
 
+		-- Actualizar datos en PARALELO sin bloquear (no usar task.spawn con wait)
 		task.spawn(function()
-			-- Forzar refresh sin caché al abrir panel (solo followers y friends, NO likes)
-			if Remotes.RefreshUserData then
-				Remotes.RefreshUserData:FireServer(target.UserId)
-				local refreshConn
-				refreshConn = Remotes.RefreshUserData.OnClientEvent:Connect(function(freshData)
-					if State.ui then updateStats(freshData, true) end
-					refreshConn:Disconnect()
-				end)
-			else
-				local ok, data = pcall(function() return Remotes.GetUserData:InvokeServer(target.UserId) end)
-				if ok and State.ui then updateStats(data, true) end
+			local ok, data = pcall(function()
+				return Remotes.GetUserData:InvokeServer(target.UserId)
+			end)
+			
+			if ok and data and State.ui then
+				-- Cachear los datos frescos
+				userDataCache[target.UserId] = {
+					followers = data.followers or 0,
+					friends = data.friends or 0,
+					lastUpdate = tick()
+				}
+				-- Actualizar UI con datos frescos (excluye likes que vienen del atributo)
+				updateStats(data, true)
 			end
 		end)
+		
 		State.isPanelOpening = false
 	else
 		State.isPanelOpening = false
