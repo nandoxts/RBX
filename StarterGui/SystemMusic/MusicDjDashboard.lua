@@ -581,18 +581,37 @@ local dragging = false
 local maxVolume = MusicSystemConfig.PLAYBACK.MaxVolume
 local minVolume = MusicSystemConfig.PLAYBACK.MinVolume
 
+-- Sistema de mute sincronizado con el topbar
+local function isMusicMuted()
+	return _G.MusicMutedState or false
+end
+
 local function updateVolume(volume)
 	currentVolume = math.clamp(volume, minVolume, maxVolume)
 	local sliderFill = (currentVolume - minVolume) / (maxVolume - minVolume)
 	volSliderFill.Size = UDim2.new(sliderFill, 0, 1, 0)
-	volLabel.Text = math.floor(currentVolume * 100) .. "%"
+
+	-- Mostrar estado de mute en la etiqueta
+	if isMusicMuted() then
+		volLabel.Text = "🔇"
+		volLabel.TextColor3 = Color3.fromRGB(220, 100, 100)
+	else
+		volLabel.Text = math.floor(currentVolume * 100) .. "%"
+		volLabel.TextColor3 = THEME.text
+	end
+
 	volInput.Text = tostring(math.floor(currentVolume * 100))
 	player:SetAttribute("MusicVolume", currentVolume)
 
-	--  APLICAR VOLUMEN LOCALMENTE (solo para este cliente)
+	--  APLICAR VOLUMEN LOCALMENTE (respetando el mute del topbar)
 	local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
 	if musicSoundGroup then
-		musicSoundGroup.Volume = currentVolume
+		-- Si está muteado, mantener volumen a 0, aunque cambies el slider
+		if isMusicMuted() then
+			musicSoundGroup.Volume = 0
+		else
+			musicSoundGroup.Volume = currentVolume
+		end
 	end
 
 	-- Notificar servidor del cambio de volumen usando el remote
@@ -601,10 +620,57 @@ local function updateVolume(volume)
 	end
 end
 
+-- Monitorear cambios en el estado de mute del topbar
+local lastMuteState = isMusicMuted()
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		local currentMuteState = isMusicMuted()
+		if currentMuteState ~= lastMuteState then
+			-- El estado de mute cambió
+			lastMuteState = currentMuteState
+			local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
+			if musicSoundGroup then
+				if currentMuteState then
+					-- Se activó el mute: guardar volumen actual y poner a 0
+					musicSoundGroup.Volume = 0
+					-- Mostrar indicador visual
+					volLabel.Text = "🔇"
+					volLabel.TextColor3 = Color3.fromRGB(220, 100, 100)
+					-- Deshabilitar slider visualmente
+					TweenService:Create(volSliderBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 30, 30)}):Play()
+					volSliderFill.BackgroundColor3 = Color3.fromRGB(150, 70, 70)
+				else
+					-- Se desactivó el mute: restaurar volumen guardado
+					musicSoundGroup.Volume = currentVolume
+					-- Restaurar texto normal
+					volLabel.Text = math.floor(currentVolume * 100) .. "%"
+					volLabel.TextColor3 = THEME.text
+					-- Restaurar apariencia del slider
+					TweenService:Create(volSliderBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 48)}):Play()
+					volSliderFill.BackgroundColor3 = THEME.accent
+				end
+			end
+		end
+	end
+end)
+
 updateVolume(currentVolume)
 
 volSliderBg.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if isMusicMuted() then
+			-- Mostrar notificación si está muteado
+			if Notify then
+				Notify.new({
+					title = "🔇 Música Muteada",
+					text = "Desmutea el sonido en el topbar para cambiar el volumen",
+					duration = 2,
+					type = "info"
+				})
+			end
+			return
+		end
 		dragging = true
 		local pos = math.clamp((input.Position.X - volSliderBg.AbsolutePosition.X) / volSliderBg.AbsoluteSize.X, 0, 1)
 		updateVolume(pos)
@@ -623,6 +689,18 @@ volSliderBg.InputChanged:Connect(function(input)
 end)
 
 volLabel.MouseButton1Click:Connect(function()
+	if isMusicMuted() then
+		-- Mostrar notificación si está muteado
+		if Notify then
+			Notify.new({
+				title = "🔇 Música Muteada",
+				text = "Desmutea el sonido en el topbar para cambiar el volumen",
+				duration = 2,
+				type = "info"
+			})
+		end
+		return
+	end
 	volLabel.Visible = false
 	volInput.Visible = true
 	volInput:CaptureFocus()
