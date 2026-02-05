@@ -97,26 +97,26 @@ local function syncWithPlayer(targetPlayer)
 	if not SyncRemote or not GetSyncState then
 		return
 	end
-	
+
 	-- Consultar estado actual
 	local ok, syncInfo = pcall(function()
 		return GetSyncState:InvokeServer()
 	end)
-	
+
 	if not ok then
 		if NotificationSystem then
 			NotificationSystem:Error("Sync", "Error al consultar sincronización", 3)
 		end
 		return
 	end
-	
+
 	-- Si ya estoy sincronizado con ALGUIEN, desincronizar
 	if syncInfo and syncInfo.isSynced then
 		SyncRemote:FireServer("unsync")
 		if NotificationSystem then
 			NotificationSystem:Info("Sync", "Has dejado de estar sincronizado", 4)
 		end
-	-- Si NO estoy sincronizado, sincronizar con el target actual
+		-- Si NO estoy sincronizado, sincronizar con el target actual
 	else
 		if targetPlayer and targetPlayer ~= player then
 			SyncRemote:FireServer("sync", targetPlayer)
@@ -257,10 +257,10 @@ end
 
 -- Oscurecer un Color3 mezclándolo con negro
 local function darkenColor(color, amount)
-    amount = amount or 0.2
-    if amount < 0 then amount = 0 end
-    if amount > 1 then amount = 1 end
-    return color:Lerp(Color3.new(0, 0, 0), amount)
+	amount = amount or 0.2
+	if amount < 0 then amount = 0 end
+	if amount > 1 then amount = 1 end
+	return color:Lerp(Color3.new(0, 0, 0), amount)
 end
 
 -- Oscurecer más agresivamente, pensado solo para paneles (fondo negro intenso)
@@ -349,10 +349,10 @@ local function closePanel()
 
 	-- Cancelar threads
 	if State.refreshThread then task.cancel(State.refreshThread) end
-	
+
 	-- Desconectar eventos del panel
 	clearConnections()
-	
+
 	-- Desattach highlight
 	detachHighlight()
 
@@ -362,7 +362,7 @@ local function closePanel()
 	task.delay(0.5, function()
 		-- Destruir UI completamente
 		if State.ui and State.ui.Parent then State.ui:Destroy() end
-		
+
 		-- Resetear estado
 		State = {
 			ui = nil, container = nil, panel = nil, statsLabels = {},
@@ -634,7 +634,7 @@ local function createAvatarSection(panel, data, playerColor)
 		createLikeButton("rbxassetid://118393090095169", function()
 			if not State.userId or State.userId == player.UserId or tick() - lastLikeClick < 0.3 then return end
 			lastLikeClick = tick()
-			
+
 			local canLike, lastLikeTime = checkLocalCooldown(State.userId)
 			if canLike then
 				GiveLikeEvent:FireServer("GiveLike", State.userId)
@@ -836,40 +836,49 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 			})
 			addCorner(img, CONFIG.CARD_SIZE / 2)
 
-			-- Usar valor ya validado del servidor
-			local hasPass = item.hasPass == true
-			local isValidating = item.hasPass == nil  -- nil = no validado aún
-
 			-- Precio overlay
 			local priceOverlay = createFrame({
 				Size = UDim2.new(1, 0, 0.35, 0),
 				Position = UDim2.new(0, 0, 1, 0),
 				AnchorPoint = Vector2.new(0, 1),
-				BackgroundColor3 = hasPass and THEME.panel or THEME.head,
-				BackgroundTransparency = hasPass and 0.5 or 0.3,
+				BackgroundColor3 = THEME.head,
+				BackgroundTransparency = 0.3,
 				ZIndex = 2,
 				Parent = circle
 			})
 
 			local priceText = createLabel({
 				Size = UDim2.new(1, 0, 1, 0),
-				Text = hasPass and "ADQUIRIDO" or (utf8.char(0xE002) .. tostring(item.price or 0)),
-				TextColor3 = hasPass and Color3.fromRGB(100, 220, 100) or THEME.accent,
+				Text = utf8.char(0xE002) .. tostring(item.price or 0),
+				TextColor3 = THEME.accent,
 				TextSize = 10,
 				Font = Enum.Font.GothamBold,
 				ZIndex = 3,
 				Parent = priceOverlay
 			})
-			
-			-- Validación lazy: Si no está validado, validar ahora en background
-			if isValidating and item.passId then
+
+			-- Validar si tiene el pase (del servidor o lazy)
+			if item.hasPass == true then
+				priceText.Text = "ADQUIRIDO"
+				priceText.TextColor3 = Color3.fromRGB(100, 220, 100)
+				priceOverlay.BackgroundColor3 = THEME.panel
+				priceOverlay.BackgroundTransparency = 0.5
+			elseif item.hasPass == nil and item.passId then
+				-- Validación lazy
+				-- Para "Regalar Pase": pasar State.userId para validar el jugador objetivo
+				-- Para "Donar": NO pasar userId, validará al jugador que solicita (yo)
 				task.spawn(function()
 					local ok, result = pcall(function()
-						return Remotes.CheckGamePass:InvokeServer(item.passId)
+						if viewType == "passes" then
+							-- Regalar Pase: verificar si el JUGADOR SELECCIONADO tiene el pase
+							return Remotes.CheckGamePass:InvokeServer(item.passId, State.userId)
+						else
+							-- Donar: verificar si YO tengo el pase
+							return Remotes.CheckGamePass:InvokeServer(item.passId)
+						end
 					end)
 					item.hasPass = (ok and result) or false
-					
-					-- Actualizar UI cuando termine
+
 					if item.hasPass and priceText.Parent then
 						priceText.Text = "ADQUIRIDO"
 						priceText.TextColor3 = Color3.fromRGB(100, 220, 100)
@@ -895,9 +904,10 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 			end))
 
 			addConnection(clickBtn.MouseButton1Click:Connect(function()
-				if hasPass then
+				if item.hasPass == true then
 					if NotificationSystem then
-						NotificationSystem:Info("Game Pass", "Ya tienes este pase", 2)
+						local message = viewType == "passes" and "Esta persona ya tiene este pase" or "Ya compraste este pase"
+						NotificationSystem:Info("Game Pass", message, 2)
 					end
 				elseif item.passId then
 					pcall(function() MarketplaceService:PromptGamePassPurchase(player, item.passId) end)
@@ -977,7 +987,7 @@ local function createButtonsSection(panel, target, playerColor)
 		addConnection(giftBtn.MouseButton1Click:Connect(function()
 			giftText.Text = "Cargando..."
 			task.spawn(function()
-				local passes = Remotes.GetGamePasses:InvokeServer()
+				local passes = Remotes.GetGamePasses:InvokeServer(State.userId)
 				giftText.Text = "Regalar Pase"
 				showDynamicSection("passes", passes, nil, playerColor)
 			end)
@@ -990,9 +1000,9 @@ local function createButtonsSection(panel, target, playerColor)
 	addConnection(syncBtn.MouseButton1Click:Connect(function()
 		if debounceSyncBtn or not target then return end
 		debounceSyncBtn = true
-		
+
 		syncWithPlayer(target)
-		
+
 		task.wait(0.5)
 		debounceSyncBtn = false
 	end))
@@ -1111,7 +1121,7 @@ local function createPanel(data)
 		ClipsDescendants = true,
 		Parent = panelContainer
 	})
-	
+
 	-- Padding interno para respetar los bordes redondeados
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 0),
@@ -1122,35 +1132,35 @@ local function createPanel(data)
 	})
 
 	createAvatarSection(panel, data, playerColor)
-	
+
 	local target
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p.UserId == data.userId then target = p break end
 	end
 	State.target = target
 
--- ✅ LISTENER DE ATRIBUTOS: Fuente única de verdad para likes
+	-- ✅ LISTENER DE ATRIBUTOS: Fuente única de verdad para likes
 	if State.target then
 		local lastLikesValue = State.target:GetAttribute("TotalLikes") or 0
 		local isAnimating = false
-		
+
 		addConnection(State.target:GetAttributeChangedSignal("TotalLikes"):Connect(function()
 			local newLikes = State.target:GetAttribute("TotalLikes") or 0
-			
+
 			-- Ignorar si el valor no cambió realmente
 			if newLikes == lastLikesValue then return end
-			
+
 			if State.statsLabels and State.statsLabels.likes and State.statsLabels.likes.Parent then
 				-- Actualizar texto inmediatamente
 				State.statsLabels.likes.Text = tostring(newLikes)
-				
+
 				-- Efecto visual solo si el valor aumentó (y no estamos ya animando)
 				if newLikes > lastLikesValue and not isAnimating then
 					isAnimating = true
 					local originalSize = State.statsLabels.likes.TextSize
 					local increase = newLikes - lastLikesValue
 					local sizeIncrease = increase >= 10 and 6 or 4
-					
+
 					tween(State.statsLabels.likes, { TextSize = originalSize + sizeIncrease }, 0.15)
 					task.delay(0.15, function()
 						if State.statsLabels.likes and State.statsLabels.likes.Parent then
@@ -1162,10 +1172,10 @@ local function createPanel(data)
 					end)
 				end
 			end
-			
+
 			lastLikesValue = newLikes
 		end))
-		
+
 		-- Sincronizar valor inicial inmediatamente
 		if State.statsLabels and State.statsLabels.likes then
 			State.statsLabels.likes.Text = tostring(lastLikesValue)
@@ -1177,7 +1187,7 @@ local function createPanel(data)
 	-- Animación de entrada suave con escala y posición
 	State.container.Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, 50)
 	State.container.Size = UDim2.new(0, CONFIG.PANEL_WIDTH, 0, CONFIG.PANEL_HEIGHT)
-	
+
 	task.defer(function()
 		-- Entrada suave: aparece desde abajo con escala y fade in
 		tween(State.container, {
@@ -1205,7 +1215,7 @@ local function openPanel(target)
 	-- Verificar si tenemos datos en caché recientes (menos de 30 segundos)
 	local cachedData = userDataCache[target.UserId]
 	local hasCachedData = cachedData and (tick() - cachedData.lastUpdate) < 30
-	
+
 	-- Datos iniciales (cache o defaults)
 	local initialData = {
 		userId = target.UserId,
@@ -1231,7 +1241,7 @@ local function openPanel(target)
 			local ok, data = pcall(function()
 				return Remotes.GetUserData:InvokeServer(target.UserId)
 			end)
-			
+
 			if ok and data and State.ui then
 				-- Cachear los datos frescos
 				userDataCache[target.UserId] = {
@@ -1243,7 +1253,7 @@ local function openPanel(target)
 				updateStats(data, true)
 			end
 		end)
-		
+
 		State.isPanelOpening = false
 	else
 		State.isPanelOpening = false
@@ -1327,7 +1337,7 @@ end)
 -- ═══════════════════════════════════════════════════════════════
 RunService.RenderStepped:Connect(function()
 	if State.ui then return end -- Si panel está abierto, no cambiar cursor
-	
+
 	local mousePos = UserInputService:GetMouseLocation()
 	local unitRay = camera:ScreenPointToRay(mousePos.X, mousePos.Y)
 	local raycast = workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.MAX_RAYCAST_DISTANCE)
@@ -1339,7 +1349,7 @@ RunService.RenderStepped:Connect(function()
 			return
 		end
 	end
-	
+
 	mouse.Icon = DEFAULT_CURSOR
 end)
 

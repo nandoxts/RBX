@@ -1404,7 +1404,7 @@ local function ToggleGUI(visible)
 	if visible == MainFrame.Visible then
 		return
 	end
-	
+
 	local posicionFinal = IsMobile 
 		and UDim2.new(0, Config.Movil_MargenIzquierdo, 0.5, Config.Movil_OffsetVertical)
 		or UDim2.new(0, Config.PC_MargenIzquierdo, 0.5, Config.PC_OffsetVertical)

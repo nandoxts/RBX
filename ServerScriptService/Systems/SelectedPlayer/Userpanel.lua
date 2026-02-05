@@ -110,7 +110,30 @@ local Cache = {
 -- Función para validar si un jugador tiene un pase (comprado o regalado)
 local function checkPlayerGamePass(player, passId)
 	if not player or not passId then return false end
-	return GamePassManager.HasGamepass(player, passId)
+	
+	-- Verificar en la carpeta de Gamepasses (regalados)
+	local folder = player:FindFirstChild("Gamepasses")
+	if folder then
+		local success, info = pcall(function()
+			return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
+		end)
+		
+		if success and info then
+			for _, child in pairs(folder:GetChildren()) do
+				if child:IsA("BoolValue") and child.Name == info.Name and child.Value then
+					return true
+				end
+			end
+		end
+	end
+	
+	-- Verificar con MarketplaceService (comprados)
+	local owns = false
+	pcall(function()
+		owns = MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+	end)
+	
+	return owns
 end
 
 local function isCacheValid(cacheEntry, maxAge)
@@ -236,7 +259,7 @@ local function getGamePassesFromAPI(universeId)
 		end
 
 		for _, pass in ipairs(data.gamePasses) do
-			if pass.price and pass.price > 0 then
+			if pass.price and pass.price > 0 and pass.id then
 				local iconId = pass.displayIconImageAssetId or 0
 				table.insert(passes, {
 					passId = pass.id,
@@ -353,7 +376,7 @@ RefreshUserData.OnServerEvent:Connect(function(requestingPlayer, targetUserId)
 end)
 
 GetUserDonations.OnServerInvoke = function(player, targetUserId)
-	if not targetUserId then return {} end
+	if not targetUserId or not player then return {} end
 	local donations = getUserDonations(targetUserId)
 	
 	-- Limitar cantidad de items (performance)
@@ -363,10 +386,9 @@ GetUserDonations.OnServerInvoke = function(player, targetUserId)
 			table.insert(limited, donations[i])
 		end
 		donations = limited
-		print("[UserPanel Server] Limitadas donaciones a", CONFIG.MAX_ITEMS_TO_SHOW, "items")
 	end
 	
-	-- Validar solo primeros N items en PARALELO (lazy loading)
+	-- Validar si YO (player) ya compré esos gamepasses
 	if player and donations and #donations > 0 then
 		local toValidate = math.min(#donations, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
@@ -374,31 +396,36 @@ GetUserDonations.OnServerInvoke = function(player, targetUserId)
 		for i = 1, toValidate do
 			local donation = donations[i]
 			task.spawn(function()
-				-- Valida comprados + regalados (con fallback)
+				-- Verificar si YO ya tengo este pase
 				donation.hasPass = checkPlayerGamePass(player, donation.passId)
 				completed = completed + 1
 			end)
 		end
 		
-		-- Marcar el resto como "no validado" (el cliente validará bajo demanda)
+		-- Marcar el resto como "no validado"
 		for i = toValidate + 1, #donations do
-			donations[i].hasPass = nil  -- nil = no validado aún
+			donations[i].hasPass = nil
 		end
 		
-		-- Esperar a que terminen las validaciones inmediatas
+		-- Esperar validaciones
 		local startTime = tick()
 		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
-		
-		print("[UserPanel Server] Validadas", completed, "/", toValidate, "donaciones (" .. #donations .. " total)")
 	end
 	
 	return donations
 end
 
-GetGamePasses.OnServerInvoke = function(player)
+GetGamePasses.OnServerInvoke = function(player, targetUserId)
 	local passes = getGamePasses()
+	
+	-- Obtener el Player object del jugador objetivo
+	local targetPlayer = targetUserId and Players:GetPlayerByUserId(targetUserId)
+	if not targetPlayer then
+		-- Si no está en el servidor, no podemos validar
+		return passes
+	end
 	
 	-- Limitar cantidad de items (performance)
 	if #passes > CONFIG.MAX_ITEMS_TO_SHOW then
@@ -407,45 +434,50 @@ GetGamePasses.OnServerInvoke = function(player)
 			table.insert(limited, passes[i])
 		end
 		passes = limited
-		print("[UserPanel Server] Limitados game passes a", CONFIG.MAX_ITEMS_TO_SHOW, "items")
 	end
 	
-	-- Validar solo primeros N items en PARALELO (lazy loading)
-	if player and passes and #passes > 0 then
+	-- Validar solo primeros N items en PARALELO
+	if targetPlayer and passes and #passes > 0 then
 		local toValidate = math.min(#passes, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
 		
 		for i = 1, toValidate do
 			local pass = passes[i]
 			task.spawn(function()
-				-- Valida comprados + regalados (con fallback)
-				pass.hasPass = checkPlayerGamePass(player, pass.passId)
+				-- Verificar si el JUGADOR OBJETIVO ya tiene el pase
+				pass.hasPass = checkPlayerGamePass(targetPlayer, pass.passId)
 				completed = completed + 1
 			end)
 		end
 		
-		-- Marcar el resto como "no validado" (el cliente validará bajo demanda)
+		-- Marcar el resto como "no validado"
 		for i = toValidate + 1, #passes do
-			passes[i].hasPass = nil  -- nil = no validado aún
+			passes[i].hasPass = nil
 		end
 		
-		-- Esperar a que terminen las validaciones inmediatas
+		-- Esperar validaciones
 		local startTime = tick()
 		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
-		
-		print("[UserPanel Server] Validados", completed, "/", toValidate, "game passes (" .. #passes .. " total)")
 	end
 	
 	return passes
 end
 
-CheckGamePass.OnServerInvoke = function(player, passId)
-	if not player or not passId then return false end
+CheckGamePass.OnServerInvoke = function(player, passId, targetUserId)
+	if not passId then return false end
 	
-	-- Valida comprados + regalados (con fallback)
-	return checkPlayerGamePass(player, passId)
+	-- Para "Donar": validar si YO tengo el pase (player)
+	-- Para "Regalar": validar si EL OBJETIVO tiene el pase (targetUserId)
+	local playerToCheck = player
+	if targetUserId then
+		playerToCheck = Players:GetPlayerByUserId(targetUserId)
+		if not playerToCheck then return false end
+	end
+	
+	if not playerToCheck then return false end
+	return checkPlayerGamePass(playerToCheck, passId)
 end
 
 -- ═══════════════════════════════════════════════════════════════
