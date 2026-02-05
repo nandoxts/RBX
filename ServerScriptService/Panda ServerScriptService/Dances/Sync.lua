@@ -429,10 +429,10 @@ local function StopFollowersAnimations(leader, alsoUnsync)
 		visited = visited or {}
 		if visited[currentPlayer] then return end
 		visited[currentPlayer] = true
-		
+
 		local data = PlayerData[currentPlayer]
 		if not data or not data.Followers then return end
-		
+
 		for _, follower in ipairs(data.Followers) do
 			if follower and follower.Parent == Players and PlayerData[follower] and not visited[follower] then
 				table.insert(allFollowers, follower)
