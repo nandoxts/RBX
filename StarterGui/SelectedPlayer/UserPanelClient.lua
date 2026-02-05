@@ -16,6 +16,9 @@ local playerGui = player:WaitForChild("PlayerGui")
 local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 
+-- Cache de avatares (declarada temprano para evitar warnings de global undefined)
+local avatarCache = {}
+
 -- Cursores
 local DEFAULT_CURSOR = "rbxassetid://13335399499"
 local SELECTED_CURSOR = "rbxassetid://84923889690331"
@@ -62,6 +65,29 @@ local function getPlayerColor(targetPlayer)
 	if not ColorEffects then return Color3.fromRGB(255, 255, 255) end
 	local colorName = targetPlayer:GetAttribute("SelectedColor") or "default"
 	return ColorEffects.colors[colorName] or ColorEffects.defaultSelectedColor or Color3.fromRGB(0, 255, 0)
+end
+
+-- Cargar avatar directamente en tamaño grande
+local function asyncLoadAvatar(userId, imageLabel)
+	if not userId or not imageLabel then return end
+	local cache = avatarCache
+	if type(cache) ~= "table" then
+		cache = {}
+		avatarCache = cache
+	end
+
+	task.spawn(function()
+		-- Cargar directamente la imagen grande
+		local okLarge, largeUrl = pcall(function()
+			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.AvatarThumbnail, Enum.ThumbnailSize.Size420x420)
+		end)
+		if okLarge and largeUrl and largeUrl ~= "" then
+			cache[userId] = { image = largeUrl, time = tick() }
+			if imageLabel and imageLabel.Parent then
+				pcall(function() imageLabel.Image = largeUrl end)
+			end
+		end
+	end)
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -142,6 +168,7 @@ local CONFIG = {
 	AVATAR_HEIGHT = 200,
 	AVATAR_ZOOM = 1.2,
 
+
 	STATS_WIDTH = 70,
 	STATS_ITEM_HEIGHT = 50,
 
@@ -164,7 +191,6 @@ local CONFIG = {
 -- ═══════════════════════════════════════════════════════════════
 -- ESTADO Y CACHE
 -- ═══════════════════════════════════════════════════════════════
-local avatarCache = {}
 local userDataCache = {}  -- Cache de datos de usuarios: userId -> { followers, friends, lastUpdate }
 
 local State = {
@@ -227,6 +253,22 @@ local function addStroke(parent, color, thickness, transparency)
 		Transparency = transparency or 0,
 		Parent = parent
 	})
+end
+
+-- Oscurecer un Color3 mezclándolo con negro
+local function darkenColor(color, amount)
+    amount = amount or 0.2
+    if amount < 0 then amount = 0 end
+    if amount > 1 then amount = 1 end
+    return color:Lerp(Color3.new(0, 0, 0), amount)
+end
+
+-- Oscurecer más agresivamente, pensado solo para paneles (fondo negro intenso)
+local function darkenFullColor(color, amount)
+	amount = amount or 0.93
+	if amount < 0 then amount = 0 end
+	if amount > 1 then amount = 1 end
+	return color:Lerp(Color3.new(0, 0, 0), amount)
 end
 
 local function addConnection(connection)
@@ -452,17 +494,19 @@ local function createAvatarSection(panel, data, playerColor)
 		Parent = panel
 	})
 
-	-- Imagen avatar
-	create("ImageLabel", {
+	-- Imagen avatar (mostrar completa con ScaleType.Fit, carga asíncrona rápida)
+	local avatarImage = create("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(CONFIG.AVATAR_ZOOM, 0, CONFIG.AVATAR_ZOOM, 0),
 		BackgroundTransparency = 1,
-		Image = data.avatar,
-		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = 1,
+		Image = data.avatar or "",
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 20,
 		Parent = avatarSection
 	})
+	-- Cargar miniatura rápida y luego la grande
+	asyncLoadAvatar(data.userId, avatarImage)
 
 	-- Barra lateral de estadisticas (derecha)
 	local statsBar = createFrame({
@@ -617,11 +661,12 @@ end
 local function createButton(parent, text, layoutOrder, playerColor)
 	local button = create("TextButton", {
 		Size = UDim2.new(1, 0, 0, CONFIG.BUTTON_HEIGHT),
-		BackgroundColor3 = THEME.elevated,
+		BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12),
 		Text = "",
 		AutoButtonColor = false,
 		ClipsDescendants = true,
 		LayoutOrder = layoutOrder,
+		ZIndex = 60,
 		Parent = parent
 	})
 	addCorner(button, CONFIG.BUTTON_CORNER)
@@ -633,26 +678,27 @@ local function createButton(parent, text, layoutOrder, playerColor)
 		TextColor3 = THEME.text,
 		TextSize = 14,
 		Font = Enum.Font.GothamBold,
-		ZIndex = 3,
+		ZIndex = 61,
 		Parent = button
 	})
 
 	local rippleContainer = createFrame({
 		Size = UDim2.new(1, 0, 1, 0),
 		ClipsDescendants = true,
-		ZIndex = 1,
+		ZIndex = 59,
 		Parent = button
 	})
 	addCorner(rippleContainer, CONFIG.BUTTON_CORNER)
 
-	-- Hover suave (mezcla del color elevated con playerColor)
+	-- Hover más suave - color oscuro pero no tanto
 	addConnection(button.MouseEnter:Connect(function()
-		tween(button, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.15) }, CONFIG.ANIM_FAST)
+		local dark = darkenColor(playerColor or THEME.accent, 0.25)
+		tween(button, { BackgroundColor3 = dark }, CONFIG.ANIM_FAST)
 		tween(stroke, { Transparency = 0.3 }, CONFIG.ANIM_FAST)
 	end))
 
 	addConnection(button.MouseLeave:Connect(function()
-		tween(button, { BackgroundColor3 = THEME.elevated }, CONFIG.ANIM_FAST)
+		tween(button, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12) }, CONFIG.ANIM_FAST)
 		tween(stroke, { Transparency = 0.7 }, CONFIG.ANIM_FAST)
 	end))
 
@@ -702,18 +748,24 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 	local backBtn = create("TextButton", {
 		Size = UDim2.new(0, 28, 0, 28),
-		BackgroundColor3 = THEME.elevated,
+		BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12),
 		Text = "‹",
 		TextColor3 = THEME.text,
 		TextSize = 14,
 		Font = Enum.Font.GothamBold,
 		AutoButtonColor = false,
+		ZIndex = 70,
 		Parent = header
 	})
 	addCorner(backBtn, 6)
 
-	addConnection(backBtn.MouseEnter:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.15) }, CONFIG.ANIM_FAST) end))
-	addConnection(backBtn.MouseLeave:Connect(function() tween(backBtn, { BackgroundColor3 = THEME.elevated }, CONFIG.ANIM_FAST) end))
+	addConnection(backBtn.MouseEnter:Connect(function()
+		local dark = darkenColor(playerColor or THEME.accent, 0.25)
+		tween(backBtn, { BackgroundColor3 = dark }, CONFIG.ANIM_FAST)
+	end))
+	addConnection(backBtn.MouseLeave:Connect(function()
+		tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12) }, CONFIG.ANIM_FAST)
+	end))
 	addConnection(backBtn.MouseButton1Click:Connect(switchToButtons))
 
 	local title = viewType == "donations" and ("Donar a " .. (targetName or "Usuario")) or "Regalar Pase"
@@ -1023,7 +1075,7 @@ local function createPanel(data)
 	local panelContainer = createFrame({
 		Size = UDim2.new(1, 0, 0, CONFIG.PANEL_HEIGHT),
 		Position = UDim2.new(0, 0, 0, 22),
-		BackgroundColor3 = THEME.panel,
+		BackgroundColor3 = darkenFullColor(playerColor or THEME.panel, 0.93),
 		BackgroundTransparency = 0.15,
 		ClipsDescendants = true,
 		Parent = State.container
