@@ -263,7 +263,7 @@ end
 -- ═══════════════════════════════════════════════════════════════
 local function attachHighlight(targetPlayer)
 	if not Highlight or not targetPlayer or not targetPlayer.Character then return end
-	local color = ColorEffects and ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"] or Color3.fromRGB(0, 255, 0)
+	local color = ColorEffects and ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"] or Color3.fromRGB(255, 255, 255)
 	Highlight.FillColor = color
 	Highlight.OutlineColor = color
 	Highlight.Adornee = targetPlayer.Character
@@ -280,57 +280,6 @@ end
 -- ═══════════════════════════════════════════════════════════════
 -- EFECTOS Y PARTÍCULAS
 -- ═══════════════════════════════════════════════════════════════
-local function createHeartParticle(container, startPos, isSuperLike)
-	-- Crea una partícula de corazón que flota hacia arriba
-	local heart = create("TextLabel", {
-		Size = UDim2.new(0, isSuperLike and 36 or 24, 0, isSuperLike and 36 or 24),
-		Position = startPos,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		Text = isSuperLike and "⭐" or "❤",
-		TextColor3 = isSuperLike and THEME.accent or Color3.fromRGB(255, 105, 180),
-		TextSize = isSuperLike and 32 or 22,
-		Font = Enum.Font.GothamBold,
-		ZIndex = 100,
-		Parent = container
-	})
-	
-	-- Animación de flotamiento y desvanecimiento
-	local endY = startPos.Y.Offset - 100
-	tween(heart, {
-		Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + math.random(-30, 30), startPos.Y.Scale, endY),
-		BackgroundTransparency = 1
-	}, isSuperLike and 1.5 or 1.2, Enum.EasingStyle.Quint)
-	
-	task.delay(isSuperLike and 1.5 or 1.2, function()
-		if heart and heart.Parent then heart:Destroy() end
-	end)
-end
-
-local function createHeartEffect(avatarElement, isSuperLike)
-	-- Crea múltiples corazones partiendo del avatar
-	local absPos = avatarElement.AbsolutePosition
-	local absSize = avatarElement.AbsoluteSize
-	local centerX = absPos.X + absSize.X / 2
-	local centerY = absPos.Y + absSize.Y / 2
-	
-	local screenGui = State.container.Parent
-	
-	local particleCount = isSuperLike and 12 or 8
-	for i = 1, particleCount do
-		local angle = (i / particleCount) * math.pi * 2
-		local offsetX = math.cos(angle) * 30
-		local offsetY = math.sin(angle) * 30
-		
-		task.delay(i * 0.05, function()
-			if State.ui and screenGui then
-				local startPosUDim2 = UDim2.new(0, centerX + offsetX, 0, centerY + offsetY)
-				createHeartParticle(screenGui, startPosUDim2, isSuperLike)
-			end
-		end)
-	end
-end
-
 local function createRipple(button, container, x, y)
 	local pos = button.AbsolutePosition
 	local ripple = createFrame({
@@ -645,7 +594,6 @@ local function createAvatarSection(panel, data, playerColor)
 			local canLike, lastLikeTime = checkLocalCooldown(State.userId)
 			if canLike then
 				GiveLikeEvent:FireServer("GiveLike", State.userId)
-				createHeartEffect(avatarSection, false)
 				updateLocalCooldown(State.userId)
 			else
 				showCooldownNotification(LIKE_COOLDOWN - (tick() - lastLikeTime))
@@ -656,7 +604,6 @@ local function createAvatarSection(panel, data, playerColor)
 		createLikeButton("rbxassetid://9412108006", function()
 			if not State.userId or State.userId == player.UserId then return end
 			GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", State.userId)
-			createHeartEffect(avatarSection, true)
 			pcall(function() MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID) end)
 		end)
 	end
