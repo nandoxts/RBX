@@ -34,6 +34,12 @@ local Events = ReplicatedStorage.Events
 local update_donation = Events.update_donation
 local donation_message = Events.donation_message
 
+-- Eventos del UserPanel (nuevos)
+local remotesGlobal = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
+local userPanelFolder = remotesGlobal:FindFirstChild("UserPanel")
+local DonationNotify = userPanelFolder and userPanelFolder:FindFirstChild("DonationNotify")
+local DonationMessage = userPanelFolder and userPanelFolder:FindFirstChild("DonationMessage")
+
 --==================================================
 --                ASSETS Y DATASTORES
 --==================================================
@@ -253,7 +259,7 @@ local function fetchPlayerClothing(player)
 	local iteration = 0
 
 	repeat
-		iteration += 1
+		iteration = iteration + 1
 		local url = string.format(
 			"https://catalog.roproxy.com/v1/search/items/details?Category=3&CreatorName=%s&cursor=%s",
 			player.Name, cursor
@@ -289,7 +295,7 @@ local function fetchGamepasses(gameId)
 	--print("🔍 Fetching gamepasses for game:", gameId)
 
 	repeat
-		iteration += 1
+		iteration = iteration + 1
 		local url = string.format(
 			"https://apis.roproxy.com/game-passes/v1/universes/%d/game-passes?pageSize=50%s",
 			gameId, 
@@ -329,7 +335,7 @@ local function fetchPlayerGames(player)
 	local iteration = 0
 
 	repeat
-		iteration += 1
+		iteration = iteration + 1
 		local url = string.format(
 			"https://games.roproxy.com/v2/users/%d/games?accessFilter=Public&limit=50&cursor=%s",
 			player.UserId, cursor
@@ -387,11 +393,11 @@ local function registerDonation(donatingPlayer, donatedPlayer, amount)
 
 	-- Actualizar cache
 	if PlayerCache[donatingPlayer.UserId] then
-		PlayerCache[donatingPlayer.UserId].Donated += amount
+		PlayerCache[donatingPlayer.UserId].Donated = PlayerCache[donatingPlayer.UserId].Donated + amount
 	end
 
 	if PlayerCache[donatedPlayer.UserId] then
-		PlayerCache[donatedPlayer.UserId].Received += amount
+		PlayerCache[donatedPlayer.UserId].Received = PlayerCache[donatedPlayer.UserId].Received + amount
 	end
 
 	-- Guardar en DataStore de forma asíncrona
@@ -454,7 +460,17 @@ local function onPurchase(player, assetId, wasPurchased, isGamepass)
 	if donatedPlayer then
 		-- Obtener nombre de forma segura
 		local creatorName = donatedPlayer.Name
+
+		-- Notificar sistema viejo
 		donation_message:FireAllClients(player.Name, price, creatorName)
+
+		-- Notificar UserPanel nuevo (si existe)
+		if DonationNotify then
+			DonationNotify:FireClient(donatedPlayer, player.UserId, price, creatorId)
+		end
+		if DonationMessage then
+			DonationMessage:FireClient(player, player.Name, price, creatorName)
+		end
 
 		-- Registrar donación
 		registerDonation(player, donatedPlayer, price)
@@ -538,6 +554,14 @@ function handleCommand(player, message)
 		-- Simular donación
 		update_donation:Fire(player.UserId, amount, targetPlayer.UserId)
 		donation_message:FireAllClients(player.Name, amount, targetPlayer.Name)
+
+		-- Notificar UserPanel (si existe)
+		if DonationNotify then
+			DonationNotify:FireClient(targetPlayer, player.UserId, amount, targetPlayer.UserId)
+		end
+		if DonationMessage then
+			DonationMessage:FireClient(player, player.Name, amount, targetPlayer.Name)
+		end
 
 		-- Aplicar efectos
 		applyDonationEffect(targetPlayer, amount, player)
