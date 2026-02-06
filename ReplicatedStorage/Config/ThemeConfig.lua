@@ -5,13 +5,13 @@
 -- ════════════════════════════════════════════════════════════════
 
 local THEME = {
-	-- Modern dark background palette (con tinte sutil de accent morado)
-	bg       = Color3.fromRGB(24, 20, 38),      -- Fondo principal
-	panel    = Color3.fromRGB(26, 24, 40),      -- Paneles
-	head     = Color3.fromRGB(28, 25, 42),      -- Header
-	card     = Color3.fromRGB(30, 27, 45),      -- Cards internas
-	elevated = Color3.fromRGB(36, 29, 58),      -- Elementos elevados (hover)
-	surface  = Color3.fromRGB(32, 28, 48),      -- Superficies interactivas
+	-- Modern dark background palette (Neutro oscuro, sin tinte morado)
+	bg       = Color3.fromRGB(20, 20, 22),      -- Fondo principal
+	panel    = Color3.fromRGB(24, 24, 27),      -- Paneles
+	head     = Color3.fromRGB(26, 26, 30),      -- Header
+	card     = Color3.fromRGB(28, 28, 32),      -- Cards internas
+	elevated = Color3.fromRGB(35, 35, 40),      -- Elementos elevados (hover) - Gris neutro
+	surface  = Color3.fromRGB(30, 30, 35),      -- Superficies interactivas
 
 	-- Text colors
 	text     = Color3.fromRGB(236, 240, 241),   -- Texto principal (casi blanco)
