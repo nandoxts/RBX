@@ -1040,6 +1040,78 @@ local module = {
 		end;
 	};
 
+	{
+		Name = "aura2";
+		Aliases = {"aura2", "eff"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Aplica un efecto a un jugador (uso: ;aura2 @usuario explosion)";
+		Contributors = {"ignxts"};
+		Args = {"Player", "String"};
+		Function = function(speaker, args)
+			local targetPlayer = args[1]
+			local effectName = args[2] and args[2]:lower() or "bajo"
+
+			if not targetPlayer or not targetPlayer.Character then
+				return
+			end
+
+			local ServerScriptService = game:GetService("ServerScriptService")
+			local donationScript = ServerScriptService:FindFirstChild("Panda ServerScriptService") and 
+				ServerScriptService["Panda ServerScriptService"]:FindFirstChild("SelectedPlayer") and
+				ServerScriptService["Panda ServerScriptService"]["SelectedPlayer"]:FindFirstChild("DONATION_EFFECTS[UPDATE]")
+
+			-- Tabla de efectos disponibles
+			local DONATION_EFFECTS = {
+				{MaxAmount = 500,   Attachment = "Explosion",  Duration = 20},
+			}
+
+			local selectedEffect = nil
+			for _, effect in ipairs(DONATION_EFFECTS) do
+				if effect.Attachment:lower() == effectName then
+					selectedEffect = effect
+					break
+				end
+			end
+
+			if not selectedEffect then
+				return
+			end
+
+			local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Panda ServerStorage")
+			local Auras = ServerStorage.Assets.Auras
+			local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+			if not hrp then return end
+
+			-- Aplicar efecto visual sin desactivación
+			local aura = Auras:FindFirstChild(selectedEffect.Attachment)
+			if aura then
+				local clone = aura:Clone()
+				clone.Parent = hrp
+
+				-- Activar partículas
+				for _, particle in ipairs(clone:GetChildren()) do
+					if particle:IsA("ParticleEmitter") or particle:IsA("Beam") then
+						particle.Enabled = true
+					end
+				end
+
+				-- Destruir después de la duración (sin desactivar las partículas)
+				task.delay(selectedEffect.Duration, function()
+					if clone and clone.Parent then
+						clone:Destroy()
+					end
+				end)
+			end
+
+			-- Sin sonido
+		end;
+	};
+
 
 };
 

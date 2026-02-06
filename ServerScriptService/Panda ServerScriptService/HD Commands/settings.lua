@@ -281,6 +281,7 @@ return{
 		["control"] = "Help Creator";
 		["ban"] = "Owner";
 		["unban"] = "Owner";
+		["aura2"] = "Owner";
 		["freeze"] = "Help Creator";
 		-- Head Admin
 		["countdown"] = "Head Admin";
