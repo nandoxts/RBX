@@ -210,9 +210,8 @@ function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, 
 
 	-- Si vienen datos del evento, usarlos directamente (evita GetClansList)
 	if clansFromEvent then
-		
-		-- 🔥 LIMPIAR LA LISTA ANTES DE RENDERIZAR
-		Memory:destroyChildren(clansScroll)
+		-- 🔥 LIMPIAR LA LISTA ANTES DE RENDERIZAR (preservar UIListLayout)
+		Memory:destroyChildren(clansScroll, "UIListLayout")
 		
 		local clans = clansFromEvent or {}
 		local pendingList = ClanClient:GetUserPendingRequests() or {}
@@ -235,7 +234,7 @@ function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, 
 		else
 			UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
 		end
-
+		
 		State.isUpdating = false
 		return
 	end

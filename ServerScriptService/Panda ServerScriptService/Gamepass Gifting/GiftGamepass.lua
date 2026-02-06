@@ -246,6 +246,11 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 		if gamepassId == Configuration.VIP then
 			player:SetAttribute("HasVIP", true)
 		end
+		
+		-- ✅ Notificar a HD-CONNECT para actualizar rango inmediatamente
+		if _G.HDConnect_HandleGiftedGamepass then
+			pcall(_G.HDConnect_HandleGiftedGamepass, player.UserId, gamepassId)
+		end
 	end
 end)
 
@@ -307,6 +312,11 @@ local function handleGiftPurchase(receiptInfo)
 					--  Actualizar atributo HasVIP si recibió el VIP de regalo
 					if gamepass[1] == Configuration.VIP then
 						recipientPlayer:SetAttribute("HasVIP", true)
+					end
+					
+					-- ✅ Notificar a HD-CONNECT para actualizar rango inmediatamente
+					if _G.HDConnect_HandleGiftedGamepass then
+						pcall(_G.HDConnect_HandleGiftedGamepass, Recipient, gamepass[1])
 					end
 				end
 			end

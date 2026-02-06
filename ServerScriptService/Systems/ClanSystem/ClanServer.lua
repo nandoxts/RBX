@@ -128,7 +128,24 @@ local RequestJoinResult = RE("RequestJoinResult") -- Notificación al jugador qu
 -- 🔥 HELPER para disparar evento con todos los clanes actualizados
 local function notifyClansUpdated()
 	local allClans = ClanData:GetAllClans()
-	ClansUpdated:FireAllClients(allClans)
+	
+	-- Enviar a cada jugador con su información de membresía
+	for _, player in ipairs(Players:GetPlayers()) do
+		local playerClan = ClanData:GetPlayerClan(player.UserId)
+		local playerClanId = playerClan and playerClan.clanId
+		
+		local clansForPlayer = {}
+		for _, clan in ipairs(allClans) do
+			local clanCopy = {}
+			for k, v in pairs(clan) do
+				clanCopy[k] = v
+			end
+			clanCopy.isPlayerMember = (clanCopy.clanId == playerClanId)
+			table.insert(clansForPlayer, clanCopy)
+		end
+		
+		ClansUpdated:FireClient(player, clansForPlayer)
+	end
 end
 
 -- ============================================

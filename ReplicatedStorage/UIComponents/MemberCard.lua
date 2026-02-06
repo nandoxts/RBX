@@ -170,7 +170,7 @@ function MemberCard:_canManage(targetRole)
 end
 
 function MemberCard:_showRoleMenu()
-	local memberRole = self.memberData.rol or "miembro"
+	local memberRole = self.memberData.role or "miembro"
 	local myRoleConfig = ROLES_CONFIG[self.playerRole]
 
 	-- Construir opciones disponibles

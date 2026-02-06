@@ -267,11 +267,34 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 	-- Solo procesar si es un gamepass de nuestro sistema
 	if not GAMEPASS_RANKS[gamepassId] then return end
 
-	-- Actualizar inmediatamente
-	task.spawn(function()
-		pcall(CheckAllGamepasses, player)
-		pcall(AssignAppropriateRank, player)
+	print(string.format("[HD-CONNECT] Gamepass comprado: %d por jugador %s", gamepassId, player.Name))
+
+	-- ✅ Actualizar INMEDIATAMENTE la carpeta Gamepasses y el rango SIN esperar a UserOwnsGamePassAsync
+	local gamepassesFolder = EnsureGamepassesFolder(player)
+	
+	-- Obtener info del gamepass
+	local success, productInfo = pcall(function()
+		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)
+	
+	if success and productInfo then
+		-- Crear/actualizar BoolValue inmediatamente
+		local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)
+		if not gamepassValue then
+			gamepassValue = Instance.new("BoolValue")
+			gamepassValue.Name = productInfo.Name
+			gamepassValue.Value = true
+			gamepassValue.Parent = gamepassesFolder
+		else
+			gamepassValue.Value = true
+		end
+		
+		-- Asignar rango inmediatamente
+		AssignAppropriateRank(player)
+		print(string.format("[HD-CONNECT] Rango actualizado inmediatamente para %s", player.Name))
+	else
+		warn("[HD-CONNECT] No se pudo obtener info del gamepass:", gamepassId)
+	end
 end)
 
 -- Función para verificar un gamepass específico
@@ -316,6 +339,46 @@ local function DoesUserOwnGamePass(player, gamepassId)
 	return gifted
 end
 
+-- Función para actualizar inmediatamente un jugador cuando recibe un gamepass de regalo
+local function HandleGiftedGamepass(recipientUserId, gamepassId)
+	local recipientPlayer = Players:GetPlayerByUserId(recipientUserId)
+	if not recipientPlayer or not recipientPlayer.Parent then return end
+	
+	print(string.format("[HD-CONNECT] Gamepass regalado: %d a jugador %s", gamepassId, recipientPlayer.Name))
+	
+	-- Solo procesar si es un gamepass de nuestro sistema
+	if not GAMEPASS_RANKS[gamepassId] then return end
+	
+	local gamepassesFolder = EnsureGamepassesFolder(recipientPlayer)
+	
+	-- Obtener info del gamepass
+	local success, productInfo = pcall(function()
+		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
+	end)
+	
+	if success and productInfo then
+		-- Crear/actualizar BoolValue inmediatamente
+		local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)
+		if not gamepassValue then
+			gamepassValue = Instance.new("BoolValue")
+			gamepassValue.Name = productInfo.Name
+			gamepassValue.Value = true
+			gamepassValue.Parent = gamepassesFolder
+		else
+			gamepassValue.Value = true
+		end
+		
+		-- Asignar rango inmediatamente
+		AssignAppropriateRank(recipientPlayer)
+		print(string.format("[HD-CONNECT] Rango actualizado inmediatamente para %s (regalo)", recipientPlayer.Name))
+	else
+		warn("[HD-CONNECT] No se pudo obtener info del gamepass regalado:", gamepassId)
+	end
+end
+
+-- Hacer la función disponible globalmente para que GiftGamepass.lua la pueda llamar
+_G.HDConnect_HandleGiftedGamepass = HandleGiftedGamepass
+
 -- Exportar funciones para uso en otros scripts
 return {
 	EnsureGamepassesFolder = EnsureGamepassesFolder,
@@ -323,6 +386,7 @@ return {
 	DoesUserOwnGamePass = DoesUserOwnGamePass,
 	AssignAppropriateRank = AssignAppropriateRank,
 	GetHighestGroupRank = GetHighestGroupRank,
-	GetBestGamepassRank = GetBestGamepassRank
+	GetBestGamepassRank = GetBestGamepassRank,
+	HandleGiftedGamepass = HandleGiftedGamepass
 }
 

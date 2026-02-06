@@ -178,7 +178,7 @@ function ConfirmationModal:_createModal()
 	if self.inputText ~= nil then
 		confirmBtn.BackgroundColor3 = self.theme.accent
 	else
-		confirmBtn.BackgroundColor3 = self.theme.danger
+		confirmBtn.BackgroundColor3 = self.theme.btnDanger
 	end
 	confirmBtn.Text = self.confirmText
 	confirmBtn.TextColor3 = Color3.new(1, 1, 1)
