@@ -11,7 +11,7 @@ local THEME = {
 	head     = Color3.fromRGB(28, 25, 42),      -- Header
 	card     = Color3.fromRGB(30, 27, 45),      -- Cards internas
 	elevated = Color3.fromRGB(36, 29, 58),      -- Elementos elevados (hover)
-	surface  = Color3.fromRGB(32, 28, 48),      -- Superficies interactivas
+	surface  = Color3.fromRGB(147, 76, 255),     -- Superficies interactivas
 
 	-- Text colors
 	text     = Color3.fromRGB(236, 240, 241),   -- Texto principal (casi blanco)

@@ -10,6 +10,7 @@ local GlobalModalManager = {}
 -- Estado separado: EmoteUI es INDEPENDIENTE, Clan/Music son EXCLUSIVOS
 GlobalModalManager.currentMainModal = nil  -- Solo puede ser "Clan" or "Music"
 GlobalModalManager.isEmoteOpen = false     -- EmoteUI independiente
+GlobalModalManager.isUserPanelOpen = false -- UserPanel independiente
 
 -- Configuración de modales (nombre → funciones open/close)
 -- Categorías: "main" (Clan/Music - exclusivos) | "independent" (Emotes - puede coexistir)
@@ -89,6 +90,18 @@ local modals = {
 		icon = function() return _G.ShopIcon end,
 		category = "main"
 	},
+	
+	UserPanel = {
+		open = function() end,  -- UserPanel se abre al hacer clic en jugadores
+		close = function() 
+			if _G.CloseUserPanel then 
+				local ok, err = pcall(function() _G.CloseUserPanel() end)
+				if not ok then warn("[GMM] Error cerrando UserPanel: " .. tostring(err)) end
+			end
+		end,
+		icon = function() return nil end,  -- No tiene icono en topbar
+		category = "independent"  -- Puede coexistir con otros modales
+	},
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -118,6 +131,15 @@ function GlobalModalManager:openModal(modalName)
 			local prevIcon = prevModal.icon()
 			if prevIcon then
 				pcall(function() prevIcon:deselect() end)
+			end
+		end
+		
+		-- ✅ Cerrar UserPanel si está abierto (modal independiente)
+		if self.isUserPanelOpen then
+			local userPanelModal = modals["UserPanel"]
+			if userPanelModal then
+				userPanelModal.close()
+				self.isUserPanelOpen = false
 			end
 		end
 		
@@ -158,13 +180,16 @@ function GlobalModalManager:closeModal(modalName)
 		
 	-- Cerrar modal independiente
 	elseif modalConfig.category == "independent" then
-		if self.isEmoteOpen then
+		if modalName == "Emotes" and self.isEmoteOpen then
 			modalConfig.close()
 			local icon = modalConfig.icon()
 			if icon then
 				pcall(function() icon:deselect() end)
 			end
 			self.isEmoteOpen = false
+		elseif modalName == "UserPanel" and self.isUserPanelOpen then
+			modalConfig.close()
+			self.isUserPanelOpen = false
 		end
 	end
 end
@@ -183,7 +208,11 @@ function GlobalModalManager:isModalOpen(modalName)
 	if modalConfig.category == "main" then
 		return self.currentMainModal == modalName
 	elseif modalConfig.category == "independent" then
-		return self.isEmoteOpen
+		if modalName == "Emotes" then
+			return self.isEmoteOpen
+		elseif modalName == "UserPanel" then
+			return self.isUserPanelOpen
+		end
 	end
 	return false
 end

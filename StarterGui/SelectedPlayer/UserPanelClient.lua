@@ -16,6 +16,9 @@ local playerGui = player:WaitForChild("PlayerGui")
 local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 
+-- GlobalModalManager
+local GlobalModalManager = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
+
 -- Cache de avatares (declarada temprano para evitar warnings de global undefined)
 local avatarCache = {}
 
@@ -219,6 +222,7 @@ local State = {
 	dynamicSection = nil,
 	isPanelOpening = false,
 	lastClickTime = 0,
+	isLoadingDynamic = false,  -- Evita clics múltiples en botones de vista dinámica
 }
 
 -- ═══════════════════════════════════════════════════════════════
@@ -366,6 +370,13 @@ local function closePanel()
 	-- Desattach highlight
 	detachHighlight()
 
+	-- ✅ Notificar a GlobalModalManager que se cerró
+	pcall(function()
+		if GlobalModalManager and GlobalModalManager.isUserPanelOpen then
+			GlobalModalManager.isUserPanelOpen = false
+		end
+	end)
+
 	-- Animación de salida
 	tween(State.container, { Position = UDim2.new(0.5, -CONFIG.PANEL_WIDTH / 2, 1, 50) }, 0.5, Enum.EasingStyle.Quint)
 
@@ -378,7 +389,8 @@ local function closePanel()
 			ui = nil, container = nil, panel = nil, statsLabels = {},
 			userId = nil, target = nil, closing = false, dragging = false,
 			connections = {}, refreshThread = nil, currentView = "buttons",
-			buttonsFrame = nil, dynamicSection = nil, isPanelOpening = false, lastClickTime = 0
+			buttonsFrame = nil, dynamicSection = nil, isPanelOpening = false, 
+			lastClickTime = 0, isLoadingDynamic = false
 		}
 	end)
 end
@@ -527,7 +539,7 @@ local function createAvatarSection(panel, data, playerColor)
 		BackgroundTransparency = 1,
 		Image = data.avatar or "",
 		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 20,
+		ZIndex = 3,  -- ZIndex bajo para que el nombre esté encima
 		Parent = avatarSection
 	})
 	-- Cargar miniatura rápida y luego la grande
@@ -601,7 +613,7 @@ local function createAvatarSection(panel, data, playerColor)
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 6,
+		ZIndex = 25,  -- ZIndex alto para estar sobre el avatar
 		Parent = avatarSection
 	})
 
@@ -614,7 +626,7 @@ local function createAvatarSection(panel, data, playerColor)
 		Font = Enum.Font.GothamMedium,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 6,
+		ZIndex = 25,  -- ZIndex alto para estar sobre el avatar
 		Parent = avatarSection
 	})
 
@@ -741,6 +753,7 @@ end
 -- ═══════════════════════════════════════════════════════════════
 local function switchToButtons()
 	State.currentView = "buttons"
+	State.isLoadingDynamic = false  -- Resetear flag al volver a botones
 
 	if State.dynamicSection then
 		tween(State.dynamicSection, { Position = UDim2.new(1, 0, 0, State.dynamicSection.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
@@ -1033,12 +1046,35 @@ local function createButtonsSection(panel, target, playerColor)
 	-- Donar
 	local donateBtn, donateText = createButton(State.buttonsFrame, "Donar", 3, playerColor)
 	addConnection(donateBtn.MouseButton1Click:Connect(function()
-		if not State.userId then return end
+		-- Evitar clics múltiples mientras carga
+		if not State.userId or State.isLoadingDynamic or State.dynamicSection then return end
+		State.isLoadingDynamic = true
+		
+		-- Deshabilitar botón visualmente
+		donateBtn.Active = false
 		donateText.Text = "Cargando..."
+		tween(donateBtn, { BackgroundTransparency = 0.5 }, CONFIG.ANIM_FAST)
+		
 		task.spawn(function()
-			local donations = Remotes.GetUserDonations:InvokeServer(State.userId)
-			donateText.Text = "Donar"
-			showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
+			local ok, donations = pcall(function()
+				return Remotes.GetUserDonations:InvokeServer(State.userId)
+			end)
+			
+			-- Re-habilitar botón
+			if donateBtn and donateBtn.Parent then
+				donateBtn.Active = true
+				donateText.Text = "Donar"
+				tween(donateBtn, { BackgroundTransparency = 0 }, CONFIG.ANIM_FAST)
+			end
+			
+			if ok and donations then
+				showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
+			else
+				State.isLoadingDynamic = false
+				if NotificationSystem then
+					NotificationSystem:Error("Error", "No se pudo cargar donaciones", 2)
+				end
+			end
 		end)
 	end))
 
@@ -1046,11 +1082,35 @@ local function createButtonsSection(panel, target, playerColor)
 	if State.userId ~= player.UserId then
 		local giftBtn, giftText = createButton(State.buttonsFrame, "Regalar Pase", 4, playerColor)
 		addConnection(giftBtn.MouseButton1Click:Connect(function()
+			-- Evitar clics múltiples mientras carga
+			if State.isLoadingDynamic or State.dynamicSection then return end
+			State.isLoadingDynamic = true
+			
+			-- Deshabilitar botón visualmente
+			giftBtn.Active = false
 			giftText.Text = "Cargando..."
+			tween(giftBtn, { BackgroundTransparency = 0.5 }, CONFIG.ANIM_FAST)
+			
 			task.spawn(function()
-				local passes = Remotes.GetGamePasses:InvokeServer(State.userId)
-				giftText.Text = "Regalar Pase"
-				showDynamicSection("passes", passes, nil, playerColor)
+				local ok, passes = pcall(function()
+					return Remotes.GetGamePasses:InvokeServer(State.userId)
+				end)
+				
+				-- Re-habilitar botón
+				if giftBtn and giftBtn.Parent then
+					giftBtn.Active = true
+					giftText.Text = "Regalar Pase"
+					tween(giftBtn, { BackgroundTransparency = 0 }, CONFIG.ANIM_FAST)
+				end
+				
+				if ok and passes then
+					showDynamicSection("passes", passes, nil, playerColor)
+				else
+					State.isLoadingDynamic = false
+					if NotificationSystem then
+						NotificationSystem:Error("Error", "No se pudieron cargar pases", 2)
+					end
+				end
 			end)
 		end))
 	end
@@ -1127,7 +1187,8 @@ local function createPanel(data)
 			endConn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					isDragging = false
-					task.delay(0.1, function() State.dragging = false end)
+					-- ✅ Delay para evitar que el clic de soltar active trySelectAtPosition
+					task.delay(0.15, function() State.dragging = false end)
 					endConn:Disconnect()
 				end
 			end)
@@ -1180,6 +1241,8 @@ local function createPanel(data)
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ClipsDescendants = true,
+		ScrollingEnabled = true,  -- Habilitar scroll
+		Active = true,  -- ✅ Importante: captura clics dentro del scroll
 		Parent = panelContainer
 	})
 
@@ -1297,6 +1360,17 @@ local function openPanel(target)
 		State.target = target
 		attachHighlight(target)
 
+		-- ✅ Notificar a GlobalModalManager que UserPanel está abierto
+		pcall(function()
+			if GlobalModalManager then
+				-- Registrar como modal independiente (puede coexistir con otros)
+				if GlobalModalManager.isEmoteOpen == nil then
+					GlobalModalManager.isEmoteOpen = false
+				end
+				GlobalModalManager.isUserPanelOpen = true
+			end
+		end)
+
 		-- Actualizar datos en PARALELO sin bloquear (no usar task.spawn con wait)
 		task.spawn(function()
 			local ok, data = pcall(function()
@@ -1345,17 +1419,37 @@ local function trySelectAtPosition(position)
 	State.lastClickTime = now
 
 	if State.ui then
-		if State.container then
-			local absPos = State.container.AbsolutePosition
-			local absSize = State.container.AbsoluteSize
-			if position.X >= absPos.X and position.X <= absPos.X + absSize.X and position.Y >= absPos.Y and position.Y <= absPos.Y + absSize.Y then
+		-- ✅ Verificar si el clic fue en CUALQUIER GUI (topbar, panel, etc)
+		local guiObjects = playerGui:GetGuiObjectsAtPosition(position.X, position.Y)
+		
+		-- Si hay GUIs en la posición del clic
+		if #guiObjects > 0 then
+			-- Verificar si alguno pertenece al UserPanel
+			local isUserPanel = false
+			for _, obj in ipairs(guiObjects) do
+				if obj:IsDescendantOf(State.ui) then
+					isUserPanel = true
+					break
+				end
+			end
+			
+			-- Si el clic fue DENTRO del UserPanel, no hacer nada
+			if isUserPanel then
 				return
 			end
+			
+			-- Si el clic fue en OTRA GUI (topbar, otros modales), cerrar UserPanel
+			-- Esto permite que funcione bien con el topbar
+			closePanel()
+			return
 		end
+		
+		-- Si NO hay GUIs, significa que hizo clic en el mundo 3D → cerrar
 		closePanel()
 		return
 	end
 
+	-- ✅ Si el panel NO está abierto, intentar seleccionar jugador
 	if State.isPanelOpening then return end
 
 	local unitRay = camera:ScreenPointToRay(position.X, position.Y)
@@ -1383,14 +1477,22 @@ local function trySelectAtPosition(position)
 end
 
 -- Input handlers
-UserInputService.InputEnded:Connect(function(input)
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+	-- ✅ Ignorar si Roblox ya procesó el input (chat, leaderboard, etc)
+	if gameProcessed then return end
+	
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		-- ✅ Evitar activar si está arrastrando el panel
+		if State.dragging then return end
+		
 		trySelectAtPosition(Vector2.new(mouse.X, mouse.Y))
 	end
 end)
 
 UserInputService.TouchEnded:Connect(function(input, processed)
-	if not processed then trySelectAtPosition(input.Position) end
+	if not processed and not State.dragging then
+		trySelectAtPosition(input.Position)
+	end
 end)
 
 -- ═══════════════════════════════════════════════════════════════
@@ -1415,8 +1517,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ═══════════════════════════════════════════════════════════════
--- EXPORTAR
+-- EXPORTAR Y REGISTRAR EN GLOBALMODALMANAGER
 -- ═══════════════════════════════════════════════════════════════
+_G.CloseUserPanel = closePanel
+
 return {
 	open = openPanel,
 	close = closePanel
