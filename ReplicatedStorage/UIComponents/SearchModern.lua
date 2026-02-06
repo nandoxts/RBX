@@ -11,7 +11,7 @@ function SearchModern.new(parent, options)
 	local placeholder = options.placeholder or "Buscar..."
 	local onSearch = options.onSearch
 	local size = options.size or UDim2.new(1, 0, 0, 36)
-	local bg = options.bg or THEME.surface
+	local bg = options.bg or THEME.card
 	local corner = options.corner or 8
 	local z = options.z or 100
 	local isMobile = options.isMobile

@@ -155,10 +155,10 @@ local function setAddButtonState(state, customMessage)
 	if not quickAddBtn or not quickInput or not qiStroke then return end
 
 	local states = {
-		loading = {adding = true, text = "...", bg = THEME.info, stroke = THEME.info, auto = false},
-		success = {adding = false, text = "AÑADIDO", bg = THEME.success, stroke = THEME.success, clear = true, delay = 2},
-		error = {adding = false, text = "ERROR", bg = THEME.danger, stroke = THEME.danger, clear = true, placeholder = customMessage, delay = 3},
-		duplicate = {adding = false, text = "DUPLICADO", bg = Color3.fromRGB(255, 150, 0), stroke = Color3.fromRGB(255, 150, 0), clear = true, placeholder = customMessage or "La canción ya está en la cola", delay = 3},
+		loading = {adding = true, text = "...", bg = THEME.surface, stroke = THEME.surface, auto = false},
+		success = {adding = false, text = "AÑADIDO", bg = Color3.fromRGB(72, 187, 120), stroke = Color3.fromRGB(72, 187, 120), clear = true, delay = 2},
+		error = {adding = false, text = "ERROR", bg = THEME.btnDanger, stroke = THEME.btnDanger, clear = true, placeholder = customMessage, delay = 3},
+		duplicate = {adding = false, text = "DUPLICADO", bg = THEME.warn, stroke = THEME.warn, clear = true, placeholder = customMessage or "La canción ya está en la cola", delay = 3},
 		default = {adding = false, text = "AÑADIR", bg = THEME.accent, stroke = THEME.stroke, auto = true, placeholder = "Introduce ID de audio..."}
 	}
 
@@ -1142,7 +1142,7 @@ local function drawQueue()
 			local removeBtn = Instance.new("TextButton")
 			removeBtn.Size = UDim2.new(0, 70, 0, 30)
 			removeBtn.Position = UDim2.new(1, -75, 0.5, -15)
-			removeBtn.BackgroundColor3 = THEME.danger
+			removeBtn.BackgroundColor3 = THEME.btnDanger
 			removeBtn.Text = "REMOVE"
 			removeBtn.TextColor3 = Color3.new(1, 1, 1)
 			removeBtn.Font = Enum.Font.GothamBold
@@ -1510,7 +1510,7 @@ songsContainer.ChildAdded:Connect(function(child)
 			addBtn.MouseButton1Click:Connect(function()
 				local songId = child:GetAttribute("SongID")
 				if songId and not isInQueue(songId) then
-					addBtn.BackgroundColor3 = THEME.info
+					addBtn.BackgroundColor3 = THEME.surface
 					addBtn.Text = "..."
 					if R.Add then R.Add:FireServer(songId) end
 				end

@@ -45,7 +45,7 @@ function MemberCard:_build()
 	-- Frame principal - diseño horizontal compacto
 	self.frame = UI.frame({
 		size = UDim2.new(1, 0, 0, 56),
-		bg = THEME.surface,
+		bg = THEME.card,
 		z = 106,
 		parent = self.parent,
 		corner = 10
