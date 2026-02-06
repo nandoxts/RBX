@@ -280,23 +280,13 @@ ClanClient:OnClansUpdated(function(clans)
 	if not screenGui or not screenGui.Parent then return end
 
 	local now = tick()
-	if (now - listenerLastTime) < CONFIG.listenerCooldown then 
-		print("[CreateClanGui] ⚠️ Evento ignorado por cooldown (", math.ceil((now - listenerLastTime) * 100) / 100, "s)")
-		return 
-	end
+	if (now - listenerLastTime) < CONFIG.listenerCooldown then return end
 	listenerLastTime = now
 
-	if State.isUpdating then 
-		print("[CreateClanGui] ⚠️ Evento ignorado - Estado isUpdating=true")
-		return 
-	end
-
-	lastEventCount = lastEventCount + 1
-	print("[CreateClanGui] 📡 EVENTO #" .. lastEventCount .. " - currentPage:", State.currentPage, "currentView:", State.currentView)
+	if State.isUpdating then return end
 
 	if State.currentPage == "TuClan" then 
 		-- 🔥 ACTUALIZAR SIN RESETEAR VIEW (mantiene la vista actual)
-		print("[CreateClanGui] ✓ Realizando reloadAndKeepView para vista:", State.currentView)
 		task.defer(function() 
 			ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, State.currentView)
 		end)
@@ -318,5 +308,3 @@ end)
 -- ════════════════════════════════════════════════════════════════
 _G.OpenClanUI = openUI
 _G.CloseClanUI = closeUI
-
-print("[ClanSystemUI] ✅ Sistema modular cargado correctamente")

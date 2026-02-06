@@ -161,10 +161,8 @@ function ClanViews.createMainView(parent, clanData, playerRole, screenGui, loadP
 		Memory:track(pendingBtn.MouseButton1Click:Connect(function() ClanViews.Navigation:navigateTo("pending", State) end))
 
 		task.spawn(function()
-			print("[ClanViews] Cargando solicitudes pendientes para clan:", clanData.clanId)
 			local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
 			local requestCount = #requests
-			print("[ClanViews] Solicitudes obtenidas:", requestCount)
 			if pendingSubtitle and pendingSubtitle.Parent then 
 				pendingSubtitle.Text = requestCount > 0 and (requestCount .. " solicitudes pendientes") or "No hay solicitudes" 
 			end
@@ -278,20 +276,13 @@ function ClanViews.createPendingView(parent, clanData, playerRole, screenGui, re
 
 	local function loadPendingRequests()
 		-- Limpiar lista anterior
-		print("[ClanViews:loadPendingRequests] Limpiando lista anterior")
 		Memory:destroyChildren(listContainer)
 		
 		-- Obtener solicitudes actuales
-		print("[ClanViews:loadPendingRequests] Obteniendo solicitudes para clan:", clanData.clanId)
 		local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-		print("[ClanViews:loadPendingRequests] Solicitudes obtenidas:", #requests)
 		
-		if not State.isOpen or not pendingView.Parent then 
-			print("[ClanViews:loadPendingRequests] Estado no válido, abortando carga")
-			return 
-		end
+		if not State.isOpen or not pendingView.Parent then return end
 
-		print("[ClanViews:loadPendingRequests] Creando MembersList con", #requests, "solicitudes")
 		State.pendingList = MembersList.new({
 			parent = listContainer, 
 			screenGui = screenGui, 
@@ -301,7 +292,6 @@ function ClanViews.createPendingView(parent, clanData, playerRole, screenGui, re
 			requests = requests,
 			onUpdate = function() loadPendingRequests() end
 		})
-		print("[ClanViews:loadPendingRequests] ✅ Carga completada")
 	end
 
 	-- Cargar por primera vez

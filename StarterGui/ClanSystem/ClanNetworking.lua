@@ -212,7 +212,6 @@ function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, 
 
 	-- Si vienen datos del evento, usarlos directamente (evita GetClansList)
 	if clansFromEvent then
-		print("[ClanNetworking:loadClansFromServer] Usando clanes del evento (sin fetch)")
 		
 		-- 🔥 LIMPIAR LA LISTA ANTES DE RENDERIZAR
 		Memory:destroyChildren(clansScroll)

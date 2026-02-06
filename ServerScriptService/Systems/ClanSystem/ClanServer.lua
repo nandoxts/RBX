@@ -126,11 +126,8 @@ local ClansUpdated = RE("ClansUpdated")
 local RequestJoinResult = RE("RequestJoinResult") -- Notificación al jugador que solicitó
 
 -- 🔥 HELPER para disparar evento con todos los clanes actualizados
-local notifyCount = 0
 local function notifyClansUpdated()
-	notifyCount = notifyCount + 1
 	local allClans = ClanData:GetAllClans()
-	print("[ClanServer] 📡 NOTIFY #" .. notifyCount .. " - Disparando ClansUpdated con", #allClans, "clanes")
 	ClansUpdated:FireAllClients(allClans)
 end
 
@@ -176,90 +173,50 @@ end
 
 -- Handlers individuales para cada campo (compatibilidad V1)
 ChangeClanName.OnServerInvoke = function(player, clanId, newName)
-	print("[ChangeClanName] INICIO - playerId:", player.UserId, "clanId:", clanId, "newName:", newName)
-	
 	local ok, err = checkCooldown(player.UserId, "ChangeName", Config:GetRateLimit("ChangeName"))
-	if not ok then 
-		print("[ChangeClanName] ❌ Cooldown:", err)
-		return false, err 
-	end
+	if not ok then return false, err end
 	
 	local clan = ClanData:GetClan(clanId)
-	if not clan then 
-		print("[ChangeClanName] ❌ Clan no encontrado")
-		return false, "Clan no encontrado" 
-	end
-	
-	print("[ChangeClanName] ✅ Clan encontrado:", clan.name)
+	if not clan then return false, "Clan no encontrado" end
 	
 	local member = clan.members[tostring(player.UserId)]
-	if not member then
-		print("[ChangeClanName] ❌ Player no es miembro")
-		return false, "No eres miembro"
-	end
+	if not member then return false, "No eres miembro" end
 	
-	print("[ChangeClanName] Player role:", member.role)
 	if not Config:HasPermission(member.role, "cambiar_nombre") then
-		print("[ChangeClanName] ❌ Sin permiso")
 		return false, "Sin permiso"
 	end
 	
-	print("[ChangeClanName] ✅ Permisos OK, llamando UpdateClan...")
 	local success, result = ClanData:UpdateClan(clanId, {name = newName})
 	
-	print("[ChangeClanName] UpdateClan resultado:", success, "msg:", result)
-	
 	if success then
-		print("[ChangeClanName] ✅ Actualizando miembros")
 		updateAllMembers(result)
 		return true, "Nombre actualizado"
 	end
 	
-	print("[ChangeClanName] ❌ Error:", result)
 	return false, result
 end
 
 ChangeClanTag.OnServerInvoke = function(player, clanId, newTag)
-	print("[ChangeClanTag] INICIO - playerId:", player.UserId, "clanId:", clanId, "newTag:", newTag)
-	
 	local ok, err = checkCooldown(player.UserId, "ChangeTag", Config:GetRateLimit("ChangeTag"))
-	if not ok then 
-		print("[ChangeClanTag] ❌ Cooldown:", err)
-		return false, err 
-	end
+	if not ok then return false, err end
 	
 	local clan = ClanData:GetClan(clanId)
-	if not clan then 
-		print("[ChangeClanTag] ❌ Clan no encontrado")
-		return false, "Clan no encontrado" 
-	end
-	
-	print("[ChangeClanTag] ✅ Clan encontrado:", clan.name)
+	if not clan then return false, "Clan no encontrado" end
 	
 	local member = clan.members[tostring(player.UserId)]
-	if not member then
-		print("[ChangeClanTag] ❌ Player no es miembro")
-		return false, "No eres miembro"
-	end
+	if not member then return false, "No eres miembro" end
 	
-	print("[ChangeClanTag] Player role:", member.role)
 	if member.role ~= Config.ROLE_NAMES.OWNER then
-		print("[ChangeClanTag] ❌ Solo owner puede cambiar TAG")
 		return false, "Solo owner puede cambiar TAG"
 	end
 	
-	print("[ChangeClanTag] ✅ Permisos OK, llamando UpdateClan...")
 	local success, result = ClanData:UpdateClan(clanId, {tag = newTag})
 	
-	print("[ChangeClanTag] UpdateClan resultado:", success, "msg:", result)
-	
 	if success then
-		print("[ChangeClanTag] ✅ Actualizando miembros")
 		updateAllMembers(result)
 		return true, "TAG actualizado"
 	end
 	
-	print("[ChangeClanTag] ❌ Error:", result)
 	return false, result
 end
 
@@ -648,9 +605,7 @@ RejectJoinRequest.OnServerInvoke = function(player, clanId, targetUserId)
 end
 
 GetJoinRequests.OnServerInvoke = function(player, clanId)
-	print("[ClanServer] GetJoinRequests - clanId:", clanId, "playerId:", player.UserId)
 	local result = ClanData:GetClanRequests(clanId, player.UserId)
-	print("[ClanServer] GetJoinRequests - Retornando:", #result, "solicitudes")
 	return result
 end
 
@@ -676,8 +631,7 @@ end
 -- ============================================
 task.spawn(function()
 	task.wait(Config.DATABASE.InitDelay)
-	local created = ClanData:CreateDefaultClans()
-	print("[ClanServer] Clanes por defecto:", created)
+	ClanData:CreateDefaultClans()
 	-- El evento ClansUpdated se dispara automáticamente desde ClanData:OnUpdate()
 end)
 
@@ -700,7 +654,5 @@ end)
 ClanData:OnUpdate():Connect(function()
 	notifyClansUpdated()
 end)
-
-print("[ClanServer] ✅ Iniciado")
 
 return {}

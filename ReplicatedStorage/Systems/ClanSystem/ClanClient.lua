@@ -171,20 +171,16 @@ function ClanClient:GetClansList()
 
 	-- Cache de 5 segundos (más eficiente)
 	if clansListCache and (tick() - clansListCacheTime) < 5 then
-		print("[ClanClient:GetClansList] ✅ Retornando del CACHE - edad:", math.floor(tick() - clansListCacheTime), "secs")
 		return clansListCache
 	end
 
-	print("[ClanClient:GetClansList] ⚠️ CACHE EXPIRED - Solicitando servidor...")
 	local allowed = checkThrottle("GetClansList")
 	if not allowed then 
-		print("[ClanClient:GetClansList] ❌ Throttled - Retornando cache antiguo")
 		return clansListCache or {} 
 	end
 
 	local remote = getRemote("GetClansList")
 	if not remote then 
-		print("[ClanClient:GetClansList] ❌ Remote no encontrado")
 		return clansListCache or {} 
 	end
 
@@ -193,13 +189,11 @@ function ClanClient:GetClansList()
 	end)
 
 	if success and clans then
-		print("[ClanClient:GetClansList] ✅ Actualizado desde servidor -", #clans, "clanes")
 		clansListCache = clans
 		clansListCacheTime = tick()
 		return clans
 	end
 
-	print("[ClanClient:GetClansList] ❌ Error obteniendo lista - Retornando cache")
 	return clansListCache or {}
 end
 
@@ -266,26 +260,19 @@ end
 -- EDICIÓN DEL CLAN
 -- ════════════════════════════════════════════════════════════════
 function ClanClient:ChangeClanName(newName)
-	print("[ClanClient:ChangeClanName] INICIO - newName:", newName, "currentClanId:", self.currentClanId)
 	if not self.currentClanId then 
-		print("[ClanClient:ChangeClanName] ❌ Sin clan actual")
 		return false, "No estás en un clan" 
 	end
 	
 	local remote = getRemote("ChangeClanName")
 	if not remote then 
-		print("[ClanClient:ChangeClanName] ❌ Remote no encontrado")
 		return false, "Función no disponible" 
 	end
 	
-	print("[ClanClient:ChangeClanName] Invocando server...")
 	local success, result = remote:InvokeServer(self.currentClanId, newName)
-	
-	print("[ClanClient:ChangeClanName] Resultado:", success, "msg:", result)
 	
 	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
 	if success then
-		print("[ClanClient:ChangeClanName] Invalidando cache...")
 		clansListCache = nil
 		clansListCacheTime = 0
 	end
@@ -294,26 +281,19 @@ function ClanClient:ChangeClanName(newName)
 end
 
 function ClanClient:ChangeClanTag(newTag)
-	print("[ClanClient:ChangeClanTag] INICIO - newTag:", newTag, "currentClanId:", self.currentClanId)
 	if not self.currentClanId then 
-		print("[ClanClient:ChangeClanTag] ❌ Sin clan actual")
 		return false, "No estás en un clan" 
 	end
 	
 	local remote = getRemote("ChangeClanTag")
 	if not remote then 
-		print("[ClanClient:ChangeClanTag] ❌ Remote no encontrado")
 		return false, "Función no disponible" 
 	end
 	
-	print("[ClanClient:ChangeClanTag] Invocando server...")
 	local success, result = remote:InvokeServer(self.currentClanId, newTag)
-	
-	print("[ClanClient:ChangeClanTag] Resultado:", success, "msg:", result)
 	
 	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
 	if success then
-		print("[ClanClient:ChangeClanTag] Invalidando cache...")
 		clansListCache = nil
 		clansListCacheTime = 0
 	end
@@ -436,29 +416,22 @@ function ClanClient:RejectJoinRequest(clanId, targetUserId)
 end
 
 function ClanClient:GetJoinRequests(clanId)
-	print("[ClanClient:GetJoinRequests] INICIO - clanId:", clanId, "currentClanId:", self.currentClanId)
 	if not self.currentClanId then 
-		print("[ClanClient:GetJoinRequests] Sin currentClanId, devolviendo {}")
 		return {} 
 	end
 
 	local remote = getRemote("GetJoinRequests")
 	if not remote then 
-		print("[ClanClient:GetJoinRequests] Remote no encontrado, devolviendo {}")
 		return {} 
 	end
 
 	local success, requests = pcall(function()
-		print("[ClanClient:GetJoinRequests] Invocando server para clanId:", clanId)
 		return remote:InvokeServer(clanId)
 	end)
 
-	print("[ClanClient:GetJoinRequests] pcall success:", success)
 	if success then
-		print("[ClanClient:GetJoinRequests] Requests recibidas:", #(requests or {}))
 		return requests
 	else
-		print("[ClanClient:GetJoinRequests] Error:", requests)
 		return {}
 	end
 end
@@ -515,11 +488,9 @@ task.spawn(function()
 	local updateEvent = clanEvents and clanEvents:WaitForChild("ClansUpdated", 5)
 	if updateEvent then
 		updateEvent.OnClientEvent:Connect(function(clans)
-			print("[ClanClient] Evento ClansUpdated recibido")
 			-- Actualizar cache
 			clansListCache = clans
 			clansListCacheTime = tick()
-			print("[ClanClient] Cache actualizado con", #(clans or {}), "clanes")
 
 			-- Notificar UI (ejecutar todos los callbacks registrados)
 			ClanClient:_fireUpdateCallbacks(clans)
