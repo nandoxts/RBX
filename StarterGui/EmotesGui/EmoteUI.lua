@@ -294,6 +294,7 @@ TabIndicator.Name = "TabIndicator"
 TabIndicator.Size = UDim2.new(0.5, -4, 1, -4)
 TabIndicator.Position = UDim2.new(0, 2, 0, 2)
 TabIndicator.BackgroundColor3 = THEME_CONFIG.accent
+TabIndicator.BackgroundTransparency = 0.15
 TabIndicator.BorderSizePixel = 0
 TabIndicator.ZIndex = 2
 TabIndicator.Parent = TabsContainer

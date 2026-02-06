@@ -11,7 +11,7 @@ local THEME = {
 	head     = Color3.fromRGB(28, 25, 42),      -- Header
 	card     = Color3.fromRGB(30, 27, 45),      -- Cards internas
 	elevated = Color3.fromRGB(36, 29, 58),      -- Elementos elevados (hover)
-	surface  = Color3.fromRGB(147, 76, 255),     -- Superficies interactivas
+	surface  = Color3.fromRGB(81, 62, 102),      -- Superficies interactivas
 
 	-- Text colors
 	text     = Color3.fromRGB(236, 240, 241),   -- Texto principal (casi blanco)
@@ -37,7 +37,7 @@ local THEME = {
 	lightAlpha     = 0.2,   -- Ligeramente transparente
 	frameAlpha     = 0.25,  -- Frames principales
 	mediumAlpha    = 0.5,   -- Medio transparente
-	heavyAlpha     = 0.85,  -- Muy transparente
+	heavyAlpha     = 0.70,  -- Muy transparente
 	invisibleAlpha = 1,     -- Elementos invisibles
 
 	-- Panel sizes

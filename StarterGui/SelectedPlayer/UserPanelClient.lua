@@ -29,7 +29,6 @@ local SELECTED_CURSOR = "rbxassetid://84923889690331"
 local remotesFolder = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("UserPanel")
 local Remotes = {
 	GetUserData = remotesFolder:WaitForChild("GetUserData"),
-	RefreshUserData = remotesFolder:FindFirstChild("RefreshUserData"),  -- Puede no existir
 	GetUserDonations = remotesFolder:WaitForChild("GetUserDonations"),
 	GetGamePasses = remotesFolder:WaitForChild("GetGamePasses"),
 	DonationNotify = remotesFolder:FindFirstChild("DonationNotify"),
@@ -55,7 +54,6 @@ local GiveSuperLikeEvent = LikesEvents:WaitForChild("GiveSuperLikeEvent")
 
 -- Sistema de regalos (como SelectedPlayer.lua)
 local Gifting = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Remotes"):FindFirstChild("Gifting")
-local GiftingConfig = Gifting and require(ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Modules"):FindFirstChild("Config")) or nil
 
 -- Highlight del SelectedPlayer
 local SelectedPlayerModule = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("SelectedPlayer")
@@ -142,8 +140,7 @@ end
 local LikesSystem = {
 	Cooldowns = {
 		Like = {}
-	},
-	IsSending = false
+	}
 }
 
 local function checkLocalCooldown(targetUserId)
@@ -177,24 +174,16 @@ local CONFIG = {
 	PANEL_WIDTH = 280,
 	PANEL_HEIGHT = 350,
 	PANEL_PADDING = 12,
-
 	AVATAR_HEIGHT = 200,
 	AVATAR_ZOOM = 1.2,
-
-
 	STATS_WIDTH = 70,
 	STATS_ITEM_HEIGHT = 50,
-
 	BUTTON_HEIGHT = 38,
 	BUTTON_GAP = 8,
 	BUTTON_CORNER = 10,
-
 	CARD_SIZE = 75,
-
 	ANIM_FAST = 0.12,
 	ANIM_NORMAL = 0.2,
-	ANIM_SLOW = 0.3,
-
 	AVATAR_CACHE_TIME = 300,
 	AUTO_REFRESH_INTERVAL = 60,
 	MAX_RAYCAST_DISTANCE = 80,
@@ -271,17 +260,13 @@ end
 
 -- Oscurecer un Color3 mezclándolo con negro
 local function darkenColor(color, amount)
-	amount = amount or 0.2
-	if amount < 0 then amount = 0 end
-	if amount > 1 then amount = 1 end
+	amount = math.clamp(amount or 0.2, 0, 1)
 	return color:Lerp(Color3.new(0, 0, 0), amount)
 end
 
 -- Oscurecer más agresivamente, pensado solo para paneles (fondo negro intenso)
 local function darkenFullColor(color, amount)
-	amount = amount or 0.93
-	if amount < 0 then amount = 0 end
-	if amount > 1 then amount = 1 end
+	amount = math.clamp(amount or 0.93, 0, 1)
 	return color:Lerp(Color3.new(0, 0, 0), amount)
 end
 
@@ -400,19 +385,33 @@ end
 -- ═══════════════════════════════════════════════════════════════
 if Remotes.DonationNotify then
 	Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
-		-- Notificación de donación recibida
 		if NotificationSystem then
 			NotificationSystem:Success("Donación", "Recibiste una donación de " .. utf8.char(0xE002) .. amount, 4)
 		end
 	end)
 end
 
+-- Listener unificado para donaciones (notificación + chat)
 if Remotes.DonationMessage then
 	Remotes.DonationMessage.OnClientEvent:Connect(function(donatorName, amount, recipientName)
-		-- Notificación de donación realizada
+		-- Notificación
 		if NotificationSystem then
 			NotificationSystem:Success("Donación", "Donaste " .. utf8.char(0xE002) .. amount .. " a " .. recipientName, 4)
 		end
+		
+		-- Mensaje en chat
+		local displayName = recipientName
+		if recipientName == "Panda Mania' [Games]" or recipientName == "Panda15Fps" or recipientName == "Panda Mania' [UGC]" then
+			displayName = "Zona Peruana"
+		end
+		
+		pcall(function()
+			local TextChannels = TextChatService:WaitForChild("TextChannels")
+			local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+			RBXSystem:DisplaySystemMessage(
+				'<font color="#8762FF"><b>' .. donatorName .. " donó " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+			)
+		end)
 	end)
 end
 
@@ -435,37 +434,14 @@ if GiveSuperLikeEvent then
 	GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data) handleLikeEvent(action, true) end)
 end
 
--- Listener para donaciones (GLOBAL - PERSISTENTE)
-if Remotes.DonationMessage then
-	Remotes.DonationMessage.OnClientEvent:Connect(function(donatingPlayer, amount, donatedPlayer)
-		local TextChannels = TextChatService:WaitForChild("TextChannels")
-		local RBXSystem = TextChannels:WaitForChild("RBXSystem")
-
-		-- Verificar si el receptor de la donación debe ser reemplazado
-		local displayName = donatedPlayer
-		if donatedPlayer == "Panda Mania' [Games]" or donatedPlayer == "Panda15Fps" or donatedPlayer == "Panda Mania' [UGC]" then
-			displayName = "Zona Peruana"
-		end
-
-		-- Mostrar mensaje de donación en el chat del sistema
-		RBXSystem:DisplaySystemMessage(
-			'<font color="#8762FF"><b>' .. donatingPlayer .. " donó " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
-		)
-	end)
-end
-
 -- Listener para notificaciones de likes en chat
 local BroadcastEvent = LikesEvents:FindFirstChild("BroadcastEvent")
 if BroadcastEvent then
 	BroadcastEvent.OnClientEvent:Connect(function(action, data)
 		if action == "LikeNotification" then
-			local TextChatService = game:GetService("TextChatService")
-			local message
-			if data.IsSuperLike then
-				message = '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
-			else
-				message = '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
-			end
+			local message = data.IsSuperLike 
+				and '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
+				or '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
 
 			pcall(function()
 				local TextChannels = TextChatService:WaitForChild("TextChannels")
@@ -481,11 +457,7 @@ end
 -- ═══════════════════════════════════════════════════════════════
 if SyncUpdate then
 	SyncUpdate.OnClientEvent:Connect(function(payload)
-		if not NotificationSystem or not payload then return end
-		
-		-- ✅ Mostrar notificación de ÉXITO cuando se sincroniza correctamente
-		-- (EmoteUI.lua maneja los errores y la actualización visual)
-		if payload.success and payload.isSynced and payload.leaderName then
+		if NotificationSystem and payload and payload.success and payload.isSynced and payload.leaderName then
 			NotificationSystem:Success("Sync", "Sincronizado con: " .. payload.leaderName, 4)
 		end
 	end)
