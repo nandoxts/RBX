@@ -88,12 +88,12 @@ function ClanViews.createMainView(parent, clanData, playerRole, screenGui, loadP
 	local bannerImage = Instance.new("ImageLabel")
 	bannerImage.Size, bannerImage.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
 	bannerImage.Image = clanData.logo or ""
-	bannerImage.ScaleType, bannerImage.ImageTransparency, bannerImage.ZIndex = Enum.ScaleType.Crop, 0.4, 104
+	bannerImage.ScaleType, bannerImage.ImageTransparency, bannerImage.ZIndex = Enum.ScaleType.Crop, THEME.mediumAlpha, 104
 	bannerImage.Parent = infoCard
 	UI.rounded(bannerImage, 12)
 
 	local bannerGradient = Instance.new("UIGradient")
-	bannerGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.new(0.06, 0.06, 0.08)), ColorSequenceKeypoint.new(1, Color3.new(0.1, 0.1, 0.12))}
+	bannerGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, THEME.bg), ColorSequenceKeypoint.new(1, THEME.card)}
 	bannerGradient.Rotation = 90
 	bannerGradient.Parent = bannerImage
 
@@ -191,37 +191,37 @@ function ClanViews.createMainView(parent, clanData, playerRole, screenGui, loadP
 		local buttonWidth = buttonCount == 2 and UDim2.new(0.5, -4, 1, 0) or UDim2.new(1, 0, 1, 0)
 
 		if canEditName then
-			local btnEditName = UI.button({size = buttonWidth, bg = THEME.surface, text = "EDITAR NOMBRE", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
+			local btnEditName = UI.button({size = buttonWidth, bg = THEME.card, text = "EDITAR NOMBRE", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
 			btnEditName.LayoutOrder = 1
-			UI.hover(btnEditName, THEME.surface, THEME.stroke)
+			UI.hover(btnEditName, THEME.card, THEME.elevated)
 			Memory:track(btnEditName.MouseButton1Click:Connect(function() ClanActions:editName(screenGui, clanData, loadPlayerClan) end))
 		end
 
 		if canEditTag then
-			local btnEditTag = UI.button({size = buttonWidth, bg = THEME.surface, text = "EDITAR TAG", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
+			local btnEditTag = UI.button({size = buttonWidth, bg = THEME.card, text = "EDITAR TAG", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 105, parent = editRowContainer, corner = 10})
 			btnEditTag.LayoutOrder = 2
-			UI.hover(btnEditTag, THEME.surface, THEME.stroke)
+			UI.hover(btnEditTag, THEME.card, THEME.elevated)
 			Memory:track(btnEditTag.MouseButton1Click:Connect(function() ClanActions:editTag(screenGui, clanData, loadPlayerClan) end))
 		end
 	end
 
 	if canChangeColor then
-		local btnEditColor = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.surface, text = "EDITAR COLOR", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
+		local btnEditColor = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.card, text = "EDITAR COLOR", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
 		btnEditColor.LayoutOrder = nextOrder()
-		UI.hover(btnEditColor, THEME.surface, THEME.stroke)
+		UI.hover(btnEditColor, THEME.card, THEME.elevated)
 		Memory:track(btnEditColor.MouseButton1Click:Connect(function() ClanActions:editColor(screenGui, loadPlayerClan) end))
 	end
 
 	if canChangeEmoji then
-		local btnEditEmoji = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.surface, text = "EDITAR EMOJI", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
+		local btnEditEmoji = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.card, text = "EDITAR EMOJI", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
 		btnEditEmoji.LayoutOrder = nextOrder()
-		UI.hover(btnEditEmoji, THEME.surface, THEME.stroke)
+		UI.hover(btnEditEmoji, THEME.card, THEME.elevated)
 		Memory:track(btnEditEmoji.MouseButton1Click:Connect(function() ClanActions:editEmoji(screenGui, loadPlayerClan) end))
 	end
 
 	-- BOTÓN SALIR/DISOLVER
 	local actionBtnText = playerRole == "owner" and "DISOLVER CLAN" or "SALIR DEL CLAN"
-	local actionBtn = UI.button({size = UDim2.new(1, -8, 0, 44), bg = THEME.warn, text = actionBtnText, color = Color3.new(1, 1, 1), textSize = 13, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 8})
+	local actionBtn = UI.button({size = UDim2.new(1, -8, 0, 44), bg = THEME.warn, text = actionBtnText, color = THEME.text, textSize = 13, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 8})
 	actionBtn.LayoutOrder = nextOrder()
 	UI.hover(actionBtn, THEME.warn, THEME.btnDanger)
 

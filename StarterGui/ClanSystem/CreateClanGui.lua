@@ -79,7 +79,7 @@ local closeBtn = UI.button({name = "CloseBtn", size = UDim2.new(0, 36, 0, 36), p
 UI.stroked(closeBtn, 0.4)
 
 Memory:track(closeBtn.MouseEnter:Connect(function()
-	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(180, 60, 60), TextColor3 = Color3.new(1, 1, 1)}):Play()
+	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.btnDanger, TextColor3 = THEME.text}):Play()
 end))
 Memory:track(closeBtn.MouseLeave:Connect(function()
 	TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.card, TextColor3 = THEME.muted}):Play()
@@ -88,7 +88,7 @@ end))
 -- ════════════════════════════════════════════════════════════════
 -- TABS
 -- ════════════════════════════════════════════════════════════════
-local tabNav = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bg = THEME.panel, z = 101, parent = panel})
+local tabNav = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bgT = 1, z = 101, parent = panel})
 
 local navList = Instance.new("UIListLayout")
 navList.FillDirection = Enum.FillDirection.Horizontal

@@ -114,7 +114,7 @@ function ClanHelpers.createSelector(items, config)
 			indicator = UI.frame({
 				size = UDim2.new(1, -6, 1, -6), pos = UDim2.new(0, 3, 0, 3), bgT = 1,
 				z = (config.z or 105) + 2, parent = btn, corner = 4,
-				stroke = true, strokeA = i == 1 and 0 or 1, strokeC = Color3.new(1, 1, 1)
+				stroke = true, strokeA = i == 1 and 0 or 1, strokeC = THEME.text
 			})
 		end
 
@@ -155,7 +155,7 @@ function ClanHelpers.createNavCard(config)
 		avatarPreview = UI.frame({name = "AvatarPreview", size = UDim2.new(0, 70, 0, 28), pos = UDim2.new(1, -115, 0.5, -14), bgT = 1, z = 105, parent = card})
 	end
 
-	UI.hover(card, THEME.card, THEME.hover)
+	UI.hover(card, THEME.card, THEME.elevated)
 
 	local clickBtn = Instance.new("TextButton")
 	clickBtn.Size, clickBtn.BackgroundTransparency, clickBtn.Text, clickBtn.ZIndex = UDim2.new(1, 0, 1, 0), 1, "", 107

@@ -61,28 +61,6 @@ local Icon = require(ReplicatedStorage:WaitForChild("Icon"))
 local VIPGamePassID = ConfigModule.VIP
 
 -- ════════════════════════════════════════════════════════════════════════════════
--- TEMA
--- ════════════════════════════════════════════════════════════════════════════════
-
-local Theme = {
-	Background = THEME_CONFIG.bg,
-	BackgroundSecondary = THEME_CONFIG.panel,
-	BackgroundTertiary = THEME_CONFIG.elevated,
-	Primary = THEME_CONFIG.accent,
-	Warning = THEME_CONFIG.warn,
-	TextPrimary = THEME_CONFIG.text,
-	TextSecondary = THEME_CONFIG.muted,
-	TextMuted = THEME_CONFIG.subtle,
-	Border = THEME_CONFIG.stroke,
-	-- Todos los tipos usan el mismo color del tema
-	Card = THEME_CONFIG.elevated,
-	Trending = THEME_CONFIG.elevated,
-	VIP = THEME_CONFIG.elevated,
-	Recommended = THEME_CONFIG.elevated,
-	Normal = THEME_CONFIG.elevated,
-}
-
--- ════════════════════════════════════════════════════════════════════════════════
 -- VARIABLES
 -- ════════════════════════════════════════════════════════════════════════════════
 
@@ -133,21 +111,11 @@ end
 
 local function CreateStroke(parent, color, thickness, transparency)
 	local s = Instance.new("UIStroke")
-	s.Color = color or Theme.Border
+	s.Color = color or THEME_CONFIG.stroke
 	s.Thickness = thickness or 1
 	s.Transparency = transparency or 0
 	s.Parent = parent
 	return s
-end
-
--- Función reutilizable para oscurecer colores (como en UserPanelClient)
-local function DarkenColor(color, factor)
-	factor = factor or 0.7
-	return Color3.new(
-		color.R * factor,
-		color.G * factor,
-		color.B * factor
-	)
 end
 
 local function GetCardHeight()
@@ -254,7 +222,7 @@ local function AplicarEfectoActivo(card)
 	end
 
 	if overlay then
-		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = 0.85}))
+		TrackTween(card, Tween(overlay, 0.3, {BackgroundTransparency = THEME_CONFIG.heavyAlpha}))
 	end
 end
 
@@ -269,7 +237,7 @@ local function RemoverEfectoActivo(card)
 	end
 
 	if overlay then
-		TrackTween(card, Tween(overlay, 0.2, {BackgroundTransparency = 1}))
+		TrackTween(card, Tween(overlay, 0.2, {BackgroundTransparency = THEME_CONFIG.invisibleAlpha}))
 	end
 end
 
@@ -286,8 +254,8 @@ ScreenGui.Parent = PlayerGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.BackgroundColor3 = Theme.Background:Lerp(Theme.Primary, 0.08)
-MainFrame.BackgroundTransparency = 0.25 -- ✨ Semi-transparente (glassmorphism global)
+MainFrame.BackgroundColor3 = THEME_CONFIG.bg
+MainFrame.BackgroundTransparency = THEME_CONFIG.frameAlpha
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.AnchorPoint = Vector2.new(0, 0.5)
@@ -305,7 +273,7 @@ end
 ActualizarTamanoFrame()
 
 CreateCorner(MainFrame, 12)
-CreateStroke(MainFrame, Theme.Border, 1, 0.5)
+CreateStroke(MainFrame, THEME_CONFIG.stroke, 1, 0.5)
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- TABS
@@ -315,8 +283,8 @@ local TabsContainer = Instance.new("Frame")
 TabsContainer.Name = "TabsContainer"
 TabsContainer.Size = UDim2.new(1, -16, 0, IsMobile and 28 or 34)
 TabsContainer.Position = UDim2.new(0, 8, 0, 8)
-TabsContainer.BackgroundColor3 = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
-TabsContainer.BackgroundTransparency = 0.2 -- ✨ Semi-transparente
+TabsContainer.BackgroundColor3 = THEME_CONFIG.panel
+TabsContainer.BackgroundTransparency = THEME_CONFIG.lightAlpha
 TabsContainer.BorderSizePixel = 0
 TabsContainer.Parent = MainFrame
 CreateCorner(TabsContainer, 8)
@@ -325,7 +293,7 @@ local TabIndicator = Instance.new("Frame")
 TabIndicator.Name = "TabIndicator"
 TabIndicator.Size = UDim2.new(0.5, -4, 1, -4)
 TabIndicator.Position = UDim2.new(0, 2, 0, 2)
-TabIndicator.BackgroundColor3 = Theme.Primary
+TabIndicator.BackgroundColor3 = THEME_CONFIG.accent
 TabIndicator.BorderSizePixel = 0
 TabIndicator.ZIndex = 2
 TabIndicator.Parent = TabsContainer
@@ -334,10 +302,10 @@ CreateCorner(TabIndicator, 6)
 local TabTodos = Instance.new("TextButton")
 TabTodos.Name = "TabTodos"
 TabTodos.Size = UDim2.new(0.5, 0, 1, 0)
-TabTodos.BackgroundTransparency = 1
+TabTodos.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 TabTodos.Font = Enum.Font.GothamBold
 TabTodos.Text = "Todos"
-TabTodos.TextColor3 = Theme.TextPrimary
+TabTodos.TextColor3 = THEME_CONFIG.text
 TabTodos.TextSize = IsMobile and 14 or 16
 TabTodos.ZIndex = 3
 TabTodos.Parent = TabsContainer
@@ -346,10 +314,10 @@ local TabFavoritos = Instance.new("TextButton")
 TabFavoritos.Name = "TabFavoritos"
 TabFavoritos.Size = UDim2.new(0.5, 0, 1, 0)
 TabFavoritos.Position = UDim2.new(0.5, 0, 0, 0)
-TabFavoritos.BackgroundTransparency = 1
+TabFavoritos.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 TabFavoritos.Font = Enum.Font.GothamBold
 TabFavoritos.Text = "Favoritos"
-TabFavoritos.TextColor3 = Theme.TextSecondary
+TabFavoritos.TextColor3 = THEME_CONFIG.muted
 TabFavoritos.TextSize = IsMobile and 14 or 16
 TabFavoritos.ZIndex = 3
 TabFavoritos.Parent = TabsContainer
@@ -368,8 +336,8 @@ if mostrarBusqueda then
 	SearchContainer.Name = "SearchContainer"
 	SearchContainer.Size = UDim2.new(1, -16, 0, IsMobile and 30 or 36)
 	SearchContainer.Position = UDim2.new(0, 8, 0, posY)
-	SearchContainer.BackgroundColor3 = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
-	SearchContainer.BackgroundTransparency = 0
+	SearchContainer.BackgroundColor3 = THEME_CONFIG.panel
+	SearchContainer.BackgroundTransparency = THEME_CONFIG.opaqueAlpha
 	SearchContainer.BorderSizePixel = 0
 	SearchContainer.ClipsDescendants = true
 	SearchContainer.Parent = MainFrame
@@ -380,7 +348,7 @@ if mostrarBusqueda then
 	SearchIconContainer.Name = "SearchIconContainer"
 	SearchIconContainer.Size = UDim2.new(0, IsMobile and 20 or 26, 1, 0)
 	SearchIconContainer.Position = UDim2.new(0, IsMobile and 4 or 6, 0, 0)
-	SearchIconContainer.BackgroundTransparency = 1
+	SearchIconContainer.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 	SearchIconContainer.Parent = SearchContainer
 
 	-- Círculo de la lupa
@@ -388,10 +356,10 @@ if mostrarBusqueda then
 	SearchCircle.Name = "SearchCircle"
 	SearchCircle.Size = UDim2.new(0, IsMobile and 10 or 12, 0, IsMobile and 10 or 12)
 	SearchCircle.Position = UDim2.new(0.5, IsMobile and -6 or -7, 0.5, IsMobile and -6 or -7)
-	SearchCircle.BackgroundTransparency = 1
+	SearchCircle.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 	SearchCircle.Parent = SearchIconContainer
 	CreateCorner(SearchCircle, 100)
-	local circleStroke = CreateStroke(SearchCircle, Theme.TextMuted, IsMobile and 1.5 or 2, 0.3)
+	local circleStroke = CreateStroke(SearchCircle, THEME_CONFIG.subtle, IsMobile and 1.5 or 2, 0.3)
 
 	-- Línea diagonal de la lupa
 	local SearchHandle = Instance.new("Frame")
@@ -399,8 +367,8 @@ if mostrarBusqueda then
 	SearchHandle.Size = UDim2.new(0, IsMobile and 5 or 6, 0, IsMobile and 1.5 or 2)
 	SearchHandle.Position = UDim2.new(0.5, IsMobile and 2 or 3, 0.5, IsMobile and 3 or 4)
 	SearchHandle.Rotation = 45
-	SearchHandle.BackgroundColor3 = Theme.TextMuted
-	SearchHandle.BackgroundTransparency = 0.3
+	SearchHandle.BackgroundColor3 = THEME_CONFIG.subtle
+	SearchHandle.BackgroundTransparency = THEME_CONFIG.mediumAlpha
 	SearchHandle.BorderSizePixel = 0
 	SearchHandle.Parent = SearchIconContainer
 	CreateCorner(SearchHandle, 2)
@@ -409,12 +377,12 @@ if mostrarBusqueda then
 	SearchBox.Name = "SearchBox"
 	SearchBox.Size = UDim2.new(1, IsMobile and -28 or -36, 1, 0)
 	SearchBox.Position = UDim2.new(0, IsMobile and 24 or 30, 0, 0)
-	SearchBox.BackgroundTransparency = 1
+	SearchBox.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 	SearchBox.Font = Enum.Font.GothamMedium
 	SearchBox.PlaceholderText = "Buscar baile..."
-	SearchBox.PlaceholderColor3 = Theme.TextMuted
+	SearchBox.PlaceholderColor3 = THEME_CONFIG.subtle
 	SearchBox.Text = ""
-	SearchBox.TextColor3 = Theme.TextPrimary
+	SearchBox.TextColor3 = THEME_CONFIG.text
 	SearchBox.TextSize = IsMobile and 13 or 15
 	SearchBox.TextXAlignment = Enum.TextXAlignment.Left
 	SearchBox.TextTruncate = Enum.TextTruncate.AtEnd
@@ -424,13 +392,13 @@ if mostrarBusqueda then
 
 	-- Animación al enfocar
 	TrackGlobalConnection(SearchBox.Focused:Connect(function()
-		Tween(circleStroke, 0.2, {Color = Theme.Primary, Transparency = 0})
-		Tween(SearchHandle, 0.2, {BackgroundColor3 = Theme.Primary, BackgroundTransparency = 0})
+		Tween(circleStroke, 0.2, {Color = THEME_CONFIG.accent, Transparency = 0})
+		Tween(SearchHandle, 0.2, {BackgroundColor3 = THEME_CONFIG.accent, BackgroundTransparency = THEME_CONFIG.opaqueAlpha})
 	end))
 
 	TrackGlobalConnection(SearchBox.FocusLost:Connect(function()
-		Tween(circleStroke, 0.2, {Color = Theme.TextMuted, Transparency = 0.3})
-		Tween(SearchHandle, 0.2, {BackgroundColor3 = Theme.TextMuted, BackgroundTransparency = 0.3})
+		Tween(circleStroke, 0.2, {Color = THEME_CONFIG.subtle, Transparency = THEME_CONFIG.mediumAlpha})
+		Tween(SearchHandle, 0.2, {BackgroundColor3 = THEME_CONFIG.subtle, BackgroundTransparency = THEME_CONFIG.mediumAlpha})
 	end))
 
 	posY = posY + (IsMobile and 34 or 40)
@@ -446,7 +414,7 @@ local ContentArea = Instance.new("Frame")
 ContentArea.Name = "ContentArea"
 ContentArea.Size = UDim2.new(1, -16, 1, -(posY + 8))
 ContentArea.Position = UDim2.new(0, 8, 0, posY)
-ContentArea.BackgroundTransparency = 1
+ContentArea.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 ContentArea.ClipsDescendants = false
 ContentArea.Parent = MainFrame
 
@@ -459,7 +427,7 @@ SyncOverlay.Name = "SyncOverlay"
 SyncOverlay.Size = UDim2.new(1, 0, 1, 0)
 SyncOverlay.Position = UDim2.new(0, 0, 0, 0)
 SyncOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-SyncOverlay.BackgroundTransparency = 0.1
+SyncOverlay.BackgroundTransparency = THEME_CONFIG.subtleAlpha
 SyncOverlay.BorderSizePixel = 0
 SyncOverlay.Text = ""
 SyncOverlay.AutoButtonColor = false
@@ -473,25 +441,25 @@ local SyncContainer = Instance.new("Frame")
 SyncContainer.Name = "SyncContainer"
 SyncContainer.Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)
 SyncContainer.Position = UDim2.new(0, 20, 0.5, IsMobile and -60 or -70)
-SyncContainer.BackgroundColor3 = Theme.BackgroundTertiary
-SyncContainer.BackgroundTransparency = 0.3
+SyncContainer.BackgroundColor3 = THEME_CONFIG.elevated
+SyncContainer.BackgroundTransparency = THEME_CONFIG.mediumAlpha
 SyncContainer.BorderSizePixel = 0
 SyncContainer.ZIndex = 101
 SyncContainer.Parent = SyncOverlay
 CreateCorner(SyncContainer, IsMobile and 12 or 16)
 
 -- Borde sutil con efecto glow
-local ContainerStroke = CreateStroke(SyncContainer, Theme.Primary, IsMobile and 1.5 or 2, 0.5)
+local ContainerStroke = CreateStroke(SyncContainer, THEME_CONFIG.accent, IsMobile and 1.5 or 2, 0.5)
 
 -- Texto secundario: "Sincronizado" (arriba)
 local SyncLabel = Instance.new("TextLabel")
 SyncLabel.Name = "SyncLabel"
 SyncLabel.Size = UDim2.new(1, -20, 0, IsMobile and 16 or 18)
 SyncLabel.Position = UDim2.new(0, 10, 0.5, IsMobile and -28 or -32)
-SyncLabel.BackgroundTransparency = 1
+SyncLabel.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 SyncLabel.Font = Enum.Font.GothamMedium
 SyncLabel.Text = "Sincronizado"
-SyncLabel.TextColor3 = Theme.TextSecondary
+SyncLabel.TextColor3 = THEME_CONFIG.muted
 SyncLabel.TextSize = IsMobile and 11 or 13
 SyncLabel.ZIndex = 102
 SyncLabel.Parent = SyncContainer
@@ -501,10 +469,10 @@ local SyncPlayerName = Instance.new("TextLabel")
 SyncPlayerName.Name = "SyncPlayerName"
 SyncPlayerName.Size = UDim2.new(1, -20, 0, IsMobile and 28 or 32)
 SyncPlayerName.Position = UDim2.new(0, 10, 0.5, IsMobile and -10 or -12)
-SyncPlayerName.BackgroundTransparency = 1
+SyncPlayerName.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 SyncPlayerName.Font = Enum.Font.GothamBold
 SyncPlayerName.Text = "Player Name"
-SyncPlayerName.TextColor3 = Theme.Primary
+SyncPlayerName.TextColor3 = THEME_CONFIG.accent
 SyncPlayerName.TextSize = IsMobile and 16 or 20
 SyncPlayerName.TextScaled = false
 SyncPlayerName.TextWrapped = false
@@ -518,10 +486,10 @@ local SyncHint = Instance.new("TextLabel")
 SyncHint.Name = "SyncHint"
 SyncHint.Size = UDim2.new(1, -20, 0, IsMobile and 16 or 18)
 SyncHint.Position = UDim2.new(0, 10, 0.5, IsMobile and 20 or 24)
-SyncHint.BackgroundTransparency = 1
+SyncHint.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 SyncHint.Font = Enum.Font.GothamMedium
 SyncHint.Text = "Toca para desincronizarte"
-SyncHint.TextColor3 = Theme.TextMuted
+SyncHint.TextColor3 = THEME_CONFIG.subtle
 SyncHint.TextSize = IsMobile and 10 or 11
 SyncHint.ZIndex = 102
 SyncHint.Parent = SyncContainer
@@ -531,19 +499,19 @@ local function SetSyncOverlay(synced, syncedPlayerName)
 	IsSynced = synced
 	if synced then
 		SyncOverlay.Visible = true
-		SyncOverlay.BackgroundTransparency = 1
+		SyncOverlay.BackgroundTransparency = THEME_CONFIG.invisibleAlpha
 		SyncContainer.Size = UDim2.new(1, -40, 0, 0)
 
 		-- Actualizar nombre del jugador
 		SyncPlayerName.Text = syncedPlayerName or "Desconocido"
 
 		-- Animaciones de entrada
-		Tween(SyncOverlay, 0.3, {BackgroundTransparency = 0.3})
+		Tween(SyncOverlay, 0.3, {BackgroundTransparency = THEME_CONFIG.mediumAlpha})
 		Tween(SyncContainer, 0.4, {Size = UDim2.new(1, -40, 0, IsMobile and 120 or 140)}, Enum.EasingStyle.Back)
 	else
 		-- Animaciones de salida (similares a la entrada pero en reversa)
 		Tween(SyncContainer, 0.3, {Size = UDim2.new(1, -40, 0, 0)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-		local t = Tween(SyncOverlay, 0.3, {BackgroundTransparency = 1})
+		local t = Tween(SyncOverlay, 0.3, {BackgroundTransparency = THEME_CONFIG.invisibleAlpha})
 		if t then
 			t.Completed:Connect(function()
 				SyncOverlay.Visible = false
@@ -563,17 +531,17 @@ end)
 
 -- Hover en el overlay
 SyncOverlay.MouseEnter:Connect(function()
-	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.2})
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = THEME_CONFIG.lightAlpha})
 	Tween(SyncPlayerName, 0.15, {TextColor3 = Color3.fromRGB(255, 255, 255)})
-	Tween(SyncContainer, 0.15, {BackgroundTransparency = 0.2})
-	Tween(ContainerStroke, 0.15, {Transparency = 0.2})
+	Tween(SyncContainer, 0.15, {BackgroundTransparency = THEME_CONFIG.lightAlpha})
+	Tween(ContainerStroke, 0.15, {Transparency = THEME_CONFIG.lightAlpha})
 end)
 
 SyncOverlay.MouseLeave:Connect(function()
-	Tween(SyncOverlay, 0.15, {BackgroundTransparency = 0.3})
-	Tween(SyncPlayerName, 0.15, {TextColor3 = Theme.Primary})
-	Tween(SyncContainer, 0.15, {BackgroundTransparency = 0.3})
-	Tween(ContainerStroke, 0.15, {Transparency = 0.5})
+	Tween(SyncOverlay, 0.15, {BackgroundTransparency = THEME_CONFIG.mediumAlpha})
+	Tween(SyncPlayerName, 0.15, {TextColor3 = THEME_CONFIG.accent})
+	Tween(SyncContainer, 0.15, {BackgroundTransparency = THEME_CONFIG.mediumAlpha})
+	Tween(ContainerStroke, 0.15, {Transparency = THEME_CONFIG.mediumAlpha})
 end)
 
 -- Nota: el cliente ya no usa valores en el Character; escucha `SyncUpdate` desde el servidor
@@ -602,8 +570,8 @@ ScrollbarContainer.Parent = ContentArea
 local ScrollbarTrack = Instance.new("Frame")
 ScrollbarTrack.Name = "ScrollbarTrack"
 ScrollbarTrack.Size = UDim2.new(1, 0, 1, 0)
-ScrollbarTrack.BackgroundColor3 = Theme.Border
-ScrollbarTrack.BackgroundTransparency = 0.93
+ScrollbarTrack.BackgroundColor3 = THEME_CONFIG.stroke
+ScrollbarTrack.BackgroundTransparency = THEME_CONFIG.heavyAlpha
 ScrollbarTrack.BorderSizePixel = 0
 ScrollbarTrack.Parent = ScrollbarContainer
 CreateCorner(ScrollbarTrack, 4)
@@ -612,8 +580,8 @@ local ScrollbarThumb = Instance.new("Frame")
 ScrollbarThumb.Name = "ScrollbarThumb"
 ScrollbarThumb.Size = UDim2.new(1, 0, 0.3, 0)
 ScrollbarThumb.Position = UDim2.new(0, 0, 0, 0)
-ScrollbarThumb.BackgroundColor3 = Theme.Primary
-ScrollbarThumb.BackgroundTransparency = 0.4
+ScrollbarThumb.BackgroundColor3 = THEME_CONFIG.accent
+ScrollbarThumb.BackgroundTransparency = THEME_CONFIG.mediumAlpha
 ScrollbarThumb.BorderSizePixel = 0
 ScrollbarThumb.ZIndex = 11
 ScrollbarThumb.Parent = ScrollbarContainer
@@ -645,11 +613,11 @@ TrackGlobalConnection(ScrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize")
 
 -- Hover en scrollbar
 TrackGlobalConnection(ScrollbarThumb.MouseEnter:Connect(function()
-	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = 0.1})
+	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = THEME_CONFIG.subtleAlpha})
 end))
 
 TrackGlobalConnection(ScrollbarThumb.MouseLeave:Connect(function()
-	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = 0.4})
+	Tween(ScrollbarThumb, 0.15, {BackgroundTransparency = THEME_CONFIG.mediumAlpha})
 end))
 
 local ListLayout = Instance.new("UIListLayout")
@@ -828,7 +796,7 @@ EmptyMessage.Size = UDim2.new(0, 0, 0, 0)
 EmptyMessage.BackgroundTransparency = 1
 EmptyMessage.Font = Enum.Font.GothamMedium
 EmptyMessage.Text = "Sin favoritos\nToca el ícono en cualquier baile"
-EmptyMessage.TextColor3 = Theme.TextMuted
+EmptyMessage.TextColor3 = THEME_CONFIG.subtle
 EmptyMessage.TextSize = IsMobile and 13 or 15
 EmptyMessage.Visible = false
 EmptyMessage.LayoutOrder = 999
@@ -871,9 +839,9 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	local esFavorito = EstaEnFavoritos(id)
 	local cardHeight = GetCardHeight()
 
-	-- Mismo color que el input de búsqueda
-	local cardColorNormal = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.06)
-	local cardColorHover = Theme.BackgroundSecondary:Lerp(Theme.Primary, 0.14)
+	-- Colores desde ThemeConfig
+	local cardColorNormal = THEME_CONFIG.panel
+	local cardColorHover = THEME_CONFIG.elevated
 
 	local card = Instance.new("TextButton")
 	card.Name = "Card_" .. id
@@ -896,7 +864,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	local activeOverlay = Instance.new("Frame")
 	activeOverlay.Name = "ActiveOverlay"
 	activeOverlay.Size = UDim2.new(1, 0, 1, 0)
-	activeOverlay.BackgroundColor3 = Theme.Primary
+	activeOverlay.BackgroundColor3 = THEME_CONFIG.accent
 	activeOverlay.BackgroundTransparency = 1
 	activeOverlay.BorderSizePixel = 0
 	activeOverlay.ZIndex = 2
@@ -906,7 +874,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	-- Borde activo
 	local activeBorder = Instance.new("UIStroke")
 	activeBorder.Name = "ActiveBorder"
-	activeBorder.Color = Theme.Primary
+	activeBorder.Color = THEME_CONFIG.accent
 	activeBorder.Thickness = 2
 	activeBorder.Transparency = 1
 	activeBorder.Parent = card
@@ -919,7 +887,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = nombre
-	nameLabel.TextColor3 = Theme.TextPrimary
+	nameLabel.TextColor3 = THEME_CONFIG.text
 	nameLabel.TextSize = IsMobile and 12 or 15
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -943,7 +911,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 	favBtn.BackgroundTransparency = 1
 	-- Assets diferentes: sin favorito (130993498569336) vs con favorito (80912525064014)
 	favBtn.Image = esFavorito and "rbxassetid://80912525064014" or "rbxassetid://130993498569336"
-	favBtn.ImageColor3 = Theme.Primary
+	favBtn.ImageColor3 = THEME_CONFIG.accent
 	favBtn.ImageTransparency = esFavorito and 0 or 0.2
 	favBtn.ZIndex = 5
 	favBtn.Parent = favContainer
@@ -1016,7 +984,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			table.insert(EmotesFavs, id)
 			card:SetAttribute("IsFavorite", true)
 
-			Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0})
+			Tween(favBtn, 0.2, {ImageColor3 = THEME_CONFIG.accent, ImageTransparency = 0})
 			favBtn.Image = "rbxassetid://80912525064014"
 
 			-- Sincronizar otras cards con el mismo ID
@@ -1025,7 +993,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 					local innerBtn = child:FindFirstChild("FavContainer"):FindFirstChild("FavBtn")
 					if innerBtn then
 						innerBtn.Image = "rbxassetid://80912525064014"
-						innerBtn.ImageColor3 = Theme.Primary
+						innerBtn.ImageColor3 = THEME_CONFIG.accent
 						innerBtn.ImageTransparency = 0
 					end
 			end
@@ -1039,12 +1007,11 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			card:SetAttribute("IsFavorite", false)
 
 			if TabActual == "Favoritos" then
-				Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0.5})
-				favBtn.Image = "rbxassetid://130993498569336"
+			Tween(favBtn, 0.2, {ImageColor3 = THEME_CONFIG.accent, ImageTransparency = THEME_CONFIG.mediumAlpha})
 
 				CleanupCard(card)
 
-				Tween(card, 0.25, {BackgroundTransparency = 0.8})
+				Tween(card, 0.25, {BackgroundTransparency = THEME_CONFIG.heavyAlpha})
 				task.delay(0.1, function()
 					if card and card.Parent then
 						local shrink = Tween(card, 0.2, {
@@ -1062,7 +1029,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 					end
 				end)
 			else
-				Tween(favBtn, 0.2, {ImageColor3 = Theme.Primary, ImageTransparency = 0.5})
+				Tween(favBtn, 0.2, {ImageColor3 = THEME_CONFIG.accent, ImageTransparency = THEME_CONFIG.mediumAlpha})
 				favBtn.Image = "rbxassetid://130993498569336"
 				-- Sincronizar otras cards
 				for _, child in ipairs(ScrollFrame:GetChildren()) do
@@ -1070,8 +1037,8 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 						local innerBtn = child:FindFirstChild("FavContainer"):FindFirstChild("FavBtn")
 						if innerBtn then
 							innerBtn.Image = "rbxassetid://130993498569336"
-							innerBtn.ImageColor3 = Theme.Primary
-							innerBtn.ImageTransparency = 0.5
+							innerBtn.ImageColor3 = THEME_CONFIG.accent
+							innerBtn.ImageTransparency = THEME_CONFIG.mediumAlpha
 						end
 					end
 				end
@@ -1209,13 +1176,13 @@ local function CambiarTab(tab)
 
 	if tab == "Todos" then
 		Tween(TabIndicator, 0.25, {Position = UDim2.new(0, 2, 0, 2)}, Enum.EasingStyle.Back)
-		TabTodos.TextColor3 = Theme.TextPrimary
-		TabFavoritos.TextColor3 = Theme.TextSecondary
+		TabTodos.TextColor3 = THEME_CONFIG.text
+		TabFavoritos.TextColor3 = THEME_CONFIG.muted
 		CargarTodos(filtro)
 	else
 		Tween(TabIndicator, 0.25, {Position = UDim2.new(0.5, 2, 0, 2)}, Enum.EasingStyle.Back)
-		TabTodos.TextColor3 = Theme.TextSecondary
-		TabFavoritos.TextColor3 = Theme.TextPrimary
+		TabTodos.TextColor3 = THEME_CONFIG.muted
+		TabFavoritos.TextColor3 = THEME_CONFIG.text
 		CargarFavoritos(filtro)
 	end
 end
