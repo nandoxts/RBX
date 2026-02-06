@@ -106,8 +106,22 @@ end
 local ClanClient = {}
 ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
-ClanClient.onClansUpdated = nil
+ClanClient._updateCallbacks = {}  -- Array de callbacks que se ejecutan
 ClanClient.initialized = false
+
+-- Registrar un nuevo callback para actualizaciones
+function ClanClient:OnClansUpdated(callback)
+	if type(callback) == "function" then
+		table.insert(self._updateCallbacks, callback)
+	end
+end
+
+-- Ejecutar todos los callbacks registrados
+function ClanClient:_fireUpdateCallbacks(clans)
+	for _, callback in ipairs(self._updateCallbacks) do
+		pcall(callback, clans)
+	end
+end
 
 -- Cache
 local clansListCache = nil
@@ -157,25 +171,35 @@ function ClanClient:GetClansList()
 
 	-- Cache de 5 segundos (más eficiente)
 	if clansListCache and (tick() - clansListCacheTime) < 5 then
+		print("[ClanClient:GetClansList] ✅ Retornando del CACHE - edad:", math.floor(tick() - clansListCacheTime), "secs")
 		return clansListCache
 	end
 
+	print("[ClanClient:GetClansList] ⚠️ CACHE EXPIRED - Solicitando servidor...")
 	local allowed = checkThrottle("GetClansList")
-	if not allowed then return clansListCache or {} end
+	if not allowed then 
+		print("[ClanClient:GetClansList] ❌ Throttled - Retornando cache antiguo")
+		return clansListCache or {} 
+	end
 
 	local remote = getRemote("GetClansList")
-	if not remote then return clansListCache or {} end
+	if not remote then 
+		print("[ClanClient:GetClansList] ❌ Remote no encontrado")
+		return clansListCache or {} 
+	end
 
 	local success, clans = pcall(function()
 		return remote:InvokeServer()
 	end)
 
 	if success and clans then
+		print("[ClanClient:GetClansList] ✅ Actualizado desde servidor -", #clans, "clanes")
 		clansListCache = clans
 		clansListCacheTime = tick()
 		return clans
 	end
 
+	print("[ClanClient:GetClansList] ❌ Error obteniendo lista - Retornando cache")
 	return clansListCache or {}
 end
 
@@ -242,17 +266,59 @@ end
 -- EDICIÓN DEL CLAN
 -- ════════════════════════════════════════════════════════════════
 function ClanClient:ChangeClanName(newName)
-	if not self.currentClanId then return false, "No estás en un clan" end
+	print("[ClanClient:ChangeClanName] INICIO - newName:", newName, "currentClanId:", self.currentClanId)
+	if not self.currentClanId then 
+		print("[ClanClient:ChangeClanName] ❌ Sin clan actual")
+		return false, "No estás en un clan" 
+	end
+	
 	local remote = getRemote("ChangeClanName")
-	if not remote then return false, "Función no disponible" end
-	return remote:InvokeServer(self.currentClanId, newName)
+	if not remote then 
+		print("[ClanClient:ChangeClanName] ❌ Remote no encontrado")
+		return false, "Función no disponible" 
+	end
+	
+	print("[ClanClient:ChangeClanName] Invocando server...")
+	local success, result = remote:InvokeServer(self.currentClanId, newName)
+	
+	print("[ClanClient:ChangeClanName] Resultado:", success, "msg:", result)
+	
+	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
+	if success then
+		print("[ClanClient:ChangeClanName] Invalidando cache...")
+		clansListCache = nil
+		clansListCacheTime = 0
+	end
+	
+	return success, result
 end
 
 function ClanClient:ChangeClanTag(newTag)
-	if not self.currentClanId then return false, "No estás en un clan" end
+	print("[ClanClient:ChangeClanTag] INICIO - newTag:", newTag, "currentClanId:", self.currentClanId)
+	if not self.currentClanId then 
+		print("[ClanClient:ChangeClanTag] ❌ Sin clan actual")
+		return false, "No estás en un clan" 
+	end
+	
 	local remote = getRemote("ChangeClanTag")
-	if not remote then return false, "Función no disponible" end
-	return remote:InvokeServer(self.currentClanId, newTag)
+	if not remote then 
+		print("[ClanClient:ChangeClanTag] ❌ Remote no encontrado")
+		return false, "Función no disponible" 
+	end
+	
+	print("[ClanClient:ChangeClanTag] Invocando server...")
+	local success, result = remote:InvokeServer(self.currentClanId, newTag)
+	
+	print("[ClanClient:ChangeClanTag] Resultado:", success, "msg:", result)
+	
+	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
+	if success then
+		print("[ClanClient:ChangeClanTag] Invalidando cache...")
+		clansListCache = nil
+		clansListCacheTime = 0
+	end
+	
+	return success, result
 end
 
 function ClanClient:ChangeClanDescription(newDesc)
@@ -370,16 +436,31 @@ function ClanClient:RejectJoinRequest(clanId, targetUserId)
 end
 
 function ClanClient:GetJoinRequests(clanId)
-	if not self.currentClanId then return {} end
+	print("[ClanClient:GetJoinRequests] INICIO - clanId:", clanId, "currentClanId:", self.currentClanId)
+	if not self.currentClanId then 
+		print("[ClanClient:GetJoinRequests] Sin currentClanId, devolviendo {}")
+		return {} 
+	end
 
 	local remote = getRemote("GetJoinRequests")
-	if not remote then return {} end
+	if not remote then 
+		print("[ClanClient:GetJoinRequests] Remote no encontrado, devolviendo {}")
+		return {} 
+	end
 
 	local success, requests = pcall(function()
+		print("[ClanClient:GetJoinRequests] Invocando server para clanId:", clanId)
 		return remote:InvokeServer(clanId)
 	end)
 
-	return (success and requests) or {}
+	print("[ClanClient:GetJoinRequests] pcall success:", success)
+	if success then
+		print("[ClanClient:GetJoinRequests] Requests recibidas:", #(requests or {}))
+		return requests
+	else
+		print("[ClanClient:GetJoinRequests] Error:", requests)
+		return {}
+	end
 end
 
 function ClanClient:CancelJoinRequest(clanId)
@@ -434,14 +515,14 @@ task.spawn(function()
 	local updateEvent = clanEvents and clanEvents:WaitForChild("ClansUpdated", 5)
 	if updateEvent then
 		updateEvent.OnClientEvent:Connect(function(clans)
+			print("[ClanClient] Evento ClansUpdated recibido")
 			-- Actualizar cache
 			clansListCache = clans
 			clansListCacheTime = tick()
+			print("[ClanClient] Cache actualizado con", #(clans or {}), "clanes")
 
-			-- Notificar UI
-			if ClanClient.onClansUpdated then
-				ClanClient.onClansUpdated(clans)
-			end
+			-- Notificar UI (ejecutar todos los callbacks registrados)
+			ClanClient:_fireUpdateCallbacks(clans)
 		end)
 	end
 end)
@@ -470,5 +551,23 @@ function ClanClient:RemoveOwner(targetUserId)
 
 	return remote:InvokeServer(self.currentClanId, targetUserId)
 end
+
+-- ════════════════════════════════════════════════════════════════
+-- LISTENER DE SINCRONIZACIÓN - Requestas pendientes
+-- ════════════════════════════════════════════════════════════════
+task.spawn(function()
+	if not ensureInitialized() then return end
+	
+	local folder = ReplicatedStorage:WaitForChild("ClanEvents", 5)
+	if not folder then return end
+	
+	local RequestJoinResult = folder:WaitForChild("RequestJoinResult", 5)
+	if RequestJoinResult then
+		-- Solo limpiar cache - no disparar callbacks que ya serán disparados por ClansUpdated
+		RequestJoinResult.OnClientEvent:Connect(function(success, clanId, msg)
+			pendingRequestsCache = nil  -- Invalidar cache
+		end)
+	end
+end)
 
 return ClanClient

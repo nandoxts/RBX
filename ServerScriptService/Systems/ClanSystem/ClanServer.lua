@@ -123,6 +123,16 @@ local CancelAllJoinRequests = RF("CancelAllJoinRequests") -- V1 nombre
 
 -- Eventos
 local ClansUpdated = RE("ClansUpdated")
+local RequestJoinResult = RE("RequestJoinResult") -- Notificación al jugador que solicitó
+
+-- 🔥 HELPER para disparar evento con todos los clanes actualizados
+local notifyCount = 0
+local function notifyClansUpdated()
+	notifyCount = notifyCount + 1
+	local allClans = ClanData:GetAllClans()
+	print("[ClanServer] 📡 NOTIFY #" .. notifyCount .. " - Disparando ClansUpdated con", #allClans, "clanes")
+	ClansUpdated:FireAllClients(allClans)
+end
 
 -- ============================================
 -- HANDLERS
@@ -138,7 +148,6 @@ CreateClan.OnServerInvoke = function(player, name, tag, logo, desc, emoji, color
 	
 	if success then
 		updatePlayerAttributes(player.UserId)
-		ClansUpdated:FireAllClients()
 		return true, clanId, "Clan creado"
 	end
 	
@@ -167,44 +176,90 @@ end
 
 -- Handlers individuales para cada campo (compatibilidad V1)
 ChangeClanName.OnServerInvoke = function(player, clanId, newName)
+	print("[ChangeClanName] INICIO - playerId:", player.UserId, "clanId:", clanId, "newName:", newName)
+	
 	local ok, err = checkCooldown(player.UserId, "ChangeName", Config:GetRateLimit("ChangeName"))
-	if not ok then return false, err end
+	if not ok then 
+		print("[ChangeClanName] ❌ Cooldown:", err)
+		return false, err 
+	end
 	
 	local clan = ClanData:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		print("[ChangeClanName] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
+	
+	print("[ChangeClanName] ✅ Clan encontrado:", clan.name)
 	
 	local member = clan.members[tostring(player.UserId)]
-	if not member or not Config:HasPermission(member.role, "cambiar_nombre") then
+	if not member then
+		print("[ChangeClanName] ❌ Player no es miembro")
+		return false, "No eres miembro"
+	end
+	
+	print("[ChangeClanName] Player role:", member.role)
+	if not Config:HasPermission(member.role, "cambiar_nombre") then
+		print("[ChangeClanName] ❌ Sin permiso")
 		return false, "Sin permiso"
 	end
 	
+	print("[ChangeClanName] ✅ Permisos OK, llamando UpdateClan...")
 	local success, result = ClanData:UpdateClan(clanId, {name = newName})
+	
+	print("[ChangeClanName] UpdateClan resultado:", success, "msg:", result)
+	
 	if success then
+		print("[ChangeClanName] ✅ Actualizando miembros")
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "Nombre actualizado"
 	end
+	
+	print("[ChangeClanName] ❌ Error:", result)
 	return false, result
 end
 
 ChangeClanTag.OnServerInvoke = function(player, clanId, newTag)
+	print("[ChangeClanTag] INICIO - playerId:", player.UserId, "clanId:", clanId, "newTag:", newTag)
+	
 	local ok, err = checkCooldown(player.UserId, "ChangeTag", Config:GetRateLimit("ChangeTag"))
-	if not ok then return false, err end
+	if not ok then 
+		print("[ChangeClanTag] ❌ Cooldown:", err)
+		return false, err 
+	end
 	
 	local clan = ClanData:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		print("[ChangeClanTag] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
+	
+	print("[ChangeClanTag] ✅ Clan encontrado:", clan.name)
 	
 	local member = clan.members[tostring(player.UserId)]
-	if not member or member.role ~= Config.ROLE_NAMES.OWNER then
+	if not member then
+		print("[ChangeClanTag] ❌ Player no es miembro")
+		return false, "No eres miembro"
+	end
+	
+	print("[ChangeClanTag] Player role:", member.role)
+	if member.role ~= Config.ROLE_NAMES.OWNER then
+		print("[ChangeClanTag] ❌ Solo owner puede cambiar TAG")
 		return false, "Solo owner puede cambiar TAG"
 	end
 	
+	print("[ChangeClanTag] ✅ Permisos OK, llamando UpdateClan...")
 	local success, result = ClanData:UpdateClan(clanId, {tag = newTag})
+	
+	print("[ChangeClanTag] UpdateClan resultado:", success, "msg:", result)
+	
 	if success then
+		print("[ChangeClanTag] ✅ Actualizando miembros")
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "TAG actualizado"
 	end
+	
+	print("[ChangeClanTag] ❌ Error:", result)
 	return false, result
 end
 
@@ -223,7 +278,6 @@ ChangeClanDescription.OnServerInvoke = function(player, clanId, newDesc)
 	local success, result = ClanData:UpdateClan(clanId, {description = newDesc})
 	if success then
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "Descripción actualizada"
 	end
 	return false, result
@@ -244,7 +298,6 @@ ChangeClanLogo.OnServerInvoke = function(player, clanId, newLogoId)
 	local success, result = ClanData:UpdateClan(clanId, {logo = newLogoId})
 	if success then
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "Logo actualizado"
 	end
 	return false, result
@@ -269,7 +322,6 @@ ChangeClanEmoji.OnServerInvoke = function(player, clanId, newEmoji)
 	local success, result = ClanData:UpdateClan(clanId, {emoji = newEmoji})
 	if success then
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "Emoji actualizado"
 	end
 	return false, result
@@ -290,7 +342,6 @@ ChangeClanColor.OnServerInvoke = function(player, clanId, newColor)
 	local success, result = ClanData:UpdateClan(clanId, {color = newColor})
 	if success then
 		updateAllMembers(result)
-		ClansUpdated:FireAllClients()
 		return true, "Color actualizado"
 	end
 	return false, result
@@ -312,7 +363,6 @@ InvitePlayer.OnServerInvoke = function(player, clanId, targetUserId)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 		return true, "Jugador invitado"
 	end
 	
@@ -352,7 +402,6 @@ KickPlayer.OnServerInvoke = function(player, clanId, targetUserId)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 		return true, "Jugador expulsado"
 	end
 	
@@ -394,7 +443,6 @@ ChangeRole.OnServerInvoke = function(player, clanId, targetUserId, newRole)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 		return true, "Rol cambiado"
 	end
 	
@@ -418,7 +466,6 @@ AddOwner.OnServerInvoke = function(player, targetUserId)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 		return true, "Owner agregado"
 	end
 	
@@ -442,7 +489,6 @@ RemoveOwner.OnServerInvoke = function(player, targetUserId)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 		return true, "Owner removido"
 	end
 	
@@ -484,13 +530,11 @@ AdminDissolveClan.OnServerInvoke = function(player, clanId)
 	local success, result = ClanData:DissolveClan(clanId)
 	
 	if success then
-		-- Actualizar atributos de los miembros
 		for _, userId in ipairs(members) do
 			pcall(function()
 				updatePlayerAttributes(userId)
 			end)
 		end
-		ClansUpdated:FireAllClients()
 		return true, "Clan disuelto (Admin)"
 	end
 	
@@ -532,7 +576,6 @@ DissolveClan.OnServerInvoke = function(player, clanId)
 				updatePlayerAttributes(userId)
 			end)
 		end
-		ClansUpdated:FireAllClients()
 		return true, "Clan disuelto"
 	end
 	
@@ -551,8 +594,10 @@ LeaveClan.OnServerInvoke = function(player, clanId)
 	local success, result = ClanData:RemoveMember(clanId, player.UserId)
 	
 	if success then
+		-- TAMBIÉN limpiar solicitudes pendientes del usuario en este clan
+		ClanData:CancelRequest(clanId, player.UserId)
+		
 		updatePlayerAttributes(player.UserId)
-		ClansUpdated:FireAllClients()
 		return true, "Has abandonado el clan"
 	end
 	
@@ -567,7 +612,17 @@ RequestJoinClan.OnServerInvoke = function(player, clanId)
 	local ok, err = checkCooldown(player.UserId, "RequestJoinClan", Config:GetRateLimit("RequestJoinClan"))
 	if not ok then return false, err end
 	
-	return ClanData:RequestJoin(clanId, player.UserId)
+	local success, result = ClanData:RequestJoin(clanId, player.UserId)
+	
+	if success then
+		-- Notificar INMEDIATAMENTE al jugador que solicitó
+		RequestJoinResult:FireClient(player, true, clanId, "Solicitud enviada")
+		-- El evento ClansUpdated se dispara automáticamente desde ClanData:OnUpdate()
+		return true, result
+	else
+		RequestJoinResult:FireClient(player, false, clanId, result)
+		return false, result
+	end
 end
 
 ApproveJoinRequest.OnServerInvoke = function(player, clanId, targetUserId)
@@ -578,7 +633,6 @@ ApproveJoinRequest.OnServerInvoke = function(player, clanId, targetUserId)
 	
 	if success then
 		updatePlayerAttributes(targetUserId)
-		ClansUpdated:FireAllClients()
 	end
 	
 	return success, result
@@ -588,11 +642,16 @@ RejectJoinRequest.OnServerInvoke = function(player, clanId, targetUserId)
 	local ok, err = checkCooldown(player.UserId, "RejectJoinRequest", Config:GetRateLimit("RejectJoinRequest"))
 	if not ok then return false, err end
 	
-	return ClanData:RejectRequest(clanId, player.UserId, targetUserId)
+	local success, result = ClanData:RejectRequest(clanId, player.UserId, targetUserId)
+	
+	return success, result
 end
 
 GetJoinRequests.OnServerInvoke = function(player, clanId)
-	return ClanData:GetClanRequests(clanId, player.UserId)
+	print("[ClanServer] GetJoinRequests - clanId:", clanId, "playerId:", player.UserId)
+	local result = ClanData:GetClanRequests(clanId, player.UserId)
+	print("[ClanServer] GetJoinRequests - Retornando:", #result, "solicitudes")
+	return result
 end
 
 GetUserPendingRequests.OnServerInvoke = function(player)
@@ -600,11 +659,16 @@ GetUserPendingRequests.OnServerInvoke = function(player)
 end
 
 CancelJoinRequest.OnServerInvoke = function(player, clanId)
-	return ClanData:CancelRequest(clanId, player.UserId)
+	local success, result = ClanData:CancelRequest(clanId, player.UserId)
+	
+	return success, result
 end
 
+
 CancelAllJoinRequests.OnServerInvoke = function(player)
-	return ClanData:CancelAllRequests(player.UserId)
+	local success, result = ClanData:CancelAllRequests(player.UserId)
+	
+	return success, result
 end
 
 -- ============================================
@@ -614,7 +678,7 @@ task.spawn(function()
 	task.wait(Config.DATABASE.InitDelay)
 	local created = ClanData:CreateDefaultClans()
 	print("[ClanServer] Clanes por defecto:", created)
-	ClansUpdated:FireAllClients()
+	-- El evento ClansUpdated se dispara automáticamente desde ClanData:OnUpdate()
 end)
 
 -- Atributos para jugadores conectados
@@ -626,9 +690,15 @@ Players.PlayerAdded:Connect(function(player)
 	updatePlayerAttributes(player.UserId)
 end)
 
+-- Limpiar solicitudes cuando un jugador se desconecta
+Players.PlayerRemoving:Connect(function(player)
+	-- Limpiar todas las solicitudes pendientes del jugador
+	ClanData:CancelAllRequests(player.UserId)
+end)
+
 -- Actualizar cuando cambian datos
 ClanData:OnUpdate():Connect(function()
-	ClansUpdated:FireAllClients()
+	notifyClansUpdated()
 end)
 
 print("[ClanServer] ✅ Iniciado")

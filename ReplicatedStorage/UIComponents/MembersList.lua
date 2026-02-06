@@ -90,7 +90,9 @@ function MembersList:_prepareItems()
 		end)
 	else
 		-- Preparar lista de solicitudes pendientes
+		print("[MembersList:_prepareItems] mode=pending, procesando", #self.requests, "solicitudes")
 		for i, request in ipairs(self.requests) do
+			print("[MembersList:_prepareItems]   Solicitud", i, "- playerId:", request.playerId, "playerName:", request.playerName)
 			table.insert(self.items, {
 				odI = request.playerId,
 				data = {

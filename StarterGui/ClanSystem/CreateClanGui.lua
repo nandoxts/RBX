@@ -272,23 +272,41 @@ end)
 -- LISTENER DEL SERVIDOR
 -- ════════════════════════════════════════════════════════════════
 local listenerLastTime = 0
+local lastEventCount = 0
 
-ClanClient.onClansUpdated = function(clans)
+-- Registrar callback para actualizar la UI cuando hay cambios
+ClanClient:OnClansUpdated(function(clans)
 	if not State.isOpen then return end
 	if not screenGui or not screenGui.Parent then return end
 
 	local now = tick()
-	if (now - listenerLastTime) < CONFIG.listenerCooldown then return end
+	if (now - listenerLastTime) < CONFIG.listenerCooldown then 
+		print("[CreateClanGui] ⚠️ Evento ignorado por cooldown (", math.ceil((now - listenerLastTime) * 100) / 100, "s)")
+		return 
+	end
 	listenerLastTime = now
 
-	if State.isUpdating then return end
+	if State.isUpdating then 
+		print("[CreateClanGui] ⚠️ Evento ignorado - Estado isUpdating=true")
+		return 
+	end
 
-	if State.currentPage == "Disponibles" then 
-		task.defer(function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG) end)
+	lastEventCount = lastEventCount + 1
+	print("[CreateClanGui] 📡 EVENTO #" .. lastEventCount .. " - currentPage:", State.currentPage, "currentView:", State.currentView)
+
+	if State.currentPage == "TuClan" then 
+		-- 🔥 ACTUALIZAR SIN RESETEAR VIEW (mantiene la vista actual)
+		print("[CreateClanGui] ✓ Realizando reloadAndKeepView para vista:", State.currentView)
+		task.defer(function() 
+			ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, State.currentView)
+		end)
+	elseif State.currentPage == "Disponibles" then 
+		-- 🔥 USAR CLANES DEL EVENTO PARA EVITAR DOBLE FETCH
+		task.defer(function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, "", false, clans) end)
 	elseif State.currentPage == "Admin" and isAdmin then 
 		task.defer(function() ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG) end)
 	end
-end
+end)
 
 -- Pre-cargar datos del cliente
 task.spawn(function() 

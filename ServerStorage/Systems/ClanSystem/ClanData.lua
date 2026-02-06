@@ -22,7 +22,6 @@ local DS = DataStoreService:GetDataStore(Config.DATABASE.ClanStoreName)
 -- player:{userId}      → {clanId, role} minimal
 -- index:names          → {[lowerName] = clanId}
 -- index:tags           → {[upperTag] = clanId}
--- request:{userId}     → {[clanId] = {time, status}}
 
 -- ============================================
 -- EVENTO DE ACTUALIZACIÓN
@@ -219,44 +218,89 @@ end
 
 -- ACTUALIZAR CLAN (atómico)
 function ClanData:UpdateClan(clanId, updates)
+	print("[UpdateClan] INICIO - clanId:", clanId)
+	print("[UpdateClan] Updates - name:", updates.name, "tag:", updates.tag, "description:", updates.description)
+	
+	local clan = self:GetClan(clanId)
+	if not clan then 
+		print("[UpdateClan] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
+	
+	print("[UpdateClan] ✅ Clan encontrado:", clan.name, "actual tag:", clan.tag)
+	
+	-- PASO 1: Validar cambios ANTES de updateAsync
+	if updates.name and updates.name ~= clan.name then
+		print("[UpdateClan] Validando nombre nuevo:", updates.name)
+		if nameExists(updates.name) then
+			print("[UpdateClan] ❌ Nombre ya existe")
+			return false, "Nombre ya existe"
+		end
+		print("[UpdateClan] ✅ Nombre disponible")
+	end
+	
+	if updates.tag and updates.tag ~= clan.tag then
+		local upperTag = string.upper(updates.tag)
+		print("[UpdateClan] Validando tag nuevo:", upperTag)
+		if tagExists(upperTag) then
+			print("[UpdateClan] ❌ TAG ya existe")
+			return false, "TAG ya existe"
+		end
+		print("[UpdateClan] ✅ TAG disponible")
+		updates.tag = upperTag
+	end
+	
+	-- PASO 2: Actualizar clan en DataStore (ATÓMICO)
+	print("[UpdateClan] PASO 2: UpdateAsync para clan:" .. clanId)
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
 			
-			-- Validar cambios de nombre/tag
-			if updates.name and updates.name ~= current.name then
-				if nameExists(updates.name) then
-					error("Nombre ya existe")
-				end
-				removeFromNameIndex(current.name)
-				addToNameIndex(updates.name, clanId)
-			end
+			print("[UpdateClan] [Callback] Antes - name:", current.name, "tag:", current.tag)
 			
-			if updates.tag and updates.tag ~= current.tag then
-				local upperTag = string.upper(updates.tag)
-				if tagExists(upperTag) then
-					error("TAG ya existe")
-				end
-				removeFromTagIndex(current.tag)
-				addToTagIndex(upperTag, clanId)
-				updates.tag = upperTag
-			end
-			
-			-- Aplicar cambios
+			-- Aplicar cambios simples (sin llamar funciones de DataStore)
 			for k, v in pairs(updates) do
 				current[k] = v
 			end
 			
+			print("[UpdateClan] [Callback] Después - name:", current.name, "tag:", current.tag)
 			return current
 		end)
 	end)
 	
-	if success then
-		updateEvent:Fire()
-		return true, result
-	else
+	print("[UpdateClan] PASO 2 resultado:", success)
+	
+	if not success then
+		print("[UpdateClan] ❌ UpdateAsync falló:", tostring(result))
 		return false, tostring(result)
 	end
+	
+	print("[UpdateClan] ✅ Clan actualizado en DataStore")
+	print("[UpdateClan] Resultado DataStore - name:", result.name, "tag:", result.tag)
+	
+	-- PASO 3: Actualizar índices SINCRÓNAMENTE (ANTES de disparar evento)
+	if updates.name and updates.name ~= clan.name then
+		print("[UpdateClan] Actualizando índice de nombre...")
+		removeFromNameIndex(clan.name)
+		addToNameIndex(updates.name, clanId)
+		print("[UpdateClan] ✅ Índice de nombre actualizado")
+	end
+	
+	if updates.tag and updates.tag ~= clan.tag then
+		print("[UpdateClan] Actualizando índice de tag...")
+		removeFromTagIndex(clan.tag)
+		addToTagIndex(updates.tag, clanId)
+		print("[UpdateClan] ✅ Índice de tag actualizado")
+	end
+	
+	-- PASO 4: Verificar que se guardó correctamente
+	print("[UpdateClan] PASO 4: Verificando guardado...")
+	local verified = self:GetClan(clanId)
+	print("[UpdateClan] Verificado - name:", verified.name, "tag:", verified.tag)
+	
+	print("[UpdateClan] ✅ EXITO - Disparando evento")
+	updateEvent:Fire()
+	return true, result
 end
 
 -- AGREGAR MIEMBRO
@@ -510,16 +554,25 @@ function ClanData:GetAllClans()
 	if not nameIndex then return {} end
 	
 	local clans = {}
+	local seenClanIds = {} -- Evitar duplicados
+	
 	for _, clanId in pairs(nameIndex) do
-		local clan = self:GetClan(clanId)
-		if clan then
-			-- Contar miembros
-			local count = 0
-			for _ in pairs(clan.members) do
-				count = count + 1
+		-- Deduplicar por clanId
+		if not seenClanIds[clanId] then
+			seenClanIds[clanId] = true
+			
+			local clan = self:GetClan(clanId)
+			if clan then
+				-- Contar miembros
+				local count = 0
+				for _ in pairs(clan.members) do
+					count = count + 1
+				end
+				clan.memberCount = count
+				table.insert(clans, clan)
 			end
-			clan.memberCount = count
-			table.insert(clans, clan)
+		else
+			print("[GetAllClans] ⚠️ Clan duplicado detectado:", clanId, "- ignorando")
 		end
 	end
 	
@@ -532,149 +585,224 @@ end
 
 -- ENVIAR SOLICITUD
 function ClanData:RequestJoin(clanId, userId)
+	print("[RequestJoin] INICIO - clanId:", clanId, "userId:", userId)
+	
 	local clan = self:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		print("[RequestJoin] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
 	
 	local playerClan = self:GetPlayerClan(userId)
-	if playerClan then return false, "Ya tienes clan" end
+	if playerClan then 
+		print("[RequestJoin] ❌ Usuario ya tiene clan")
+		return false, "Ya tienes clan" 
+	end
 	
 	local userIdStr = tostring(userId)
 	
-	-- Guardar solicitud del usuario
+	-- Guardar solicitud en el clan
+	print("[RequestJoin] Guardando en clan.requests...")
 	local success = pcall(function()
-		DS:UpdateAsync("request:" .. userIdStr, function(current)
-			local requests = current or {}
+		return DS:UpdateAsync("clan:" .. clanId, function(current)
+			if not current then return nil end
 			
-			-- Verificar si ya tiene solicitud en este clan
-			if requests[clanId] then
-				error("Ya tienes solicitud pendiente")
+			if not current.requests then 
+				current.requests = {} 
 			end
 			
-			requests[clanId] = {
+			if current.requests[userIdStr] then
+				error("Ya existe solicitud para este usuario")
+			end
+			
+			current.requests[userIdStr] = {
+				userId = userId,
+				playerName = getPlayerName(userId),
 				time = os.time(),
-				status = "pending",
-				clanName = clan.name
+				status = "pending"
 			}
 			
-			return requests
+			return current
 		end)
 	end)
 	
+	print("[RequestJoin] Resultado:", success)
+	
 	if success then
+		print("[RequestJoin] ✅ EXITO: Solicitud guardada")
 		updateEvent:Fire()
 		return true, "Solicitud enviada"
 	else
-		return false, "Error al enviar solicitud"
+		print("[RequestJoin] ❌ ERROR al guardar solicitud")
+		return false, "Error al guardar solicitud"
 	end
 end
 
 -- APROBAR SOLICITUD
 function ClanData:ApproveRequest(clanId, approverId, targetUserId)
+	print("[ApproveRequest] INICIO - clanId:", clanId, "targetUserId:", targetUserId)
+	
 	local clan = self:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		print("[ApproveRequest] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
 	
 	-- Verificar permisos
 	local approverRole = clan.members[tostring(approverId)]
-	if not approverRole then return false, "No eres miembro" end
+	if not approverRole then 
+		print("[ApproveRequest] ❌ No eres miembro")
+		return false, "No eres miembro" 
+	end
 	
 	local hasPermission = Config:HasPermission(approverRole.role, "invitar")
-	if not hasPermission then return false, "Sin permisos" end
+	if not hasPermission then 
+		print("[ApproveRequest] ❌ Sin permisos")
+		return false, "Sin permisos" 
+	end
 	
 	-- Verificar que existe la solicitud
 	local targetIdStr = tostring(targetUserId)
-	local requests = DS:GetAsync("request:" .. targetIdStr)
-	if not requests or not requests[clanId] then
+	if not clan.requests or not clan.requests[targetIdStr] then
+		print("[ApproveRequest] ❌ No hay solicitud pendiente")
 		return false, "No hay solicitud pendiente"
 	end
+	
+	print("[ApproveRequest] ✅ Solicitud encontrada, agregando miembro...")
 	
 	-- Agregar al clan
 	local success, err = self:AddMember(clanId, targetUserId, Config.DEFAULTS.MemberRole)
 	
 	if success then
-		-- Limpiar solicitud
-		DS:UpdateAsync("request:" .. targetIdStr, function(current)
-			if current then
-				current[clanId] = nil
+		print("[ApproveRequest] ✅ Miembro agregado, limpiando solicitud...")
+		-- Limpiar solicitud del clan
+		DS:UpdateAsync("clan:" .. clanId, function(current)
+			if current and current.requests then
+				current.requests[targetIdStr] = nil
 			end
-			return next(current) and current or nil
+			return current
 		end)
+		
+		print("[ApproveRequest] ✅ Solicitud limpiada, disparando evento...")
 		updateEvent:Fire()
+		print("[ApproveRequest] ✅ EXITO")
 		return true, "Solicitud aprobada"
 	else
+		print("[ApproveRequest] ❌ Error agregando miembro:", err)
 		return false, err
 	end
 end
 
 -- RECHAZAR SOLICITUD
 function ClanData:RejectRequest(clanId, rejecterId, targetUserId)
+	print("[RejectRequest] INICIO - clanId:", clanId, "targetUserId:", targetUserId)
+	
 	local clan = self:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		print("[RejectRequest] ❌ Clan no encontrado")
+		return false, "Clan no encontrado" 
+	end
 	
 	-- Verificar permisos
 	local rejecterRole = clan.members[tostring(rejecterId)]
-	if not rejecterRole then return false, "No eres miembro" end
+	if not rejecterRole then 
+		print("[RejectRequest] ❌ No eres miembro")
+		return false, "No eres miembro" 
+	end
 	
 	local hasPermission = Config:HasPermission(rejecterRole.role, "invitar")
-	if not hasPermission then return false, "Sin permisos" end
+	if not hasPermission then 
+		print("[RejectRequest] ❌ Sin permisos")
+		return false, "Sin permisos" 
+	end
 	
 	local targetIdStr = tostring(targetUserId)
 	
-	-- Limpiar solicitud
+	-- Limpiar solicitud del clan
+	print("[RejectRequest] Limpiando solicitud...")
 	local success = pcall(function()
-		DS:UpdateAsync("request:" .. targetIdStr, function(current)
-			if current then
-				current[clanId] = nil
+		DS:UpdateAsync("clan:" .. clanId, function(current)
+			if current and current.requests then
+				current.requests[targetIdStr] = nil
 			end
-			return next(current) and current or nil
+			return current
 		end)
 	end)
 	
 	if success then
+		print("[RejectRequest] ✅ Solicitud limpiada")
 		updateEvent:Fire()
 		return true, "Solicitud rechazada"
 	else
+		print("[RejectRequest] ❌ Error al rechazar")
 		return false, "Error al rechazar"
 	end
 end
 
 -- OBTENER SOLICITUDES DEL CLAN
 function ClanData:GetClanRequests(clanId, requesterId)
+	print("[GetClanRequests] INICIO - clanId:", clanId, "requesterId:", requesterId)
+	
 	local clan = self:GetClan(clanId)
-	if not clan then return {} end
+	print("[GetClanRequests] Clan obtenido:", clan and clan.name or "NIL")
+	if not clan then 
+		print("[GetClanRequests] Clan no encontrado, devolviendo {}")
+		return {} 
+	end
 	
 	-- Verificar permisos
 	local requesterRole = clan.members[tostring(requesterId)]
+	print("[GetClanRequests] requesterRole:", requesterRole and requesterRole.role or "NIL")
 	if not requesterRole or not Config:HasPermission(requesterRole.role, "invitar") then
+		print("[GetClanRequests] Sin permisos, devolviendo {}")
 		return {}
 	end
 	
-	-- Buscar todas las solicitudes que mencionen este clan
-	-- Esto requiere iterar players, pero es rápido si la BD es nueva
+	-- Convertir solicitudes a formato que espera el cliente
+	-- MembersList necesita: playerId, playerName, requestTime
+	print("[GetClanRequests] clan.requests existe:", clan.requests ~= nil)
+	if clan.requests then
+		print("[GetClanRequests] Cantidad de solicitudes:", table.getn(clan.requests or {}))
+	end
+	
+	local results = {}
+	if clan.requests then
+		for userIdStr, requestData in pairs(clan.requests) do
+			local userId = tonumber(userIdStr)
+			print("[GetClanRequests]   - Procesando solicitud de:", userIdStr, "->", userId)
+			if userId then
+				table.insert(results, {
+					playerId = userId,
+					playerName = getPlayerName(userId),
+					requestTime = requestData.time,
+					status = requestData.status
+				})
+				print("[GetClanRequests]     ✅ Agregada a resultados")
+			else
+				print("[GetClanRequests]     ❌ userId inválido")
+			end
+		end
+	end
+	
+	print("[GetClanRequests] Total resultados:", #results)
+	return results
+end
+
+-- OBTENER SOLICITUDES DEL USUARIO (busca en todos los clanes)
+function ClanData:GetUserRequests(userId)
+	local userIdStr = tostring(userId)
 	local nameIndex = DS:GetAsync("index:names")
 	if not nameIndex then return {} end
 	
-	local results = {}
-	
-	-- Por cada clan, buscar sus miembros actuales
-	-- Luego buscar en request:{userId} solo de usuarios que NO estén en clanes
-	-- OPTIMIZACIÓN: Guardar lista de solicitudes en el clan mismo
-	
-	-- Por simplicidad, guardamos también en el clan:
-	return clan.requests or {}
-end
-
--- OBTENER SOLICITUDES DEL USUARIO
-function ClanData:GetUserRequests(userId)
-	local requests = DS:GetAsync("request:" .. tostring(userId))
-	if not requests then return {} end
-	
 	local result = {}
-	for clanId, data in pairs(requests) do
-		if data.status == "pending" then
+	for _, clanId in pairs(nameIndex) do
+		local clan = self:GetClan(clanId)
+		if clan and clan.requests and clan.requests[userIdStr] then
+			local request = clan.requests[userIdStr]
 			table.insert(result, {
 				clanId = clanId,
-				clanName = data.clanName,
-				time = data.time
+				clanName = clan.name,
+				time = request.time
 			})
 		end
 	end
@@ -684,28 +812,47 @@ end
 
 -- CANCELAR SOLICITUD
 function ClanData:CancelRequest(clanId, userId)
+	print("[CancelRequest] INICIO - clanId:", clanId, "userId:", userId)
+	
 	local userIdStr = tostring(userId)
 	
 	local success = pcall(function()
-		DS:UpdateAsync("request:" .. userIdStr, function(current)
-			if current then
-				current[clanId] = nil
+		DS:UpdateAsync("clan:" .. clanId, function(current)
+			if current and current.requests then
+				current.requests[userIdStr] = nil
 			end
-			return next(current) and current or nil
+			return current
 		end)
 	end)
 	
 	if success then
+		print("[CancelRequest] ✅ Solicitud cancelada")
 		updateEvent:Fire()
 		return true, "Solicitud cancelada"
 	else
+		print("[CancelRequest] ❌ Error al cancelar")
 		return false, "Error al cancelar"
 	end
 end
 
--- CANCELAR TODAS LAS SOLICITUDES
+-- CANCELAR TODAS LAS SOLICITUDES (usuario solicita cancelación de TODAS sus requests)
 function ClanData:CancelAllRequests(userId)
-	DS:RemoveAsync("request:" .. tostring(userId))
+	-- Iterar todos los clanes y eliminar solicitudes del usuario
+	local nameIndex = DS:GetAsync("index:names")
+	if not nameIndex then return true, "Sin solicitudes" end
+	
+	local userIdStr = tostring(userId)
+	for _, clanId in pairs(nameIndex) do
+		pcall(function()
+			DS:UpdateAsync("clan:" .. clanId, function(current)
+				if current and current.requests then
+					current.requests[userIdStr] = nil
+				end
+				return current
+			end)
+		end)
+	end
+	
 	updateEvent:Fire()
 	return true, "Solicitudes canceladas"
 end

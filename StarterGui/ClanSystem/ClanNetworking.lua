@@ -176,7 +176,7 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 			local success, msg = ClanClient:CancelAllJoinRequests()
 			if success then 
 				Notify:Success("Cancelado", msg or "Solicitud cancelada", 5)
-				loadClansFromServerFn()
+				-- 🔥 NO hacer loadClansFromServerFn() - el evento ClansUpdated ya actualiza automáticamente
 			end
 		end))
 	else
@@ -185,7 +185,7 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 			local success, msg = ClanClient:RequestJoinClan(clanData.clanId)
 			if success then 
 				Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
-				loadClansFromServerFn()
+				-- 🔥 NO hacer loadClansFromServerFn() - el evento ClansUpdated ya actualiza automáticamente
 			else 
 				Notify:Error("Error", msg or "No se pudo enviar", 5) 
 			end
@@ -197,17 +197,53 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 end
 
 -- Load clans from server
-function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro)
+-- Si se pasan clans desde el evento, no hace fetch (evita doble refresh)
+function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, forceUpdate, clansFromEvent)
 	if not State.isOpen then return end
 
 	local now = tick()
-	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
+	-- Permitir actualización forzada aunque esté en enfriamiento
+	if not forceUpdate and (State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown) then return end
 	State.isUpdating = true
 	State.lastUpdateTime = now
 
 	filtro = filtro or ""
 	local filtroLower = filtro:lower()
 
+	-- Si vienen datos del evento, usarlos directamente (evita GetClansList)
+	if clansFromEvent then
+		print("[ClanNetworking:loadClansFromServer] Usando clanes del evento (sin fetch)")
+		
+		-- 🔥 LIMPIAR LA LISTA ANTES DE RENDERIZAR
+		Memory:destroyChildren(clansScroll)
+		
+		local clans = clansFromEvent or {}
+		local pendingList = ClanClient:GetUserPendingRequests() or {}
+
+		if #clans > 0 then
+			local hayResultados = false
+			for _, clanData in ipairs(clans) do
+				local nombre = (clanData.name or ""):lower()
+				local tag = (clanData.tag or ""):lower()
+
+				if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
+					ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG) end)
+					hayResultados = true
+				end
+			end
+
+			if not hayResultados and filtroLower ~= "" then
+				UI.label({size = UDim2.new(1, 0, 0, 60), text = "No se encontraron clanes", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
+			end
+		else
+			UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
+		end
+
+		State.isUpdating = false
+		return
+	end
+
+	-- Si NO vienen datos del evento, hace fetch normal
 	ClanHelpers.safeLoading(clansScroll, function()
 		return ClanClient:GetClansList(), ClanClient:GetUserPendingRequests()
 	end, function(clans, pendingList)
