@@ -798,7 +798,7 @@ local NAV_TOP = HEADER_HEIGHT
 local navBar = Instance.new("Frame")
 navBar.Size = UDim2.new(1, 0, 0, 36)
 navBar.Position = UDim2.new(0, 0, 0, NAV_TOP)
-navBar.BackgroundColor3 = THEME.panel
+navBar.BackgroundTransparency = 1
 navBar.BorderSizePixel = 0
 navBar.ZIndex = 101
 navBar.Parent = panel
@@ -827,7 +827,7 @@ local function createTab(text)
 	return btn
 end
 
-local tQueue = createTab("COLA")
+local tQueue = createTab("EN COLA")
 local tLibrary = createTab("BIBLIOTECA")
 
 local underline = Instance.new("Frame")
@@ -954,8 +954,8 @@ if R.AddResponse then
 								addBtn.AutoButtonColor = false
 							else
 								addBtn.Text = "AÑADIR"
-								addBtn.BackgroundColor3 = THEME.success
-								addBtn.TextColor3 = Color3.new(1, 1, 1)
+								addBtn.BackgroundColor3 = THEME.accent
+								addBtn.TextColor3 = THEME.text
 								addBtn.AutoButtonColor = true
 							end
 						end
@@ -1308,9 +1308,9 @@ local function createSongCard()
 	addBtn.Name = "AddButton"
 	addBtn.Size = UDim2.new(0, 70, 0, 30)
 	addBtn.Position = UDim2.new(1, -70, 0.5, -15)
-	addBtn.BackgroundColor3 = THEME.success
+	addBtn.BackgroundColor3 = THEME.accent
 	addBtn.Text = "AÑADIR"
-	addBtn.TextColor3 = Color3.new(1, 1, 1)
+	addBtn.TextColor3 = THEME.text
 	addBtn.Font = Enum.Font.GothamBold
 	addBtn.TextSize = 11
 	addBtn.BorderSizePixel = 0
@@ -1387,9 +1387,9 @@ local function updateSongCard(card, songData, index, inQueue)
 			addBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
 			addBtn.AutoButtonColor = false
 		else
-			addBtn.BackgroundColor3 = THEME.success
+			addBtn.BackgroundColor3 = THEME.accent
 			addBtn.Text = "AÑADIR"
-			addBtn.TextColor3 = Color3.new(1, 1, 1)
+			addBtn.TextColor3 = THEME.text
 			addBtn.AutoButtonColor = true
 		end
 	end

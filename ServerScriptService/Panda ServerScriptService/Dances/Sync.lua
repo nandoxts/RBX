@@ -403,14 +403,14 @@ end
 -- Agregar seguidor SIN duplicados (más rápido que table.find)
 local function AddFollower(leader, follower)
 	if not IsValidPlayer(leader) or not IsValidPlayer(follower) then return false end
-	
+
 	-- Verificar si ya existe en la lista
 	for _, existing in ipairs(PlayerData[leader].Followers) do
 		if existing == follower then
 			return false -- Ya existe, no agregar
 		end
 	end
-	
+
 	table.insert(PlayerData[leader].Followers, follower)
 	return true
 end
@@ -425,26 +425,26 @@ end
 local function PropagateToFollowerChain(followers, animId, animName, timePos, speed)
 	local queue = {}
 	local processed = {}
-	
+
 	-- Agregar followers iniciales a la cola
 	for _, follower in ipairs(followers) do
 		if IsValidPlayer(follower) then
 			table.insert(queue, follower)
 		end
 	end
-	
+
 	-- Procesar cola de forma iterativa
 	while #queue > 0 do
 		local follower = table.remove(queue, 1)
-		
+
 		-- Evitar procesar el mismo follower dos veces
 		if not processed[follower] then
 			processed[follower] = true
-			
+
 			if CanAnimate(follower) and follower.Character and follower.Character.Parent then
 				PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
 				NotifyClient(follower, animName)
-				
+
 				-- Agregar sub-followers de este follower a la cola (sin recursión)
 				local subFollowers = GetValidFollowers(follower)
 				for _, subFollower in ipairs(subFollowers) do
@@ -711,7 +711,7 @@ local function OnSyncAction(player, action, target)
 		end
 
 		-- ✅ VALIDACIONES TEMPRANAS: Verificar TODO antes de ejecutar Follow()
-		
+
 		-- Validación 1: Jugador no encontrado
 		if not targetPlayer or not IsValidPlayer(targetPlayer) then
 			pcall(function()
@@ -725,7 +725,7 @@ local function OnSyncAction(player, action, target)
 			end)
 			return
 		end
-		
+
 		-- Validación 2: Intentar sincronizarse consigo mismo
 		if player == targetPlayer then
 			pcall(function()
@@ -739,7 +739,7 @@ local function OnSyncAction(player, action, target)
 			end)
 			return
 		end
-		
+
 		-- Validación 3: Prevenir loops (el target ya me sigue directa o indirectamente)
 		local allMyFollowers = GetAllFollowers(player)
 		for _, f in ipairs(allMyFollowers) do
@@ -756,10 +756,10 @@ local function OnSyncAction(player, action, target)
 				return
 			end
 		end
-		
+
 		-- ✅ AHORA sí, ejecutar Follow (todas las validaciones pasaron)
 		local syncSuccess = Follow(player, targetPlayer)
-		
+
 		if syncSuccess then
 			-- ✅ Solo notificar al líder si la sincronización fue exitosa
 			NotifyFollowers(targetPlayer)
@@ -855,18 +855,18 @@ local function OnCharacterAdded(character)
 				-- SIEMPRE limpiar referencias stale en TODOS los casos
 				-- (esto previene que se propague animaciones al respawnear)
 				for otherPlayer, data in pairs(PlayerData) do
-				if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
-					RemoveFollower(otherPlayer, player)
+					if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
+						RemoveFollower(otherPlayer, player)
+					end
 				end
-			end
 
-			if Settings.ResetAnimationOnRespawn then
-				-- Notificar a seguidores que ya no hay animación
-				StopFollowersAnimations(player)
+				if Settings.ResetAnimationOnRespawn then
+					-- Notificar a seguidores que ya no hay animación
+					StopFollowersAnimations(player)
 
-				-- Limpiar seguidores
-				PlayerData[player].Followers = {}
-			end
+					-- Limpiar seguidores
+					PlayerData[player].Followers = {}
+				end
 			end)
 
 			if PlayerData[player] then
