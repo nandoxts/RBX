@@ -248,16 +248,80 @@ function ClanActions:editTag(gui, clanData, onSuccess)
 end
 
 function ClanActions:editColor(gui, onSuccess)
+	-- Crear lista de colores disponibles para mostrar
+	local colorList = {}
+	for _, c in ipairs(CONFIG.colors) do
+		table.insert(colorList, c.name:lower())
+	end
+	local colorNames = table.concat(colorList, ", ")
+	
 	showModal(gui, {
-		title = "Cambiar Color", message = "Ingresa nombre de color (ej: azul, dorado):",
+		title = "Cambiar Color", 
+		message = "Colores disponibles:\n" .. colorNames,
 		input = true, inputPlaceholder = "ej: dorado", inputDefault = "",
 		confirm = "Cambiar",
 		validate = function(v) 
-			if not v or v == "" then Notify:Warning("Inválido", "Ingresa un nombre de color", 3) return false end
+			if not v or v == "" then 
+				Notify:Warning("Inválido", "Ingresa un nombre de color", 3) 
+				return false 
+			end
+			
+			local colorName = v:lower():gsub("%s+", "")
+			local found = false
+			for _, c in ipairs(CONFIG.colors) do
+				if c.name:lower() == colorName then
+					found = true
+					break
+				end
+			end
+			
+			if not found then
+				Notify:Warning("Color inválido", "Usa uno de: " .. colorNames, 4)
+				return false
+			end
+			
 			return true 
 		end,
-		action = function(v) return ClanClient:ChangeClanColor(v:lower():gsub("%s+", "")) end,
+		action = function(v) 
+			local colorName = v:lower():gsub("%s+", "")
+			local colorRGB = nil
+			
+			-- Buscar el color en la tabla
+			for _, c in ipairs(CONFIG.colors) do
+				if c.name:lower() == colorName then
+					colorRGB = c.rgb
+					break
+				end
+			end
+			
+			if colorRGB then
+				return ClanClient:ChangeClanColor(colorRGB)
+			else
+				return false, "Color no encontrado"
+			end
+		end,
 		successTitle = "Actualizado", successMsg = "Color cambiado",
+		onSuccess = onSuccess
+	})
+end
+
+function ClanActions:editEmoji(gui, onSuccess)
+	showModal(gui, {
+		title = "Cambiar Emoji", 
+		message = "Ingresa el nuevo emoji del clan:",
+		input = true, inputPlaceholder = "Ejemplo: ⚔️ 🔥 👑", inputDefault = "",
+		confirm = "Cambiar",
+		validate = function(v)
+			if not v or #v == 0 then
+				Notify:Warning("Emoji vacío", "Debes ingresar un emoji", 3)
+				return false
+			end
+			return true
+		end,
+		action = function(v) 
+			return ClanClient:ChangeClanEmoji(v)
+		end,
+		successTitle = "Actualizado", successMsg = "Emoji cambiado",
 		onSuccess = onSuccess
 	})
 end
@@ -284,9 +348,14 @@ function ClanActions:dissolve(gui, clanName, onSuccess)
 end
 
 function ClanActions:adminDelete(gui, clanData, onSuccess)
+	if not clanData or not clanData.clanId then
+		Notify:Error("Error", "Datos del clan inválidos", 3)
+		return
+	end
+	
 	showModal(gui, {
 		title = "Eliminar Clan",
-		message = string.format('¿Eliminar "%s"?', clanData.name or "Sin nombre"),
+		message = string.format('¿Eliminar "%s"?\nID: %s', clanData.name or "Sin nombre", clanData.clanId),
 		confirm = "Eliminar", confirmColor = THEME.btnDanger,
 		action = function() return ClanClient:AdminDissolveClan(clanData.clanId) end,
 		successTitle = "Eliminado", successMsg = "Clan eliminado",
@@ -549,7 +618,6 @@ end
 tabButtons["TuClan"] = createTab("TU CLAN")
 tabButtons["Disponibles"] = createTab("DISPONIBLES")
 if isAdmin then
-	tabButtons["Crear"] = createTab("CREAR")
 	tabButtons["Admin"] = createTab("ADMIN")
 end
 
@@ -606,59 +674,13 @@ end)
 tabPages["Disponibles"] = pageDisponibles
 
 -- ════════════════════════════════════════════════════════════════
--- PAGE: CREAR
--- ════════════════════════════════════════════════════════════════
-local pageCrear = UI.frame({name = "Crear", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
-pageCrear.LayoutOrder = 3
-
-local createScroll = Instance.new("ScrollingFrame")
-createScroll.Size = UDim2.new(1, -20, 1, -20)
-createScroll.Position = UDim2.new(0, 10, 0, 10)
-createScroll.BackgroundTransparency = 1
-createScroll.ScrollBarThickness = 4
-createScroll.ScrollBarImageColor3 = THEME.accent
-createScroll.CanvasSize = UDim2.new(0, 0, 0, 620)
-createScroll.ZIndex = 103
-createScroll.Parent = pageCrear
-
-local createCard = UI.frame({size = UDim2.new(1, 0, 0, 600), bg = THEME.card, z = 104, parent = createScroll, corner = 12, stroke = true, strokeA = 0.6})
-
-local createPadding = Instance.new("UIPadding")
-createPadding.PaddingTop, createPadding.PaddingBottom = UDim.new(0, 18), UDim.new(0, 18)
-createPadding.PaddingLeft, createPadding.PaddingRight = UDim.new(0, 18), UDim.new(0, 18)
-createPadding.Parent = createCard
-
-UI.label({size = UDim2.new(1, 0, 0, 20), text = "Crear Nuevo Clan", color = THEME.accent, textSize = 15, font = Enum.Font.GothamBold, z = 105, parent = createCard})
-
-local inputNombre = UI.input("NOMBRE DEL CLAN", "Ej: Guardianes del Fuego", 40, createCard)
-local inputTag = UI.input("TAG DEL CLAN (2-5 caracteres)", "Ej: FGT", 106, createCard)
-local inputDesc = UI.input("DESCRIPCIÓN", "Describe tu clan...", 172, createCard, true)
-local inputLogo = UI.input("LOGO (Asset ID - Opcional)", "rbxassetid://123456789", 258, createCard)
-
-inputTag:GetPropertyChangedSignal("Text"):Connect(function() inputTag.Text = string.upper(inputTag.Text) end)
-
-UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 324), text = "EMOJI DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
-local _, getEmojiIndex = createSelector(CONFIG.emojis, {size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 342), parent = createCard, isEmoji = true, itemSize = 28, spacing = 4, onSelect = function(idx) State.selectedEmoji = idx end})
-
-UI.label({size = UDim2.new(1, 0, 0, 14), pos = UDim2.new(0, 0, 0, 388), text = "COLOR DEL CLAN", textSize = 10, font = Enum.Font.GothamBold, z = 105, parent = createCard})
-local colorItems = {}
-for _, c in ipairs(CONFIG.colors) do table.insert(colorItems, c.rgb) end
-local _, getColorIndex = createSelector(colorItems, {size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 406), parent = createCard, isEmoji = false, itemSize = 28, spacing = 6, onSelect = function(idx) State.selectedColor = idx end})
-
-local inputOwnerId = UI.input("ID DEL OWNER (Opcional - Solo Admin)", "Ej: 123456789", 452, createCard)
-
-local btnCrear = UI.button({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 528), bg = THEME.accent, text = "CREAR CLAN", textSize = 13, z = 105, parent = createCard, corner = 8, hover = true})
-
-tabPages["Crear"] = pageCrear
-
--- ════════════════════════════════════════════════════════════════
 -- PAGE: ADMIN
 -- ════════════════════════════════════════════════════════════════
 local pageAdmin, adminClansScroll
 
 if isAdmin then
 	pageAdmin = UI.frame({name = "Admin", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
-	pageAdmin.LayoutOrder = 4
+	pageAdmin.LayoutOrder = 3
 
 	local adminHeader = UI.frame({size = UDim2.new(1, -20, 0, 40), pos = UDim2.new(0, 10, 0, 10), bg = THEME.warnMuted, z = 103, parent = pageAdmin, corner = 8, stroke = true, strokeA = 0.5, strokeC = THEME.btnDanger})
 	UI.label({size = UDim2.new(1, -16, 1, 0), pos = UDim2.new(0, 8, 0, 0), text = "⚠ Panel de Administrador - Acciones irreversibles", color = THEME.warn, textSize = 11, font = Enum.Font.GothamMedium, z = 104, parent = adminHeader})
@@ -720,29 +742,29 @@ local function createMainView(parent, clanData, playerRole)
 		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.emoji or "⚔️", textSize = 36, alignX = Enum.TextXAlignment.Center, z = 107, parent = logoFrame})
 	end
 
-	local clanColor = clanData.clanColor and Color3.fromRGB(clanData.clanColor[1] or 255, clanData.clanColor[2] or 255, clanData.clanColor[3] or 255) or THEME.accent
+	local clanColor = clanData.color and Color3.fromRGB(clanData.color[1] or 255, clanData.color[2] or 255, clanData.color[3] or 255) or THEME.accent
 	local membersCount = 0
-	if clanData.miembros_data then for _ in pairs(clanData.miembros_data) do membersCount = membersCount + 1 end end
+	if clanData.members then for _ in pairs(clanData.members) do membersCount = membersCount + 1 end end
 
 	UI.label({size = UDim2.new(1, -110, 0, 26), pos = UDim2.new(0, 100, 0, 30), text = (clanData.emoji or "") .. " " .. (clanData.name or "Clan"), color = clanColor, textSize = 18, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 	UI.label({size = UDim2.new(0, 80, 0, 20), pos = UDim2.new(0, 100, 0, 56), text = "[" .. (clanData.tag or "TAG") .. "]", color = THEME.accent, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
 	local roleData = ClanSystemConfig.ROLES.Visual[playerRole] or ClanSystemConfig.ROLES.Visual["miembro"]
 	UI.label({size = UDim2.new(0, 100, 0, 20), pos = UDim2.new(1, -116, 0, 56), text = roleData.display, color = roleData.color, textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Right, z = 106, parent = infoCard})
-	UI.label({size = UDim2.new(1, -32, 0, 36), pos = UDim2.new(0, 16, 0, 108), text = clanData.descripcion or "Sin descripción", color = THEME.muted, textSize = 13, wrap = true, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
+	UI.label({size = UDim2.new(1, -32, 0, 36), pos = UDim2.new(0, 16, 0, 108), text = clanData.description or "Sin descripción", color = THEME.muted, textSize = 13, wrap = true, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
 	-- MIEMBROS CARD
 	local membersCard, membersBtn, _, _, membersAvatarPreview = createNavCard({size = UDim2.new(1, -8, 0, 60), parent = scrollFrame, icon = "👥", title = "MIEMBROS", subtitle = membersCount .. " miembros en el clan", showAvatarPreview = true})
 	membersCard.LayoutOrder = nextOrder()
 
-	if membersAvatarPreview and clanData.miembros_data then
+	if membersAvatarPreview and clanData.members then
 		local avatarLayout = Instance.new("UIListLayout")
 		avatarLayout.FillDirection, avatarLayout.Padding = Enum.FillDirection.Horizontal, UDim.new(0, -8)
 		avatarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		avatarLayout.Parent = membersAvatarPreview
 
 		local count = 0
-		for odI, _ in pairs(clanData.miembros_data) do
+		for odI, _ in pairs(clanData.members) do
 			if count >= 3 then break end
 			local odINum = tonumber(odI)
 			if odINum and odINum > 0 then
@@ -786,6 +808,7 @@ local function createMainView(parent, clanData, playerRole)
 	local permissions = ClanSystemConfig.ROLES.Permissions[playerRole] or {}
 	local canEditName, canEditTag = permissions.cambiar_nombre or false, permissions.cambiar_tag or (playerRole == "owner")
 	local canChangeColor = permissions.cambiar_color or false
+	local canChangeEmoji = permissions.cambiar_emoji or false
 
 	if canEditName or canEditTag then
 		local editRowContainer = UI.frame({size = UDim2.new(1, -8, 0, 42), bgT = 1, z = 104, parent = scrollFrame})
@@ -819,6 +842,13 @@ local function createMainView(parent, clanData, playerRole)
 		btnEditColor.LayoutOrder = nextOrder()
 		UI.hover(btnEditColor, THEME.surface, THEME.stroke)
 		Memory:track(btnEditColor.MouseButton1Click:Connect(function() ClanActions:editColor(screenGui, loadPlayerClan) end))
+	end
+
+	if canChangeEmoji then
+		local btnEditEmoji = UI.button({size = UDim2.new(1, -8, 0, 42), bg = THEME.surface, text = "EDITAR EMOJI", color = THEME.text, textSize = 12, font = Enum.Font.GothamBold, z = 104, parent = scrollFrame, corner = 10})
+		btnEditEmoji.LayoutOrder = nextOrder()
+		UI.hover(btnEditEmoji, THEME.surface, THEME.stroke)
+		Memory:track(btnEditEmoji.MouseButton1Click:Connect(function() ClanActions:editEmoji(screenGui, loadPlayerClan) end))
 	end
 
 	-- BOTÓN SALIR/DISOLVER
@@ -929,8 +959,8 @@ loadPlayerClan = function()
 			State.clanData = clanData
 
 			local playerRole = "miembro"
-			if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
-				playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
+			if clanData.members and clanData.members[tostring(player.UserId)] then
+				playerRole = clanData.members[tostring(player.UserId)].role or "miembro"
 			end
 			State.playerRole = playerRole
 
@@ -1002,8 +1032,8 @@ reloadAndKeepView = function(targetView)
 		State.clanData = clanData
 
 		local playerRole = "miembro"
-		if clanData.miembros_data and clanData.miembros_data[tostring(player.UserId)] then
-			playerRole = clanData.miembros_data[tostring(player.UserId)].rol or "miembro"
+		if clanData.members and clanData.members[tostring(player.UserId)] then
+			playerRole = clanData.members[tostring(player.UserId)].role or "miembro"
 		end
 		State.playerRole = playerRole
 
@@ -1160,10 +1190,15 @@ loadAdminClans = function()
 		end
 
 		for _, clanData in ipairs(clans) do
+			-- Debug: verificar estructura de datos
+			if not clanData.clanId then
+				warn("[CreateClanGui] Clan sin clanId:", clanData)
+			end
+			
 			local entry = UI.frame({size = UDim2.new(1, 0, 0, 65), bg = THEME.card, z = 104, parent = adminClansScroll, corner = 10, stroke = true, strokeA = 0.6})
 
 			UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.emoji or "") .. " " .. (clanData.name or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
-			UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.miembros_count or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
+			UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.memberCount or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
 
 			local deleteBtn = UI.button({size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16), bg = Color3.fromRGB(160, 50, 50), text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = Color3.fromRGB(200, 70, 70)})
 			UI.hover(entry, THEME.card, Color3.fromRGB(40, 40, 50))
@@ -1180,7 +1215,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- TAB SWITCHING
 -- ════════════════════════════════════════════════════════════════
-local tabPositions = isAdmin and { TuClan = 20, Disponibles = 122, Crear = 224, Admin = 326 } or { TuClan = 20, Disponibles = 122 }
+local tabPositions = isAdmin and { TuClan = 20, Disponibles = 122, Admin = 224 } or { TuClan = 20, Disponibles = 122 }
 
 switchTab = function(tabName, forceLoad)
 	-- Si ya estamos en la tab y no forzamos carga, no hacer nada
@@ -1272,32 +1307,6 @@ end
 -- ════════════════════════════════════════════════════════════════
 closeBtn.MouseButton1Click:Connect(function()
 	GlobalModalManager:closeModal("Clan")
-end)
-
-btnCrear.MouseButton1Click:Connect(function()
-	local clanName = inputNombre.Text
-	local clanTag = inputTag.Text:upper()
-	local clanDesc = inputDesc.Text ~= "" and inputDesc.Text or "Sin descripción"
-	local clanLogo = inputLogo.Text ~= "" and inputLogo.Text or ""
-	local clanEmoji = CONFIG.emojis[State.selectedEmoji] or "⚔️"
-	local clanColor = CONFIG.colors[State.selectedColor].rgb
-	local customOwnerId = inputOwnerId.Text ~= "" and tonumber(inputOwnerId.Text) or nil
-
-	if not Validator:validateClanCreation(clanName, clanTag, inputOwnerId.Text) then return end
-
-	btnCrear.Text = "Creando..."
-
-	local success, clanId, msg = ClanClient:CreateClan(clanName, clanTag, clanLogo, clanDesc, customOwnerId, clanEmoji, clanColor)
-
-	if success then
-		Notify:Success("Clan Creado", msg or "Clan creado exitosamente", 5)
-		inputNombre.Text, inputTag.Text, inputDesc.Text, inputLogo.Text, inputOwnerId.Text = "", "", "", "", ""
-		task.delay(0.5, function() switchTab("TuClan", true) end)
-	else
-		Notify:Error("Error", msg or "No se pudo crear el clan", 5)
-	end
-
-	btnCrear.Text = "CREAR CLAN"
 end)
 
 -- ════════════════════════════════════════════════════════════════

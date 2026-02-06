@@ -80,6 +80,7 @@ local function ensureInitialized()
 		getRemote("ChangeClanTag")
 		getRemote("ChangeClanDescription")
 		getRemote("ChangeClanLogo")
+		getRemote("ChangeClanEmoji")
 		getRemote("ChangeClanColor")
 		getRemote("DissolveClan")
 		getRemote("LeaveClan")
@@ -268,6 +269,13 @@ function ClanClient:ChangeClanLogo(newLogoId)
 	return remote:InvokeServer(self.currentClanId, newLogoId)
 end
 
+function ClanClient:ChangeClanEmoji(newEmoji)
+	if not self.currentClanId then return false, "No estás en un clan" end
+	local remote = getRemote("ChangeClanEmoji")
+	if not remote then return false, "Función no disponible" end
+	return remote:InvokeServer(self.currentClanId, newEmoji)
+end
+
 function ClanClient:ChangeClanColor(newColor)
 	if not self.currentClanId then return false, "No estás en un clan" end
 	local allowed, err = checkThrottle("ChangeColor")
@@ -311,6 +319,11 @@ function ClanClient:DissolveClan()
 end
 
 function ClanClient:AdminDissolveClan(clanId)
+	if not clanId then 
+		warn("[ClanClient] AdminDissolveClan: clanId es nil")
+		return false, "ID del clan inválido" 
+	end
+	
 	local allowed, err = checkThrottle("AdminDissolveClan")
 	if not allowed then return false, err end
 

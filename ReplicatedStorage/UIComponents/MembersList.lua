@@ -67,15 +67,15 @@ function MembersList:_prepareItems()
 
 	if self.mode == "members" then
 		-- Preparar lista de miembros
-		if not self.clanData or not self.clanData.miembros_data then return end
+		if not self.clanData or not self.clanData.members then return end
 
-		for odI, memberData in pairs(self.clanData.miembros_data) do
+		for odI, memberData in pairs(self.clanData.members) do
 			local odI_num = tonumber(odI)
 			if odI_num and odI_num > 0 then
 				table.insert(self.items, {
 					odI = odI_num,
 					data = memberData,
-					priority = (ROLES_CONFIG[memberData.rol or "miembro"] or ROLES_CONFIG.miembro).priority,
+					priority = (ROLES_CONFIG[memberData.role or "miembro"] or ROLES_CONFIG.miembro).priority,
 					type = "member"
 				})
 			end
@@ -86,7 +86,7 @@ function MembersList:_prepareItems()
 			if a.priority ~= b.priority then
 				return a.priority > b.priority
 			end
-			return (a.data.nombre or "") < (b.data.nombre or "")
+			return (a.data.name or "") < (b.data.name or "")
 		end)
 	else
 		-- Preparar lista de solicitudes pendientes
@@ -172,7 +172,7 @@ function MembersList:_applyFilter()
 	else
 		self.filteredItems = {}
 		for _, item in ipairs(self.items) do
-			local nombre = (item.data.nombre or ""):lower()
+			local nombre = (item.data.name or ""):lower()
 			if nombre:find(self.searchText, 1, true) then
 				table.insert(self.filteredItems, item)
 			end

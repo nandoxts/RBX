@@ -104,6 +104,7 @@ local ChangeClanName = RF("ChangeClanName") -- V1 nombre
 local ChangeClanTag = RF("ChangeClanTag") -- V1 nombre
 local ChangeClanDescription = RF("ChangeClanDescription") -- V1 nombre
 local ChangeClanLogo = RF("ChangeClanLogo") -- V1 nombre
+local ChangeClanEmoji = RF("ChangeClanEmoji") -- V1 nombre
 local ChangeClanColor = RF("ChangeClanColor") -- V1 nombre
 local AddOwner = RF("AddOwner")
 local RemoveOwner = RF("RemoveOwner")
@@ -245,6 +246,31 @@ ChangeClanLogo.OnServerInvoke = function(player, clanId, newLogoId)
 		updateAllMembers(result)
 		ClansUpdated:FireAllClients()
 		return true, "Logo actualizado"
+	end
+	return false, result
+end
+
+ChangeClanEmoji.OnServerInvoke = function(player, clanId, newEmoji)
+	local ok, err = checkCooldown(player.UserId, "ChangeClanEmoji", Config:GetRateLimit("ChangeEmoji"))
+	if not ok then return false, err end
+	
+	if not newEmoji or type(newEmoji) ~= "string" or #newEmoji == 0 then
+		return false, "Emoji inválido"
+	end
+	
+	local clan = ClanData:GetClan(clanId)
+	if not clan then return false, "Clan no encontrado" end
+	
+	local member = clan.members[tostring(player.UserId)]
+	if not member or not Config:HasPermission(member.role, "cambiar_emoji") then
+		return false, "Sin permiso"
+	end
+	
+	local success, result = ClanData:UpdateClan(clanId, {emoji = newEmoji})
+	if success then
+		updateAllMembers(result)
+		ClansUpdated:FireAllClients()
+		return true, "Emoji actualizado"
 	end
 	return false, result
 end
@@ -424,6 +450,11 @@ RemoveOwner.OnServerInvoke = function(player, targetUserId)
 end
 
 AdminDissolveClan.OnServerInvoke = function(player, clanId)
+	if not clanId then
+		warn("[ClanServer] AdminDissolveClan: clanId recibido es nil para jugador", player.Name)
+		return false, "ID del clan inválido"
+	end
+	
 	local ok, err = checkCooldown(player.UserId, "AdminDissolveClan", Config:GetRateLimit("AdminDissolveClan"))
 	if not ok then return false, err end
 	
@@ -432,54 +463,80 @@ AdminDissolveClan.OnServerInvoke = function(player, clanId)
 	end
 	
 	local clan = ClanData:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		warn("[ClanServer] AdminDissolveClan: Clan no encontrado con ID:", clanId)
+		return false, "Clan no encontrado" 
+	end
 	
+	-- Validar que members existe antes de iterar
 	local members = {}
-	for userIdStr in pairs(clan.members) do
-		table.insert(members, tonumber(userIdStr))
+	if clan.members and type(clan.members) == "table" then
+		for userIdStr in pairs(clan.members) do
+			local userId = tonumber(userIdStr)
+			if userId then
+				table.insert(members, userId)
+			end
+		end
+	else
+		warn("[ClanServer] AdminDissolveClan: clan.members inválido para clanId:", clanId)
 	end
 	
 	local success, result = ClanData:DissolveClan(clanId)
 	
 	if success then
+		-- Actualizar atributos de los miembros
 		for _, userId in ipairs(members) do
-			updatePlayerAttributes(userId)
+			pcall(function()
+				updatePlayerAttributes(userId)
+			end)
 		end
 		ClansUpdated:FireAllClients()
 		return true, "Clan disuelto (Admin)"
 	end
 	
-	return false, result
+	return false, result or "Error desconocido"
 end
 
 DissolveClan.OnServerInvoke = function(player, clanId)
 	local ok, err = checkCooldown(player.UserId, "DissolveClan", Config:GetRateLimit("DissolveClan"))
 	if not ok then return false, err end
 	
+	if not clanId then
+		return false, "ID del clan inválido"
+	end
+	
 	local clan = ClanData:GetClan(clanId)
 	if not clan then return false, "Clan no encontrado" end
 	
 	-- Solo owners pueden disolver
-	if not table.find(clan.owners, player.UserId) then
+	if not clan.owners or not table.find(clan.owners, player.UserId) then
 		return false, "Solo owners pueden disolver"
 	end
 	
+	-- Validar que members existe antes de iterar
 	local members = {}
-	for userIdStr in pairs(clan.members) do
-		table.insert(members, tonumber(userIdStr))
+	if clan.members and type(clan.members) == "table" then
+		for userIdStr in pairs(clan.members) do
+			local userId = tonumber(userIdStr)
+			if userId then
+				table.insert(members, userId)
+			end
+		end
 	end
 	
 	local success, result = ClanData:DissolveClan(clanId)
 	
 	if success then
 		for _, userId in ipairs(members) do
-			updatePlayerAttributes(userId)
+			pcall(function()
+				updatePlayerAttributes(userId)
+			end)
 		end
 		ClansUpdated:FireAllClients()
 		return true, "Clan disuelto"
 	end
 	
-	return false, result
+	return false, result or "Error desconocido"
 end
 
 LeaveClan.OnServerInvoke = function(player, clanId)

@@ -73,6 +73,7 @@ ClanSystemConfig.RATE_LIMITS = {
 	ChangeTag = 300,
 	ChangeDescription = 30,
 	ChangeLogo = 60,
+	ChangeEmoji = 10,
 	ChangeColor = 10,
 	DissolveClan = 10,
 	AdminDissolveClan = 10,

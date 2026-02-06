@@ -60,12 +60,23 @@ local function addToNameIndex(name, clanId)
 end
 
 local function removeFromNameIndex(name)
-	local key = string.lower(name)
-	DS:UpdateAsync("index:names", function(current)
-		if not current then return nil end
-		current[key] = nil
-		return next(current) and current or nil
+	if not name or type(name) ~= "string" or name == "" then 
+		warn("[ClanData] removeFromNameIndex: nombre inválido:", name)
+		return 
+	end
+	
+	local success, err = pcall(function()
+		local key = string.lower(name)
+		DS:UpdateAsync("index:names", function(current)
+			if not current then return nil end
+			current[key] = nil
+			return next(current) and current or nil
+		end)
 	end)
+	
+	if not success then
+		warn("[ClanData] Error removiendo nombre del índice:", name, err)
+	end
 end
 
 local function addToTagIndex(tag, clanId)
@@ -78,12 +89,23 @@ local function addToTagIndex(tag, clanId)
 end
 
 local function removeFromTagIndex(tag)
-	local key = string.upper(tag)
-	DS:UpdateAsync("index:tags", function(current)
-		if not current then return nil end
-		current[key] = nil
-		return next(current) and current or nil
+	if not tag or type(tag) ~= "string" or tag == "" then 
+		warn("[ClanData] removeFromTagIndex: tag inválido:", tag)
+		return 
+	end
+	
+	local success, err = pcall(function()
+		local key = string.upper(tag)
+		DS:UpdateAsync("index:tags", function(current)
+			if not current then return nil end
+			current[key] = nil
+			return next(current) and current or nil
+		end)
 	end)
+	
+	if not success then
+		warn("[ClanData] Error removiendo tag del índice:", tag, err)
+	end
 end
 
 local function nameExists(name)
@@ -306,7 +328,7 @@ function ClanData:RemoveMember(clanId, userId)
 	
 	if success then
 		-- Limpiar player mapping
-		DS:SetAsync("player:" .. userIdStr, nil)
+		DS:RemoveAsync("player:" .. userIdStr)
 		updateEvent:Fire()
 		return true, result
 	else
@@ -434,20 +456,49 @@ end
 
 -- DISOLVER CLAN
 function ClanData:DissolveClan(clanId)
+	if not clanId then 
+		warn("[ClanData] DissolveClan: clanId es nil")
+		return false, "ID del clan inválido" 
+	end
+	
 	local clan = self:GetClan(clanId)
-	if not clan then return false, "Clan no encontrado" end
+	if not clan then 
+		warn("[ClanData] DissolveClan: Clan no encontrado para ID:", clanId)
+		return false, "Clan no encontrado" 
+	end
+	
+	-- Validar que members existe
+	if not clan.members then
+		warn("[ClanData] DissolveClan: clan.members es nil para clanId:", clanId)
+		clan.members = {} -- Asignar tabla vacía para evitar error
+	end
 	
 	-- Limpiar todos los miembros
 	for userIdStr in pairs(clan.members) do
-		DS:SetAsync("player:" .. userIdStr, nil)
+		local success, err = pcall(function()
+			DS:RemoveAsync("player:" .. userIdStr)
+		end)
+		if not success then
+			warn("[ClanData] Error limpiando player:" .. tostring(userIdStr), err)
+		end
 	end
 	
 	-- Borrar clan
-	DS:SetAsync("clan:" .. clanId, nil)
+	local success, err = pcall(function()
+		DS:RemoveAsync("clan:" .. clanId)
+	end)
+	if not success then
+		warn("[ClanData] Error borrando clan:", clanId, err)
+		return false, "Error al eliminar clan: " .. tostring(err)
+	end
 	
-	-- Limpiar índices
-	removeFromNameIndex(clan.name)
-	removeFromTagIndex(clan.tag)
+	-- Limpiar índices (solo si existen y son válidos)
+	if clan.name and type(clan.name) == "string" and clan.name ~= "" then
+		removeFromNameIndex(clan.name)
+	end
+	if clan.tag and type(clan.tag) == "string" and clan.tag ~= "" then
+		removeFromTagIndex(clan.tag)
+	end
 	
 	updateEvent:Fire()
 	return true, "Clan disuelto"
@@ -654,7 +705,7 @@ end
 
 -- CANCELAR TODAS LAS SOLICITUDES
 function ClanData:CancelAllRequests(userId)
-	DS:SetAsync("request:" .. tostring(userId), nil)
+	DS:RemoveAsync("request:" .. tostring(userId))
 	updateEvent:Fire()
 	return true, "Solicitudes canceladas"
 end

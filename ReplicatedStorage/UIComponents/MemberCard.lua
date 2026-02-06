@@ -37,7 +37,7 @@ function MemberCard.new(config)
 end
 
 function MemberCard:_build()
-	local memberRole = self.memberData.rol or "miembro"
+	local memberRole = self.memberData.role or "miembro"
 	local roleConfig = ROLES_CONFIG[memberRole] or ROLES_CONFIG.miembro
 	local isCurrentPlayer = self.userId == player.UserId
 	local canManageThis = self:_canManage(memberRole)
@@ -89,7 +89,7 @@ function MemberCard:_build()
 	})
 
 	-- Nombre
-	local displayName = (self.memberData.nombre or "Usuario")
+	local displayName = (self.memberData.name or "Usuario")
 	if #displayName > 16 then
 		displayName = displayName:sub(1, 14) .. "..."
 	end
@@ -198,7 +198,7 @@ function MemberCard:_showRoleMenu()
 	-- Crear menú de selección
 	RoleSelectionMenu.new({
 		screenGui = self.screenGui,
-		title = "Cambiar rol de " .. (self.memberData.nombre or "Usuario"),
+		title = "Cambiar rol de " .. (self.memberData.name or "Usuario"),
 		subtitle = "Rol actual: " .. (ROLES_CONFIG[memberRole].display),
 		options = options,
 		onSelect = function(selectedRole)
@@ -215,7 +215,7 @@ function MemberCard:_changeRole(newRole)
 		title = "Confirmar cambio de rol",
 		message = string.format(
 			"¿Cambiar a %s al rol de %s %s?",
-			self.memberData.nombre or "Usuario",
+			self.memberData.name or "Usuario",
 			roleConfig.icon,
 			roleConfig.display
 		),
@@ -239,7 +239,7 @@ function MemberCard:_confirmKick()
 		title = "Expulsar miembro",
 		message = string.format(
 			"¿Expulsar a %s del clan?\n\nEsta acción no se puede deshacer.",
-			self.memberData.nombre or "Usuario"
+			self.memberData.name or "Usuario"
 		),
 		confirmText = "Expulsar",
 		cancelText = "Cancelar",
