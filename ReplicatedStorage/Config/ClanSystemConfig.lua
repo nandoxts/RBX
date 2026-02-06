@@ -23,8 +23,9 @@ ClanSystemConfig.ADMINS = {
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.DATABASE = {
 	UseDataStore = true,
-	ClanStoreName = "ClansData_v2",
-	PlayerClanStoreName = "PlayerClans_v1",
+	ClanStoreName = "ClanData", -- DataStore único para todo el sistema
+	InitDelay = 2, -- Segundos de espera antes de crear clanes por defecto
+	CreateClanDelay = 0.1, -- Delay entre crear cada clan por defecto (evitar throttle)
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -35,6 +36,27 @@ ClanSystemConfig.LIMITS = {
 	MaxClanNameLength = 30,
 	MinTagLength = 2,
 	MaxTagLength = 5,
+}
+
+-- ═══════════════════════════════════════════════════════════
+-- VALORES POR DEFECTO AL CREAR CLAN
+-- ═══════════════════════════════════════════════════════════
+ClanSystemConfig.DEFAULTS = {
+	Logo = "rbxassetid://0",
+	Emoji = "⚔️",
+	Color = {255, 255, 255}, -- RGB Blanco
+	Description = "Sin descripción",
+	MemberRole = "miembro", -- Rol por defecto al unirse
+}
+
+-- ═══════════════════════════════════════════════════════════
+-- CONSTANTES DE ROLES
+-- ═══════════════════════════════════════════════════════════
+ClanSystemConfig.ROLE_NAMES = {
+	OWNER = "owner",
+	LIDER = "lider",
+	COLIDER = "colider",
+	MIEMBRO = "miembro",
 }
 
 -- ═══════════════════════════════════════════════════════════
@@ -83,13 +105,14 @@ ClanSystemConfig.ROLES = {
 			cambiar_nombre = true,
 			cambiar_tag = true,
 			cambiar_logo = true,
+			cambiar_emoji = true,
 			cambiar_color = true,
 			disolver_clan = true,
 			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
 			rechazar_solicitudes = true,
 			ver_solicitudes = true,
-			-- NUEVOS PERMISOS PARA MÚLTIPLES OWNERS
+			-- MÚLTIPLES OWNERS
 			agregar_owner = true,
 			remover_owner = true
 		},
@@ -97,9 +120,11 @@ ClanSystemConfig.ROLES = {
 			invitar = true,
 			expulsar = true,
 			cambiar_lideres = true,
+			cambiar_colideres = true,
 			cambiar_descripcion = true,
 			cambiar_nombre = true,
 			cambiar_logo = true,
+			cambiar_emoji = false,
 			cambiar_color = false,
 			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
@@ -112,7 +137,12 @@ ClanSystemConfig.ROLES = {
 		lider = {
 			invitar = true,
 			expulsar = true,
+			cambiar_lideres = false,
+			cambiar_colideres = false,
 			cambiar_descripcion = true,
+			cambiar_nombre = false,
+			cambiar_logo = false,
+			cambiar_emoji = false,
 			cambiar_color = false,
 			-- PERMISOS PARA SOLICITUDES
 			aprobar_solicitudes = true,
@@ -123,7 +153,8 @@ ClanSystemConfig.ROLES = {
 			remover_owner = false
 		},
 		miembro = {
-			-- MIEMBROS NO PUEDEN GESTIONAR SOLICITUDES
+			invitar = false,
+			expulsar = false,
 			aprobar_solicitudes = false,
 			rechazar_solicitudes = false,
 			ver_solicitudes = false,

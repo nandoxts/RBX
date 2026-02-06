@@ -20,7 +20,9 @@ pcall(function()
 	if systems then
 		local clanSystem = systems:FindFirstChild("ClanSystem")
 		if clanSystem then
-			local clanDataModule = clanSystem:FindFirstChild("ClanData")
+			-- Buscar V2 primero, luego V1 como fallback
+			local clanDataModule = clanSystem:FindFirstChild("ClanDataV2") 
+				or clanSystem:FindFirstChild("ClanData")
 			if clanDataModule then
 				ClanData = require(clanDataModule)
 			end

@@ -226,7 +226,7 @@ local ClanActions = {}
 function ClanActions:editName(gui, clanData, onSuccess)
 	showModal(gui, {
 		title = "Cambiar Nombre", message = "Ingresa el nuevo nombre:",
-		input = true, inputPlaceholder = "Nuevo nombre", inputDefault = clanData.clanName,
+		input = true, inputPlaceholder = "Nuevo nombre", inputDefault = clanData.name,
 		confirm = "Cambiar",
 		validate = function(v) return Validator:check("clanName", v) end,
 		action = function(v) return ClanClient:ChangeClanName(v) end,
@@ -238,7 +238,7 @@ end
 function ClanActions:editTag(gui, clanData, onSuccess)
 	showModal(gui, {
 		title = "Cambiar TAG", message = "Ingresa el nuevo TAG (2-5 caracteres):",
-		input = true, inputPlaceholder = "Ej: XYZ", inputDefault = clanData.clanTag,
+		input = true, inputPlaceholder = "Ej: XYZ", inputDefault = clanData.tag,
 		confirm = "Cambiar",
 		validate = function(v) return Validator:check("clanTag", (v or ""):upper()) end,
 		action = function(v) return ClanClient:ChangeClanTag(v:upper()) end,
@@ -286,7 +286,7 @@ end
 function ClanActions:adminDelete(gui, clanData, onSuccess)
 	showModal(gui, {
 		title = "Eliminar Clan",
-		message = string.format('¿Eliminar "%s"?', clanData.clanName or "Sin nombre"),
+		message = string.format('¿Eliminar "%s"?', clanData.name or "Sin nombre"),
 		confirm = "Eliminar", confirmColor = THEME.btnDanger,
 		action = function() return ClanClient:AdminDissolveClan(clanData.clanId) end,
 		successTitle = "Eliminado", successMsg = "Clan eliminado",
@@ -697,7 +697,7 @@ local function createMainView(parent, clanData, playerRole)
 
 	local bannerImage = Instance.new("ImageLabel")
 	bannerImage.Size, bannerImage.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
-	bannerImage.Image = clanData.clanLogo or ""
+	bannerImage.Image = clanData.logo or ""
 	bannerImage.ScaleType, bannerImage.ImageTransparency, bannerImage.ZIndex = Enum.ScaleType.Crop, 0.4, 104
 	bannerImage.Parent = infoCard
 	UI.rounded(bannerImage, 12)
@@ -709,23 +709,23 @@ local function createMainView(parent, clanData, playerRole)
 
 	local logoFrame = UI.frame({size = UDim2.new(0, 74, 0, 74), pos = UDim2.new(0, 16, 0, 24), bg = THEME.surface, z = 106, parent = infoCard, corner = 37, stroke = true, strokeA = 0.3})
 
-	if clanData.clanLogo and clanData.clanLogo ~= "" and clanData.clanLogo ~= "rbxassetid://0" then
+	if clanData.logo and clanData.logo ~= "" and clanData.logo ~= "rbxassetid://0" then
 		local logoImg = Instance.new("ImageLabel")
 		logoImg.Size, logoImg.Position = UDim2.new(1, -8, 1, -8), UDim2.new(0, 4, 0, 4)
-		logoImg.BackgroundTransparency, logoImg.Image = 1, clanData.clanLogo
+		logoImg.BackgroundTransparency, logoImg.Image = 1, clanData.logo
 		logoImg.ScaleType, logoImg.ZIndex = Enum.ScaleType.Fit, 107
 		logoImg.Parent = logoFrame
 		UI.rounded(logoImg, 33)
 	else
-		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.clanEmoji or "⚔️", textSize = 36, alignX = Enum.TextXAlignment.Center, z = 107, parent = logoFrame})
+		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.emoji or "⚔️", textSize = 36, alignX = Enum.TextXAlignment.Center, z = 107, parent = logoFrame})
 	end
 
 	local clanColor = clanData.clanColor and Color3.fromRGB(clanData.clanColor[1] or 255, clanData.clanColor[2] or 255, clanData.clanColor[3] or 255) or THEME.accent
 	local membersCount = 0
 	if clanData.miembros_data then for _ in pairs(clanData.miembros_data) do membersCount = membersCount + 1 end end
 
-	UI.label({size = UDim2.new(1, -110, 0, 26), pos = UDim2.new(0, 100, 0, 30), text = (clanData.clanEmoji or "") .. " " .. (clanData.clanName or "Clan"), color = clanColor, textSize = 18, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
-	UI.label({size = UDim2.new(0, 80, 0, 20), pos = UDim2.new(0, 100, 0, 56), text = "[" .. (clanData.clanTag or "TAG") .. "]", color = THEME.accent, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
+	UI.label({size = UDim2.new(1, -110, 0, 26), pos = UDim2.new(0, 100, 0, 30), text = (clanData.emoji or "") .. " " .. (clanData.name or "Clan"), color = clanColor, textSize = 18, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
+	UI.label({size = UDim2.new(0, 80, 0, 20), pos = UDim2.new(0, 100, 0, 56), text = "[" .. (clanData.tag or "TAG") .. "]", color = THEME.accent, textSize = 14, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Left, z = 106, parent = infoCard})
 
 	local roleData = ClanSystemConfig.ROLES.Visual[playerRole] or ClanSystemConfig.ROLES.Visual["miembro"]
 	UI.label({size = UDim2.new(0, 100, 0, 20), pos = UDim2.new(1, -116, 0, 56), text = roleData.display, color = roleData.color, textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Right, z = 106, parent = infoCard})
@@ -829,7 +829,7 @@ local function createMainView(parent, clanData, playerRole)
 
 	Memory:track(actionBtn.MouseButton1Click:Connect(function()
 		if playerRole == "owner" then
-			ClanActions:dissolve(screenGui, clanData.clanName, loadPlayerClan)
+			ClanActions:dissolve(screenGui, clanData.name, loadPlayerClan)
 		else
 			ClanActions:leave(screenGui, loadPlayerClan)
 		end
@@ -1042,21 +1042,21 @@ createClanEntry = function(clanData, pendingList)
 
 	local logoContainer = UI.frame({size = UDim2.new(0, 60, 0, 60), pos = UDim2.new(0, 12, 0.5, -30), bgT = 1, z = 105, parent = entry, corner = 10})
 
-	if clanData.clanLogo and clanData.clanLogo ~= "" and clanData.clanLogo ~= "rbxassetid://0" then
+	if clanData.logo and clanData.logo ~= "" and clanData.logo ~= "rbxassetid://0" then
 		local logo = Instance.new("ImageLabel")
 		logo.Size, logo.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
-		logo.Image, logo.ScaleType, logo.ZIndex = clanData.clanLogo, Enum.ScaleType.Fit, 106
+		logo.Image, logo.ScaleType, logo.ZIndex = clanData.logo, Enum.ScaleType.Fit, 106
 		logo.Parent = logoContainer
 		UI.rounded(logo, 8)
 	else
-		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.clanEmoji or "⚔️", textSize = 30, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer})
+		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.emoji or "⚔️", textSize = 30, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer})
 	end
 
-	local clanColor = clanData.clanColor and Color3.fromRGB(clanData.clanColor[1] or 255, clanData.clanColor[2] or 255, clanData.clanColor[3] or 255) or THEME.accent
+	local clanColor = clanData.color and Color3.fromRGB(clanData.color[1] or 255, clanData.color[2] or 255, clanData.color[3] or 255) or THEME.accent
 
-	UI.label({size = UDim2.new(1, -180, 0, 18), pos = UDim2.new(0, 85, 0, 12), text = (clanData.clanEmoji or "") .. " " .. string.upper(clanData.clanName or "CLAN"), color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry})
-	UI.label({size = UDim2.new(1, -180, 0, 26), pos = UDim2.new(0, 85, 0, 32), text = clanData.descripcion or "Sin descripción", color = THEME.subtle, textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry})
-	UI.label({size = UDim2.new(1, -180, 0, 28), pos = UDim2.new(0, 85, 0, 54), text = string.format("%d MIEMBROS [%s]", clanData.miembros_count or 0, clanData.clanTag or "?"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left})
+	UI.label({size = UDim2.new(1, -180, 0, 18), pos = UDim2.new(0, 85, 0, 12), text = (clanData.emoji or "") .. " " .. string.upper(clanData.name or "CLAN"), color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -180, 0, 26), pos = UDim2.new(0, 85, 0, 32), text = clanData.description or "Sin descripción", color = THEME.subtle, textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -180, 0, 28), pos = UDim2.new(0, 85, 0, 54), text = string.format("%d MIEMBROS [%s]", clanData.memberCount or 0, clanData.tag or "?"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left})
 
 	local joinBtn = UI.button({size = UDim2.new(0, 75, 0, 30), pos = UDim2.new(1, -87, 0.5, -15), bg = THEME.accent, text = "UNIRSE", textSize = 11, z = 106, parent = entry, corner = 6})
 
@@ -1118,8 +1118,8 @@ loadClansFromServer = function(filtro)
 		if #clans > 0 then
 			local hayResultados = false
 			for _, clanData in ipairs(clans) do
-				local nombre = (clanData.clanName or ""):lower()
-				local tag = (clanData.clanTag or ""):lower()
+				local nombre = (clanData.name or ""):lower()
+				local tag = (clanData.tag or ""):lower()
 
 				if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
 					createClanEntry(clanData, pendingList)
@@ -1162,7 +1162,7 @@ loadAdminClans = function()
 		for _, clanData in ipairs(clans) do
 			local entry = UI.frame({size = UDim2.new(1, 0, 0, 65), bg = THEME.card, z = 104, parent = adminClansScroll, corner = 10, stroke = true, strokeA = 0.6})
 
-			UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.clanEmoji or "") .. " " .. (clanData.clanName or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
+			UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.emoji or "") .. " " .. (clanData.name or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
 			UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.miembros_count or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
 
 			local deleteBtn = UI.button({size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16), bg = Color3.fromRGB(160, 50, 50), text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = Color3.fromRGB(200, 70, 70)})
