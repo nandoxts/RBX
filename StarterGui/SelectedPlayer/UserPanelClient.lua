@@ -55,6 +55,10 @@ local GiveSuperLikeEvent = LikesEvents:WaitForChild("GiveSuperLikeEvent")
 -- Sistema de regalos (como SelectedPlayer.lua)
 local Gifting = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Remotes"):FindFirstChild("Gifting")
 
+-- ✅ EVENTO BROADCAST PARA REGALOS DE GAMEPASSES
+local GiftingRemotes = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Remotes")
+local GiftBroadcastEvent = GiftingRemotes and GiftingRemotes:WaitForChild("GiftBroadcastEvent", 5)
+
 -- Highlight del SelectedPlayer
 local SelectedPlayerModule = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("SelectedPlayer")
 local Highlight = SelectedPlayerModule and SelectedPlayerModule:FindFirstChild("Highlight")
@@ -443,6 +447,21 @@ if BroadcastEvent then
 				and '<font color="#F7004D"><b>' .. data.Sender .. ' dio un Super Like (+' .. data.Amount .. ') a ' .. data.Target .. '</b></font>'
 				or '<font color="#FFFF7F"><b>' .. data.Sender .. ' dio un Like a ' .. data.Target .. '</b></font>'
 
+			pcall(function()
+				local TextChannels = TextChatService:WaitForChild("TextChannels")
+				local RBXSystem = TextChannels:WaitForChild("RBXSystem")
+				RBXSystem:DisplaySystemMessage(message)
+			end)
+		end
+	end)
+end
+
+-- ✅ LISTENER PARA REGALOS DE GAMEPASSES (NUEVO)
+if GiftBroadcastEvent then
+	GiftBroadcastEvent.OnClientEvent:Connect(function(action, data)
+		if action == "GiftNotification" then
+			local message = '<font color="#00D9FF"><b>🎁 ' .. data.Donor .. ' regaló el gamepass "' .. data.GamepassName .. '" a ' .. data.Recipient .. '</b></font>'
+			
 			pcall(function()
 				local TextChannels = TextChatService:WaitForChild("TextChannels")
 				local RBXSystem = TextChannels:WaitForChild("RBXSystem")

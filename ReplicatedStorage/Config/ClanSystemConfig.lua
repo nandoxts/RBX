@@ -23,7 +23,7 @@ ClanSystemConfig.ADMINS = {
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.DATABASE = {
 	UseDataStore = true,
-	ClanStoreName = "ClanDataTEST", -- DataStore único para todo el sistema
+	ClanStoreName = "ClanData", -- DataStore único para todo el sistema
 	InitDelay = 2, -- Segundos de espera antes de crear clanes por defecto
 	CreateClanDelay = 0.1, -- Delay entre crear cada clan por defecto (evitar throttle)
 }
@@ -69,9 +69,9 @@ ClanSystemConfig.RATE_LIMITS = {
 	InvitePlayer = 1,
 	KickPlayer = 2,
 	ChangeRole = 3,
-	ChangeName = 3,
-	ChangeTag = 3,
-	ChangeDescription = 3,
+	ChangeName = 60,
+	ChangeTag = 300,
+	ChangeDescription = 30,
 	ChangeLogo = 60,
 	ChangeEmoji = 10,
 	ChangeColor = 10,
@@ -213,7 +213,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 	},
 	{
 		clanName = "TH4",
-		ownerId = 7938677596, -- Asignar ownerId
+		ownerId = 3186256515, -- Asignar ownerId
 		clanTag = "TH4",
 		clanLogo = "rbxassetid://116232400811020",
 		descripcion = "Clan TH4",
@@ -223,8 +223,8 @@ ClanSystemConfig.DEFAULT_CLANS = {
 
 	{
 		clanName = "King of Darkness",
-		ownerId = 8109061566, -- Asignar ownerId
-		clanTag = "DK",
+		ownerId = 2813593883, -- Asignar ownerId
+		clanTag = "KD",
 		clanLogo = "rbxassetid://110433791728647",
 		descripcion = "Clan King of Darkness",
 		clanEmoji = "💀",
@@ -272,7 +272,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanName = "VIP",
 		ownerId = 8387751399, -- Admin owner
 		clanTag = "VIP",
-		clanLogo = "rbxassetid://72532594643553",
+		clanLogo = "rbxassetid://105232541431821",
 		descripcion = "Clan VIP",
 		clanEmoji = "👑",
 		clanColor = {255, 215, 0}, -- Dorado

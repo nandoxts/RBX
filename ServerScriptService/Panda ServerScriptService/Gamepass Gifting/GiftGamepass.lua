@@ -13,6 +13,11 @@ local Ownership = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting
 local Config = require(game.ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Modules.Config)
 local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
 
+-- ✅ CREAR EVENTO BROADCAST PARA NOTIFICACIONES DE REGALO
+local GiftBroadcastEvent = Instance.new("RemoteEvent")
+GiftBroadcastEvent.Name = "GiftBroadcastEvent"
+GiftBroadcastEvent.Parent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes
+
 local BADGES_Gift = Configuration.BADGES_Gift
 
 -- Al inicio del script de regalos:
@@ -272,6 +277,18 @@ local function handleGiftPurchase(receiptInfo)
 				saveSuccess = dsSuccess
 				saveDone = true
 			end)
+			
+			-- ⏳ ESPERAR a que se complete el guardado en DataStore (máximo 10 segundos)
+			local startTime = tick()
+			while not saveDone and (tick() - startTime) < 10 do
+				task.wait(0.05)
+			end
+			
+			-- Si falló el guardado, NO procesar la compra
+			if not saveSuccess then
+				warn("❌ Error al guardar gamepass regalado en DataStore para:", Recipient, "GamepassID:", gamepass[1])
+				return Enum.ProductPurchaseDecision.NotProcessedYet
+			end
 
 			-- Enviar notificación a Discord (sin esperar)
 			pcall(function()
@@ -284,6 +301,11 @@ local function handleGiftPurchase(receiptInfo)
 				)
 			end)
 			
+			-- Obtener el nombre del gamepass para el broadcast
+			local gpSuccess, Asset = pcall(function()
+				return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+			end)
+			
 			local recipientPlayer = Players:GetPlayerByUserId(Recipient)
 			if recipientPlayer then
 				local Folder = recipientPlayer:FindFirstChild("Gamepasses")
@@ -292,11 +314,6 @@ local function handleGiftPurchase(receiptInfo)
 					Folder.Name = "Gamepasses"
 					Folder.Parent = recipientPlayer
 				end
-
-				-- Obtener el nombre del gamepass
-				local gpSuccess, Asset = pcall(function()
-					return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-				end)
 
 				if gpSuccess and Asset then
 					local existingValue = Folder:FindFirstChild(Asset.Name)
@@ -314,11 +331,26 @@ local function handleGiftPurchase(receiptInfo)
 						recipientPlayer:SetAttribute("HasVIP", true)
 					end
 					
-					-- ✅ Notificar a HD-CONNECT para actualizar rango inmediatamente
+					--  Notificar a HD-CONNECT para actualizar rango inmediatamente
 					if _G.HDConnect_HandleGiftedGamepass then
 						pcall(_G.HDConnect_HandleGiftedGamepass, Recipient, gamepass[1])
 					end
 				end
+			end
+
+			-- ✅ BROADCAST: Notificar a TODOS los jugadores del regalo
+			if gpSuccess and Asset then
+				pcall(function()
+					local recipientName = game:GetService("Players"):GetNameFromUserIdAsync(Recipient)
+					local donorName = game:GetService("Players"):GetNameFromUserIdAsync(UserId)
+					
+					GiftBroadcastEvent:FireAllClients("GiftNotification", {
+						Donor = donorName,
+						Recipient = recipientName,
+						GamepassName = Asset.Name,
+						GamepassId = gamepass[1]
+					})
+				end)
 			end
 
 			-- Notificar al donante de que se completó la compra
@@ -332,7 +364,7 @@ local function handleGiftPurchase(receiptInfo)
 				end
 			end
 
-			-- Retornar inmediatamente (el DataStore se guardará en background)
+			--  Retornar PurchaseGranted SOLO después de verificar guardado exitoso
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end
