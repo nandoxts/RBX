@@ -216,7 +216,7 @@ end
 -- OBTENER INFO DE GAME PASS (MarketplaceService)
 -- ═══════════════════════════════════════════════════════════════
 
-local function getGamePassInfo(passId)
+local function getGamePassInfo(passId, productId)
 	local success, info = pcall(function()
 		return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
 	end)
@@ -226,12 +226,14 @@ local function getGamePassInfo(passId)
 
 		-- Solo retornar si tiene precio > 0
 		if price > 0 then
-			return {
+			local result = {
 				passId = passId,
+				productId = productId,
 				name = info.Name or "Game Pass",
 				price = price,
 				icon = info.IconImageAssetId and ("rbxassetid://" .. info.IconImageAssetId) or ""
 			}
+			return result
 		end
 	end
 
@@ -286,8 +288,8 @@ local function getGamePasses()
 		for _, gamepass in ipairs(Config.Gamepasses) do
 			local gamepassId = gamepass[1]
 			local productId = gamepass[2]
-
-			local passInfo = getGamePassInfo(gamepassId)
+			
+			local passInfo = getGamePassInfo(gamepassId, productId)
 			if passInfo then
 				table.insert(passes, passInfo)
 			end
@@ -295,6 +297,7 @@ local function getGamePasses()
 	end
 	-- Ordenar por precio
 	table.sort(passes, function(a, b) return a.price < b.price end)
+	
 	return passes
 end
 
@@ -334,15 +337,11 @@ local function getUserDonations(userId)
 	local allPasses = {}
 	local games = getUserGames(userId)
 
-	print("[UserPanel] Usuario", userId, "tiene", #games, "juegos")
-
 	local gamesToSearch = math.min(#games, CONFIG.MAX_GAMES_TO_SEARCH)
 
 	for i = 1, gamesToSearch do
 		local game = games[i]
 		local passes = getGamePassesFromAPI(game.universeId)
-
-		print("[UserPanel]", game.name or "Sin nombre", "->", #passes, "passes")
 
 		for _, pass in ipairs(passes) do
 			table.insert(allPasses, pass)
@@ -357,7 +356,6 @@ local function getUserDonations(userId)
 
 	Cache.donations[userId] = { data = allPasses, timestamp = os.time() }
 
-	print("[UserPanel] TOTAL donaciones:", #allPasses)
 	return allPasses
 end
 

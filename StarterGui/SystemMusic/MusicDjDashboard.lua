@@ -69,8 +69,7 @@ local isAdmin = MusicSystemConfig:IsAdmin(player) and SHOW_ADMIN_UI
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local R_PANEL, R_CTRL = 12, 10
 local ENABLE_BLUR, BLUR_SIZE = true, 14
-local PANEL_W_PX = THEME.panelWidth or 980
-local PANEL_H_PX = THEME.panelHeight or 620
+-- Panel dimensions removed - ModalManager handles responsive sizing automatically
 
 -- Virtualización
 local CARD_HEIGHT = 54
@@ -219,8 +218,6 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "MusicDashboard",
-	panelWidth = PANEL_W_PX,
-	panelHeight = PANEL_H_PX,
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,

@@ -201,11 +201,9 @@ end
 function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, forceUpdate, clansFromEvent)
 	if not State.isOpen then return end
 
-	local now = tick()
-	-- Permitir actualización forzada aunque esté en enfriamiento
-	if not forceUpdate and (State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown) then return end
+	-- Permitir actualización forzada aunque esté ocupado
+	if not forceUpdate and State.isUpdating then return end
 	State.isUpdating = true
-	State.lastUpdateTime = now
 
 	filtro = filtro or ""
 	local filtroLower = filtro:lower()
@@ -276,10 +274,8 @@ function ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFI
 	if not adminClansScroll then return end
 	if not State.isOpen then return end
 
-	local now = tick()
-	if State.isUpdating or (now - State.lastUpdateTime) < CONFIG.cooldown then return end
+	if State.isUpdating then return end
 	State.isUpdating = true
-	State.lastUpdateTime = now
 
 	ClanHelpers.safeLoading(adminClansScroll, function()
 		return ClanClient:GetClansList()

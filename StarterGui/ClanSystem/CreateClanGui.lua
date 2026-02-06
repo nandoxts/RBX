@@ -51,8 +51,6 @@ screenGui.Parent = playerGui
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "ClanPanel",
-	panelWidth = CONFIG.panel.width,
-	panelHeight = CONFIG.panel.height,
 	cornerRadius = CONFIG.panel.corner,
 	enableBlur = CONFIG.blur.enabled,
 	blurSize = CONFIG.blur.size,
@@ -194,7 +192,6 @@ local function switchTab(tabName, forceLoad)
 
 	State.currentPage = tabName
 	State.currentView = "main"
-	State.isUpdating = false
 
 	for name, btn in pairs(tabButtons) do
 		TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = (name == tabName) and THEME.accent or THEME.muted}):Play()
@@ -256,7 +253,6 @@ local function closeUI()
 	State.currentPage = nil
 	State.clanData = nil
 	State.playerRole = nil
-	State.isUpdating = false
 
 	modal:close()
 end
@@ -272,7 +268,6 @@ end)
 -- LISTENER DEL SERVIDOR
 -- ════════════════════════════════════════════════════════════════
 local listenerLastTime = 0
-local lastEventCount = 0
 
 -- Registrar callback para actualizar la UI cuando hay cambios
 ClanClient:OnClansUpdated(function(clans)
@@ -283,18 +278,16 @@ ClanClient:OnClansUpdated(function(clans)
 	if (now - listenerLastTime) < CONFIG.listenerCooldown then return end
 	listenerLastTime = now
 
-	if State.isUpdating then return end
+	-- ✅ Incrementar loadingId INMEDIATAMENTE para cancelar refreshes anteriores pendientes
+	State.loadingId = State.loadingId + 1
 
+	-- ✅ NO usar task.defer - las funciones ya usan task.spawn internamente
 	if State.currentPage == "TuClan" then 
-		-- 🔥 ACTUALIZAR SIN RESETEAR VIEW (mantiene la vista actual)
-		task.defer(function() 
-			ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, State.currentView)
-		end)
+		ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, State.currentView)
 	elseif State.currentPage == "Disponibles" then 
-		-- 🔥 USAR CLANES DEL EVENTO PARA EVITAR DOBLE FETCH
-		task.defer(function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, "", false, clans) end)
+		ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, "", false, clans)
 	elseif State.currentPage == "Admin" and isAdmin then 
-		task.defer(function() ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG) end)
+		ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG)
 	end
 end)
 

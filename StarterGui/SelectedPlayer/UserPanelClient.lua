@@ -50,6 +50,10 @@ local LikesEvents = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):
 local GiveLikeEvent = LikesEvents:WaitForChild("GiveLikeEvent")
 local GiveSuperLikeEvent = LikesEvents:WaitForChild("GiveSuperLikeEvent")
 
+-- Sistema de regalos (como SelectedPlayer.lua)
+local Gifting = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Remotes"):FindFirstChild("Gifting")
+local GiftingConfig = Gifting and require(ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("Gamepass Gifting"):FindFirstChild("Modules"):FindFirstChild("Config")) or nil
+
 -- Highlight del SelectedPlayer
 local SelectedPlayerModule = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage"):FindFirstChild("SelectedPlayer")
 local Highlight = SelectedPlayerModule and SelectedPlayerModule:FindFirstChild("Highlight")
@@ -931,7 +935,43 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 						NotificationSystem:Info("Game Pass", message, 2)
 					end
 				elseif item.passId then
-					pcall(function() MarketplaceService:PromptGamePassPurchase(player, item.passId) end)
+					-- REGALO: Usar el remote Gifting como SelectedPlayer.lua
+					if viewType == "passes" then
+						-- Validar que tenemos todo lo necesario para regalar
+						if not Gifting then
+							warn("[UserPanel] Error: Gifting remote no encontrado")
+							if NotificationSystem then
+								NotificationSystem:Error("Error", "Sistema de regalos no disponible", 3)
+							end
+							return
+						end
+						
+						if not State.target then
+							warn("[UserPanel] Error: No hay target seleccionado")
+							return
+						end
+						
+						if not item.productId then
+							warn("[UserPanel] Error: productId faltante para passId:", item.passId)
+							if NotificationSystem then
+								NotificationSystem:Error("Error", "Datos del pase incompletos", 3)
+							end
+							return
+						end
+						
+						-- Todo OK, enviar regalo
+						pcall(function()
+							Gifting:FireServer(
+								{item.passId, item.productId},
+								State.target.UserId,
+								player.Name,
+								player.UserId
+							)
+						end)
+					else
+						-- DONACION: Compra directa al jugador local
+						pcall(function() MarketplaceService:PromptGamePassPurchase(player, item.passId) end)
+					end
 				end
 			end))
 		end

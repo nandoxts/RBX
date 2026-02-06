@@ -11,7 +11,7 @@ local ClanConstants = {}
 
 -- Configuración UI
 ClanConstants.CONFIG = {
-	panel = { width = THEME.panelWidth or 980, height = THEME.panelHeight or 620, corner = 12 },
+	panel = { corner = 12 },  -- width/height removidos - ModalManager maneja responsive automáticamente
 	blur = { enabled = true, size = 14 },
 	cooldown = 1.5,
 	listenerCooldown = 3,
@@ -32,9 +32,8 @@ ClanConstants.CONFIG = {
 ClanConstants.State = {
 	currentPage = nil,
 	currentView = "main",
-	isUpdating = false,
-	lastUpdateTime = 0,
-	loadingId = 0,
+	loadingId = 0,  -- Sistema de cancelación de refreshes obsoletos
+	isUpdating = false,  -- Flag simple de "ocupado" (sin timestamp)
 	isOpen = false,
 	selectedColor = 1,
 	selectedEmoji = 1,
