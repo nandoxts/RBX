@@ -177,4 +177,48 @@ function ClanHelpers.createViewHeader(parent, title, onBack)
 	return header
 end
 
+-- Validar emojis (solo emojis, máximo 2)
+function ClanHelpers.validateEmoji(text)
+	if not text or #text == 0 then
+		return false, "El emoji no puede estar vacío"
+	end
+
+	-- Contar emojis válidos
+	local emojiCount = 0
+	local hasRegularText = false
+	
+	-- Recorrer cada caracter UTF-8
+	for _, codepoint in utf8.codes(text) do
+		-- Los emojis están en rangos Unicode específicos
+		-- Rango principal de emojis: 0x1F300 - 0x1FAF8
+		-- Otros símbolos comunes: 0x2000 - 0x3299
+		if (codepoint >= 0x1F300 and codepoint <= 0x1FAF8) or 
+		   (codepoint >= 0x2000 and codepoint <= 0x3299) or
+		   (codepoint >= 0x1F900 and codepoint <= 0x1F9FF) then
+			emojiCount = emojiCount + 1
+		elseif codepoint > 127 then
+			-- Otros caracteres Unicode (pueden ser emojis no comunes)
+			emojiCount = emojiCount + 1
+		elseif codepoint ~= 32 and codepoint ~= 9 and codepoint ~= 10 then
+			-- Caracter ASCII regular (no espacio, tab, o newline) = texto no permitido
+			hasRegularText = true
+			break
+		end
+	end
+
+	if hasRegularText then
+		return false, "Solo se permiten emojis, sin texto"
+	end
+
+	if emojiCount == 0 then
+		return false, "Debes ingresar al menos un emoji"
+	end
+
+	if emojiCount > 2 then
+		return false, "Máximo 2 emojis permitidos"
+	end
+
+	return true
+end
+
 return ClanHelpers

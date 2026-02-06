@@ -213,7 +213,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 	},
 	{
 		clanName = "TH4",
-		ownerId = 3186256515, -- Asignar ownerId
+		ownerId = 7938677596, -- Asignar ownerId
 		clanTag = "TH4",
 		clanLogo = "rbxassetid://116232400811020",
 		descripcion = "Clan TH4",
@@ -272,7 +272,7 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanName = "VIP",
 		ownerId = 8387751399, -- Admin owner
 		clanTag = "VIP",
-		clanLogo = "rbxassetid://105232541431821",
+		clanLogo = "rbxassetid://72532594643553",
 		descripcion = "Clan VIP",
 		clanEmoji = "👑",
 		clanColor = {255, 215, 0}, -- Dorado

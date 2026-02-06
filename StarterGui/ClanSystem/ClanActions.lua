@@ -10,6 +10,7 @@ local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("N
 local ConfirmationModal = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ConfirmationModal"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local ClanConstants = require(script.Parent.ClanConstants)
+local ClanHelpers = require(script.Parent.ClanHelpers)
 local CONFIG = ClanConstants.CONFIG
 
 local ClanActions = {}
@@ -154,12 +155,13 @@ end
 function ClanActions:editEmoji(gui, onSuccess)
 	showModal(gui, {
 		title = "Cambiar Emoji", 
-		message = "Ingresa el nuevo emoji del clan:",
-		input = true, inputPlaceholder = "Ejemplo: ⚔️ 🔥 👑", inputDefault = "",
+		message = "Ingresa el nuevo emoji del clan (máximo 2):",
+		input = true, inputPlaceholder = "Ejemplo: ⚔️🔥", inputDefault = "",
 		confirm = "Cambiar",
 		validate = function(v)
-			if not v or #v == 0 then
-				Notify:Warning("Emoji vacío", "Debes ingresar un emoji", 3)
+			local isValid, errorMsg = ClanHelpers.validateEmoji(v)
+			if not isValid then
+				Notify:Warning("Emoji inválido", errorMsg, 3)
 				return false
 			end
 			return true
