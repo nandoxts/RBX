@@ -23,7 +23,7 @@ ClanSystemConfig.ADMINS = {
 -- ═══════════════════════════════════════════════════════════
 ClanSystemConfig.DATABASE = {
 	UseDataStore = true,
-	ClanStoreName = "ClanData", -- DataStore único para todo el sistema
+	ClanStoreName = "ClanDataTEST", -- DataStore único para todo el sistema
 	InitDelay = 2, -- Segundos de espera antes de crear clanes por defecto
 	CreateClanDelay = 0.1, -- Delay entre crear cada clan por defecto (evitar throttle)
 }
