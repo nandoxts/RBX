@@ -45,20 +45,10 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
--- ✅ DETECTAR MÓVIL justo antes de crear modal (asegura que UserInputService esté listo)
+
 local UserInputService = game:GetService("UserInputService")
-task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+task.wait(0.5)
 local isMobileDevice = UserInputService.TouchEnabled
-
--- Valores responsivos para header y tabs
-local HEADER_HEIGHT = isMobileDevice and 50 or 60
-local TAB_HEIGHT = isMobileDevice and 32 or 36
-local CONTENT_PADDING = isMobileDevice and 10 or 20
-local CONTENT_Y_MARGIN = HEADER_HEIGHT + TAB_HEIGHT + CONTENT_PADDING  -- Total espacio arriba
-
--- Valores responsivos para elementos internos
-local SEARCH_HEIGHT = isMobileDevice and 32 or 36
-local SCROLL_OFFSET = isMobileDevice and 10 or 20  -- Margen entre búsqueda y scroll
 
 -- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
@@ -71,7 +61,7 @@ local modal = ModalManager.new({
 	cornerRadius = CONFIG.panel.corner,
 	enableBlur = CONFIG.blur.enabled,
 	blurSize = CONFIG.blur.size,
-	isMobile = isMobileDevice,  -- ✅ PASAR la detección de móvil
+	isMobile = isMobileDevice,
 	onClose = function() end
 })
 
@@ -82,14 +72,14 @@ local tabPages = {}
 -- ════════════════════════════════════════════════════════════════
 -- HEADER
 -- ════════════════════════════════════════════════════════════════
-local header = UI.frame({name = "Header", size = UDim2.new(1, 0, 0, HEADER_HEIGHT), bg = THEME.head or Color3.fromRGB(22, 22, 28), z = 101, parent = panel, corner = 12})
+local header = UI.frame({name = "Header", size = UDim2.new(1, 0, 0, 60), bg = THEME.head or Color3.fromRGB(22, 22, 28), z = 101, parent = panel, corner = 12})
 
 local headerGradient = Instance.new("UIGradient")
 headerGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, THEME.panel), ColorSequenceKeypoint.new(1, THEME.card)}
 headerGradient.Rotation = 90
 headerGradient.Parent = header
 
-UI.label({size = UDim2.new(1, -100, 0, HEADER_HEIGHT), pos = UDim2.new(0, 20, 0, 0), text = "CLANES", textSize = 20, font = Enum.Font.GothamBold, z = 102, parent = header})
+UI.label({size = UDim2.new(1, -100, 0, 60), pos = UDim2.new(0, 20, 0, 0), text = "CLANES", textSize = 20, font = Enum.Font.GothamBold, z = 102, parent = header})
 
 local closeBtn = UI.button({name = "CloseBtn", size = UDim2.new(0, 36, 0, 36), pos = UDim2.new(1, -50, 0.5, -18), bg = THEME.card, text = "×", color = THEME.muted, textSize = 22, z = 103, parent = header, corner = 8})
 UI.stroked(closeBtn, 0.4)
@@ -104,7 +94,7 @@ end))
 -- ════════════════════════════════════════════════════════════════
 -- TABS
 -- ════════════════════════════════════════════════════════════════
-local tabNav = UI.frame({size = UDim2.new(1, 0, 0, TAB_HEIGHT), pos = UDim2.new(0, 0, 0, HEADER_HEIGHT), bgT = 1, z = 101, parent = panel})
+local tabNav = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bgT = 1, z = 101, parent = panel})
 
 local navList = Instance.new("UIListLayout")
 navList.FillDirection = Enum.FillDirection.Horizontal
@@ -129,12 +119,12 @@ if isAdmin then
 	tabButtons["Admin"] = createTab("ADMIN")
 end
 
-local underline = UI.frame({size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, CONTENT_PADDING, 0, HEADER_HEIGHT + TAB_HEIGHT - 3), bg = THEME.accent, z = 102, parent = panel, corner = 2})
+local underline = UI.frame({size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, 20, 0, 93), bg = THEME.accent, z = 102, parent = panel, corner = 2})
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT AREA
 -- ════════════════════════════════════════════════════════════════
-local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -CONTENT_PADDING*2, 1, -(CONTENT_Y_MARGIN + CONTENT_PADDING)), pos = UDim2.new(0, CONTENT_PADDING, 0, CONTENT_Y_MARGIN), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
+local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -20, 1, -125), pos = UDim2.new(0, 10, 0, 106), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
 
 local pageLayout = Instance.new("UIPageLayout")
 pageLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -161,16 +151,11 @@ tabPages["TuClan"] = pageTuClan
 local pageDisponibles = UI.frame({name = "Disponibles", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageDisponibles.LayoutOrder = 2
 
-local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {placeholder = "Buscar clanes...", size = UDim2.new(1, -CONTENT_PADDING*2, 0, SEARCH_HEIGHT), z = 104, name = "BuscarClanes"})
-searchContainer.Position = UDim2.new(0, CONTENT_PADDING, 0, CONTENT_PADDING)
+local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {placeholder = "Buscar clanes...", size = UDim2.new(1, -20, 0, 36), z = 104, name = "BuscarClanes"})
+searchContainer.Position = UDim2.new(0, 10, 0, 10)
 Memory:track({Disconnect = searchCleanup})
 
--- Scroll responsivo: altura = espacio total - búsqueda - márgenes
-local clansScroll = ClanHelpers.setupScroll(pageDisponibles, {
-	size = UDim2.new(1, -CONTENT_PADDING*2, 1, -(SEARCH_HEIGHT + SCROLL_OFFSET*2 + CONTENT_PADDING)), 
-	pos = UDim2.new(0, CONTENT_PADDING, 0, SEARCH_HEIGHT + CONTENT_PADDING + SCROLL_OFFSET), 
-	padding = 8, z = 103
-})
+local clansScroll = ClanHelpers.setupScroll(pageDisponibles, {size = UDim2.new(1, -20, 1, -56), pos = UDim2.new(0, 10, 0, 52), padding = 8, z = 103})
 
 local searchDebounce = false
 searchInput:GetPropertyChangedSignal("Text"):Connect(function()
@@ -230,7 +215,7 @@ local function switchTab(tabName, forceLoad)
 		if not State.isOpen then return end
 
 		local reloadFunc = function(v) ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, v) end
-		
+
 		if tabName == "TuClan" then 
 			ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadFunc)
 		elseif tabName == "Disponibles" then 

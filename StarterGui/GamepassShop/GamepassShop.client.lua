@@ -117,7 +117,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 -- ✅ Detectar móvil justo antes de crear modal (asegura que UserInputService esté listo)
-task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+task.wait(0.5)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
 local isMobileDevice = UserInputService.TouchEnabled
 
 -- ════════════════════════════════════════════════════════════════
@@ -158,12 +158,12 @@ local function createGridLines()
 	for _, child in ipairs(gridPattern:GetChildren()) do
 		child:Destroy()
 	end
-	
+
 	task.wait(0.01) -- Esperar a que se resuelva el tamaño
-	
+
 	local gridWidth = gridPattern.AbsoluteSize.X
 	local gridHeight = gridPattern.AbsoluteSize.Y
-	
+
 	-- Líneas horizontales (solo del centro, sin bordes)
 	for i = 1, 9 do
 		local hLine = Instance.new("Frame")
@@ -175,7 +175,7 @@ local function createGridLines()
 		hLine.BorderSizePixel = 0
 		hLine.ZIndex = 99
 		hLine.Parent = gridPattern
-		
+
 		local hLineCorner = Instance.new("UICorner")
 		hLineCorner.CornerRadius = UDim.new(0, 20)
 		hLineCorner.Parent = hLine
@@ -192,7 +192,7 @@ local function createGridLines()
 		vLine.BorderSizePixel = 0
 		vLine.ZIndex = 99
 		vLine.Parent = gridPattern
-		
+
 		local vLineCorner = Instance.new("UICorner")
 		vLineCorner.CornerRadius = UDim.new(0, 20)
 		vLineCorner.Parent = vLine

@@ -213,7 +213,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- ✅ DETECTAR MÓVIL justo antes de crear modal (asegura que UserInputService esté listo)
-task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+task.wait(0.5)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
 local isMobileDevice = UserInputService.TouchEnabled
 
 -- Valores responsivos para componentes del dashboard

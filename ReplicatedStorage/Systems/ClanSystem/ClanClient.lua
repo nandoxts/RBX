@@ -129,6 +129,31 @@ local clansListCacheTime = 0
 local pendingRequestsCache = nil
 local pendingRequestsCacheTime = 0
 
+-- ════════════════════════════════════════════════════════════════
+-- COLA DE SOLICITUDES (para evitar saturar servidor)
+-- ════════════════════════════════════════════════════════════════
+local requestQueue = {}
+local isProcessingQueue = false
+
+local function processQueue()
+	if isProcessingQueue or #requestQueue == 0 then return end
+	isProcessingQueue = true
+
+	task.spawn(function()
+		while #requestQueue > 0 do
+			local request = table.remove(requestQueue, 1)
+			pcall(request)
+			task.wait(0.2)  -- Delay entre solicitudes para no saturar servidor
+		end
+		isProcessingQueue = false
+	end)
+end
+
+local function queueRequest(fn)
+	table.insert(requestQueue, fn)
+	processQueue()
+end
+
 function ClanClient:Initialize()
 	if ensureInitialized() then
 		self.initialized = true
@@ -184,17 +209,32 @@ function ClanClient:GetClansList()
 		return clansListCache or {} 
 	end
 
-	local success, clans = pcall(function()
-		return remote:InvokeServer()
+	-- Usar cola para evitar múltiples solicitudes simultáneas
+	local result = {}
+	local done = false
+
+	queueRequest(function()
+		local success, clans = pcall(function()
+			return remote:InvokeServer()
+		end)
+
+		if success and clans then
+			clansListCache = clans
+			clansListCacheTime = tick()
+			result = clans
+		else
+			result = clansListCache or {}
+		end
+		done = true
 	end)
 
-	if success and clans then
-		clansListCache = clans
-		clansListCacheTime = tick()
-		return clans
+	-- Esperar a que termine la solicitud (máximo 10 segundos)
+	local startTime = tick()
+	while not done and (tick() - startTime) < 10 do
+		task.wait(0.05)
 	end
 
-	return clansListCache or {}
+	return result
 end
 
 function ClanClient:GetPlayerClan()
@@ -207,19 +247,34 @@ function ClanClient:GetPlayerClan()
 		return nil
 	end
 
-	local success, clanData = pcall(function()
-		return remote:InvokeServer()
+	-- Usar cola para evitar múltiples solicitudes simultáneas
+	local result = {}
+	local done = false
+
+	queueRequest(function()
+		local success, clanData = pcall(function()
+			return remote:InvokeServer()
+		end)
+
+		if success and clanData then
+			self.currentClan = clanData
+			self.currentClanId = clanData.clanId
+			result = clanData
+		else
+			self.currentClan = nil
+			self.currentClanId = nil
+			result = nil
+		end
+		done = true
 	end)
 
-	if success and clanData then
-		self.currentClan = clanData
-		self.currentClanId = clanData.clanId
-		return clanData
+	-- Esperar a que termine la solicitud (máximo 10 segundos)
+	local startTime = tick()
+	while not done and (tick() - startTime) < 10 do
+		task.wait(0.05)
 	end
 
-	self.currentClan = nil
-	self.currentClanId = nil
-	return nil
+	return result
 end
 
 -- ════════════════════════════════════════════════════════════════

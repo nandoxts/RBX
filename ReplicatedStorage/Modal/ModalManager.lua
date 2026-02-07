@@ -12,6 +12,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
+
 -- ════════════════════════════════════════════════════════════════
 -- THEME
 -- ════════════════════════════════════════════════════════════════
@@ -20,8 +21,6 @@ local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("The
 -- ════════════════════════════════════════════════════════════════
 -- DETECCIÓN DE DISPOSITIVO
 -- ════════════════════════════════════════════════════════════════
--- 🔧 FORZAR MODO MÓVIL PARA TESTING: Set _G.ForceMobileMode = true
--- Método SIMPLE como EmoteUI (más confiable)
 
 local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, isMobile)
 	-- Esperar a que AbsoluteSize esté disponible (CRÍTICO)
@@ -32,7 +31,7 @@ local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, i
 		screenSize = screenGui.AbsoluteSize
 		attempts = attempts + 1
 	end
-	
+
 	-- Si aún no está disponible, intentar con Parent
 	if screenSize.X == 0 or screenSize.Y == 0 then
 		local parentSize = screenGui.Parent and screenGui.Parent.AbsoluteSize
@@ -48,14 +47,14 @@ local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, i
 			end
 		end
 	end
-	
+
 	if isMobile then
 		-- En celular: PANTALLA COMPLETA con márgenes mínimos
 		local width = screenSize.X * 0.98  -- 98% del ancho
-		local height = screenSize.Y * 0.80  -- 80% del alto
+		local height = screenSize.Y * 0.50  -- 50% del alto (reducido)
 		-- Asegurar mínimos razonables
 		width = math.max(width, 300)
-		height = math.max(height, 400)
+		height = math.max(height, 300)  -- Mínimo 300px
 		return width, height
 	else
 		-- En desktop: usar baseWidth/baseHeight del THEME como base
@@ -99,11 +98,12 @@ function ModalManager.new(config)
 	self.panelName = config.panelName or "ModalPanel"
 
 	local isMobile = config.isMobile or false
-
-	-- Calcular dimensiones responsivas USANDO el isMobile recibido
-	local baseWidth = config.panelWidth or THEME.panelWidth
-	local baseHeight = config.panelHeight or THEME.panelHeight
+	-- EN MÓVIL: IGNORA panelWidth/panelHeight y calcula responsivamente
+	-- EN DESKTOP: USA panelWidth/panelHeight como base
+	local baseWidth = (not isMobile and config.panelWidth) or THEME.panelWidth
+	local baseHeight = (not isMobile and config.panelHeight) or THEME.panelHeight
 	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight, isMobile)
+
 
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
