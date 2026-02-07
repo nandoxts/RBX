@@ -2,6 +2,14 @@ local Animaciones = {}
 
 Animaciones.Ids = {
 	{ID = 138316142522795, Nombre = 'Menea I'},
+	{ID = 134594513356628, Nombre = 'Deadpool'},
+	{ID = 116409384225743, Nombre = 'Orange Justice'},
+	{ID = 74498799892136, Nombre = 'MJ Thriller I'},
+	{ID = 87993818624535, Nombre = 'MJ Thriller II'},
+	{ID = 119059160928904, Nombre = 'MJ Thriller III'},
+	{ID = 73665396963024, Nombre = 'MJ Thriller IV'},
+	{ID = 129014371180875, Nombre = 'Merlina'},
+	{ID = 71043409187026, Nombre = 'Metro Man'},
 	{ID = 93650537970037, Nombre = 'Menea II'},
 	{ID = 124982597491660, Nombre = 'California Girls'},
 	{ID = 133551169796944, Nombre = 'Salsa Sensual'},
@@ -75,6 +83,43 @@ Animaciones.Ids = {
 }
 
 Animaciones.Recomendado = {
+	{ID = 119075562351736, Nombre = 'Gangnam Style'},
+	{ID = 119473524290403, Nombre = 'Russian Dance'},
+	{ID = 91219524625419, Nombre = 'RADIANT I'},
+	{ID = 98837556665887, Nombre = 'RADIANT II'},
+	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
+	
+	
+
+	{ID = 107109795056101, Nombre = 'Rebote I'},
+	{ID = 72067682558080, Nombre = 'Rebote II'},
+	{ID = 75256518776176, Nombre = 'Rebote III'},
+
+	{ID = 104685509336391, Nombre = 'Jump I'},
+	{ID = 131751661872100, Nombre = 'Jump II'},
+	{ID = 75835894773315, Nombre = 'Jump III'},
+	{ID = 125178785524122, Nombre = 'Jump IV'},
+
+	{ID = 80962650363654, Nombre = 'SMOOTH I'},
+	{ID = 113057522886646, Nombre = 'SMOOTH II'},
+	{ID = 106876962974091, Nombre = 'SMOOTH III'},
+	{ID = 107368506872693, Nombre = 'SMOOTH IV'},
+
+	{ID = 96072539308174, Nombre = 'FLOW I'},
+	{ID = 103571429590163, Nombre = 'FLOW II'},
+	{ID = 115310253361374, Nombre = 'FLOW III'},
+	{ID = 121418461728575, Nombre = 'FLOW IV'},
+	{ID = 84450135363865, Nombre = 'FLOW V'},
+	{ID = 96649139759245, Nombre = 'STURDY I'},
+	{ID = 115988057886214, Nombre = 'STURDY II'},
+	{ID = 112773902133223, Nombre = 'STURDY III'},
+	{ID = 132555082396072, Nombre = 'STURDY IV'},
+
+	{ID = 81377469599060, Nombre = 'LATIN I'},
+	{ID = 121540036206716, Nombre = 'LATIN II'},
+	{ID = 74407321445762, Nombre = 'LATIN III'},
+	{ID = 124209914932987, Nombre = 'LATIN IV'},
+
 	{ID = 109863843469159, Nombre = 'Zapateo I'},
 	{ID = 79209803496762, Nombre = 'Zapateo II'},
 	{ID = 129013038044362, Nombre = 'Zapateo III'},
@@ -91,13 +136,6 @@ Animaciones.Recomendado = {
 	{ID = 129615131982878, Nombre = 'Maquina I Jose Jeri'},
 	{ID = 98406276692762, Nombre = 'Maquina II Jose Jeri'},
 	{ID = 123606278208422, Nombre = 'Maquina III Jose Jeri'},
-
-	{ID = 101758039233408, Nombre = 'Diva I'},
-	{ID = 79464831560180, Nombre = 'Diva II'},
-	{ID = 136073073685621, Nombre = 'Diva III'},
-	{ID = 111664314706389, Nombre = 'Diva V'},
-	{ID = 118896295981144, Nombre = 'Diva VI'},
-
 	{ID = 108873777157620, Nombre = 'Lady I'},
 	{ID = 111799322743206, Nombre = 'Lady II'},
 	{ID = 93358488237387, Nombre = 'Lady III'},
@@ -120,11 +158,6 @@ Animaciones.Recomendado = {
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
 
-	{ID = 86295087151051, Nombre = 'Menea IV'},
-	{ID = 140418182009287, Nombre = 'Menea V'},
-	{ID = 122719596509695, Nombre = 'Menea VI'},
-	{ID = 139110277540140, Nombre = 'Menea VII'},
-	{ID = 112176404394603, Nombre = 'Menea VIII'},
 
 
 	{ID = 75043657148780, Nombre = 'Sad I'},
@@ -147,9 +180,15 @@ Animaciones.Recomendado = {
 	{ID = 85047784800271, Nombre = 'Bella II'},
 	{ID = 72932062656739, Nombre = 'Bella III'},
 	{ID = 79689692681563, Nombre = 'Bella IV'},
+	{ID = 100672487163010, Nombre = 'Golpe I'},
+	{ID = 126490613005651, Nombre = 'Golpe II'},
+	{ID = 102779295838500, Nombre = 'Golpe III'},
+	{ID = 126780665379004, Nombre = 'Golpe IV'},
+	{ID = 139562990018724, Nombre = 'Golpe V'},
 
-
-
+	{ID = 84112287597268, Nombre = 'Huaska I'},
+	{ID = 84623954062978, Nombre = 'Huaska II'},
+	{ID = 94847143626311, Nombre = 'Huaska III'},
 	{ID = 133394554631338, Nombre = 'Billy Bounce'},
 
 	{ID = 83650099589962, Nombre = 'Koto Nai'},
@@ -168,97 +207,40 @@ Animaciones.Recomendado = {
 
 Animaciones.Vip = {
 
-
+	
+	{ID = 118764069021230, Nombre = 'Jefrain Dance'},
 	{ID = 112455083563294, Nombre = 'Perreo I'},
 	{ID = 89794141549021, Nombre = 'Perreo II'},
 	{ID = 84263289883225, Nombre = 'Perreo III'},
 	{ID = 72453237141167, Nombre = 'Perreo IV'},
-
-	{ID = 81377469599060, Nombre = 'LATIN I'},
-	{ID = 121540036206716, Nombre = 'LATIN II'},
-	{ID = 74407321445762, Nombre = 'LATIN III'},
-	{ID = 124209914932987, Nombre = 'LATIN IV'},
-
-	{ID = 117743822724223, Nombre = 'Rebote I'},
-	{ID = 107109795056101, Nombre = 'Rebote II'},
-	{ID = 72067682558080, Nombre = 'Rebote III'},
-	{ID = 75256518776176, Nombre = 'Rebote IV'},
-
-	{ID = 104685509336391, Nombre = 'Jump I'},
-	{ID = 131751661872100, Nombre = 'Jump II'},
-	{ID = 75835894773315, Nombre = 'Jump III'},
-	{ID = 125178785524122, Nombre = 'Jump IV'},
-
-	{ID = 80962650363654, Nombre = 'SMOOTH I'},
-	{ID = 113057522886646, Nombre = 'SMOOTH II'},
-	{ID = 106876962974091, Nombre = 'SMOOTH III'},
-
-	{ID = 96072539308174, Nombre = 'FLOW I'},
-	{ID = 103571429590163, Nombre = 'FLOW II'},
-	{ID = 115310253361374, Nombre = 'FLOW III'},
-	{ID = 121418461728575, Nombre = 'FLOW IV'},
-	{ID = 84450135363865, Nombre = 'FLOW V'},
-
-
-
-	{ID = 96649139759245, Nombre = 'STURDY I'},
-	{ID = 115988057886214, Nombre = 'STURDY II'},
-	{ID = 112773902133223, Nombre = 'STURDY III'},
-	{ID = 132555082396072, Nombre = 'STURDY IV'},
-
 	{ID = 92001399624797, Nombre = 'Perreo Sexy'},
 	{ID = 131584988251817, Nombre = 'Perreo Sexy VI'},
 	{ID = 110560761506205, Nombre = 'Perreo Sexy VII'},
 	{ID = 77780134372141, Nombre = 'Perreo Sexy VIII'},
-
-	{ID = 100672487163010, Nombre = 'Golpe I'},
-	{ID = 97079458057304, Nombre = 'Golpe II'},
-	{ID = 126490613005651, Nombre = 'Golpe III'},
-	{ID = 102779295838500, Nombre = 'Golpe IV'},
-	{ID = 126780665379004, Nombre = 'Golpe V'},
-
-	{ID = 84112287597268, Nombre = 'Huaska I'},
-	{ID = 84623954062978, Nombre = 'Huaska II'},
-	{ID = 94847143626311, Nombre = 'Huaska III'},
-
 	{ID = 71589647866255, Nombre = 'Sexy I'},
 	{ID = 125855137691891, Nombre = 'Sexy II'},
 	{ID = 82290588229832, Nombre = 'Sexy III'},
-
 	{ID = 120500147347751, Nombre = 'Rock I'},
 	{ID = 112116164691956, Nombre = 'Rock II'},
 	{ID = 105085166718175, Nombre = 'Rock III'},
 	{ID = 128545921603470, Nombre = 'Rock IV'},
-
 	{ID = 140219184038687, Nombre = 'Funk I'},
 	{ID = 138353516964579, Nombre = 'Funk II'},
 	{ID = 100360981689145, Nombre = 'Funk III'},
 	{ID = 103360497719320, Nombre = 'Funk IV'},
-
-	{ID = 137588536535005, Nombre = 'IshowSpeed'},
-	{ID = 134594513356628, Nombre = 'Deadpool'},
-	{ID = 116409384225743, Nombre = 'Orange Justice'},
-
-	{ID = 74498799892136, Nombre = 'MJ Thriller I'},
-	{ID = 87993818624535, Nombre = 'MJ Thriller II'},
-	{ID = 119059160928904, Nombre = 'MJ Thriller III'},
-	{ID = 73665396963024, Nombre = 'MJ Thriller IV'},
-
-	{ID = 129014371180875, Nombre = 'Merlina'},
-	{ID = 71043409187026, Nombre = 'Metro Man'},
-
 	{ID = 82445927449072, Nombre = 'Bachata I'},
 	{ID = 129492556391446, Nombre = 'Bachata II'},
 	{ID = 136760422939999, Nombre = 'Bachata III'},
-
-	{ID = 119075562351736, Nombre = 'Gangnam Style'},
-	{ID = 119473524290403, Nombre = 'Russian Dance'},
-
-	{ID = 91219524625419, Nombre = 'RADIANT I'},
-	{ID = 98837556665887, Nombre = 'RADIANT II'},
-
-	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
-
+	{ID = 86295087151051, Nombre = 'Menea IV'},
+	{ID = 140418182009287, Nombre = 'Menea V'},
+	{ID = 122719596509695, Nombre = 'Menea VI'},
+	{ID = 139110277540140, Nombre = 'Menea VII'},
+	{ID = 112176404394603, Nombre = 'Menea VIII'},
+	{ID = 101758039233408, Nombre = 'Diva I'},
+	{ID = 79464831560180, Nombre = 'Diva II'},
+	{ID = 136073073685621, Nombre = 'Diva III'},
+	{ID = 111664314706389, Nombre = 'Diva V'},
+	{ID = 118896295981144, Nombre = 'Diva VI'},
 }
 
 return Animaciones
