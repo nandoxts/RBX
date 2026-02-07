@@ -179,14 +179,6 @@ local function fireClient(remote, player, data)
 	if remote then pcall(function() remote:FireClient(player, data) end) end
 end
 
-local function fireAllClients(remote, message)
-	if remote then
-		for _, p in ipairs(Players:GetPlayers()) do
-			pcall(function() remote:FireClient(p, message) end)
-		end
-	end
-end
-
 local function updateAllClients()
 	if not R.Update then return end
 	local currentSong = (#playQueue > 0 and currentSongIndex <= #playQueue) and playQueue[currentSongIndex] or nil

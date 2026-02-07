@@ -1,72 +1,55 @@
 --[[
 	ModalManager - Sistema centralizado de modales
-	Maneja overlay, blur, panel y animaciones
-	Utilizado por DjDashboard y CreateClanGui
 ]]
 
--- ════════════════════════════════════════════════════════════════
--- SERVICES
--- ════════════════════════════════════════════════════════════════
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
-
--- ════════════════════════════════════════════════════════════════
--- THEME
--- ════════════════════════════════════════════════════════════════
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
--- ════════════════════════════════════════════════════════════════
--- DETECCIÓN DE DISPOSITIVO
--- ════════════════════════════════════════════════════════════════
-
 local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, isMobile)
-	-- Esperar a que AbsoluteSize esté disponible (CRÍTICO)
 	local screenSize = screenGui.AbsoluteSize
-	local attempts = 0
-	while (screenSize.X == 0 or screenSize.Y == 0) and attempts < 10 do
-		task.wait(0.05)
-		screenSize = screenGui.AbsoluteSize
-		attempts = attempts + 1
-	end
-
-	-- Si aún no está disponible, intentar con Parent
+	
 	if screenSize.X == 0 or screenSize.Y == 0 then
-		local parentSize = screenGui.Parent and screenGui.Parent.AbsoluteSize
-		if parentSize and parentSize.X > 0 and parentSize.Y > 0 then
-			screenSize = parentSize
-		else
-			-- Último fallback: usar viewport actual del juego
-			local camera = workspace.CurrentCamera
-			if camera then
-				screenSize = camera.ViewportSize
-			else
-				screenSize = Vector2.new(1920, 1080)
-			end
-		end
+		task.wait(0.15)
+		screenSize = screenGui.AbsoluteSize
+	end
+	
+	if screenSize.X == 0 or screenSize.Y == 0 then
+		screenSize = workspace.CurrentCamera.ViewportSize
+	end
+	
+	if screenSize.X == 0 or screenSize.Y == 0 then
+		screenSize = Vector2.new(1920, 1080)
 	end
 
 	if isMobile then
-		-- En celular: PANTALLA COMPLETA con márgenes mínimos
-		local width = screenSize.X * 0.98  -- 98% del ancho
-		local height = screenSize.Y * 0.50  -- 50% del alto (reducido)
-		-- Asegurar mínimos razonables
-		width = math.max(width, 300)
-		height = math.max(height, 300)  -- Mínimo 300px
+		local minMarginWidth = 20
+		local minMarginHeight = 60
+		
+		if screenSize.X < 400 then
+			minMarginWidth = 10
+		end
+		if screenSize.Y < 600 then
+			minMarginHeight = 40
+		end
+		
+		local width = screenSize.X - (minMarginWidth * 2)
+		local height = screenSize.Y - minMarginHeight
+		
+		width = math.max(width, math.min(280, screenSize.X * 0.85))
+		height = math.max(height, math.min(300, screenSize.Y * 0.75))
+		
 		return width, height
 	else
-		-- En desktop: usar baseWidth/baseHeight del THEME como base
-		local width = math.min(baseWidth or 980, screenSize.X * 0.95)
-		local height = math.min(baseHeight or 620, screenSize.Y * 0.9)
+		local width = math.min(baseWidth or 980, screenSize.X * 0.90)
+		local height = math.min(baseHeight or 620, screenSize.Y * 0.85)
 		return width, height
 	end
 end
 
--- ════════════════════════════════════════════════════════════════
--- HELPERS
--- ════════════════════════════════════════════════════════════════
 local function rounded(inst, px)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, px)
@@ -84,26 +67,19 @@ local function stroked(inst, alpha, color)
 	return s
 end
 
--- ════════════════════════════════════════════════════════════════
--- MODAL MANAGER
--- ════════════════════════════════════════════════════════════════
 local ModalManager = {}
 ModalManager.__index = ModalManager
 
 function ModalManager.new(config)
 	local self = setmetatable({}, ModalManager)
 
-	-- Configuración
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
 
 	local isMobile = config.isMobile or false
-	-- EN MÓVIL: IGNORA panelWidth/panelHeight y calcula responsivamente
-	-- EN DESKTOP: USA panelWidth/panelHeight como base
-	local baseWidth = (not isMobile and config.panelWidth) or THEME.panelWidth
-	local baseHeight = (not isMobile and config.panelHeight) or THEME.panelHeight
+	local baseWidth = config.panelWidth
+	local baseHeight = config.panelHeight
 	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight, isMobile)
-
 
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
@@ -112,11 +88,9 @@ function ModalManager.new(config)
 	self.onClose = config.onClose
 	self.isMobile = isMobile
 
-	-- Estado
 	self.isOpen = false
-	self.activeTweens = {} -- Rastrear tweens para limpiarlos
+	self.activeTweens = {}
 
-	-- Crear componentes
 	self:_createOverlay()
 	self:_createBlur()
 	self:_createPanel()
@@ -135,9 +109,6 @@ function ModalManager:_createOverlay()
 	self.overlay.Visible = false
 	self.overlay.ZIndex = 95
 	self.overlay.Parent = self.screenGui
-
-	-- Overlay solo visual - NO detecta clics
-	-- Los modales se cierran SOLO con el botón que los abrió o el botón X
 end
 
 function ModalManager:_createBlur()
@@ -172,12 +143,10 @@ function ModalManager:open()
 	self.panel.Visible = true
 	self.overlay.Visible = true
 
-	-- Animar overlay
 	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = THEME.mediumAlpha or 0.5})
 	table.insert(self.activeTweens, overlayTween)
 	overlayTween:Play()
 
-	-- Animar blur
 	if self.blur then
 		self.blur.Enabled = true
 		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = self.blurSize})
@@ -185,7 +154,6 @@ function ModalManager:open()
 		blurTween:Play()
 	end
 
-	-- Animar panel
 	self.panel.Position = UDim2.fromScale(0.5, 1.1)
 	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 0.5)
@@ -193,7 +161,6 @@ function ModalManager:open()
 	table.insert(self.activeTweens, panelTween)
 	panelTween:Play()
 
-	-- Callback
 	if self.onOpen then
 		self.onOpen()
 	end
@@ -203,7 +170,6 @@ function ModalManager:close()
 	if not self.isOpen then return end
 	self.isOpen = false
 
-	-- Cancelar tweens activos
 	for _, tween in ipairs(self.activeTweens) do
 		if tween then
 			pcall(function() tween:Cancel() end)
@@ -211,25 +177,21 @@ function ModalManager:close()
 	end
 	self.activeTweens = {}
 
-	-- Animar panel
 	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
 		Position = UDim2.fromScale(0.5, 1.1)
 	})
 	table.insert(self.activeTweens, panelTween)
 	panelTween:Play()
 
-	-- Animar overlay
 	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1})
 	table.insert(self.activeTweens, overlayTween)
 	overlayTween:Play()
 
-	-- Ocultar después de la animación
 	task.delay(0.22, function()
 		self.overlay.Visible = false
 		self.panel.Visible = false
 	end)
 
-	-- Animar blur
 	if self.blur then
 		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = 0})
 		table.insert(self.activeTweens, blurTween)
@@ -241,7 +203,6 @@ function ModalManager:close()
 		end)
 	end
 
-	-- Callback
 	if self.onClose then
 		self.onClose()
 	end
