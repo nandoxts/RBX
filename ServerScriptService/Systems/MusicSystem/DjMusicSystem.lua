@@ -828,6 +828,26 @@ R.SearchSongs.OnServerEvent:Connect(function(player, djName, query)
 	local result = searchSongs(djName, query)
 	result.djName = djName
 	fireClient(R.SearchSongs, player, result)
+	
+	-- ✅ CARGAR METADATA EN BACKGROUND (igual a getSongRange)
+	local idsToLoad = {}
+	if result.songs then
+		for _, song in ipairs(result.songs) do
+			if not (metadataCache[song.id] and metadataCache[song.id].loaded) then
+				table.insert(idsToLoad, song.id)
+			end
+		end
+	end
+	
+	if #idsToLoad > 0 then
+		loadMetadataBatch(idsToLoad, function(loaded)
+			-- Actualizar búsqueda con metadata cargada
+			local updatedResult = searchSongs(djName, query)
+			updatedResult.djName = djName
+			updatedResult.isUpdate = true
+			fireClient(R.SearchSongs, player, updatedResult)
+		end)
+	end
 end)
 
 R.GetSongMetadata.OnServerEvent:Connect(function(player, audioIds)
