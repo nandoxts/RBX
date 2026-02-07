@@ -124,7 +124,7 @@ local underline = UI.frame({size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, 20
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT AREA
 -- ════════════════════════════════════════════════════════════════
-local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -20, 1, -125), pos = UDim2.new(0, 10, 0, 106), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
+local contentArea = UI.frame({name = "ContentArea", size = UDim2.new(1, -20, 1, -115), pos = UDim2.new(0, 10, 0, 90), bgT = 1, z = 101, parent = panel, corner = 10, clips = true})
 
 local pageLayout = Instance.new("UIPageLayout")
 pageLayout.FillDirection = Enum.FillDirection.Horizontal
