@@ -37,7 +37,19 @@ local CONFIG = {
 			}
 		},
 		{ path = "workspace.Effects.Parts.SoundParts", recursive = false },
-		{ path = "workspace.2doo piso.EsferaGiratoria", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.EsferaGiratoria", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo0.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo1.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo2.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo3.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo4.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo5.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo6.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.Decorativo7.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.DecorativoCentral.Model1.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.DecorativoCentral.Model2.Luces", recursive = true },
+		{ path = "workspace.estructura ritmo latino.2doo piso.DecorativoCentral.LucesMiniCirculares", recursive = true },
+		
 	},
 	-- UI elements (SurfaceGuis, ScreenGuis, etc.)
 	uiPaths = {
