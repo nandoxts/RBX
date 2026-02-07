@@ -72,17 +72,6 @@ local ENABLE_BLUR, BLUR_SIZE = true, 14
 local PANEL_W_PX = THEME.panelWidth
 local PANEL_H_PX = THEME.panelHeight
 
---  DETECTAR MÓVIL PARA AJUSTAR ESPACIOS
-local isMobileDevice = UserInputService.TouchEnabled
-
--- Valores responsivos para componentes del dashboard
-local HEADER_HEIGHT_BASE = 140
-local HEADER_HEIGHT = isMobileDevice and 100 or HEADER_HEIGHT_BASE
-local CONTENT_PADDING = isMobileDevice and 10 or 20
-local NOW_PLAYING_HEIGHT = isMobileDevice and 50 or 70
-local MINI_COVER_SIZE = isMobileDevice and 40 or 56
-local CONTROLS_HEIGHT = isMobileDevice and 28 or 32
-
 -- Virtualización
 local CARD_HEIGHT = 54
 local CARD_PADDING = 6
@@ -223,6 +212,18 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
+-- ✅ DETECTAR MÓVIL justo antes de crear modal (asegura que UserInputService esté listo)
+task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+local isMobileDevice = UserInputService.TouchEnabled
+
+-- Valores responsivos para componentes del dashboard
+local HEADER_HEIGHT_BASE = 140
+local HEADER_HEIGHT = isMobileDevice and 100 or HEADER_HEIGHT_BASE
+local CONTENT_PADDING = isMobileDevice and 10 or 20
+local NOW_PLAYING_HEIGHT = isMobileDevice and 50 or 70
+local MINI_COVER_SIZE = isMobileDevice and 40 or 56
+local CONTROLS_HEIGHT = isMobileDevice and 28 or 32
+
 -- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
@@ -230,11 +231,12 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "MusicDashboard",
-	panelWidth = PANEL_W_PX,  -- ✅ Pasar dimensiones base
+	panelWidth = PANEL_W_PX,
 	panelHeight = PANEL_H_PX,
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
+	isMobile = isMobileDevice,  -- ✅ PASAR la detección de móvil
 	onClose = function()
 		-- Limpiar conexiones cuando se cierre
 		if progressConnection then

@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -115,8 +116,12 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
+-- ✅ Detectar móvil justo antes de crear modal (asegura que UserInputService esté listo)
+task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+local isMobileDevice = UserInputService.TouchEnabled
+
 -- ════════════════════════════════════════════════════════════════
--- MODAL MANAGER (SIN CAMBIOS)
+-- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
 local modal = ModalManager.new({
 	screenGui = screenGui,
@@ -125,7 +130,8 @@ local modal = ModalManager.new({
 	panelHeight = THEME.panelHeight,
 	cornerRadius = 12,
 	enableBlur = true,
-	blurSize = 14
+	blurSize = 14,
+	isMobile = isMobileDevice  -- ✅ PASAR la detección de móvil
 })
 
 local panel = modal:getPanel()

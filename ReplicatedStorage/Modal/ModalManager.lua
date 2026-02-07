@@ -20,46 +20,42 @@ local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("The
 -- ════════════════════════════════════════════════════════════════
 -- DETECCIÓN DE DISPOSITIVO
 -- ════════════════════════════════════════════════════════════════
-local function isMobileDevice()
-	-- La forma más confiable en Roblox: UserInputService.TouchEnabled
-	-- En simulador de móvil o móvil real, esto será true
-	local touchEnabled = UserInputService.TouchEnabled
-	
-	-- Si touch está habilitado, es móvil (punto)
-	return touchEnabled
-end
+-- 🔧 FORZAR MODO MÓVIL PARA TESTING: Set _G.ForceMobileMode = true
+-- Método SIMPLE como EmoteUI (más confiable)
 
-local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight)
+local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, isMobile)
+	-- Esperar a que AbsoluteSize esté disponible (CRÍTICO)
 	local screenSize = screenGui.AbsoluteSize
+	local attempts = 0
+	while (screenSize.X == 0 or screenSize.Y == 0) and attempts < 10 do
+		task.wait(0.05)
+		screenSize = screenGui.AbsoluteSize
+		attempts = attempts + 1
+	end
 	
-	-- Si AbsoluteSize no está disponible, usar fallbacks SIN esperar
-	-- Esto previene el bloqueo cuando se abre rápido múltiples modales
+	-- Si aún no está disponible, intentar con Parent
 	if screenSize.X == 0 or screenSize.Y == 0 then
 		local parentSize = screenGui.Parent and screenGui.Parent.AbsoluteSize
 		if parentSize and parentSize.X > 0 and parentSize.Y > 0 then
 			screenSize = parentSize
 		else
-			-- Fallback completo: asumir pantalla grande
-			screenSize = Vector2.new(1920, 1080)
+			-- Último fallback: usar viewport actual del juego
+			local camera = workspace.CurrentCamera
+			if camera then
+				screenSize = camera.ViewportSize
+			else
+				screenSize = Vector2.new(1920, 1080)
+			end
 		end
 	end
 	
-	-- Detectar móvil: por touch O por tamaño pequeño de pantalla
-	local isMobile = isMobileDevice()
-	
-	-- Fallback adicional: Si pantalla es muy pequeña, asumir móvil
-	-- (para simuladores que no tengan TouchEnabled correctamente configurado)
-	if not isMobile and screenSize.X <= 540 then
-		isMobile = true
-	end
-
 	if isMobile then
-		-- En celular: ancho máximo (casi 100%), solo el alto es responsivo
-		local width = screenSize.X * 0.98  -- Máximo ancho disponible
-		local height = screenSize.Y * 0.85  -- Alto responsivo con espacio para controles del SO
+		-- En celular: PANTALLA COMPLETA con márgenes mínimos
+		local width = screenSize.X * 0.98  -- 98% del ancho
+		local height = screenSize.Y * 0.80  -- 80% del alto
 		-- Asegurar mínimos razonables
-		width = math.max(width, 280)
-		height = math.max(height, 300)
+		width = math.max(width, 300)
+		height = math.max(height, 400)
 		return width, height
 	else
 		-- En desktop: usar baseWidth/baseHeight del THEME como base
@@ -102,17 +98,19 @@ function ModalManager.new(config)
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
 
-	-- Calcular dimensiones responsivas
+	local isMobile = config.isMobile or false
+
+	-- Calcular dimensiones responsivas USANDO el isMobile recibido
 	local baseWidth = config.panelWidth or THEME.panelWidth
 	local baseHeight = config.panelHeight or THEME.panelHeight
-	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight)
+	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight, isMobile)
 
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
 	self.blurSize = config.blurSize or 14
 	self.onOpen = config.onOpen
 	self.onClose = config.onClose
-	self.isMobile = isMobileDevice()
+	self.isMobile = isMobile
 
 	-- Estado
 	self.isOpen = false

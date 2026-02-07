@@ -32,16 +32,6 @@ local State = ClanConstants.State
 local Memory = ClanConstants.Memory
 local isAdmin = table.find(ClanSystemConfig.ADMINS.AdminUserIds, player.UserId) ~= nil
 
---  DETECTAR MÓVIL PARA AJUSTAR ESPACIOS
-local UserInputService = game:GetService("UserInputService")
-local isMobileDevice = UserInputService.TouchEnabled
-
--- Valores responsivos para header y tabs
-local HEADER_HEIGHT = isMobileDevice and 50 or 60
-local TAB_HEIGHT = isMobileDevice and 32 or 36
-local CONTENT_PADDING = isMobileDevice and 10 or 20
-local CONTENT_Y_MARGIN = HEADER_HEIGHT + TAB_HEIGHT + CONTENT_PADDING  -- Total espacio arriba
-
 -- Configurar el tracking de UI
 UI.setTrack(function(conn) return Memory:track(conn) end)
 
@@ -55,6 +45,21 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
+-- ✅ DETECTAR MÓVIL justo antes de crear modal (asegura que UserInputService esté listo)
+local UserInputService = game:GetService("UserInputService")
+task.wait(0.1)  -- Pequeña espera para asegurar que UserInputService esté completamente inicializado
+local isMobileDevice = UserInputService.TouchEnabled
+
+-- Valores responsivos para header y tabs
+local HEADER_HEIGHT = isMobileDevice and 50 or 60
+local TAB_HEIGHT = isMobileDevice and 32 or 36
+local CONTENT_PADDING = isMobileDevice and 10 or 20
+local CONTENT_Y_MARGIN = HEADER_HEIGHT + TAB_HEIGHT + CONTENT_PADDING  -- Total espacio arriba
+
+-- Valores responsivos para elementos internos
+local SEARCH_HEIGHT = isMobileDevice and 32 or 36
+local SCROLL_OFFSET = isMobileDevice and 10 or 20  -- Margen entre búsqueda y scroll
+
 -- ════════════════════════════════════════════════════════════════
 -- MODAL MANAGER
 -- ════════════════════════════════════════════════════════════════
@@ -66,6 +71,7 @@ local modal = ModalManager.new({
 	cornerRadius = CONFIG.panel.corner,
 	enableBlur = CONFIG.blur.enabled,
 	blurSize = CONFIG.blur.size,
+	isMobile = isMobileDevice,  -- ✅ PASAR la detección de móvil
 	onClose = function() end
 })
 
@@ -155,11 +161,16 @@ tabPages["TuClan"] = pageTuClan
 local pageDisponibles = UI.frame({name = "Disponibles", size = UDim2.fromScale(1, 1), bgT = 1, z = 102, parent = contentArea})
 pageDisponibles.LayoutOrder = 2
 
-local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {placeholder = "Buscar clanes...", size = UDim2.new(1, -20, 0, 36), z = 104, name = "BuscarClanes"})
-searchContainer.Position = UDim2.new(0, 10, 0, 10)
+local searchContainer, searchInput, searchCleanup = SearchModern.new(pageDisponibles, {placeholder = "Buscar clanes...", size = UDim2.new(1, -CONTENT_PADDING*2, 0, SEARCH_HEIGHT), z = 104, name = "BuscarClanes"})
+searchContainer.Position = UDim2.new(0, CONTENT_PADDING, 0, CONTENT_PADDING)
 Memory:track({Disconnect = searchCleanup})
 
-local clansScroll = ClanHelpers.setupScroll(pageDisponibles, {size = UDim2.new(1, -20, 1, -56), pos = UDim2.new(0, 10, 0, 52), padding = 8, z = 103})
+-- Scroll responsivo: altura = espacio total - búsqueda - márgenes
+local clansScroll = ClanHelpers.setupScroll(pageDisponibles, {
+	size = UDim2.new(1, -CONTENT_PADDING*2, 1, -(SEARCH_HEIGHT + SCROLL_OFFSET*2 + CONTENT_PADDING)), 
+	pos = UDim2.new(0, CONTENT_PADDING, 0, SEARCH_HEIGHT + CONTENT_PADDING + SCROLL_OFFSET), 
+	padding = 8, z = 103
+})
 
 local searchDebounce = false
 searchInput:GetPropertyChangedSignal("Text"):Connect(function()
