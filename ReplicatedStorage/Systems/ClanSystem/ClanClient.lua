@@ -129,31 +129,6 @@ local clansListCacheTime = 0
 local pendingRequestsCache = nil
 local pendingRequestsCacheTime = 0
 
--- ════════════════════════════════════════════════════════════════
--- COLA DE SOLICITUDES (para evitar saturar servidor)
--- ════════════════════════════════════════════════════════════════
-local requestQueue = {}
-local isProcessingQueue = false
-
-local function processQueue()
-	if isProcessingQueue or #requestQueue == 0 then return end
-	isProcessingQueue = true
-
-	task.spawn(function()
-		while #requestQueue > 0 do
-			local request = table.remove(requestQueue, 1)
-			pcall(request)
-			task.wait(0.2)  -- Delay entre solicitudes para no saturar servidor
-		end
-		isProcessingQueue = false
-	end)
-end
-
-local function queueRequest(fn)
-	table.insert(requestQueue, fn)
-	processQueue()
-end
-
 function ClanClient:Initialize()
 	if ensureInitialized() then
 		self.initialized = true
@@ -209,32 +184,17 @@ function ClanClient:GetClansList()
 		return clansListCache or {} 
 	end
 
-	-- Usar cola para evitar múltiples solicitudes simultáneas
-	local result = {}
-	local done = false
-
-	queueRequest(function()
-		local success, clans = pcall(function()
-			return remote:InvokeServer()
-		end)
-
-		if success and clans then
-			clansListCache = clans
-			clansListCacheTime = tick()
-			result = clans
-		else
-			result = clansListCache or {}
-		end
-		done = true
+	local success, clans = pcall(function()
+		return remote:InvokeServer()
 	end)
 
-	-- Esperar a que termine la solicitud (máximo 10 segundos)
-	local startTime = tick()
-	while not done and (tick() - startTime) < 10 do
-		task.wait(0.05)
+	if success and clans then
+		clansListCache = clans
+		clansListCacheTime = tick()
+		return clans
 	end
 
-	return result
+	return clansListCache or {}
 end
 
 function ClanClient:GetPlayerClan()
@@ -247,34 +207,19 @@ function ClanClient:GetPlayerClan()
 		return nil
 	end
 
-	-- Usar cola para evitar múltiples solicitudes simultáneas
-	local result = {}
-	local done = false
-
-	queueRequest(function()
-		local success, clanData = pcall(function()
-			return remote:InvokeServer()
-		end)
-
-		if success and clanData then
-			self.currentClan = clanData
-			self.currentClanId = clanData.clanId
-			result = clanData
-		else
-			self.currentClan = nil
-			self.currentClanId = nil
-			result = nil
-		end
-		done = true
+	local success, clanData = pcall(function()
+		return remote:InvokeServer()
 	end)
 
-	-- Esperar a que termine la solicitud (máximo 10 segundos)
-	local startTime = tick()
-	while not done and (tick() - startTime) < 10 do
-		task.wait(0.05)
+	if success and clanData then
+		self.currentClan = clanData
+		self.currentClanId = clanData.clanId
+		return clanData
 	end
 
-	return result
+	self.currentClan = nil
+	self.currentClanId = nil
+	return nil
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -318,20 +263,20 @@ function ClanClient:ChangeClanName(newName)
 	if not self.currentClanId then 
 		return false, "No estás en un clan" 
 	end
-	
+
 	local remote = getRemote("ChangeClanName")
 	if not remote then 
 		return false, "Función no disponible" 
 	end
-	
+
 	local success, result = remote:InvokeServer(self.currentClanId, newName)
-	
+
 	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
 	if success then
 		clansListCache = nil
 		clansListCacheTime = 0
 	end
-	
+
 	return success, result
 end
 
@@ -339,20 +284,20 @@ function ClanClient:ChangeClanTag(newTag)
 	if not self.currentClanId then 
 		return false, "No estás en un clan" 
 	end
-	
+
 	local remote = getRemote("ChangeClanTag")
 	if not remote then 
 		return false, "Función no disponible" 
 	end
-	
+
 	local success, result = remote:InvokeServer(self.currentClanId, newTag)
-	
+
 	-- 🔥 INVALIDAR CACHE INMEDIATAMENTE
 	if success then
 		clansListCache = nil
 		clansListCacheTime = 0
 	end
-	
+
 	return success, result
 end
 
@@ -424,7 +369,7 @@ function ClanClient:AdminDissolveClan(clanId)
 		warn("[ClanClient] AdminDissolveClan: clanId es nil")
 		return false, "ID del clan inválido" 
 	end
-	
+
 	local allowed, err = checkThrottle("AdminDissolveClan")
 	if not allowed then return false, err end
 
@@ -583,10 +528,10 @@ end
 -- ════════════════════════════════════════════════════════════════
 task.spawn(function()
 	if not ensureInitialized() then return end
-	
+
 	local folder = ReplicatedStorage:WaitForChild("ClanEvents", 5)
 	if not folder then return end
-	
+
 	local RequestJoinResult = folder:WaitForChild("RequestJoinResult", 5)
 	if RequestJoinResult then
 		-- Solo limpiar cache - no disparar callbacks que ya serán disparados por ClansUpdated
