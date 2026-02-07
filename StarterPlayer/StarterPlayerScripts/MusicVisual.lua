@@ -99,6 +99,8 @@ end
 local SongHolder = nil
 local displayedSongId = nil -- El ID que actualmente se MUESTRA
 local metadataCache = {}
+local failedCache = {} -- Cachear IDs que fallaron para no reintentar
+local pendingRequests = {} -- Solicitudes en progreso
 
 -- Loudness
 local loudnessValue = 0
@@ -140,43 +142,74 @@ end
 -- ═══════════════════════════════════════════════════════
 -- OBTENER METADATA (PRIORIDAD: Attributes > Cache > MarketplaceService)
 -- ═══════════════════════════════════════════════════════
-local function getMetadata(sound, assetId)
-	-- 1. PRIMERO: Intentar leer Attributes del Sound (seteados por el servidor)
+local function getMetadata(sound, assetId, callback)
+	-- VALIDAR ENTRADA
+	if not assetId or assetId == "" then
+		callback("Sin música", "Desconocido")
+		return
+	end
+
+	-- 1. PRIMERO: Intentar leer Attributes del Sound (SIEMPRE prioritario)
 	if sound then
 		local attrName = sound:GetAttribute("SongName")
 		local attrArtist = sound:GetAttribute("SongArtist")
 
-		if attrName and attrName ~= "" then
-			-- El servidor ya nos dio la info, usarla directamente
-			return attrName, attrArtist or "Desconocido"
+		-- Validar que los atributos sean útiles (no vacíos ni del ID)
+		if attrName and attrName ~= "" and attrName ~= assetId then
+			callback(attrName, attrArtist or "Desconocido")
+			return
 		end
 	end
 
-	-- 2. SEGUNDO: Verificar cache local
-	if assetId and metadataCache[assetId] then
+	-- 2. SEGUNDO: Verificar cache de ÉXITO
+	if metadataCache[assetId] then
 		local cached = metadataCache[assetId]
-		return cached.name, cached.artist
+		callback(cached.name, cached.artist)
+		return
 	end
 
-	-- 3. TERCERO: Obtener de MarketplaceService (fallback)
-	if assetId then
+	-- 3. TERCERO: Verificar si YA FALLÓ antes (evitar reintentos)
+	if failedCache[assetId] then
+		callback("Audio " .. assetId, "Desconocido")
+		return
+	end
+
+	-- 4. CUARTO: Solicitar de MarketplaceService (ASYNC, no bloquea)
+	-- Si ya hay una solicitud en progreso, esperar a que termine
+	if pendingRequests[assetId] then
+		-- No hacer nada, let callback esperar
+		return
+	end
+
+	pendingRequests[assetId] = true
+
+	task.spawn(function()
 		local success, info = pcall(function()
 			return MarketplaceService:GetProductInfo(tonumber(assetId), Enum.InfoType.Asset)
 		end)
 
-		if success and info then
-			local name = info.Name or ("Audio " .. assetId)
+		if success and info and info.Name and info.Name ~= "" then
+			local name = info.Name
 			local artist = (info.Creator and info.Creator.Name) or "Desconocido"
 
-			-- Guardar en cache
-			metadataCache[assetId] = { name = name, artist = artist }
-
-			return name, artist
+			-- Validar que no sea un nombre vacío o inválido
+			if name and name ~= "" and name ~= assetId then
+				-- Guardar en cache de ÉXITO
+				metadataCache[assetId] = { name = name, artist = artist }
+				callback(name, artist)
+			else
+				-- Marcar como fallido
+				failedCache[assetId] = true
+				callback("Audio " .. assetId, "Desconocido")
+			end
+		else
+			-- Marcar como fallido
+			failedCache[assetId] = true
+			callback("Audio " .. assetId, "Desconocido")
 		end
-	end
 
-	-- 4. FALLBACK: Mostrar el ID
-	return assetId and ("Audio " .. assetId) or "Sin música", "Desconocido"
+		pendingRequests[assetId] = nil
+	end)
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -216,12 +249,16 @@ local function updateSongInfo()
 		UI.TimeDisplay.Text = "0:00 / 0:00"
 	end
 
-	-- Obtener metadata (sin delay, sin "Cargando...")
-	local name, artist = getMetadata(SongHolder, assetId)
-
-	-- Mostrar inmediatamente
-	showText(name, artist)
-	displayedSongId = assetId
+	-- Obtener metadata CON CALLBACK (puede ser async)
+	getMetadata(SongHolder, assetId, function(name, artist)
+		-- Solo mostrar si seguimos en la misma canción
+		if assetId == displayedSongId then
+			return  -- Ya se mostró
+		end
+		
+		showText(name, artist)
+		displayedSongId = assetId
+	end)
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -249,17 +286,17 @@ local function connectToSound(sound)
 
 	-- Escuchar cambio de SoundId
 	soundConnection = sound:GetPropertyChangedSignal("SoundId"):Connect(function()
-		-- Pequeño delay para asegurar que los Attributes ya fueron seteados
+		-- Delay para asegurar que los Attributes fueron seteados por el servidor
+		task.delay(0.1, updateSongInfo)
+	end)
+
+	-- También escuchar cambios en el Attribute SongName (por si cambia después de setear SoundId)
+	attrConnection = sound:GetAttributeChangedSignal("SongName"):Connect(function()
 		task.delay(0.05, updateSongInfo)
 	end)
 
-	-- También escuchar cambios en el Attribute SongName (por si cambia después)
-	attrConnection = sound:GetAttributeChangedSignal("SongName"):Connect(function()
-		updateSongInfo()
-	end)
-
-	-- Actualizar inmediatamente
-	updateSongInfo()
+	-- Actualizar con delay para que los Attributes ya estén seteados
+	task.delay(0.05, updateSongInfo)
 end
 
 -- ═══════════════════════════════════════════════════════
