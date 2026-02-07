@@ -274,7 +274,11 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 					end
 				elseif item.passId then
 					if viewType == "passes" then
-						if not Gifting or not State.target or not item.productId then return end
+						if not Gifting or not State.target or not item.productId then 
+							print("[GIFTING] Falta algo - Gifting:", Gifting, "Target:", State.target, "ProductId:", item.productId)
+							return 
+						end
+						print("[GIFTING] Enviando regalo - PassId:", item.passId, "ProductId:", item.productId, "Target:", State.target.Name)
 						pcall(function()
 							Gifting:FireServer(
 								{item.passId, item.productId},

@@ -292,7 +292,6 @@ GiveLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
 				GiveLikeEvent:FireClient(player, "LikeSuccess")
 			end)
 		else
-			print("[LIKE] Rechazado para", player.Name, "->", targetPlayer.Name, "Razón:", message)
 			task.spawn(function()
 				GiveLikeEvent:FireClient(player, "Error", message)
 			end)
