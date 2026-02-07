@@ -31,9 +31,9 @@ local BroadcastEvent = LikesEvents:WaitForChild("BroadcastEvent")
 
 -- Configuración
 local SUPER_LIKE_PRODUCT_ID = Configuration.SUPER_LIKE
-local LIKE_COOLDOWN = Configuration.LIKE_COOLDOWN or 600
-local SUPER_LIKE_VALUE = Configuration.SUPER_LIKE_VALUE or 10
-local AUTOSAVE_INTERVAL = Configuration.AUTOSAVE_INTERVAL or 300
+local LIKE_COOLDOWN = Configuration.LIKE_COOLDOWN 
+local SUPER_LIKE_VALUE = Configuration.SUPER_LIKE_VALUE 
+local AUTOSAVE_INTERVAL = Configuration.AUTOSAVE_INTERVAL
 local GROUP_ID = Configuration.GroupID
 local ALLOWED_RANKS_OWS = Configuration.ALLOWED_RANKS_OWS
 
@@ -51,7 +51,7 @@ local LeaderboardQueue = {}
 local PlayerActionCounts = {}
 local LastSaveTime = {} -- 🆕 Track último guardado por jugador
 
-local MAX_ACTIONS_PER_MINUTE = 10
+local MAX_ACTIONS_PER_MINUTE = 30  -- Aumentado para permitir más likes
 local IS_SHUTTING_DOWN = false -- 🆕 Flag para cierre
 
 -- ============================================
@@ -279,23 +279,32 @@ GiveLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
 	if action == "GiveLike" then
 		local targetPlayer = Players:GetPlayerByUserId(targetUserId)
 		if not targetPlayer or targetPlayer == player then
-			GiveLikeEvent:FireClient(player, "Error", "No puedes darte like a ti mismo")
+			task.spawn(function()
+				GiveLikeEvent:FireClient(player, "Error", "No puedes darte like a ti mismo")
+			end)
 			return
 		end
 
 		local success, message = giveLike(player, targetPlayer)
 		if success then
 			broadcastLike(player.Name, targetPlayer.Name, false, 1)
-			GiveLikeEvent:FireClient(player, "LikeSuccess")
+			task.spawn(function()
+				GiveLikeEvent:FireClient(player, "LikeSuccess")
+			end)
 		else
-			GiveLikeEvent:FireClient(player, "Error", message)
+			print("[LIKE] Rechazado para", player.Name, "->", targetPlayer.Name, "Razón:", message)
+			task.spawn(function()
+				GiveLikeEvent:FireClient(player, "Error", message)
+			end)
 		end
 
 	elseif action == "RequestData" then
 		local data = loadPlayerData(player)
-		GiveLikeEvent:FireClient(player, "ReceiveData", {
-			TotalLikes = data.TotalLikes
-		})
+		task.spawn(function()
+			GiveLikeEvent:FireClient(player, "ReceiveData", {
+				TotalLikes = data.TotalLikes
+			})
+		end)
 	end
 end)
 

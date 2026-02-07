@@ -6,11 +6,10 @@
 ]]
 
 local EventListeners = {}
-local Remotes, NotificationSystem, TextChatService
+local Remotes, TextChatService
 
 function EventListeners.init(remotes)
 	Remotes = remotes
-	NotificationSystem = remotes.Systems.NotificationSystem
 	TextChatService = remotes.Services.TextChatService
 	
 	-- Setup todos los listeners
@@ -24,32 +23,36 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 function EventListeners.setupDonationListeners()
+	local player = Remotes.Services.Player
+	local NotificationSystem = Remotes.Systems.NotificationSystem
+	
 	if Remotes.Remotes.DonationNotify then
 		Remotes.Remotes.DonationNotify.OnClientEvent:Connect(function(donatorId, amount, recipientId)
-			if NotificationSystem then
-				NotificationSystem:Success("Donación", "Recibiste una donación de " .. utf8.char(0xE002) .. amount, 4)
+			-- Notificación PERSONAL solo si yo soy el receptor
+			if recipientId == player.UserId and NotificationSystem then
+				NotificationSystem:Success("Donación", "Recibiste una donación de " .. amount, 4)
 			end
 		end)
 	end
 	
 	if Remotes.Remotes.DonationMessage then
 		Remotes.Remotes.DonationMessage.OnClientEvent:Connect(function(donatorName, amount, recipientName)
-			-- Notificación
-			if NotificationSystem then
-				NotificationSystem:Success("Donación", "Donaste " .. utf8.char(0xE002) .. amount .. " a " .. recipientName, 4)
+			-- Notificación PERSONAL: solo si yo soy el donador
+			if donatorName == player.Name and NotificationSystem then
+				NotificationSystem:Success("Donación", "Donaste " .. amount .. " a " .. recipientName, 4)
 			end
 			
-			-- Mensaje en chat
+			-- Mensaje en chat global PARA TODOS
 			local displayName = recipientName
-			if recipientName == "Panda Mania' [Games]" or recipientName == "Panda15Fps" or recipientName == "Panda Mania' [UGC]" then
-				displayName = "Zona Peruana"
+			if recipientName == "ignxts" then
+				displayName = "Ritmo Latino"
 			end
 			
 			pcall(function()
 				local TextChannels = TextChatService:WaitForChild("TextChannels")
 				local RBXSystem = TextChannels:WaitForChild("RBXSystem")
 				RBXSystem:DisplaySystemMessage(
-					'<font color="#8762FF"><b>' .. donatorName .. " donó " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+					'<font color="#8762FF"><b>' .. donatorName .. " donó " .. tostring(amount) .. " a " .. displayName .. "</b></font>"
 				)
 			end)
 		end)
@@ -63,14 +66,15 @@ end
 function EventListeners.setupLikeBroadcast()
 	local BroadcastEvent = Remotes.Likes.BroadcastEvent
 	local player = Remotes.Services.Player
+	local NotificationSystem = Remotes.Systems.NotificationSystem
 	
 	if not BroadcastEvent then return end
 	
 	BroadcastEvent.OnClientEvent:Connect(function(action, data)
 		if action ~= "LikeNotification" or not data then return end
 		
-		-- Notificación PERSONAL solo si yo soy el receptor
-		-- Comparar por Username (data.Target es el nombre del que recibe)
+		
+		-- Notificación PERSONAL al receptor
 		if data.Target and data.Target == player.Name then
 			local notifMessage = ""
 			local notifTitle = "Like"
@@ -118,7 +122,7 @@ function EventListeners.setupGiftBroadcast()
 	if GiftBroadcastEvent then
 		GiftBroadcastEvent.OnClientEvent:Connect(function(action, data)
 			if action == "GiftNotification" then
-				local message = '<font color="#00D9FF"><b>🎁 ' .. data.Donor .. ' regaló el gamepass "' .. data.GamepassName .. '" a ' .. data.Recipient .. '</b></font>'
+				local message = '<font color="#00D9FF"><b>' .. data.Donor .. ' regaló el gamepass "' .. data.GamepassName .. '" a ' .. data.Recipient .. '</b></font>'
 				
 				pcall(function()
 					local TextChannels = TextChatService:WaitForChild("TextChannels")
