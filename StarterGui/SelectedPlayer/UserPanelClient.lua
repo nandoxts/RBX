@@ -823,14 +823,18 @@ local function openPanel(target)
 	State.isPanelOpening = true
 
 	if State.refreshThread then task.cancel(State.refreshThread) end
+	
+	-- Desacoplar highlight del usuario anterior
+	Utils.detachHighlight(State)
+	
 	Utils.clearConnections()
 	if State.ui then State.ui:Destroy() end
 
 	State.userId = target.UserId
+	State.target = target
 
-	-- Obtener color del jugador
+	-- Obtener color del jugador para UI del panel
 	local playerColor = Utils.getPlayerColor(target, ColorEffects)
-	State.playerColor = playerColor
 
 	local cachedData = State.userDataCache[target.UserId]
 	local hasCachedData = cachedData and (tick() - cachedData.lastUpdate) < 30
@@ -852,7 +856,9 @@ local function openPanel(target)
 	if success and result then
 		State.ui = result
 		State.target = target
-		Utils.attachHighlight(target, State)
+		
+		-- Acoplar highlight directamente (como en OLD)
+		Utils.attachHighlight(target, State, ColorEffects)
 
 		pcall(function()
 			if Remotes.Systems.GlobalModalManager then

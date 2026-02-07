@@ -9,14 +9,16 @@ local GiftedGamepassesData = DataStoreService:GetDataStore("Gifting.1")
 local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
 local GamepassGifting = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Gifting
+local GiftBroadcastEvent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes:FindFirstChild("GiftBroadcastEvent") or Instance.new("RemoteEvent")
+if not GiftBroadcastEvent.Parent then
+	GiftBroadcastEvent.Name = "GiftBroadcastEvent"
+	GiftBroadcastEvent.Parent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes
+end
+
 local Ownership = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Ownership
 local Config = require(game.ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Modules.Config)
 local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
-
--- ✅ CREAR EVENTO BROADCAST PARA NOTIFICACIONES DE REGALO
-local GiftBroadcastEvent = Instance.new("RemoteEvent")
-GiftBroadcastEvent.Name = "GiftBroadcastEvent"
-GiftBroadcastEvent.Parent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes
+local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 
 local BADGES_Gift = Configuration.BADGES_Gift
 
@@ -82,27 +84,106 @@ local function checkUserGamepassOwnership(userId, gamepassId)
 	local success, owns = pcall(function()
 		return MarketplaceService:UserOwnsGamePassAsync(userId, gamepassId)
 	end)
-	
+
 	if success and owns then
 		return true
 	end
-	
+
 	-- Si no lo compró, verificar si fue regalado usando DataStore
 	local result = false
 	local done = false
-	
+
 	DataStoreQueue:GetAsync(userId .. "-" .. gamepassId, function(dsSuccess, dsResult)
 		result = dsSuccess and dsResult or false
 		done = true
 	end)
-	
+
 	-- Esperar a que se complete (máximo 5 segundos)
 	local startTime = tick()
 	while not done and (tick() - startTime) < 5 do
 		task.wait(0.05)
 	end
-	
+
 	return result
+end
+
+-- Función para regalar un gamepass SIN COSTO (para admins)
+local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsername)
+	-- Verificar si el destinatario ya tiene el gamepass
+	local owns = checkUserGamepassOwnership(recipientUserId, gamepass[1])
+	if owns then
+		local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+		GamepassGifting:FireClient(admin, "Error", recipientUsername .. " ya tiene el gamepass " .. Asset.Name)
+		return
+	end
+
+	-- Guardar en DataStore SIN COBRAR
+	local saveSuccess = false
+	local saveDone = false
+
+	DataStoreQueue:SetAsync(recipientUserId .. "-" .. gamepass[1], true, function(dsSuccess, dsResult)
+		saveSuccess = dsSuccess
+		saveDone = true
+	end)
+
+	-- Obtener info del gamepass para el broadcast
+	local gpSuccess, Asset = pcall(function()
+		return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+	end)
+	local gamepassName = gpSuccess and Asset and Asset.Name or "Game Pass"
+
+	-- Actualizar el jugador si está en línea
+	local recipientPlayer = Players:GetPlayerByUserId(recipientUserId)
+	if recipientPlayer then
+		local Folder = recipientPlayer:FindFirstChild("Gamepasses")
+		if not Folder then
+			Folder = Instance.new("Folder")
+			Folder.Name = "Gamepasses"
+			Folder.Parent = recipientPlayer
+		end
+
+		if gpSuccess and Asset then
+			local existingValue = Folder:FindFirstChild(Asset.Name)
+			if not existingValue then
+				local GamepassValue = Instance.new("BoolValue")
+				GamepassValue.Name = Asset.Name
+				GamepassValue.Value = true
+				GamepassValue.Parent = Folder
+			else
+				existingValue.Value = true
+			end
+
+			-- Actualizar atributo HasVIP si recibió el VIP de regalo
+			if gamepass[1] == Configuration.VIP then
+				recipientPlayer:SetAttribute("HasVIP", true)
+			end
+
+			-- Notificar a HD-CONNECT para actualizar rango inmediatamente
+			if _G.HDConnect_HandleGiftedGamepass then
+				pcall(_G.HDConnect_HandleGiftedGamepass, recipientUserId, gamepass[1])
+			end
+		end
+	end
+
+	-- Enviar notificación a Discord
+	pcall(function()
+		SendDiscordWebhook(recipientUsername, recipientUserId, admin.Name, admin.UserId, gamepass[1])
+	end)
+
+	-- ✅ DISPARA EL BROADCAST A TODOS LOS CLIENTES
+	GiftBroadcastEvent:FireAllClients("GiftNotification", {
+		Donor = admin.Name,
+		Recipient = recipientUsername,
+		GamepassName = gamepassName
+	})
+
+	-- Notificar al admin que se completó el regalo
+	GamepassGifting:FireClient(admin, "Purchase")
+
+	-- Otorgar Badge al admin
+	if not BadgeService:UserHasBadgeAsync(admin.UserId, BADGES_Gift) then
+		BadgeService:AwardBadge(admin.UserId, BADGES_Gift)
+	end
 end
 
 -- Evento para iniciar el proceso de regalo
@@ -124,7 +205,7 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	if not success or not name then return end
 	]]
 	--// -- // -- // -- // -- // --
-	
+
 	if not game.Players:GetNameFromUserIdAsync(userId) then return end
 
 	Username = username
@@ -133,16 +214,24 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	for _, purchaseablegamepass in pairs(getAllPurchaseables()) do
 		if purchaseablegamepass[1] == gamepass[1] and purchaseablegamepass[2] == gamepass[2] then
 			if player.UserId ~= userId then
-				--  Verificar correctamente si tiene el gamepass (comprado O regalado)
-				local owns = checkUserGamepassOwnership(userId, gamepass[1])
-
-				if not owns then
-					PlayersGifted[player.UserId] = userId
-					MarketplaceService:PromptProductPurchase(player, gamepass[2])
+				-- ✅ VERIFICAR SI ES ADMIN
+				local isAdmin = AdminConfig:IsAdmin(player)
+				
+				if isAdmin then
+					-- ADMINS: Regalar SIN COSTO
+					giftGamepassFree(player, gamepass, userId, username)
 				else
-					local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-					GamepassGifting:FireClient(player, "Error", 
-						game.Players:GetNameFromUserIdAsync(userId).. " ya tiene el gamepass ".. Asset.Name)
+					-- USUARIOS NORMALES: Regalar PAGANDO robux
+					local owns = checkUserGamepassOwnership(userId, gamepass[1])
+
+					if not owns then
+						PlayersGifted[player.UserId] = userId
+						MarketplaceService:PromptProductPurchase(player, gamepass[2])
+					else
+						local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+						GamepassGifting:FireClient(player, "Error", 
+							game.Players:GetNameFromUserIdAsync(userId).. " ya tiene el gamepass ".. Asset.Name)
+					end
 				end
 			end
 			break
@@ -164,7 +253,7 @@ game.Players.PlayerAdded:Connect(function(player)
 	local function handleGamepasses()
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
-			
+
 			-- ✅ Verificar correctamente si tiene el gamepass (comprado O regalado)
 			local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
 
@@ -212,7 +301,7 @@ end)
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamepassId, wasPurchased)
 	if not wasPurchased then return end
 	if not player or not player.Parent then return end
-	
+
 	-- Verificar si es uno de nuestros gamepasses
 	local isOurGamepass = false
 	for _, gamepass in ipairs(getAllPurchaseables()) do
@@ -221,9 +310,9 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 			break
 		end
 	end
-	
+
 	if not isOurGamepass then return end
-	
+
 	-- Actualizar carpeta Gamepasses inmediatamente
 	local Folder = player:FindFirstChild("Gamepasses")
 	if not Folder then
@@ -231,11 +320,11 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 		Folder.Name = "Gamepasses"
 		Folder.Parent = player
 	end
-	
+
 	local success, Asset = pcall(function()
 		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)
-	
+
 	if success and Asset then
 		local existingValue = Folder:FindFirstChild(Asset.Name)
 		if not existingValue then
@@ -246,12 +335,12 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 		else
 			existingValue.Value = true
 		end
-		
+
 		--  Actualizar atributo HasVIP si compró el VIP
 		if gamepassId == Configuration.VIP then
 			player:SetAttribute("HasVIP", true)
 		end
-		
+
 		-- ✅ Notificar a HD-CONNECT para actualizar rango inmediatamente
 		if _G.HDConnect_HandleGiftedGamepass then
 			pcall(_G.HDConnect_HandleGiftedGamepass, player.UserId, gamepassId)
@@ -272,23 +361,11 @@ local function handleGiftPurchase(receiptInfo)
 			-- ✅ Guardar en DataStore usando DataStoreQueue para respetar throttling
 			local saveSuccess = false
 			local saveDone = false
-			
+
 			DataStoreQueue:SetAsync(Recipient .. "-" .. gamepass[1], true, function(dsSuccess, dsResult)
 				saveSuccess = dsSuccess
 				saveDone = true
 			end)
-			
-			-- ⏳ ESPERAR a que se complete el guardado en DataStore (máximo 10 segundos)
-			local startTime = tick()
-			while not saveDone and (tick() - startTime) < 10 do
-				task.wait(0.05)
-			end
-			
-			-- Si falló el guardado, NO procesar la compra
-			if not saveSuccess then
-				warn("❌ Error al guardar gamepass regalado en DataStore para:", Recipient, "GamepassID:", gamepass[1])
-				return Enum.ProductPurchaseDecision.NotProcessedYet
-			end
 
 			-- Enviar notificación a Discord (sin esperar)
 			pcall(function()
@@ -300,12 +377,7 @@ local function handleGiftPurchase(receiptInfo)
 					gamepass[1]
 				)
 			end)
-			
-			-- Obtener el nombre del gamepass para el broadcast
-			local gpSuccess, Asset = pcall(function()
-				return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-			end)
-			
+
 			local recipientPlayer = Players:GetPlayerByUserId(Recipient)
 			if recipientPlayer then
 				local Folder = recipientPlayer:FindFirstChild("Gamepasses")
@@ -314,6 +386,11 @@ local function handleGiftPurchase(receiptInfo)
 					Folder.Name = "Gamepasses"
 					Folder.Parent = recipientPlayer
 				end
+
+				-- Obtener el nombre del gamepass
+				local gpSuccess, Asset = pcall(function()
+					return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+				end)
 
 				if gpSuccess and Asset then
 					local existingValue = Folder:FindFirstChild(Asset.Name)
@@ -325,32 +402,17 @@ local function handleGiftPurchase(receiptInfo)
 					else
 						existingValue.Value = true
 					end
-					
+
 					--  Actualizar atributo HasVIP si recibió el VIP de regalo
 					if gamepass[1] == Configuration.VIP then
 						recipientPlayer:SetAttribute("HasVIP", true)
 					end
-					
-					--  Notificar a HD-CONNECT para actualizar rango inmediatamente
+
+					-- ✅ Notificar a HD-CONNECT para actualizar rango inmediatamente
 					if _G.HDConnect_HandleGiftedGamepass then
 						pcall(_G.HDConnect_HandleGiftedGamepass, Recipient, gamepass[1])
 					end
 				end
-			end
-
-			-- ✅ BROADCAST: Notificar a TODOS los jugadores del regalo
-			if gpSuccess and Asset then
-				pcall(function()
-					local recipientName = game:GetService("Players"):GetNameFromUserIdAsync(Recipient)
-					local donorName = game:GetService("Players"):GetNameFromUserIdAsync(UserId)
-					
-					GiftBroadcastEvent:FireAllClients("GiftNotification", {
-						Donor = donorName,
-						Recipient = recipientName,
-						GamepassName = Asset.Name,
-						GamepassId = gamepass[1]
-					})
-				end)
 			end
 
 			-- Notificar al donante de que se completó la compra
@@ -364,7 +426,7 @@ local function handleGiftPurchase(receiptInfo)
 				end
 			end
 
-			--  Retornar PurchaseGranted SOLO después de verificar guardado exitoso
+			-- Retornar inmediatamente (el DataStore se guardará en background)
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 	end

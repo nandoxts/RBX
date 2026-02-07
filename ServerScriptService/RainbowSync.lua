@@ -264,6 +264,51 @@ local function applyColor(instance, color, original)
 	end
 end
 
+-- Crear ColorSequence suave con gradient continuo
+local function createSmoothGradient(colors, progress)
+	local keypoints = {}
+	local colorCount = #colors
+	
+	for i = 1, colorCount do
+		-- Calcular posición en gradient (0 a 1)
+		local pos = ((i - 1) / colorCount + progress) % 1
+		-- Usar color actual e interpolar al siguiente
+		local colorIdx = ((i - 1 + math.floor(progress * colorCount)) % colorCount) + 1
+		local nextIdx = (colorIdx % colorCount) + 1
+		local lerpVal = (progress * colorCount) % 1
+		
+		local interpolated = colors[colorIdx]:Lerp(colors[nextIdx], lerpVal)
+		table.insert(keypoints, ColorSequenceKeypoint.new(pos, interpolated))
+	end
+	
+	-- Asegurar que el último keypoint esté al final
+	table.sort(keypoints, function(a, b) return a.Time < b.Time end)
+	return ColorSequence.new(keypoints)
+end
+
+local function applyColorGradient(instance, colors, progress, original)
+	if not original then return end
+	
+	-- Para propiedades normales, usar color interpolado
+	local colorCount = #colors
+	local colorIdx = ((math.floor(progress * colorCount)) % colorCount) + 1
+	local nextIdx = (colorIdx % colorCount) + 1
+	local lerpVal = (progress * colorCount) % 1
+	local smoothColor = colors[colorIdx]:Lerp(colors[nextIdx], lerpVal)
+	
+	for prop in pairs(original) do
+		pcall(function() instance[prop] = smoothColor end)
+	end
+	
+	-- UIGradient: crear gradient suave que fluye
+	local grad = instance:FindFirstChild("UIGradient")
+	if grad then
+		pcall(function() 
+			grad.Color = createSmoothGradient(colors, progress)
+		end)
+	end
+end
+
 local function restoreColor(instance, original)
 	if not original then return end
 	for prop, val in pairs(original) do
@@ -399,11 +444,10 @@ local function startUpdateLoop(rainbowValue)
 			return
 		end
 
-		-- Calcular color
+		-- Calcular progreso (0 a 1) para crear gradient suave
 		state.progress = state.progress + dt / CONFIG.speed
 		if state.progress >= 1 then
-			state.progress = 0
-			state.colorIndex = state.colorIndex % #state.colors + 1
+			state.progress = state.progress - 1
 		end
 
 		-- Protección: asegurar que state.colors tiene datos
@@ -411,21 +455,24 @@ local function startUpdateLoop(rainbowValue)
 			state.colors = CONFIG.rainbowColors -- Fallback
 		end
 
-		local current = state.colors[state.colorIndex]
-		local nextIdx = state.colorIndex % #state.colors + 1
-		local lerpedColor = current:Lerp(state.colors[nextIdx], state.progress)
+		-- Generar color suave con gradient
+		local colorCount = #state.colors
+		local colorIdx = ((math.floor(state.progress * colorCount)) % colorCount) + 1
+		local nextIdx = (colorIdx % colorCount) + 1
+		local lerpVal = (state.progress * colorCount) % 1
+		local smoothColor = state.colors[colorIdx]:Lerp(state.colors[nextIdx], lerpVal)
 
 		-- Solo actualizar si el color cambió
-		if lerpedColor ~= state.lastColor then
-			state.lastColor = lerpedColor
+		if smoothColor ~= state.lastColor then
+			state.lastColor = smoothColor
 
-			-- Aplicar a todas las instancias registradas
+			-- Aplicar gradient suave a todas las instancias
 			for instance, original in pairs(registry) do
-				applyColor(instance, lerpedColor, original)
+				applyColorGradient(instance, state.colors, state.progress, original)
 			end
 
 			-- Actualizar valor compartido
-			pcall(function() rainbowValue.Value = lerpedColor end)
+			pcall(function() rainbowValue.Value = smoothColor end)
 		end
 	end)
 end

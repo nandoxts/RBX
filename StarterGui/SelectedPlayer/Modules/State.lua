@@ -5,15 +5,11 @@
 	Estado global compartido entre todos los módulos
 ]]
 
-local player = game:GetService("Players").LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local SelectedPlayer = ReplicatedStorage:WaitForChild("SelectedPlayer")
 
--- Crear highlight persistente
-local highlight = Instance.new("Highlight")
-highlight.Name = "PlayerHighlight"
-highlight.Enabled = false
-highlight.FillTransparency = 1
-highlight.OutlineTransparency = 0.3
-highlight.Parent = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 2)
+-- Obtener el Highlight existente (no crear uno nuevo como el DISABLE)
+local highlight = SelectedPlayer:WaitForChild("Highlight")
 
 return {
 	-- UI

@@ -24,6 +24,7 @@ local GamePassManager = require(game.ServerScriptService["Panda ServerScriptServ
 -- Importar Config con lista de gamepasses
 local ReplicatedStoragePanda = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage")
 local Config = require(ReplicatedStoragePanda["Gamepass Gifting"].Modules.Config)
+local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 
 -- ═══════════════════════════════════════════════════════════════
 --  GAME PASSES MANUALES DE TU JUEGO
@@ -46,7 +47,7 @@ local CONFIG = {
 	GAMEPASSES_CACHE_TIME = 120,
 	MAX_GAMES_TO_SEARCH = 5,
 	HTTP_DELAY = 0.1,
-	
+
 	-- Límites de performance
 	MAX_ITEMS_TO_SHOW = 15,  -- Máximo de items a mostrar (evita lag)
 	MAX_ITEMS_TO_VALIDATE = 10,  -- Validar solo los primeros N inmediatamente
@@ -110,14 +111,14 @@ local Cache = {
 -- Función para validar si un jugador tiene un pase (comprado o regalado)
 local function checkPlayerGamePass(player, passId)
 	if not player or not passId then return false end
-	
+
 	-- Verificar en la carpeta de Gamepasses (regalados)
 	local folder = player:FindFirstChild("Gamepasses")
 	if folder then
 		local success, info = pcall(function()
 			return MarketplaceService:GetProductInfo(passId, Enum.InfoType.GamePass)
 		end)
-		
+
 		if success and info then
 			for _, child in pairs(folder:GetChildren()) do
 				if child:IsA("BoolValue") and child.Name == info.Name and child.Value then
@@ -126,13 +127,13 @@ local function checkPlayerGamePass(player, passId)
 			end
 		end
 	end
-	
+
 	-- Verificar con MarketplaceService (comprados)
 	local owns = false
 	pcall(function()
 		owns = MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
 	end)
-	
+
 	return owns
 end
 
@@ -265,6 +266,7 @@ local function getGamePassesFromAPI(universeId)
 				local iconId = pass.displayIconImageAssetId or 0
 				table.insert(passes, {
 					passId = pass.id,
+					productId = pass.id,  -- El productId es igual al passId para donaciones
 					name = pass.displayName or pass.name or "Pass",
 					price = pass.price,
 					icon = iconId > 0 and ("rbxassetid://" .. tostring(iconId)) or ""
@@ -288,7 +290,7 @@ local function getGamePasses()
 		for _, gamepass in ipairs(Config.Gamepasses) do
 			local gamepassId = gamepass[1]
 			local productId = gamepass[2]
-			
+
 			local passInfo = getGamePassInfo(gamepassId, productId)
 			if passInfo then
 				table.insert(passes, passInfo)
@@ -297,7 +299,7 @@ local function getGamePasses()
 	end
 	-- Ordenar por precio
 	table.sort(passes, function(a, b) return a.price < b.price end)
-	
+
 	return passes
 end
 
@@ -376,7 +378,7 @@ end)
 GetUserDonations.OnServerInvoke = function(player, targetUserId)
 	if not targetUserId or not player then return {} end
 	local donations = getUserDonations(targetUserId)
-	
+
 	-- Limitar cantidad de items (performance)
 	if #donations > CONFIG.MAX_ITEMS_TO_SHOW then
 		local limited = {}
@@ -385,12 +387,12 @@ GetUserDonations.OnServerInvoke = function(player, targetUserId)
 		end
 		donations = limited
 	end
-	
+
 	-- Validar si YO (player) ya compré esos gamepasses
 	if player and donations and #donations > 0 then
 		local toValidate = math.min(#donations, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
-		
+
 		for i = 1, toValidate do
 			local donation = donations[i]
 			task.spawn(function()
@@ -399,32 +401,32 @@ GetUserDonations.OnServerInvoke = function(player, targetUserId)
 				completed = completed + 1
 			end)
 		end
-		
+
 		-- Marcar el resto como "no validado"
 		for i = toValidate + 1, #donations do
 			donations[i].hasPass = nil
 		end
-		
+
 		-- Esperar validaciones
 		local startTime = tick()
 		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
 	end
-	
+
 	return donations
 end
 
 GetGamePasses.OnServerInvoke = function(player, targetUserId)
 	local passes = getGamePasses()
-	
+
 	-- Obtener el Player object del jugador objetivo
 	local targetPlayer = targetUserId and Players:GetPlayerByUserId(targetUserId)
 	if not targetPlayer then
 		-- Si no está en el servidor, no podemos validar
 		return passes
 	end
-	
+
 	-- Limitar cantidad de items (performance)
 	if #passes > CONFIG.MAX_ITEMS_TO_SHOW then
 		local limited = {}
@@ -433,12 +435,12 @@ GetGamePasses.OnServerInvoke = function(player, targetUserId)
 		end
 		passes = limited
 	end
-	
+
 	-- Validar solo primeros N items en PARALELO
 	if targetPlayer and passes and #passes > 0 then
 		local toValidate = math.min(#passes, CONFIG.MAX_ITEMS_TO_VALIDATE)
 		local completed = 0
-		
+
 		for i = 1, toValidate do
 			local pass = passes[i]
 			task.spawn(function()
@@ -447,25 +449,25 @@ GetGamePasses.OnServerInvoke = function(player, targetUserId)
 				completed = completed + 1
 			end)
 		end
-		
+
 		-- Marcar el resto como "no validado"
 		for i = toValidate + 1, #passes do
 			passes[i].hasPass = nil
 		end
-		
+
 		-- Esperar validaciones
 		local startTime = tick()
 		while completed < toValidate and (tick() - startTime) < 3 do
 			task.wait(0.05)
 		end
 	end
-	
+
 	return passes
 end
 
 CheckGamePass.OnServerInvoke = function(player, passId, targetUserId)
 	if not passId then return false end
-	
+
 	-- Para "Donar": validar si YO tengo el pase (player)
 	-- Para "Regalar": validar si EL OBJETIVO tiene el pase (targetUserId)
 	local playerToCheck = player
@@ -473,7 +475,7 @@ CheckGamePass.OnServerInvoke = function(player, passId, targetUserId)
 		playerToCheck = Players:GetPlayerByUserId(targetUserId)
 		if not playerToCheck then return false end
 	end
-	
+
 	if not playerToCheck then return false end
 	return checkPlayerGamePass(playerToCheck, passId)
 end
@@ -489,7 +491,7 @@ end
 if LikesEvents then
 	local GiveLikeEvent = LikesEvents:FindFirstChild("GiveLikeEvent")
 	local GiveSuperLikeEvent = LikesEvents:FindFirstChild("GiveSuperLikeEvent")
-	
+
 	if GiveLikeEvent then
 		GiveLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
 			if action == "GiveLike" and targetUserId then
@@ -500,7 +502,7 @@ if LikesEvents then
 			end
 		end)
 	end
-	
+
 	if GiveSuperLikeEvent then
 		GiveSuperLikeEvent.OnServerEvent:Connect(function(player, action, targetUserId)
 			if action == "GiveSuperLike" and targetUserId then

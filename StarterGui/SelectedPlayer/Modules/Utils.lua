@@ -231,10 +231,20 @@ end
 -- HIGHLIGHT (ACTUALIZADO)
 -- ═══════════════════════════════════════════════════════════════
 
-function Utils.attachHighlight(targetPlayer, state)
+function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	if not state.highlight or not targetPlayer or not targetPlayer.Character then return end
-	state.highlight.FillColor = state.playerColor or Color3.fromRGB(255, 255, 255)
-	state.highlight.OutlineColor = state.playerColor or Color3.fromRGB(255, 255, 255)
+	
+	-- Obtener color del atributo del jugador (como en OLD)
+	local color
+	if ColorEffects then
+		color = ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"] or ColorEffects.defaultSelectedColor or Color3.fromRGB(0, 255, 0)
+	else
+		color = Color3.fromRGB(255, 255, 255)
+	end
+	
+	-- Desacoplar y acoplar directamente (sin pausa innecesaria)
+	state.highlight.FillColor = color
+	state.highlight.OutlineColor = color
 	state.highlight.Adornee = targetPlayer.Character
 	state.highlight.Enabled = true
 end
