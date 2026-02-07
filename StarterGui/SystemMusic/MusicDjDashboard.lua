@@ -69,7 +69,19 @@ local isAdmin = MusicSystemConfig:IsAdmin(player) and SHOW_ADMIN_UI
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local R_PANEL, R_CTRL = 12, 10
 local ENABLE_BLUR, BLUR_SIZE = true, 14
--- Panel dimensions removed - ModalManager handles responsive sizing automatically
+local PANEL_W_PX = THEME.panelWidth
+local PANEL_H_PX = THEME.panelHeight
+
+--  DETECTAR MÓVIL PARA AJUSTAR ESPACIOS
+local isMobileDevice = UserInputService.TouchEnabled
+
+-- Valores responsivos para componentes del dashboard
+local HEADER_HEIGHT_BASE = 140
+local HEADER_HEIGHT = isMobileDevice and 100 or HEADER_HEIGHT_BASE
+local CONTENT_PADDING = isMobileDevice and 10 or 20
+local NOW_PLAYING_HEIGHT = isMobileDevice and 50 or 70
+local MINI_COVER_SIZE = isMobileDevice and 40 or 56
+local CONTROLS_HEIGHT = isMobileDevice and 28 or 32
 
 -- Virtualización
 local CARD_HEIGHT = 54
@@ -218,6 +230,8 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "MusicDashboard",
+	panelWidth = PANEL_W_PX,  -- ✅ Pasar dimensiones base
+	panelHeight = PANEL_H_PX,
 	cornerRadius = R_PANEL,
 	enableBlur = ENABLE_BLUR,
 	blurSize = BLUR_SIZE,
@@ -236,7 +250,6 @@ panel.ClipsDescendants = true
 -- ════════════════════════════════════════════════════════════════
 -- HEADER SPOTIFY STYLE
 -- ════════════════════════════════════════════════════════════════
-local HEADER_HEIGHT = 140
 
 local header = UI.frame({name = "Header", size = UDim2.new(1, 0, 0, HEADER_HEIGHT), pos = UDim2.new(0, 0, 0, 0), bg = Color3.fromRGB(18, 18, 22), z = 102, parent = panel, corner = 16, clip = true})
 
@@ -281,9 +294,9 @@ overlayGradient.Parent = headerGradientOverlay
 -- Container para el contenido del header
 local headerContent = Instance.new("Frame")
 headerContent.Name = "Content"
--- Restaurar padding parecido a CreateClanGui: margen interior para título y controles
-headerContent.Size = UDim2.new(1, -40, 1, -20)
-headerContent.Position = UDim2.new(0, 20, 0, 10)
+-- Margen interior responsivo para título y controles
+headerContent.Size = UDim2.new(1, -CONTENT_PADDING*2, 1, -CONTENT_PADDING)
+headerContent.Position = UDim2.new(0, CONTENT_PADDING, 0, CONTENT_PADDING/2)
 headerContent.BackgroundTransparency = 1
 headerContent.ZIndex = 104
 headerContent.Parent = header
@@ -309,7 +322,7 @@ title.Parent = headerContent
 local controlsRow = Instance.new("Frame")
 controlsRow.Name = "ControlsRow"
 -- Usar todo el ancho interior del headerContent y dejar margen interno gestionado por UIPadding
-controlsRow.Size = UDim2.new(1, 0, 0, 32)
+controlsRow.Size = UDim2.new(1, 0, 0, CONTROLS_HEIGHT)
 controlsRow.Position = UDim2.new(0, 0, 0, 6)
 controlsRow.BackgroundTransparency = 1
 controlsRow.ZIndex = 105
@@ -332,7 +345,7 @@ controlsLayout.Parent = controlsRow
 
 -- Spacer para empujar a la derecha (antes del close btn)
 local controlsSpacer = Instance.new("Frame")
-controlsSpacer.Size = UDim2.new(0, 10, 0, 32)
+controlsSpacer.Size = UDim2.new(0, 10, 0, CONTROLS_HEIGHT)
 controlsSpacer.BackgroundTransparency = 1
 controlsSpacer.LayoutOrder = 0
 controlsSpacer.Parent = controlsRow
@@ -342,7 +355,7 @@ local clearB = nil
 if isAdmin then
 	clearB = Instance.new("TextButton")
 	clearB.Name = "ClearBtn"
-	clearB.Size = UDim2.new(0, 70, 0, 32)
+	clearB.Size = UDim2.new(0, 70, 0, CONTROLS_HEIGHT)
 	clearB.BackgroundColor3 = Color3.fromRGB(161, 124, 72)
 	clearB.Text = "CLEAR"
 	clearB.TextColor3 = Color3.new(1, 1, 1)
@@ -358,7 +371,7 @@ end
 -- SKIP button
 local skipB = Instance.new("TextButton")
 skipB.Name = "SkipBtn"
-skipB.Size = UDim2.new(0, 70, 0, 32)
+skipB.Size = UDim2.new(0, 70, 0, CONTROLS_HEIGHT)
 skipB.BackgroundColor3 = THEME.accent
 skipB.Text = "SKIP"
 skipB.TextColor3 = Color3.new(1, 1, 1)
@@ -373,14 +386,14 @@ UI.rounded(skipB, 6)
 -- Volume control container
 local volFrame = Instance.new("Frame")
 volFrame.Name = "VolumeControl"
-volFrame.Size = UDim2.new(0, 145, 0, 32)
+volFrame.Size = UDim2.new(0, 145, 0, CONTROLS_HEIGHT)
 volFrame.BackgroundTransparency = 1
 volFrame.LayoutOrder = 1
 volFrame.ZIndex = 105
 volFrame.Parent = controlsRow
 
 local volSliderBg = Instance.new("Frame")
-volSliderBg.Size = UDim2.new(0, 90, 0, 30)
+volSliderBg.Size = UDim2.new(0, 90, 0, CONTROLS_HEIGHT-2)
 volSliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
 volSliderBg.BorderSizePixel = 0
 volSliderBg.ZIndex = 105
@@ -396,7 +409,7 @@ volSliderFill.Parent = volSliderBg
 UI.rounded(volSliderFill, 6)
 
 local volLabel = Instance.new("TextButton")
-volLabel.Size = UDim2.new(0, 50, 0, 30)
+volLabel.Size = UDim2.new(0, 50, 0, CONTROLS_HEIGHT-2)
 volLabel.Position = UDim2.new(0, 95, 0, 0)
 volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 volLabel.Text = "100%"
@@ -429,13 +442,13 @@ UI.rounded(volInput, 6)
 -- Close button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 36, 0, 36)
+closeBtn.Size = UDim2.new(0, isMobileDevice and 32 or 36, 0, isMobileDevice and 32 or 36)
 closeBtn.BackgroundColor3 = THEME.card
 closeBtn.BackgroundTransparency = 0
 closeBtn.Text = "×"
 closeBtn.TextColor3 = THEME.muted
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 22
+closeBtn.TextSize = isMobileDevice and 20 or 22
 closeBtn.ZIndex = 103
 -- Insertar dinámicamente dentro de controlsRow para alinearlo con los controles
 closeBtn.LayoutOrder = 1000
@@ -447,8 +460,8 @@ UI.stroked(closeBtn, 0.4)
 -- ════════════════════════════════════════════════════════════════
 local nowPlayingSection = Instance.new("Frame")
 nowPlayingSection.Name = "NowPlaying"
-nowPlayingSection.Size = UDim2.new(1, 0, 0, 70)
-nowPlayingSection.Position = UDim2.new(0, 0, 0, 36)
+nowPlayingSection.Size = UDim2.new(1, 0, 0, NOW_PLAYING_HEIGHT)
+nowPlayingSection.Position = UDim2.new(0, 0, 0, isMobileDevice and 32 or 36)
 nowPlayingSection.BackgroundTransparency = 1
 nowPlayingSection.ZIndex = 104
 nowPlayingSection.Parent = headerContent
@@ -456,7 +469,7 @@ nowPlayingSection.Parent = headerContent
 -- Mini cover del DJ actual
 local miniCover = Instance.new("ImageLabel")
 miniCover.Name = "MiniCover"
-miniCover.Size = UDim2.new(0, 56, 0, 56)
+miniCover.Size = UDim2.new(0, MINI_COVER_SIZE, 0, MINI_COVER_SIZE)
 miniCover.Position = UDim2.new(0, 0, 0, 4)
 -- Hacemos el fondo transparente para que la imagen respete el corner y se vea limpia
 miniCover.BackgroundTransparency = 1
@@ -475,8 +488,8 @@ miniCoverStroke.Parent = miniCover
 
 -- Song info
 local songInfoFrame = Instance.new("Frame")
-songInfoFrame.Size = UDim2.new(1, -180, 0, 40)
-songInfoFrame.Position = UDim2.new(0, 68, 0, 8)
+songInfoFrame.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, MINI_COVER_SIZE-16)
+songInfoFrame.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 8)
 songInfoFrame.BackgroundTransparency = 1
 songInfoFrame.ZIndex = 105
 songInfoFrame.Parent = nowPlayingSection
@@ -509,8 +522,8 @@ headerDJName.Parent = songInfoFrame
 
 -- Progress bar
 local progressContainer = Instance.new("Frame")
-progressContainer.Size = UDim2.new(1, -68, 0, 18)
-progressContainer.Position = UDim2.new(0, 68, 0, 48)
+progressContainer.Size = UDim2.new(1, -(MINI_COVER_SIZE+80), 0, 18)
+progressContainer.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, MINI_COVER_SIZE-10)
 progressContainer.BackgroundTransparency = 1
 progressContainer.ZIndex = 105
 progressContainer.Parent = nowPlayingSection

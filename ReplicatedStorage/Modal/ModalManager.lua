@@ -21,26 +21,50 @@ local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("The
 -- DETECCIÓN DE DISPOSITIVO
 -- ════════════════════════════════════════════════════════════════
 local function isMobileDevice()
-	-- Detectar por touch o tamaño de pantalla
-	return UserInputService.TouchEnabled
+	-- La forma más confiable en Roblox: UserInputService.TouchEnabled
+	-- En simulador de móvil o móvil real, esto será true
+	local touchEnabled = UserInputService.TouchEnabled
+	
+	-- Si touch está habilitado, es móvil (punto)
+	return touchEnabled
 end
 
 local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight)
 	local screenSize = screenGui.AbsoluteSize
+	
+	-- Si AbsoluteSize no está disponible, usar fallbacks SIN esperar
+	-- Esto previene el bloqueo cuando se abre rápido múltiples modales
+	if screenSize.X == 0 or screenSize.Y == 0 then
+		local parentSize = screenGui.Parent and screenGui.Parent.AbsoluteSize
+		if parentSize and parentSize.X > 0 and parentSize.Y > 0 then
+			screenSize = parentSize
+		else
+			-- Fallback completo: asumir pantalla grande
+			screenSize = Vector2.new(1920, 1080)
+		end
+	end
+	
+	-- Detectar móvil: por touch O por tamaño pequeño de pantalla
 	local isMobile = isMobileDevice()
+	
+	-- Fallback adicional: Si pantalla es muy pequeña, asumir móvil
+	-- (para simuladores que no tengan TouchEnabled correctamente configurado)
+	if not isMobile and screenSize.X <= 540 then
+		isMobile = true
+	end
 
 	if isMobile then
-		-- En celular: máximo 95% del ancho y 90% del alto con espacios mínimos
-		local width = math.min(screenSize.X * 0.95, baseWidth)
-		local height = math.min(screenSize.Y * 0.90, baseHeight)
-		-- Asegurar que el tamaño mínimo sea razonable
+		-- En celular: ancho máximo (casi 100%), solo el alto es responsivo
+		local width = screenSize.X * 0.98  -- Máximo ancho disponible
+		local height = screenSize.Y * 0.85  -- Alto responsivo con espacio para controles del SO
+		-- Asegurar mínimos razonables
 		width = math.max(width, 280)
 		height = math.max(height, 300)
 		return width, height
 	else
-		-- En desktop: usa tamaño base pero respeta pantalla mínima
-		local width = math.min(baseWidth, screenSize.X * 0.95)
-		local height = math.min(baseHeight, screenSize.Y * 0.9)
+		-- En desktop: usar baseWidth/baseHeight del THEME como base
+		local width = math.min(baseWidth or 980, screenSize.X * 0.95)
+		local height = math.min(baseHeight or 620, screenSize.Y * 0.9)
 		return width, height
 	end
 end
@@ -79,8 +103,8 @@ function ModalManager.new(config)
 	self.panelName = config.panelName or "ModalPanel"
 
 	-- Calcular dimensiones responsivas
-	local baseWidth = config.panelWidth or (THEME.panelWidth or 980)
-	local baseHeight = config.panelHeight or (THEME.panelHeight or 620)
+	local baseWidth = config.panelWidth or THEME.panelWidth
+	local baseHeight = config.panelHeight or THEME.panelHeight
 	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight)
 
 	self.cornerRadius = config.cornerRadius or 12
