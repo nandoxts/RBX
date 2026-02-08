@@ -49,19 +49,35 @@ let allTextData = new Map();
 let textId = 0;
 
 // Definir función ANTES de usarla
-function captureText(txt, x, y) {
+function captureText(txt, x, y, w = 0, h = 0) {
   txt = String(txt).trim();
   if (!txt || txt.length > 200 || txt.length < 1) return;
 
   const id = ++textId;
-  allTextData.set(id, {
+  const entry = {
     text: txt,
     x: Math.round(x),
     y: Math.round(y),
+    w: Math.round(w || 0),
+    h: Math.round(h || 0),
     time: Date.now(),
     id: id,
-  });
+  };
 
+  // Deduplicar entradas muy cercanas y con mismo texto: mantener la más reciente
+  for (let [k, v] of allTextData) {
+    if (v.text === entry.text) {
+      const dx = v.x - entry.x;
+      const dy = v.y - entry.y;
+      if (Math.hypot(dx, dy) < 20) {
+        allTextData.delete(k);
+      }
+    }
+  }
+
+  allTextData.set(id, entry);
+
+  // Limpiar buffer antiguo si crece mucho (keep recent ~2s)
   if (allTextData.size > 2000) {
     const now = Date.now();
     for (let [k, v] of allTextData) {
@@ -76,16 +92,68 @@ console.log(
 
 // INTERCEPTAR TODO: fillText
 const origFillText = CanvasRenderingContext2D.prototype.fillText;
-CanvasRenderingContext2D.prototype.fillText = function (text, x, y) {
-  captureText(String(text), x, y);
-  return origFillText.call(this, text, x, y);
+CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+  try {
+    const canvas = this.canvas;
+    if (canvas && typeof canvas.getBoundingClientRect === "function") {
+      const rect = canvas.getBoundingClientRect();
+      const viewportX =
+        rect.left + (x / (canvas.width || rect.width)) * rect.width;
+      const viewportY =
+        rect.top + (y / (canvas.height || rect.height)) * rect.height;
+      const metrics =
+        typeof this.measureText === "function"
+          ? this.measureText(text)
+          : { width: 0 };
+      const fontSizeMatch = String(this.font || "").match(/(\d+)px/);
+      const fontSize = fontSizeMatch
+        ? parseInt(fontSizeMatch[1], 10)
+        : Math.max(12, Math.round(rect.height * 0.02));
+      const viewportW = rect.width
+        ? (metrics.width / (canvas.width || rect.width)) * rect.width
+        : metrics.width;
+      const viewportH = fontSize;
+      captureText(String(text), viewportX, viewportY, viewportW, viewportH);
+    } else {
+      captureText(String(text), x, y, 0, 0);
+    }
+  } catch (err) {
+    // never break rendering
+  }
+  return origFillText.call(this, text, x, y, ...rest);
 };
 
 // INTERCEPTAR TODO: strokeText
 const origStrokeText = CanvasRenderingContext2D.prototype.strokeText;
-CanvasRenderingContext2D.prototype.strokeText = function (text, x, y) {
-  captureText(String(text), x, y);
-  return origStrokeText.call(this, text, x, y);
+CanvasRenderingContext2D.prototype.strokeText = function (text, x, y, ...rest) {
+  try {
+    const canvas = this.canvas;
+    if (canvas && typeof canvas.getBoundingClientRect === "function") {
+      const rect = canvas.getBoundingClientRect();
+      const viewportX =
+        rect.left + (x / (canvas.width || rect.width)) * rect.width;
+      const viewportY =
+        rect.top + (y / (canvas.height || rect.height)) * rect.height;
+      const metrics =
+        typeof this.measureText === "function"
+          ? this.measureText(text)
+          : { width: 0 };
+      const fontSizeMatch = String(this.font || "").match(/(\d+)px/);
+      const fontSize = fontSizeMatch
+        ? parseInt(fontSizeMatch[1], 10)
+        : Math.max(12, Math.round(rect.height * 0.02));
+      const viewportW = rect.width
+        ? (metrics.width / (canvas.width || rect.width)) * rect.width
+        : metrics.width;
+      const viewportH = fontSize;
+      captureText(String(text), viewportX, viewportY, viewportW, viewportH);
+    } else {
+      captureText(String(text), x, y, 0, 0);
+    }
+  } catch (err) {
+    // ignore
+  }
+  return origStrokeText.call(this, text, x, y, ...rest);
 };
 
 // INTERCEPTAR TODO: fillRect para detectar fondo
@@ -126,48 +194,59 @@ document.addEventListener(
     const clickX = e.clientX;
     const clickY = e.clientY;
 
-    console.log(
-      "[CLICK] Viewport (" +
-        clickX.toFixed(0) +
-        ", " +
-        clickY.toFixed(0) +
-        ") - Buffer: " +
-        allTextData.size +
-        " texts",
-    );
-
-    // Buscar en TODOS los textos con tolerancia GRANDE (300px)
-    let best = null,
-      bestDist = 300;
-
+    // Primero intentar encontrar textos cuyo bbox contenga el click
+    const candidates = [];
     for (let [id, item] of allTextData) {
-      // Los textos fueron capturados en coordenadas del canvas
-      // Intentar buscar aproximadamente
-      const dx = clickX - item.x;
-      const dy = clickY - item.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Ignorar entradas sin ancho sensato
+      if (!item.w || item.w < 2) continue;
 
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = item.text;
+      const left = item.x;
+      const right = item.x + item.w;
+      const top = item.y - item.h;
+      const bottom = item.y + Math.max(4, item.h * 0.3);
+
+      if (
+        clickX >= left &&
+        clickX <= right &&
+        clickY >= top &&
+        clickY <= bottom
+      ) {
+        candidates.push({ item, score: 0 });
+      } else {
+        // distancia al centro como fallback
+        const cx = item.x + item.w / 2;
+        const cy = item.y - item.h / 2;
+        const dist = Math.hypot(clickX - cx, clickY - cy);
+        candidates.push({ item, score: dist });
       }
     }
 
-    if (best) {
-      // COPIAR INMEDIATAMENTE
-      navigator.clipboard.writeText(best).then(() => {
-        console.log("[COPIED] " + best);
-        // showBigNotif("COPIED\n" + best.substring(0, 50));
+    if (candidates.length === 0) {
+      return;
+    }
 
-        // También mostrar en consola grande
-        console.log(best);
+    // Preferir candidatos que contenían el click (score 0), si existen tomar el más reciente
+    const contained = candidates.filter((c) => c.score === 0);
+    let chosen = null;
+    if (contained.length > 0) {
+      contained.sort((a, b) => b.item.time - a.item.time);
+      chosen = contained[0].item;
+    } else {
+      // Si ninguno contiene el click, seleccionar el más cercano dentro de un umbral razonable
+      candidates.sort((a, b) => a.score - b.score);
+      const best = candidates[0];
+      if (best.score <= 80) {
+        chosen = best.item;
+      }
+    }
+
+    if (chosen) {
+      // COPIAR INMEDIATAMENTE
+      navigator.clipboard.writeText(chosen.text).then(() => {
+        console.log("[COPIED] " + chosen.text);
       });
     } else {
-      console.log(
-        "[NO TEXT] Closest distance: " +
-          bestDist.toFixed(0) +
-          "px (threshold: 300px)",
-      );
+      console.log("[NO TEXT] No se encontró texto cercano (umbral 80px)");
     }
   },
   true,
@@ -220,10 +299,10 @@ goldConverterOverlay.style.cssText = `
 `;
 
 goldConverterOverlay.innerHTML = `
-  <input type="number" id="golcAmount" placeholder="Cantidad" min="1" step="1" 
-         style="padding: 8px; background: rgba(0, 0, 0, 0.4); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); 
+  <input type="number" id="golcAmount" placeholder="Cantidad" min="1" step="1"
+         style="padding: 8px; background: rgba(0, 0, 0, 0.4); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);
                  border-radius: 4px; font-size: 13px; width: 120px; outline: none;">
-  <button id="golcBtn" style="padding: 8px; background: rgba(0, 0, 0, 0.5); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); 
+  <button id="golcBtn" style="padding: 8px; background: rgba(0, 0, 0, 0.5); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);
                              border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">GO</button>
   <div style="display: flex; gap: 4px;">
     <button id="golc100k" style="flex: 1; padding: 6px; background: rgba(0, 0, 0, 0.5); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);
@@ -282,7 +361,7 @@ st.textContent = `
   @keyframes popOut {
     to { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
   }
-  
+
   #sikayetContainer input[type="button"] {
     padding: 8px 12px !important;
     background: rgba(0, 0, 0, 0.5) !important;
@@ -294,12 +373,12 @@ st.textContent = `
     font-size: 12px !important;
     transition: background 0.2s ease !important;
   }
-  
+
   #sikayetContainer input[type="button"]:hover {
     background: rgba(0, 0, 0, 0.7) !important;
     border-color: rgba(34, 197, 94, 1) !important;
   }
-  
+
   #sikayetContainer input[type="button"]:active {
     background: rgba(0, 0, 0, 0.8) !important;
   }
@@ -324,12 +403,6 @@ st.textContent = `
   }
 `;
 document.head.appendChild(st);
-
-console.log(
-  "[*] AGRESIVE TEXT CAPTURE - Buffer: " +
-    allTextData.size +
-    " textos, esperando click...",
-);
 
 /* ==============================
     2. EVENTOS DE TECLADO
@@ -443,10 +516,7 @@ function keydown(e) {
   const key = e.key ? e.key.toLowerCase() : "";
   switch (key) {
     case "1":
-      // Ejecutar `reaparecer()` sólo si no estamos en modo espectador
-      if (typeof playMode === "undefined" || playMode !== PLAYMODE_SPECTATE) {
-        reaparecer();
-      }
+      reaparecer();
       break;
     case "c":
       cMacroRunning ? stopCMacro() : startCMacro();

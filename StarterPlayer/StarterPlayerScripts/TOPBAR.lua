@@ -14,7 +14,7 @@ local settingsUI = playerGui:WaitForChild("Settings")
 local FrameSettings = settingsUI:WaitForChild("MainFrame")
 
 -- Esperar a que se carguen las GUIs de sistema
-task.wait(0.5)
+task.wait(1)
 
 -- ════════════════════════════════════════════════════════════════
 -- MÓDULOS

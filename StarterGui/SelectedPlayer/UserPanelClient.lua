@@ -318,7 +318,7 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 
 	local startY = Config.AVATAR_HEIGHT + 8
 	local availableHeight = math.max(80, State.panel.AbsoluteSize.Y - startY - Config.PANEL_PADDING)
-	
+
 	State.dynamicSection = Utils.createFrame({
 		Size = UDim2.new(1, -2 * Config.PANEL_PADDING, 0, availableHeight),
 		Position = UDim2.new(1, 0, 0, startY),
@@ -327,7 +327,7 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 
 	renderDynamicSection(viewType, items, targetName, playerColor)
 	Utils.tween(State.dynamicSection, { Position = UDim2.new(0, Config.PANEL_PADDING, 0, startY) }, 0.15, Enum.EasingStyle.Quad)
-	
+
 	task.delay(0.15, function()
 		State.isLoadingDynamic = false
 	end)
@@ -364,22 +364,22 @@ local function createButtonsSection(panel, target, playerColor)
 	Utils.addConnection(donateBtn.MouseButton1Click:Connect(function()
 		if not State.userId or State.isLoadingDynamic or State.dynamicSection then return end
 		State.isLoadingDynamic = true
-		
+
 		donateBtn.Active = false
 		donateText.Text = "Cargando..."
 		Utils.tween(donateBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
-		
+
 		task.spawn(function()
 			local ok, donations = pcall(function()
 				return Remotes.Remotes.GetUserDonations:InvokeServer(State.userId)
 			end)
-			
+
 			if donateBtn and donateBtn.Parent then
 				donateBtn.Active = true
 				donateText.Text = "Donar"
 				Utils.tween(donateBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST)
 			end
-			
+
 			if ok and donations then
 				showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
 			else
@@ -397,22 +397,22 @@ local function createButtonsSection(panel, target, playerColor)
 		Utils.addConnection(giftBtn.MouseButton1Click:Connect(function()
 			if State.isLoadingDynamic or State.dynamicSection then return end
 			State.isLoadingDynamic = true
-			
+
 			giftBtn.Active = false
 			giftText.Text = "Cargando..."
 			Utils.tween(giftBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
-			
+
 			task.spawn(function()
 				local ok, passes = pcall(function()
 					return Remotes.Remotes.GetGamePasses:InvokeServer(State.userId)
 				end)
-				
+
 				if giftBtn and giftBtn.Parent then
 					giftBtn.Active = true
 					giftText.Text = "Regalar Pase"
 					Utils.tween(giftBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST)
 				end
-				
+
 				if ok and passes then
 					showDynamicSection("passes", passes, nil, playerColor)
 				else
@@ -823,10 +823,10 @@ local function openPanel(target)
 	State.isPanelOpening = true
 
 	if State.refreshThread then task.cancel(State.refreshThread) end
-	
+
 	-- Desacoplar highlight del usuario anterior
 	Utils.detachHighlight(State)
-	
+
 	Utils.clearConnections()
 	if State.ui then State.ui:Destroy() end
 
@@ -856,7 +856,7 @@ local function openPanel(target)
 	if success and result then
 		State.ui = result
 		State.target = target
-		
+
 		-- Acoplar highlight directamente (como en OLD)
 		Utils.attachHighlight(target, State, ColorEffects)
 

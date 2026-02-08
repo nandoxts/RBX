@@ -2,6 +2,7 @@ local Animaciones = {}
 
 Animaciones.Ids = {
 	{ID = 138316142522795, Nombre = 'Menea I'},
+	{ID = 93650537970037, Nombre = 'Menea II'},
 	{ID = 134594513356628, Nombre = 'Deadpool'},
 	{ID = 116409384225743, Nombre = 'Orange Justice'},
 	{ID = 74498799892136, Nombre = 'MJ Thriller I'},
@@ -10,7 +11,6 @@ Animaciones.Ids = {
 	{ID = 73665396963024, Nombre = 'MJ Thriller IV'},
 	{ID = 129014371180875, Nombre = 'Merlina'},
 	{ID = 71043409187026, Nombre = 'Metro Man'},
-	{ID = 93650537970037, Nombre = 'Menea II'},
 	{ID = 124982597491660, Nombre = 'California Girls'},
 	{ID = 133551169796944, Nombre = 'Salsa Sensual'},
 	{ID = 80443100846814, Nombre = 'Sexy Dance'},
@@ -157,7 +157,6 @@ Animaciones.Recomendado = {
 
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
-	{ID = 116880211354619, Nombre = 'Menea III'},
 
 
 
@@ -182,7 +181,7 @@ Animaciones.Recomendado = {
 	{ID = 72932062656739, Nombre = 'Bella III'},
 	{ID = 79689692681563, Nombre = 'Bella IV'},
 	{ID = 100672487163010, Nombre = 'Golpe I'},
-	{ID = 126490613005651, Nombre = 'Golpe II'},
+	{ID = 119734573196374, Nombre = 'Golpe II'},
 	{ID = 102779295838500, Nombre = 'Golpe III'},
 	{ID = 126780665379004, Nombre = 'Golpe IV'},
 	{ID = 139562990018724, Nombre = 'Golpe V'},
@@ -232,11 +231,14 @@ Animaciones.Vip = {
 	{ID = 82445927449072, Nombre = 'Bachata I'},
 	{ID = 129492556391446, Nombre = 'Bachata II'},
 	{ID = 136760422939999, Nombre = 'Bachata III'},
-	{ID = 86295087151051, Nombre = 'Menea IV'},
-	{ID = 140418182009287, Nombre = 'Menea V'},
-	{ID = 122719596509695, Nombre = 'Menea VI'},
-	{ID = 139110277540140, Nombre = 'Menea VII'},
-	{ID = 112176404394603, Nombre = 'Menea VIII'},
+	{ID = 73923471037261, Nombre = 'Menea III'},
+	{ID = 140418182009287, Nombre = 'Menea IV'},
+	{ID = 122719596509695, Nombre = 'Menea V'},
+	{ID = 139110277540140, Nombre = 'Menea VI'},
+	{ID = 112176404394603, Nombre = 'Menea VII'},
+
+	{ID = 110121575064039, Nombre = 'BTS DYNAMITE'},
+
 	{ID = 101758039233408, Nombre = 'Diva I'},
 	{ID = 79464831560180, Nombre = 'Diva II'},
 	{ID = 136073073685621, Nombre = 'Diva III'},
