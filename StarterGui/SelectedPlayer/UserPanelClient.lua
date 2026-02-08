@@ -66,10 +66,13 @@ local function createButton(parent, text, layoutOrder, accentColor)
 	local rippleContainer = Utils.createFrame({ Size = UDim2.new(1, 0, 1, 0), ClipsDescendants = true, Parent = btn })
 	Utils.addCorner(rippleContainer, Config.BUTTON_CORNER)
 
+	-- Tamaño de fuente responsivo
+	local textSize = Config.IS_MOBILE and 13 or 14
+
 	local label = Utils.createLabel({
 		Size = UDim2.new(1, 0, 1, 0),
 		Text = text,
-		TextSize = 14,
+		TextSize = textSize,
 		Font = Enum.Font.GothamBold,
 		TextColor3 = THEME.text,
 		Parent = btn
@@ -144,7 +147,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 		Position = UDim2.new(0, 34, 0, 0),
 		Text = title,
 		TextColor3 = THEME.text,
-		TextSize = 16,
+		TextSize = Config.IS_MOBILE and 14 or 16,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -498,7 +501,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Position = UDim2.new(0, 0, 0, 4),
 			Text = tostring(data[stat.key] or 0),
 			TextColor3 = THEME.text,
-			TextSize = 16,
+			TextSize = Config.IS_MOBILE and 12 or 16,
 			Font = Enum.Font.GothamBold,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ZIndex = 11,
@@ -510,7 +513,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Position = UDim2.new(0, 0, 0, 26),
 			Text = stat.label,
 			TextColor3 = THEME.muted,
-			TextSize = 9,
+			TextSize = Config.IS_MOBILE and 7 or 9,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ZIndex = 11,
 			Parent = statContainer
@@ -523,7 +526,7 @@ local function createAvatarSection(panel, data, playerColor)
 		Position = UDim2.new(0, 10, 1, -52),
 		Text = data.displayName,
 		TextColor3 = playerColor,
-		TextSize = 18,
+		TextSize = Config.IS_MOBILE and 14 or 18,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -537,7 +540,7 @@ local function createAvatarSection(panel, data, playerColor)
 		Position = UDim2.new(0, 10, 1, -28),
 		Text = "@" .. data.username,
 		TextColor3 = THEME.muted,
-		TextSize = 13,
+		TextSize = Config.IS_MOBILE and 10 or 13,
 		Font = Enum.Font.GothamMedium,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -565,7 +568,7 @@ local function createAvatarSection(panel, data, playerColor)
 
 		local function createLikeButton(imageId, onClick)
 			local btn = Utils.create("ImageButton", {
-				Size = UDim2.new(0, 28, 0, 28),
+				Size = UDim2.new(0, Config.IS_MOBILE and 24 or 28, 0, Config.IS_MOBILE and 24 or 28),
 				BackgroundTransparency = 1,
 				Image = imageId,
 				ScaleType = Enum.ScaleType.Fit,
@@ -602,9 +605,10 @@ local function createPanel(data)
 	if State.closing or not data or not data.userId then return end
 
 	local screenGui = Utils.createScreenGui(playerGui)
+	local initialOffset = Config.IS_MOBILE and 30 or 50
 	State.container = Utils.createFrame({
 		Size = UDim2.new(0, Config.PANEL_WIDTH, 0, Config.PANEL_HEIGHT),
-		Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, 50),
+		Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset),
 		BackgroundTransparency = 1,
 		Parent = screenGui
 	})
@@ -618,14 +622,15 @@ local function createPanel(data)
 	State.target = target
 
 	-- Drag Handle (barra superior para arrastrar)
+	local dragHandleHeight = Config.IS_MOBILE and 24 or 18
 	local dragHandle = Utils.createFrame({
-		Size = UDim2.new(1, 0, 0, 18),
+		Size = UDim2.new(1, 0, 0, dragHandleHeight),
 		Parent = State.container
 	})
 
 	local dragIndicator = Utils.createFrame({
-		Size = UDim2.new(0, 44, 0, 5),
-		Position = UDim2.new(0.5, -22, 0.5, -2),
+		Size = UDim2.new(0, 44, 0, Config.IS_MOBILE and 4 or 5),
+		Position = UDim2.new(0.5, -22, 0.5, Config.IS_MOBILE and -2 or -2),
 		BackgroundColor3 = playerColor,
 		BackgroundTransparency = 0.3,
 		Parent = dragHandle
@@ -663,9 +668,10 @@ local function createPanel(data)
 	end))
 
 	-- Panel Container
+	local panelContainerPosition = Config.IS_MOBILE and 26 or 22
 	local panelContainer = Utils.createFrame({
 		Size = UDim2.new(1, 0, 0, Config.PANEL_HEIGHT),
-		Position = UDim2.new(0, 0, 0, 22),
+		Position = UDim2.new(0, 0, 0, panelContainerPosition),
 		BackgroundColor3 = Utils.darkenFullColor(playerColor or THEME.panel, 0.93),
 		BackgroundTransparency = 0.15,
 		ClipsDescendants = true,
@@ -757,12 +763,14 @@ local function createPanel(data)
 	createButtonsSection(panel, State.target, playerColor)
 
 	-- Animación de entrada
-	State.container.Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, 50)
+	local initialOffset = Config.IS_MOBILE and 30 or 50
+	local finalOffset = Config.IS_MOBILE and 70 or 90
+	State.container.Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset)
 	State.container.Size = UDim2.new(0, Config.PANEL_WIDTH, 0, Config.PANEL_HEIGHT)
 
 	task.defer(function()
 		Utils.tween(State.container, {
-			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, -(Config.PANEL_HEIGHT + 90))
+			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, -(Config.PANEL_HEIGHT + finalOffset))
 		}, 0.5, Enum.EasingStyle.Quint)
 	end)
 
@@ -788,8 +796,9 @@ function closePanel()
 
 	-- Animación de salida
 	if State.container then
+		local initialOffset = Config.IS_MOBILE and 30 or 50
 		Utils.tween(State.container, {
-			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, 50)
+			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset)
 		}, 0.3, Enum.EasingStyle.Quad)
 	end
 

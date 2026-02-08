@@ -2,7 +2,7 @@
 	═══════════════════════════════════════════════════════════
 	INPUT HANDLER - Manejo de input y selección
 	═══════════════════════════════════════════════════════════
-	Maneja detección de jugadores, clics y cursores
+	Maneja detección de jugadores, clics y cursores (Desktop + Mobile)
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -14,7 +14,7 @@ local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
 -- ═══════════════════════════════════════════════════════════════
--- SETUP (VERSIÓN SIMPLIFICADA)
+-- SETUP (VERSIÓN SIMPLIFICADA CON SOPORTE MOBILE)
 -- ═══════════════════════════════════════════════════════════════
 
 function InputHandler.setupListeners(openPanelFunc, closePanelFunc, State)
@@ -77,26 +77,35 @@ function InputHandler.setupListeners(openPanelFunc, closePanelFunc, State)
 		end
 	end
 
-	UserInputService.InputEnded:Connect(function(input, gameProcessed)
-		if gameProcessed then return end
+	-- Desktop: Mouse Input
+	if UserInputService.MouseEnabled then
+		UserInputService.InputEnded:Connect(function(input, gameProcessed)
+			if gameProcessed then return end
 
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			if State.dragging then return end
-			trySelectAtPosition(Vector2.new(mouse.X, mouse.Y))
-		end
-	end)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				if State.dragging then return end
+				trySelectAtPosition(Vector2.new(mouse.X, mouse.Y))
+			end
+		end)
+	end
 
-	UserInputService.TouchEnded:Connect(function(input, processed)
-		if not processed and not State.dragging then
-			trySelectAtPosition(input.Position)
-		end
-	end)
+	-- Mobile: Touch Input
+	if UserInputService.TouchEnabled then
+		UserInputService.TouchEnded:Connect(function(input, processed)
+			if not processed and not State.dragging then
+				trySelectAtPosition(input.Position)
+			end
+		end)
+	end
 end
 
 function InputHandler.setupCursor(State, Services)
 	local Config = require(script.Parent.Config)
 	local Utils = require(script.Parent.Utils)
 	Services = Services or {}
+
+	-- En mobile no hay cursor
+	if Config.IS_MOBILE then return end
 
 	local camera = workspace.CurrentCamera
 
