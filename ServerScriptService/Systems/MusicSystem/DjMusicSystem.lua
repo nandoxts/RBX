@@ -61,7 +61,6 @@ end
 
 local R = {
 	Play = getRemote("MusicPlayback", "PlaySong"),
-	Pause = getRemote("MusicPlayback", "PauseSong"),
 	Next = getRemote("MusicPlayback", "NextSong"),
 	Stop = getRemote("MusicPlayback", "StopSong"),
 	ChangeVolume = getRemote("MusicPlayback", "ChangeVolume"),
@@ -652,15 +651,8 @@ R.Play.OnServerEvent:Connect(function(player)
 	end
 end)
 
-R.Pause.OnServerEvent:Connect(function(player)
-	if not hasPermission(player, "PauseSong") then return end
-	if isPlaying and not isPaused then
-		pcall(function() soundObject:Pause() end)
-		isPaused = true
-		isPlaying = false
-		updateAllClients()
-	end
-end)
+-- PauseSong remote removed: pause is handled via Play toggle or server-side logic.
+-- (Handler intentionally omitted to reduce unused remote surface.)
 
 R.Next.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "NextSong") then return end

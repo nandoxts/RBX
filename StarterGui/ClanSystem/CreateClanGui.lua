@@ -278,7 +278,7 @@ end)
 local listenerLastTime = 0
 
 -- Registrar callback para actualizar la UI cuando hay cambios
-ClanClient:OnClansUpdated(function(clans)
+ClanClient:OnClansUpdated(function(changedClanId)
 	if not State.isOpen then return end
 	if not screenGui or not screenGui.Parent then return end
 
@@ -293,7 +293,7 @@ ClanClient:OnClansUpdated(function(clans)
 	if State.currentPage == "TuClan" then 
 		ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, State.currentView)
 	elseif State.currentPage == "Disponibles" then 
-		ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, "", false, clans)
+		ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, "", false)  -- Sin clansFromEvent, siempre hace fetch
 	elseif State.currentPage == "Admin" and isAdmin then 
 		ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG)
 	end

@@ -185,7 +185,6 @@ end
 local R = {
 	Next = getRemote("NextSong"),
 	Play = getRemote("PlaySong"),
-	Pause = getRemote("PauseSong"),
 	Stop = getRemote("StopSong"),
 	Add = getRemote("AddToQueue"),
 	AddResponse = getRemote("AddToQueueResponse"),

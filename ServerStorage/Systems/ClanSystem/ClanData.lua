@@ -212,7 +212,7 @@ function ClanData:CreateClan(name, ownerId, tag, logo, desc, emoji, color)
 	addToNameIndex(name, clanId)
 	addToTagIndex(upperTag, clanId)
 	
-	updateEvent:Fire()
+	updateEvent:Fire(clanId)
 	return true, clanId, clan
 end
 
@@ -267,7 +267,7 @@ function ClanData:UpdateClan(clanId, updates)
 		addToTagIndex(updates.tag, clanId)
 	end
 	
-	updateEvent:Fire()
+	updateEvent:Fire(clanId)
 	return true, result
 end
 
@@ -308,7 +308,7 @@ function ClanData:AddMember(clanId, userId, role)
 			clanId = clanId,
 			role = role
 		})
-		updateEvent:Fire()
+		updateEvent:Fire(clanId)
 		return true, result
 	else
 		return false, tostring(result)
@@ -341,7 +341,7 @@ function ClanData:RemoveMember(clanId, userId)
 	if success then
 		-- Limpiar player mapping
 		DS:RemoveAsync("player:" .. userIdStr)
-		updateEvent:Fire()
+		updateEvent:Fire(clanId)
 		return true, result
 	else
 		return false, tostring(result)
@@ -372,7 +372,7 @@ function ClanData:ChangeRole(clanId, userId, newRole)
 			end
 			return current
 		end)
-		updateEvent:Fire()
+		updateEvent:Fire(clanId)
 		return true, result
 	else
 		return false, tostring(result)
@@ -415,7 +415,7 @@ function ClanData:AddOwner(clanId, userId)
 			clanId = clanId,
 			role = Config.ROLE_NAMES.OWNER
 		})
-		updateEvent:Fire()
+		updateEvent:Fire(clanId)
 		return true, result
 	else
 		return false, tostring(result)
@@ -459,7 +459,7 @@ function ClanData:RemoveOwner(clanId, userId)
 			end
 			return current
 		end)
-		updateEvent:Fire()
+		updateEvent:Fire(clanId)
 		return true, result
 	else
 		return false, tostring(result)
@@ -512,7 +512,7 @@ function ClanData:DissolveClan(clanId)
 		removeFromTagIndex(clan.tag)
 	end
 	
-	updateEvent:Fire()
+	updateEvent:Fire(clanId)
 	return true, "Clan disuelto"
 end
 
@@ -551,6 +551,20 @@ end
 -- SOLICITUDES DE UNIÓN (simplificadas)
 -- ============================================
 
+-- Obtener solicitudes PENDIENTES del usuario
+local function getUserPendingRequests(userId)
+	local userIdStr = tostring(userId)
+	local success, requests = pcall(function()
+		return DS:GetAsync("player:" .. userIdStr .. ":requests") or {}
+	end)
+	
+	if success then
+		return requests
+	else
+		return {}
+	end
+end
+
 -- ENVIAR SOLICITUD
 function ClanData:RequestJoin(clanId, userId)
 	local clan = self:GetClan(clanId)
@@ -561,6 +575,21 @@ function ClanData:RequestJoin(clanId, userId)
 	local playerClan = self:GetPlayerClan(userId)
 	if playerClan then 
 		return false, "Ya tienes clan" 
+	end
+
+	-- ✅ VALIDACIÓN CRÍTICA: Verificar si ya tiene solicitudes pendientes en otro clan
+	local userPendingRequests = getUserPendingRequests(userId)
+	if userPendingRequests and type(userPendingRequests) == "table" then
+		-- Si hay solicitudes pendientes en otros clanes, rechazar
+		for pendingClanId, _ in pairs(userPendingRequests) do
+			if pendingClanId ~= tostring(clanId) then
+				return false, "Ya tienes una solicitud pendiente en otro clan"
+			end
+		end
+		-- Si ya está en este clan, rechazar
+		if userPendingRequests[tostring(clanId)] then
+			return false, "Ya has solicitado unirte a este clan"
+		end
 	end
 	
 	local userIdStr = tostring(userId)
@@ -590,7 +619,14 @@ function ClanData:RequestJoin(clanId, userId)
 	end)
 	
 	if success then
-		updateEvent:Fire()
+		-- 🔥 REGISTRAR solicitud en índice del usuario
+		DS:UpdateAsync("player:" .. userIdStr .. ":requests", function(current)
+			local requests = current or {}
+			requests[tostring(clanId)] = os.time()
+			return requests
+		end)
+		
+		updateEvent:Fire(clanId)
 		return true, "Solicitud enviada"
 	else
 		return false, "Error al guardar solicitud"
@@ -633,7 +669,14 @@ function ClanData:ApproveRequest(clanId, approverId, targetUserId)
 			return current
 		end)
 		
-		updateEvent:Fire()
+		-- 🔥 Limpiar del índice de solicitudes del usuario
+		DS:UpdateAsync("player:" .. targetIdStr .. ":requests", function(current)
+			local requests = current or {}
+			requests[tostring(clanId)] = nil
+			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
+		end)
+		
+		updateEvent:Fire(clanId)
 		return true, "Solicitud aprobada"
 	else
 		return false, err
@@ -671,7 +714,14 @@ function ClanData:RejectRequest(clanId, rejecterId, targetUserId)
 	end)
 	
 	if success then
-		updateEvent:Fire()
+		-- 🔥 Limpiar del índice de solicitudes del usuario
+		DS:UpdateAsync("player:" .. targetIdStr .. ":requests", function(current)
+			local requests = current or {}
+			requests[tostring(clanId)] = nil
+			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
+		end)
+		
+		updateEvent:Fire(clanId)
 		return true, "Solicitud rechazada"
 	else
 		return false, "Error al rechazar"
@@ -747,7 +797,14 @@ function ClanData:CancelRequest(clanId, userId)
 	end)
 	
 	if success then
-		updateEvent:Fire()
+		-- 🔥 Limpiar del índice de solicitudes del usuario
+		DS:UpdateAsync("player:" .. userIdStr .. ":requests", function(current)
+			local requests = current or {}
+			requests[tostring(clanId)] = nil
+			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
+		end)
+		
+		updateEvent:Fire(clanId)
 		return true, "Solicitud cancelada"
 	else
 		return false, "Error al cancelar"
@@ -772,7 +829,10 @@ function ClanData:CancelAllRequests(userId)
 		end)
 	end
 	
-	updateEvent:Fire()
+	-- 🔥 Limpiar COMPLETAMENTE el índice de solicitudes del usuario
+	DS:RemoveAsync("player:" .. userIdStr .. ":requests")
+	
+	updateEvent:Fire(nil)
 	return true, "Solicitudes canceladas"
 end
 

@@ -111,7 +111,7 @@ function ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, tar
 		State.playerRole = playerRole
 
 		local reloadFunc = function(v) ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, v) end
-		
+
 		State.views.main = ClanViews.createMainView(tuClanContainer, clanData, playerRole, screenGui, function() ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadFunc) end, State)
 		State.views.members = ClanViews.createMembersView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State)
 
@@ -182,13 +182,14 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 	else
 		UI.hover(joinBtn, THEME.accent, UI.brighten(THEME.accent, 1.15))
 		Memory:track(joinBtn.MouseButton1Click:Connect(function()
-			local success, msg = ClanClient:RequestJoinClan(clanData.clanId)
-			if success then 
-				Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
-				-- 🔥 NO hacer loadClansFromServerFn() - el evento ClansUpdated ya actualiza automáticamente
-			else 
-				Notify:Error("Error", msg or "No se pudo enviar", 5) 
-			end
+			-- ✅ Usar callback para recibir respuesta REAL del servidor
+			ClanClient:RequestJoinClan(clanData.clanId, function(success, resultClanId, msg)
+				if success then 
+					Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
+				else 
+					Notify:Error("Error", msg or "No se pudo enviar", 5) 
+				end
+			end)
 		end))
 	end
 
@@ -197,8 +198,7 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 end
 
 -- Load clans from server
--- Si se pasan clans desde el evento, no hace fetch (evita doble refresh)
-function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, forceUpdate, clansFromEvent)
+function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, forceUpdate)
 	if not State.isOpen then return end
 
 	-- Permitir actualización forzada aunque esté ocupado
@@ -208,63 +208,34 @@ function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, 
 	filtro = filtro or ""
 	local filtroLower = filtro:lower()
 
-	-- Si vienen datos del evento, usarlos directamente (evita GetClansList)
-	if clansFromEvent then
-		-- 🔥 LIMPIAR LA LISTA ANTES DE RENDERIZAR (preservar UIListLayout)
-		Memory:destroyChildren(clansScroll, "UIListLayout")
-		
-		local clans = clansFromEvent or {}
-		local pendingList = ClanClient:GetUserPendingRequests() or {}
-
-		if #clans > 0 then
-			local hayResultados = false
-			for _, clanData in ipairs(clans) do
-				local nombre = (clanData.name or ""):lower()
-				local tag = (clanData.tag or ""):lower()
-
-				if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
-					ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG) end)
-					hayResultados = true
-				end
-			end
-
-			if not hayResultados and filtroLower ~= "" then
-				UI.label({size = UDim2.new(1, 0, 0, 60), text = "No se encontraron clanes", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
-			end
-		else
-			UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
-		end
-		
-		State.isUpdating = false
-		return
-	end
-
-	-- Si NO vienen datos del evento, hace fetch normal
 	ClanHelpers.safeLoading(clansScroll, function()
 		return ClanClient:GetClansList(), ClanClient:GetUserPendingRequests()
 	end, function(clans, pendingList)
-		clans = clans or {}
+		-- ✅ Protección: Limpiar State.isUpdating SIEMPRE
+		pcall(function()
+			clans = clans or {}
 
-		if #clans > 0 then
-			local hayResultados = false
-			for _, clanData in ipairs(clans) do
-				local nombre = (clanData.name or ""):lower()
-				local tag = (clanData.tag or ""):lower()
+			if #clans > 0 then
+				local hayResultados = false
+				for _, clanData in ipairs(clans) do
+					local nombre = (clanData.name or ""):lower()
+					local tag = (clanData.tag or ""):lower()
 
-				if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
-					ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG) end)
-					hayResultados = true
+					if filtroLower == "" or nombre:find(filtroLower, 1, true) or tag:find(filtroLower, 1, true) then
+						ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, function() ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG) end)
+						hayResultados = true
+					end
 				end
-			end
 
-			if not hayResultados and filtroLower ~= "" then
-				UI.label({size = UDim2.new(1, 0, 0, 60), text = "No se encontraron clanes", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
+				if not hayResultados and filtroLower ~= "" then
+					UI.label({size = UDim2.new(1, 0, 0, 60), text = "No se encontraron clanes", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
+				end
+			else
+				UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
 			end
-		else
-			UI.label({size = UDim2.new(1, 0, 0, 60), text = "No hay clanes disponibles", color = THEME.muted, textSize = 13, font = Enum.Font.GothamMedium, alignX = Enum.TextXAlignment.Center, z = 104, parent = clansScroll})
-		end
+		end)
 
-		State.isUpdating = false
+		State.isUpdating = false  -- ✅ Siempre limpiar, incluso si hay error
 	end, State)
 end
 
@@ -279,31 +250,33 @@ function ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFI
 	ClanHelpers.safeLoading(adminClansScroll, function()
 		return ClanClient:GetClansList()
 	end, function(clans)
-		if not clans or #clans == 0 then
-			UI.label({size = UDim2.new(1, 0, 0, 50), text = "No hay clanes registrados", color = THEME.muted, textSize = 12, alignX = Enum.TextXAlignment.Center, z = 104, parent = adminClansScroll})
-			State.isUpdating = false
-			return
-		end
-
-		for _, clanData in ipairs(clans) do
-			if not clanData.clanId then
-				warn("[CreateClanGui] Clan sin clanId:", clanData)
+		-- ✅ Protección: Limpiar State.isUpdating SIEMPRE
+		pcall(function()
+			if not clans or #clans == 0 then
+				UI.label({size = UDim2.new(1, 0, 0, 50), text = "No hay clanes registrados", color = THEME.muted, textSize = 12, alignX = Enum.TextXAlignment.Center, z = 104, parent = adminClansScroll})
+				return
 			end
-			
-			local entry = UI.frame({size = UDim2.new(1, 0, 0, 65), bg = THEME.card, z = 104, parent = adminClansScroll, corner = 10, stroke = true, strokeA = 0.6})
 
-			UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.emoji or "") .. " " .. (clanData.name or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
-			UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.memberCount or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
+			for _, clanData in ipairs(clans) do
+				if not clanData.clanId then
+					warn("[CreateClanGui] Clan sin clanId:", clanData)
+				end
 
-			local deleteBtn = UI.button({size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16), bg = THEME.btnDanger, text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = UI.brighten(THEME.btnDanger, 1.15)})
-			UI.hover(entry, THEME.card, THEME.elevated)
+				local entry = UI.frame({size = UDim2.new(1, 0, 0, 65), bg = THEME.card, z = 104, parent = adminClansScroll, corner = 10, stroke = true, strokeA = 0.6})
 
-			Memory:track(deleteBtn.MouseButton1Click:Connect(function()
-				ClanActions:adminDelete(screenGui, clanData, function() ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG) end)
-			end))
-		end
+				UI.label({size = UDim2.new(1, -160, 0, 18), pos = UDim2.new(0, 15, 0, 12), text = (clanData.emoji or "") .. " " .. (clanData.name or "Sin nombre"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 105, parent = entry})
+				UI.label({size = UDim2.new(1, -160, 0, 14), pos = UDim2.new(0, 15, 0, 34), text = "ID: " .. (clanData.clanId or "?") .. " • " .. (clanData.memberCount or 0) .. " miembros", color = THEME.muted, textSize = 10, z = 105, parent = entry})
 
-		State.isUpdating = false
+				local deleteBtn = UI.button({size = UDim2.new(0, 70, 0, 32), pos = UDim2.new(1, -80, 0.5, -16), bg = THEME.btnDanger, text = "Eliminar", textSize = 10, z = 105, parent = entry, corner = 6, hover = true, hoverBg = UI.brighten(THEME.btnDanger, 1.15)})
+				UI.hover(entry, THEME.card, THEME.elevated)
+
+				Memory:track(deleteBtn.MouseButton1Click:Connect(function()
+					ClanActions:adminDelete(screenGui, clanData, function() ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG) end)
+				end))
+			end
+		end)
+
+		State.isUpdating = false  -- ✅ Siempre limpiar, incluso si hay error
 	end, State)
 end
 
