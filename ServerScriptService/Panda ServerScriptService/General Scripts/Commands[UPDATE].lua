@@ -613,11 +613,8 @@ local function handleParticleCommand(player, character, textureId)
 	-- Si es clan, obtener el logo del clan
 	if isClan and ClanData then
 		local playerClan = ClanData:GetPlayerClan(player.UserId)
-		if playerClan and playerClan.clanId then
-			local clanData = ClanData:GetClan(playerClan.clanId)
-			if clanData and clanData.clanLogo then
-				textureIdToUse = clanData.clanLogo:gsub("rbxassetid://", "")
-			end
+		if playerClan and playerClan.logo then
+			textureIdToUse = playerClan.logo:gsub("rbxassetid://", "")
 		end
 	end
 

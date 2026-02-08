@@ -874,6 +874,34 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	playerCooldowns[player.UserId] = nil
+	
+	-- 🔥 Remover canciones del jugador de la cola (EXCEPTO la que está reproduciéndose)
+	local removedCount = 0
+	local i = 1
+	
+	while i <= #playQueue do
+		local song = playQueue[i]
+		
+		-- Si es del jugador Y NO es la canción actual que está sonando
+		if song.userId == player.UserId and i ~= currentSongIndex then
+			table.remove(playQueue, i)
+			removedCount = removedCount + 1
+			
+			-- Ajustar currentSongIndex si removimos algo antes de la canción actual
+			if i < currentSongIndex then
+				currentSongIndex = currentSongIndex - 1
+			end
+			-- No incrementar i porque removimos un elemento
+		else
+			i = i + 1
+		end
+	end
+	
+	-- Si se removieron canciones, actualizar a todos los clientes
+	if removedCount > 0 then
+		print("🎵 Jugador", player.Name, "se desconectó -", removedCount, "canciones removidas de la cola")
+		updateAllClients()
+	end
 end)
 
 -- ════════════════════════════════════════════════════════════════

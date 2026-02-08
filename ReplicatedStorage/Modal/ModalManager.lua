@@ -1,5 +1,5 @@
 --[[
-	ModalManager - Sistema centralizado de modales
+	ModalManager - Sistema centralizado de modales (Versión Responsive Mejorada)
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -9,43 +9,73 @@ local UserInputService = game:GetService("UserInputService")
 
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
-local function calculateResponsiveDimensions(screenGui, baseWidth, baseHeight, isMobile)
-	local screenSize = screenGui.AbsoluteSize
-	
-	if screenSize.X == 0 or screenSize.Y == 0 then
-		task.wait(0.15)
-		screenSize = screenGui.AbsoluteSize
-	end
-	
-	if screenSize.X == 0 or screenSize.Y == 0 then
-		screenSize = workspace.CurrentCamera.ViewportSize
-	end
-	
-	if screenSize.X == 0 or screenSize.Y == 0 then
-		screenSize = Vector2.new(1920, 1080)
+local function getScreenSize(screenGui)
+	-- Intentar múltiples métodos para obtener el tamaño real
+	local size = screenGui.AbsoluteSize
+
+	if size.X > 0 and size.Y > 0 then
+		return size
 	end
 
+	-- Método 2: Viewport de la cámara
+	local camera = workspace.CurrentCamera
+	if camera then
+		size = camera.ViewportSize
+		if size.X > 0 and size.Y > 0 then
+			return size
+		end
+	end
+
+	-- Método 3: Parent del ScreenGui
+	local parent = screenGui.Parent
+	if parent and parent:IsA("PlayerGui") then
+		local player = parent.Parent
+		if player and player:IsA("Player") then
+			local mouse = player:GetMouse()
+			if mouse then
+				size = Vector2.new(mouse.ViewSizeX, mouse.ViewSizeY)
+				if size.X > 0 and size.Y > 0 then
+					return size
+				end
+			end
+		end
+	end
+
+	-- Fallback seguro basado en el tipo de dispositivo
+	local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+	return isMobile and Vector2.new(800, 600) or Vector2.new(1920, 1080)
+end
+
+local function isMobileDevice()
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
+
+local function calculateModalSize(screenSize, baseWidth, baseHeight, isMobile)
 	if isMobile then
-		local minMarginWidth = 20
-		local minMarginHeight = 60
-		
-		if screenSize.X < 400 then
-			minMarginWidth = 10
-		end
-		if screenSize.Y < 600 then
-			minMarginHeight = 40
-		end
-		
-		local width = screenSize.X - (minMarginWidth * 2)
-		local height = screenSize.Y - minMarginHeight
-		
-		width = math.max(width, math.min(280, screenSize.X * 0.85))
-		height = math.max(height, math.min(300, screenSize.Y * 0.75))
-		
+		-- Modo móvil: usar porcentajes con márgenes seguros
+		local marginX = math.max(screenSize.X * 0.05, 16) -- Mínimo 5% o 16px
+		local marginY = math.max(screenSize.Y * 0.08, 40) -- Mínimo 8% o 40px
+
+		local width = screenSize.X - (marginX * 2)
+		local height = screenSize.Y - (marginY * 2)
+
+		-- Limites razonables para móvil
+		width = math.clamp(width, 280, 700)
+		height = math.clamp(height, 300, screenSize.Y * 0.9)
+
 		return width, height
 	else
-		local width = math.min(baseWidth or 980, screenSize.X * 0.90)
-		local height = math.min(baseHeight or 620, screenSize.Y * 0.85)
+		-- Modo escritorio: respetar base con límites porcentuales
+		local maxWidth = screenSize.X * 0.85
+		local maxHeight = screenSize.Y * 0.85
+
+		local width = math.min(baseWidth or 980, maxWidth)
+		local height = math.min(baseHeight or 620, maxHeight)
+
+		-- Asegurar mínimos
+		width = math.max(width, 400)
+		height = math.max(height, 300)
+
 		return width, height
 	end
 end
@@ -75,27 +105,77 @@ function ModalManager.new(config)
 
 	self.screenGui = config.screenGui
 	self.panelName = config.panelName or "ModalPanel"
-
-	local isMobile = config.isMobile or false
-	local baseWidth = config.panelWidth
-	local baseHeight = config.panelHeight
-	self.panelWidth, self.panelHeight = calculateResponsiveDimensions(self.screenGui, baseWidth, baseHeight, isMobile)
-
+	self.baseWidth = config.panelWidth
+	self.baseHeight = config.panelHeight
 	self.cornerRadius = config.cornerRadius or 12
 	self.enableBlur = config.enableBlur ~= false
 	self.blurSize = config.blurSize or 14
 	self.onOpen = config.onOpen
 	self.onClose = config.onClose
-	self.isMobile = isMobile
 
 	self.isOpen = false
 	self.activeTweens = {}
+	self.connections = {}
 
+	-- Detectar dispositivo y calcular tamaño inicial
+	self:_updateDimensions()
+
+	-- Crear elementos visuales
 	self:_createOverlay()
 	self:_createBlur()
 	self:_createPanel()
 
+	-- Escuchar cambios de tamaño de pantalla
+	self:_setupResponsiveListeners()
+
 	return self
+end
+
+function ModalManager:_updateDimensions()
+	local screenSize = getScreenSize(self.screenGui)
+	local mobile = isMobileDevice()
+
+	self.panelWidth, self.panelHeight = calculateModalSize(
+		screenSize,
+		self.baseWidth,
+		self.baseHeight,
+		mobile
+	)
+
+	self.isMobile = mobile
+end
+
+function ModalManager:_setupResponsiveListeners()
+	-- Actualizar cuando cambie el tamaño de la ventana/pantalla
+	local connection = self.screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		if not self.isOpen then return end
+
+		self:_updateDimensions()
+
+		-- Actualizar tamaño del panel suavemente
+		local newSize = UDim2.new(0, self.panelWidth, 0, self.panelHeight)
+		local sizeTween = TweenService:Create(
+			self.panel,
+			TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+			{Size = newSize}
+		)
+		sizeTween:Play()
+	end)
+
+	table.insert(self.connections, connection)
+
+	-- Actualizar cuando cambie la orientación (móvil)
+	local cameraConnection = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		if not self.isOpen then return end
+
+		task.wait(0.1) -- Pequeño delay para evitar múltiples llamadas
+		self:_updateDimensions()
+
+		local newSize = UDim2.new(0, self.panelWidth, 0, self.panelHeight)
+		self.panel.Size = newSize
+	end)
+
+	table.insert(self.connections, cameraConnection)
 end
 
 function ModalManager:_createOverlay()
@@ -132,6 +212,7 @@ function ModalManager:_createPanel()
 	self.panel.ZIndex = 100
 	self.panel.Size = UDim2.new(0, self.panelWidth, 0, self.panelHeight)
 	self.panel.Parent = self.screenGui
+
 	rounded(self.panel, self.cornerRadius)
 	stroked(self.panel, THEME.mediumAlpha or 0.5)
 end
@@ -140,24 +221,38 @@ function ModalManager:open()
 	if self.isOpen then return end
 	self.isOpen = true
 
+	-- Recalcular dimensiones antes de abrir (por si acaso)
+	self:_updateDimensions()
+	self.panel.Size = UDim2.new(0, self.panelWidth, 0, self.panelHeight)
+
 	self.panel.Visible = true
 	self.overlay.Visible = true
 
-	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = THEME.mediumAlpha or 0.5})
+	local overlayTween = TweenService:Create(
+		self.overlay,
+		TweenInfo.new(0.22),
+		{BackgroundTransparency = THEME.mediumAlpha or 0.5}
+	)
 	table.insert(self.activeTweens, overlayTween)
 	overlayTween:Play()
 
 	if self.blur then
 		self.blur.Enabled = true
-		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = self.blurSize})
+		local blurTween = TweenService:Create(
+			self.blur,
+			TweenInfo.new(0.22),
+			{Size = self.blurSize}
+		)
 		table.insert(self.activeTweens, blurTween)
 		blurTween:Play()
 	end
 
 	self.panel.Position = UDim2.fromScale(0.5, 1.1)
-	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.28, Enum.EasingStyle.Quad), {
-		Position = UDim2.fromScale(0.5, 0.5)
-	})
+	local panelTween = TweenService:Create(
+		self.panel,
+		TweenInfo.new(0.28, Enum.EasingStyle.Quad),
+		{Position = UDim2.fromScale(0.5, 0.5)}
+	)
 	table.insert(self.activeTweens, panelTween)
 	panelTween:Play()
 
@@ -177,13 +272,19 @@ function ModalManager:close()
 	end
 	self.activeTweens = {}
 
-	local panelTween = TweenService:Create(self.panel, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {
-		Position = UDim2.fromScale(0.5, 1.1)
-	})
+	local panelTween = TweenService:Create(
+		self.panel,
+		TweenInfo.new(0.22, Enum.EasingStyle.Quad),
+		{Position = UDim2.fromScale(0.5, 1.1)}
+	)
 	table.insert(self.activeTweens, panelTween)
 	panelTween:Play()
 
-	local overlayTween = TweenService:Create(self.overlay, TweenInfo.new(0.22), {BackgroundTransparency = 1})
+	local overlayTween = TweenService:Create(
+		self.overlay,
+		TweenInfo.new(0.22),
+		{BackgroundTransparency = 1}
+	)
 	table.insert(self.activeTweens, overlayTween)
 	overlayTween:Play()
 
@@ -193,7 +294,11 @@ function ModalManager:close()
 	end)
 
 	if self.blur then
-		local blurTween = TweenService:Create(self.blur, TweenInfo.new(0.22), {Size = 0})
+		local blurTween = TweenService:Create(
+			self.blur,
+			TweenInfo.new(0.22),
+			{Size = 0}
+		)
 		table.insert(self.activeTweens, blurTween)
 		blurTween:Play()
 		task.delay(0.22, function()
@@ -214,6 +319,28 @@ end
 
 function ModalManager:isModalOpen()
 	return self.isOpen
+end
+
+function ModalManager:destroy()
+	-- Limpiar connections
+	for _, connection in ipairs(self.connections) do
+		if connection then
+			connection:Disconnect()
+		end
+	end
+	self.connections = {}
+
+	-- Cancelar tweens activos
+	for _, tween in ipairs(self.activeTweens) do
+		if tween then
+			pcall(function() tween:Cancel() end)
+		end
+	end
+
+	-- Destruir elementos
+	if self.overlay then self.overlay:Destroy() end
+	if self.panel then self.panel:Destroy() end
+	if self.blur then self.blur:Destroy() end
 end
 
 return ModalManager
