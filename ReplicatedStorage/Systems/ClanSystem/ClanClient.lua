@@ -110,7 +110,6 @@ local ClanClient = {}
 ClanClient.currentClan = nil
 ClanClient.currentClanId = nil
 ClanClient._updateCallbacks = {}  -- Array de callbacks que se ejecutan
-ClanClient._joinResultCallbacks = {}  -- Callbacks cuando se envía solicitud de unión
 ClanClient.initialized = false
 
 -- Registrar un nuevo callback para actualizaciones
@@ -120,24 +119,10 @@ function ClanClient:OnClansUpdated(callback)
 	end
 end
 
--- Registrar callback para resultados de solicitud de unión
-function ClanClient:OnJoinResult(callback)
-	if type(callback) == "function" then
-		table.insert(self._joinResultCallbacks, callback)
-	end
-end
-
 -- Ejecutar todos los callbacks registrados
 function ClanClient:_fireUpdateCallbacks(clans)
 	for _, callback in ipairs(self._updateCallbacks) do
 		pcall(callback, clans)
-	end
-end
-
--- Ejecutar callbacks de resultado de solicitud
-function ClanClient:_fireJoinResultCallbacks(success, clanId, msg)
-	for _, callback in ipairs(self._joinResultCallbacks) do
-		pcall(callback, success, clanId, msg)
 	end
 end
 
@@ -431,40 +416,21 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- SOLICITUDES DE UNIÓN
 -- ════════════════════════════════════════════════════════════════
-function ClanClient:RequestJoinClan(clanId, callback)
+function ClanClient:RequestJoinClan(clanId)
 	local allowed, err = checkThrottle("RequestJoinClan")
 	if not allowed then 
-		if callback then callback(false, clanId, err) end
 		return false, err 
 	end
 	if self.currentClanId then 
-		if callback then callback(false, clanId, "Ya perteneces a un clan") end
 		return false, "Ya perteneces a un clan" 
 	end
 
 	local remote = getRemote("RequestJoinClan")
 	if not remote then 
-		if callback then callback(false, clanId, "Función no disponible") end
 		return false, "Función no disponible" 
 	end
-
-	-- Si hay callback, esperar respuesta del servidor
-	if callback then
-		local resultReceived = false
-		local resultData = {}
-		
-		local tempCallback = function(success, resultClanId, msg)
-			if resultClanId == clanId then
-				resultReceived = true
-				resultData = {success, resultClanId, msg}
-				callback(success, resultClanId, msg)
-			end
-		end
-		
-		self:OnJoinResult(tempCallback)
-	end
 	
-	-- Disparar sin esperar
+	-- Disparar sin esperar (la respuesta se maneja en el listener global)
 	remote:FireServer(clanId)
 	return true
 end
@@ -644,13 +610,15 @@ task.spawn(function()
 			pendingRequestsCache = nil
 			pendingRequestsCacheTime = 0
 			
-			-- Dispara callback con resultado (success, clanId, msg)
-			ClanClient:_fireJoinResultCallbacks(success, clanId, msg)
+			-- ✅ Manejar notificaciones AQUÍ directamente (sin callbacks acumulativos)
+			local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 			
-			-- Si fue exitoso, también refrescar el listado de clanes
 			if success then
+				Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
 				clansListCache = nil
 				clansListCacheTime = 0
+			else
+				Notify:Error("Error", msg or "No se pudo enviar", 5)
 			end
 		end)
 	end

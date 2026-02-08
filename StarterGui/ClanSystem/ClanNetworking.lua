@@ -182,14 +182,8 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 	else
 		UI.hover(joinBtn, THEME.accent, UI.brighten(THEME.accent, 1.15))
 		Memory:track(joinBtn.MouseButton1Click:Connect(function()
-			-- ✅ Usar callback para recibir respuesta REAL del servidor
-			ClanClient:RequestJoinClan(clanData.clanId, function(success, resultClanId, msg)
-				if success then 
-					Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
-				else 
-					Notify:Error("Error", msg or "No se pudo enviar", 5) 
-				end
-			end)
+			-- Solo enviar solicitud, la notificación se muestra en el listener global
+			ClanClient:RequestJoinClan(clanData.clanId)
 		end))
 	end
 
