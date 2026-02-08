@@ -577,22 +577,25 @@ function ClanData:RequestJoin(clanId, userId)
 		return false, "Ya tienes clan" 
 	end
 
-	-- ✅ VALIDACIÓN CRÍTICA: Verificar si ya tiene solicitudes pendientes en otro clan
-	local userPendingRequests = getUserPendingRequests(userId)
-	if userPendingRequests and type(userPendingRequests) == "table" then
-		-- Si hay solicitudes pendientes en otros clanes, rechazar
-		for pendingClanId, _ in pairs(userPendingRequests) do
-			if pendingClanId ~= tostring(clanId) then
-				return false, "Ya tienes una solicitud pendiente en otro clan"
-			end
-		end
-		-- Si ya está en este clan, rechazar
-		if userPendingRequests[tostring(clanId)] then
-			return false, "Ya has solicitado unirte a este clan"
-		end
+	local userIdStr = tostring(userId)
+	
+	-- ✅ VALIDACIÓN DIRECTA: Verificar si ya tiene solicitud en ESTE clan
+	if clan.requests and clan.requests[userIdStr] then
+		return false, "Ya has solicitado unirte a este clan"
 	end
 	
-	local userIdStr = tostring(userId)
+	-- ✅ VALIDACIÓN: Verificar si tiene solicitudes en OTROS clanes
+	local nameIndex = DS:GetAsync("index:names")
+	if nameIndex then
+		for _, otherClanId in pairs(nameIndex) do
+			if otherClanId ~= clanId then
+				local otherClan = self:GetClan(otherClanId)
+				if otherClan and otherClan.requests and otherClan.requests[userIdStr] then
+					return false, "Ya tienes una solicitud pendiente en otro clan"
+				end
+			end
+		end
+	end
 	
 	-- Guardar solicitud en el clan
 	local success = pcall(function()
@@ -619,11 +622,13 @@ function ClanData:RequestJoin(clanId, userId)
 	end)
 	
 	if success then
-		-- 🔥 REGISTRAR solicitud en índice del usuario
-		DS:UpdateAsync("player:" .. userIdStr .. ":requests", function(current)
-			local requests = current or {}
-			requests[tostring(clanId)] = os.time()
-			return requests
+		-- 🔥 OPCIONAL: Registrar en índice (solo para GetUserRequests, no crítico)
+		pcall(function()
+			DS:UpdateAsync("player:" .. userIdStr .. ":requests", function(current)
+				local requests = current or {}
+				requests[tostring(clanId)] = os.time()
+				return requests
+			end)
 		end)
 		
 		updateEvent:Fire(clanId)

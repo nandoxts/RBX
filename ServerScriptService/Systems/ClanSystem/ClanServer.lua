@@ -494,6 +494,12 @@ ApproveJoinRequest.OnServerEvent:Connect(function(player, clanId, targetUserId)
 
 	if success then
 		updatePlayerAttributes(targetUserId)
+		
+		-- 🔥 Notificar al usuario aprobado para que limpie su caché
+		local targetPlayer = Players:GetPlayerByUserId(targetUserId)
+		if targetPlayer then
+			ClansUpdated:FireClient(targetPlayer, clanId)
+		end
 	end
 end)
 
@@ -501,7 +507,15 @@ RejectJoinRequest.OnServerEvent:Connect(function(player, clanId, targetUserId)
 	local ok, err = checkCooldown(player.UserId, "RejectJoinRequest", Config:GetRateLimit("RejectJoinRequest"))
 	if not ok then return end
 
-	ClanData:RejectRequest(clanId, player.UserId, targetUserId)
+	local success = ClanData:RejectRequest(clanId, player.UserId, targetUserId)
+	
+	if success then
+		-- 🔥 Notificar al usuario rechazado para que limpie su caché
+		local targetPlayer = Players:GetPlayerByUserId(targetUserId)
+		if targetPlayer then
+			ClansUpdated:FireClient(targetPlayer, clanId)
+		end
+	end
 end)
 
 GetJoinRequests.OnServerInvoke = function(player, clanId)
