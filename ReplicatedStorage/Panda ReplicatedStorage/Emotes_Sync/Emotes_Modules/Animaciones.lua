@@ -157,6 +157,7 @@ Animaciones.Recomendado = {
 
 	{ID = 77109707167884, Nombre = 'Kawaii I'},
 	{ID = 73932117454031, Nombre = 'Kawaii II'},
+	{ID = 116880211354619, Nombre = 'Menea III'},
 
 
 
