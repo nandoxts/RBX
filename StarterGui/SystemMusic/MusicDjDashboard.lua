@@ -81,7 +81,7 @@ local BATCH_SIZE = 15
 -- ════════════════════════════════════════════════════════════════
 -- STATE
 -- ════════════════════════════════════════════════════════════════
-local musicLibrary, playQueue, currentSong = {}, {}, nil
+local playQueue, currentSong = {}, nil
 local allDJs, selectedDJ = {}, nil
 local currentPage = "Queue"
 local currentSoundObject = nil
@@ -508,43 +508,26 @@ songTitle.TextTruncate = Enum.TextTruncate.AtEnd
 songTitle.ZIndex = 105
 songTitle.Parent = songInfoFrame
 
--- DJ Name (solo en PC es una línea, en mobile va junto con progress)
-if not isMobileDevice then
-	headerDJName = Instance.new("TextLabel")
-	headerDJName.Name = "DJName"
-	headerDJName.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, 18)
-	headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 26)
-	headerDJName.BackgroundTransparency = 1
-	headerDJName.Text = ""
-	headerDJName.TextColor3 = THEME.muted
-	headerDJName.Font = Enum.Font.GothamMedium
-	headerDJName.TextSize = 15
-	headerDJName.TextXAlignment = Enum.TextXAlignment.Left
-	headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
-	headerDJName.ZIndex = 105
-	headerDJName.Parent = nowPlayingSection
-else
-	-- En mobile, DJ va en el contenedor de abajo
-	headerDJName = Instance.new("TextLabel")
-	headerDJName.Name = "DJName"
-	headerDJName.Size = UDim2.new(0, 80, 0, 16)
-	headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 24)
-	headerDJName.BackgroundTransparency = 1
-	headerDJName.Text = ""
-	headerDJName.TextColor3 = THEME.muted
-	headerDJName.Font = Enum.Font.GothamMedium
-	headerDJName.TextSize = 10
-	headerDJName.TextXAlignment = Enum.TextXAlignment.Left
-	headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
-	headerDJName.ZIndex = 105
-	headerDJName.Parent = nowPlayingSection
-end
+-- DJ Name (creado una sola vez con propiedades dinámicas)
+headerDJName = Instance.new("TextLabel")
+headerDJName.Name = "DJName"
+headerDJName.Size = UDim2.new(isMobileDevice and 0 or 1, isMobileDevice and 80 or (-MINI_COVER_SIZE-80), 0, isMobileDevice and 16 or 18)
+headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, isMobileDevice and 20 or 26)
+headerDJName.BackgroundTransparency = 1
+headerDJName.Text = ""
+headerDJName.TextColor3 = THEME.muted
+headerDJName.Font = Enum.Font.GothamMedium
+headerDJName.TextSize = isMobileDevice and 10 or 15
+headerDJName.TextXAlignment = Enum.TextXAlignment.Left
+headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
+headerDJName.ZIndex = 105
+headerDJName.Parent = nowPlayingSection
 
 -- Progress bar (alineado abajo en PC, al lado en mobile)
 local progressContainer = Instance.new("Frame")
 progressContainer.Name = "ProgressContainer"
-progressContainer.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, 18)
-progressContainer.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, isMobileDevice and 24 or 48)
+progressContainer.Size = UDim2.new(isMobileDevice and 1 or 1, isMobileDevice and -MINI_COVER_SIZE-100 or -MINI_COVER_SIZE-80, 0, 18)
+progressContainer.Position = UDim2.new(0, isMobileDevice and MINI_COVER_SIZE+97 or MINI_COVER_SIZE+12, 0, isMobileDevice and 20 or 48)
 progressContainer.BackgroundTransparency = 1
 progressContainer.ZIndex = 105
 progressContainer.Parent = nowPlayingSection
@@ -1927,7 +1910,6 @@ end)
 -- ════════════════════════════════════════════════════════════════
 if R.Update then
 	R.Update.OnClientEvent:Connect(function(data)
-		musicLibrary = data.library or musicLibrary
 		playQueue = data.queue or {}
 		currentSong = data.currentSong
 		allDJs = data.djs or allDJs
