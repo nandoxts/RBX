@@ -13,6 +13,7 @@ local Modules = script.Parent.Modules
 local Config = require(Modules.Config)
 local State = require(Modules.State)
 local RemotesSetup = require(Modules.RemotesSetup)
+local GroupRoles = require(Modules.GroupEfectModule)
 local Utils = require(Modules.Utils)
 local SyncSystem = require(Modules.SyncSystem)
 local LikesSystem = require(Modules.LikesSystem)
@@ -519,20 +520,65 @@ local function createAvatarSection(panel, data, playerColor)
 			Parent = statContainer
 		})
 	end
+	
+	local displayText = data.displayName
 
-	-- Display Name
-	Utils.createLabel({
+	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
+		if id == data.userId then
+			displayText = displayText .. ""
+			break
+		end
+	end
+
+	local displayNameLabel = Utils.createLabel({
 		Size = UDim2.new(1, -Config.STATS_WIDTH - 16, 0, 24),
 		Position = UDim2.new(0, 10, 1, -52),
-		Text = data.displayName,
+		Text = displayText,
 		TextColor3 = playerColor,
-		TextSize = Config.IS_MOBILE and 14 or 18,
+		TextSize = 18,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 25,
 		Parent = avatarSection
 	})
+	
+	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
+		if id == data.userId then
+
+			local uiGradient = Instance.new("UIGradient")
+			uiGradient.Parent = displayNameLabel
+
+			uiGradient.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(0.5, Color3.new(0, 0, 0)),
+				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
+			})
+
+			uiGradient.Offset = Vector2.new(-1, 0)
+
+			local TweenService = game:GetService("TweenService")
+			local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+
+			task.spawn(function()
+				while displayNameLabel.Parent do
+					local tween1 = TweenService:Create(uiGradient, tweenInfo, {
+						Offset = Vector2.new(1, 0)
+					})
+					tween1:Play()
+					tween1.Completed:Wait()
+
+					local tween2 = TweenService:Create(uiGradient, tweenInfo, {
+						Offset = Vector2.new(-1, 0)
+					})
+					tween2:Play()
+					tween2.Completed:Wait()
+				end
+			end)
+
+			break
+		end
+	end
 
 	-- Username
 	Utils.createLabel({
@@ -574,7 +620,7 @@ local function createAvatarSection(panel, data, playerColor)
 				ScaleType = Enum.ScaleType.Fit,
 				AutoButtonColor = false,
 				ZIndex = 15,
-				Parent = likeButtonsContainer
+				Parent = likeButtonsContainer+= 2.5
 			})
 			Utils.addConnection(btn.MouseButton1Click:Connect(onClick))
 			Utils.addConnection(btn.MouseEnter:Connect(function() Utils.tween(btn, { ImageTransparency = 0.3 }, Config.ANIM_FAST) end))
@@ -678,7 +724,67 @@ local function createPanel(data)
 		Parent = State.container
 	})
 	Utils.addCorner(panelContainer, 12)
-	Utils.addStroke(panelContainer, playerColor, 2)
+	local panelStroke = Utils.addStroke(panelContainer, playerColor, 2)
+	
+	local panelImage = Utils.create("ImageLabel", {
+		Size = UDim2.new(1, 0, 1, 0),
+		Position = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundTransparency = 0.75,
+		Image = "",
+		ImageTransparency = 0.51,
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 0,
+		Parent = panelContainer
+	})
+
+	Utils.addCorner(panelImage, 12)
+
+	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
+		if id == data.userId then
+			panelImage.Image = "rbxassetid://79346090571461"
+			panelImage.ScaleType = Enum.ScaleType.Crop
+			panelImage.ImageTransparency = 0.15
+
+			local gradient = Instance.new("UIGradient")
+			gradient.Parent = panelImage
+			gradient.Rotation = 90
+			gradient.Color = ColorSequence.new{
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(64, 64, 64))
+			}
+			break
+		end
+	end
+
+
+	
+	Utils.addCorner(panelImage, 12)
+
+	
+	-- SOLO DEVELOPERS: borde animado blanco / negro
+	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
+		if id == data.userId then
+
+			local gradient = Instance.new("UIGradient")
+			gradient.Parent = panelStroke
+
+			gradient.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)), -- blanco
+				ColorSequenceKeypoint.new(0.5, Color3.new(0, 0, 0)), -- negro
+				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)) -- blanco
+			})
+
+			task.spawn(function()
+				while panelContainer.Parent do
+					gradient.Rotation += 2.5
+					task.wait()
+				end
+			end)
+
+			break
+		end
+	end
 
 	-- Shadow
 	Utils.create("ImageLabel", {
