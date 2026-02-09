@@ -109,11 +109,20 @@ end
 
 -- Función para regalar un gamepass SIN COSTO (para admins)
 local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsername)
+	-- Validar parámetros
+	if not admin or not gamepass or not gamepass[1] or not recipientUserId or not recipientUsername then
+		warn("Error: Parámetros inválidos en giftGamepassFree")
+		if admin then
+			GamepassGifting:FireClient(admin, "Error", "Parámetros inválidos")
+		end
+		return
+	end
+
 	-- Verificar si el destinatario ya tiene el gamepass
 	local owns = checkUserGamepassOwnership(recipientUserId, gamepass[1])
 	if owns then
 		local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-		GamepassGifting:FireClient(admin, "Error", recipientUsername .. " ya tiene el gamepass " .. Asset.Name)
+		GamepassGifting:FireClient(admin, "Error", recipientUsername .. " ya tiene el gamepass " .. (Asset and Asset.Name or "Unknown"))
 		return
 	end
 
@@ -166,9 +175,11 @@ local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsern
 	end
 
 	-- Enviar notificación a Discord
-	pcall(function()
-		SendDiscordWebhook(recipientUsername, recipientUserId, admin.Name, admin.UserId, gamepass[1])
-	end)
+	if recipientUsername and recipientUserId and admin.Name and admin.UserId and gamepass[1] then
+		pcall(function()
+			SendDiscordWebhook(recipientUsername, recipientUserId, admin.Name, admin.UserId, gamepass[1])
+		end)
+	end
 
 	-- ✅ DISPARA EL BROADCAST A TODOS LOS CLIENTES
 	GiftBroadcastEvent:FireAllClients("GiftNotification", {

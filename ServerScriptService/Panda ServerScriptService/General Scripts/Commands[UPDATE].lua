@@ -267,14 +267,27 @@ local function modifyCharacter(character, modification)
 		humanoid = result
 	end
 
-	if not humanoid then return false end
+	if not humanoid or not humanoid.Parent or not humanoid:IsDescendantOf(game) then
+		return false
+	end
 
 	local success, err = pcall(function()
 		if modification.type == "description" then
+			-- Verificar que todo siga siendo válido antes de aplicar
+			if not character:IsDescendantOf(game) or not humanoid:IsDescendantOf(game) then
+				return
+			end
+			
 			local humanoidDescription = humanoid:GetAppliedDescription()
-			humanoidDescription[modification.part] = modification.value
-			humanoid:ApplyDescription(humanoidDescription)
+			if humanoidDescription then
+				humanoidDescription[modification.part] = modification.value
+				humanoid:ApplyDescription(humanoidDescription)
+			end
 		elseif modification.type == "scale" then
+			if not character:IsDescendantOf(game) or not humanoid:IsDescendantOf(game) then
+				return
+			end
+			
 			humanoid:WaitForChild("BodyHeightScale").Value = modification.value
 			humanoid:WaitForChild("BodyDepthScale").Value = modification.value
 			humanoid:WaitForChild("BodyWidthScale").Value = modification.value

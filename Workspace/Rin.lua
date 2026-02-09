@@ -33,13 +33,24 @@ local function v13(v14, v15)
 end
 
 local function v17(v18)
+	if not v18 or not v18.Parent then return end
+	
 	local v19 = v18:FindFirstChildOfClass("Humanoid")
 	if not v19 then return end
+	
 	local v20 = v19:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", v19)
 
 	-- Detener TODAS las animaciones antes de cargar una nueva
 	for _, v21 in ipairs(v20:GetPlayingAnimationTracks()) do
-		v21:Stop()
+		pcall(function()
+			v21:Stop()
+		end)
+	end
+
+	-- Validar que la animación exista
+	if not v5 or not v5.Parent then
+		warn("Animación Heating no encontrada")
+		return
 	end
 
 	local v22 = v20:LoadAnimation(v5)
@@ -87,6 +98,7 @@ local function v23(v24)
 	-- FIN PELEA
 	---------------------------------------------------
 	local function v44()
+		if not v39 then return end -- Evitar múltiples ejecuciones
 		v39 = false
 		v38 = false
 
@@ -97,23 +109,32 @@ local function v23(v24)
 		v9(v37, v6)
 
 		if v40 then
-			task.cancel(v40)
+			pcall(function()
+				task.cancel(v40)
+			end)
 			v40 = nil
 		end
 	end
 
 	local function v45(v46, v47)
+		if not v46 or not v46.Parent then return end
+		
 		local v48 = v46:FindFirstChildOfClass("Humanoid")
 		if not v48 then return end
 
 		v48.Died:Once(function()
 			if not v39 then return end
 
+			-- Esperar a que sync esté listo
+			task.wait(0.2)
+
 			if v47 and v47.Parent then
-				v47:PivotTo(v35.CFrame)
+				pcall(function()
+					v47:PivotTo(v35.CFrame)
+				end)
 			end
 
-			task.delay(0.1, v44)
+			v44()
 		end)
 	end
 
@@ -122,10 +143,14 @@ local function v23(v24)
 			if not v39 then return end
 
 			if v50 and v50.Parent then
-				v50:PivotTo(v35.CFrame)
+				pcall(function()
+					v50:PivotTo(v35.CFrame)
+				end)
 			end
 			if v51 and v51.Parent then
-				v51:PivotTo(v35.CFrame)
+				pcall(function()
+					v51:PivotTo(v35.CFrame)
+				end)
 			end
 
 			v44()
@@ -136,17 +161,29 @@ local function v23(v24)
 	-- INICIAR PELEA
 	---------------------------------------------------
 	local function v52(v53, v54)
-		if v38 then return end
+		if v38 or v39 then return end -- No iniciar si ya hay pelea
 		v38 = true
 
 		local startTime = tick()
 		while tick() - startTime < 4 do
 			if not v31:FindFirstChild(v53.Name) or not v32:FindFirstChild(v54.Name) then
-
 				v38 = false
 				return
 			end
 			task.wait(0.1)
+		end
+
+		-- Validar que ambos existan y tengan humanoid
+		if not v53 or not v53.Parent or not v54 or not v54.Parent then
+			v38 = false
+			return
+		end
+
+		local h53 = v53:FindFirstChildOfClass("Humanoid")
+		local h54 = v54:FindFirstChildOfClass("Humanoid")
+		if not h53 or not h54 then
+			v38 = false
+			return
 		end
 
 		v53:PivotTo(v33.CFrame)
@@ -217,12 +254,16 @@ local function v23(v24)
 		local v68 = v1:GetPlayerFromCharacter(v67)
 		if not v68 then return end
 
-	v42[v68] = (v42[v68] or 0) - 1
+		v42[v68] = (v42[v68] or 0) - 1
 		if v42[v68] <= 0 then
 			v42[v68] = nil
-			v58(v31, v67, v36)
-			if v38 and not v39 then
-				v38 = false
+			
+			-- Si está en pelea, no remover
+			if not v39 then
+				v58(v31, v67, v36)
+				if v38 and not v39 then
+					v38 = false
+				end
 			end
 		end
 	end)
@@ -254,9 +295,13 @@ local function v23(v24)
 		v43[v74] = (v43[v74] or 0) - 1
 		if v43[v74] <= 0 then
 			v43[v74] = nil
-			v58(v32, v73, v37)
-			if v38 and not v39 then
-				v38 = false
+			
+			-- Si está en pelea, no remover
+			if not v39 then
+				v58(v32, v73, v37)
+				if v38 and not v39 then
+					v38 = false
+				end
 			end
 		end
 	end)

@@ -52,28 +52,22 @@ if not effectRemote then
 	effectRemote.Parent = CombatFolder
 end
 
--- Crear remote para sonido de golpe (solo a clientes cercanos)
-local soundRemote = CombatFolder:FindFirstChild("PunchSoundRemote")
-if not soundRemote then
-	soundRemote = Instance.new("RemoteEvent")
-	soundRemote.Name = "PunchSoundRemote"
-	soundRemote.Parent = CombatFolder
-end
 
+local DAMAGE = 10
+local PUNCH_SOUND_ID = "rbxassetid://4766118952"
 
-local DAMAGE = 10  -- Daño base por golpe
-local SOUND_RANGE = 50  -- Rango para escuchar el sonido
-
--- Obtener efecto de golpe desde ReplicatedStorage (esperar a que cargue)
 local effectPunch = ReplicatedStorage.Effect:WaitForChild("Part")
 
--- Función para crear efecto visual de golpe mejorado
+-- Tabla para rastrear quién está en ring
+local playersInRing = {}
+local touchCount = {} -- Contar cuántas partes del cuerpo están tocando
+
+-- Función para crear efecto visual de golpe
 local function effect(character)
 	local clone = effectPunch:Clone()
 	clone.Parent = character.HumanoidRootPart
 	clone.CFrame = CFrame.new(character.HumanoidRootPart.Position)
 
-	-- Efecto más vistoso: crece y se desvanece
 	for i = 1, 15 do
 		clone.Transparency = clone.Transparency + (1/15)
 		clone.Size = clone.Size + Vector3.new(1.5, 1.5, 0)
@@ -83,61 +77,68 @@ local function effect(character)
 	clone:Destroy()
 end
 
--- Tabla para rastrear golpes activos (para evitar múltiples golpes en el mismo evento)
 local activePunches = {}
 
--- Función para reproducir sonido solo a clientes cercanos
 local function playPunchSound(character)
-	local punchPos = character.HumanoidRootPart.Position
-	
-	-- Enviar sonido solo a jugadores dentro del rango
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local distance = (player.Character.HumanoidRootPart.Position - punchPos).Magnitude
-			if distance < SOUND_RANGE then
-				soundRemote:FireClient(player, punchPos)
+	local soundClone = Instance.new("Sound")
+	soundClone.SoundId = PUNCH_SOUND_ID
+	soundClone.Volume = 0.5
+	soundClone.Parent = character.HumanoidRootPart
+	soundClone:Play()
+	Debris:AddItem(soundClone, 1)
+end
+
+-- Setup de Wall_Barrier para detectar jugadores en ring
+local function setupRingDetection()
+	local ringsFolder = workspace:FindFirstChild("Rings")
+	if not ringsFolder then return end
+
+	for _, ringName in ipairs({"Ring1", "Ring2"}) do
+		local ring = ringsFolder:FindFirstChild(ringName)
+		if ring then
+			local wallBarrier = ring:FindFirstChild("Wall_Barrier")
+			if wallBarrier and wallBarrier:IsA("BasePart") then
+				wallBarrier.CanCollide = false
+				wallBarrier.Transparency = 1
+
+				wallBarrier.Touched:Connect(function(hit)
+					local char = hit.Parent
+					if not char or not char:FindFirstChild("Humanoid") then return end
+					
+					local player = Players:GetPlayerFromCharacter(char)
+					if player then
+						local uid = player.UserId
+						touchCount[uid] = (touchCount[uid] or 0) + 1
+						
+						if not playersInRing[uid] then
+							playersInRing[uid] = true
+							ringNotificationRemote:FireClient(player, true)
+						end
+					end
+				end)
+
+				wallBarrier.TouchEnded:Connect(function(hit)
+					local char = hit.Parent
+					if not char or not char:FindFirstChild("Humanoid") then return end
+					
+					local player = Players:GetPlayerFromCharacter(char)
+					if player then
+						local uid = player.UserId
+						touchCount[uid] = (touchCount[uid] or 0) - 1
+						
+						if touchCount[uid] <= 0 then
+							touchCount[uid] = nil
+							playersInRing[uid] = nil
+							ringNotificationRemote:FireClient(player, false)
+						end
+					end
+				end)
 			end
 		end
 	end
 end
 
--- Monitorear si jugadores están en ring
-task.spawn(function()
-	while true do
-		task.wait(0.5)
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player.Character then
-				local root = player.Character:FindFirstChild("HumanoidRootPart")
-				if root then
-					local inRing = false
-
-					-- Buscar BaseRing directamente
-					local ringsFolder = workspace:FindFirstChild("Rings")
-					if ringsFolder then
-						for _, ring in ipairs({"Ring1", "Ring2"}) do
-							local ringObj = ringsFolder:FindFirstChild(ring)
-							if ringObj then
-								local baseRing = ringObj:FindFirstChild("BaseRing")
-								if baseRing and baseRing:IsA("BasePart") then
-									-- Distancia exacta al BaseRing (más generosa para detectar bien)
-									local distance = (root.Position - baseRing.Position).Magnitude
-									if distance < 20 then
-										inRing = true
-										break
-									end
-								end
-							end
-						end
-					end
-
-					-- Notificar al cliente
-					ringNotificationRemote:FireClient(player, inRing)
-				end
-			end
-		end
-	end
-end)
+setupRingDetection()
 
 -- Función para detectar golpe y aplicar daño
 local function hitDetection(humanoid, character)
@@ -158,36 +159,11 @@ end
 -- Evento de golpe (mano derecha = 0, mano izquierda = 1, patada = 2)
 eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	if not player.Character then return end
+	
+	-- Verificar si está en ring (simple)
+	if not playersInRing[player.UserId] then return end
 
-	-- Verificar que está en Ring1 o Ring2
-	local root = player.Character:FindFirstChild("HumanoidRootPart")
-	if not root then return end
-
-	local isInRing = false
-	local ringsFolder = workspace:FindFirstChild("Rings")
-
-	if ringsFolder then
-		for _, ring in ipairs({"Ring1", "Ring2"}) do
-			local ringObj = ringsFolder:FindFirstChild(ring)
-			if ringObj then
-				local baseRing = ringObj:FindFirstChild("BaseRing")
-				if baseRing and baseRing:IsA("BasePart") then
-					local distance = (root.Position - baseRing.Position).Magnitude
-					if distance < 20 then
-						isInRing = true
-						break
-					end
-				end
-			end
-		end
-	end
-
-	if not isInRing then return end
-
-	-- Crear ID único para este golpe
 	local punchKey = player.UserId .. "_" .. punchId
-
-	-- Evitar múltiples golpes del mismo evento
 	if activePunches[punchKey] then return end
 	activePunches[punchKey] = true
 
