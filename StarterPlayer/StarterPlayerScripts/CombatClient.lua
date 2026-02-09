@@ -210,9 +210,15 @@ local function hideCombatButtons()
 	end)
 end
 
--- Escuchar notificación del ring
-local lastRingStatus = false
-if ringNotificationRemote then
+-- Escuchar notificación del ring DESPUÉS de asegurar que existe
+task.spawn(function()
+	local lastRingStatus = false
+	
+	while not ringNotificationRemote do
+		task.wait(0.5)
+		ringNotificationRemote = remotes.ringNotificationRemote
+	end
+	
 	ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
 		-- Solo mostrar notificación cuando cambia el estado
 		if ringStatus ~= lastRingStatus then
@@ -231,8 +237,4 @@ if ringNotificationRemote then
 		end
 		inRing = ringStatus  -- Guardar estado del ring
 	end)
-end
-
-
-
-
+end)
