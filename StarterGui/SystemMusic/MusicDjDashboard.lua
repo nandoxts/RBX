@@ -409,19 +409,29 @@ volSliderFill.ZIndex = 106
 volSliderFill.Parent = volSliderBg
 UI.rounded(volSliderFill, 6)
 
-local volLabel = Instance.new("TextButton")
+local volLabel = Instance.new("ImageButton")
 volLabel.Size = UDim2.new(0, 50, 0, CONTROLS_HEIGHT-2)
 volLabel.Position = UDim2.new(0, 95, 0, 0)
 volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
-volLabel.Text = "100%"
-volLabel.TextColor3 = THEME.text
-volLabel.Font = Enum.Font.GothamBold
-volLabel.TextSize = 13
+volLabel.Image = "rbxassetid://94150148603856"
+volLabel.ImageTransparency = 1  -- Oculta por defecto
+volLabel.ScaleType = Enum.ScaleType.Fit
 volLabel.BorderSizePixel = 0
 volLabel.ZIndex = 105
 volLabel.AutoButtonColor = false
 volLabel.Parent = volFrame
 UI.rounded(volLabel, 6)
+
+-- TextLabel dentro del ImageButton para mostrar el porcentaje
+local volLabelText = Instance.new("TextLabel")
+volLabelText.Size = UDim2.new(1, 0, 1, 0)
+volLabelText.BackgroundTransparency = 1
+volLabelText.Text = "100%"
+volLabelText.TextColor3 = THEME.text
+volLabelText.Font = Enum.Font.GothamBold
+volLabelText.TextSize = 13
+volLabelText.ZIndex = 106
+volLabelText.Parent = volLabel
 
 local volInput = Instance.new("TextBox")
 volInput.Size = volLabel.Size
@@ -607,11 +617,16 @@ local function updateVolume(volume)
 
 	-- Mostrar estado de mute en la etiqueta
 	if isMusicMuted() then
-		volLabel.Text = "🔇"
-		volLabel.TextColor3 = Color3.fromRGB(220, 100, 100)
+		-- Muteado: mostrar imagen PRO, ocultar texto
+		volLabel.ImageTransparency = 0
+		volLabelText.Text = ""
+		volLabel.BackgroundColor3 = Color3.fromRGB(120, 50, 50)
 	else
-		volLabel.Text = math.floor(currentVolume * 100) .. "%"
-		volLabel.TextColor3 = THEME.text
+		-- No muteado: ocultar imagen, mostrar porcentaje
+		volLabel.ImageTransparency = 1
+		volLabelText.Text = math.floor(currentVolume * 100) .. "%"
+		volLabelText.TextColor3 = THEME.text
+		volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 	end
 
 	volInput.Text = tostring(math.floor(currentVolume * 100))
@@ -648,18 +663,21 @@ task.spawn(function()
 				if currentMuteState then
 					-- Se activó el mute: guardar volumen actual y poner a 0
 					musicSoundGroup.Volume = 0
-					-- Mostrar indicador visual
-					volLabel.Text = "🔇"
-					volLabel.TextColor3 = Color3.fromRGB(220, 100, 100)
+					-- Mostrar imagen PRO, ocultar texto
+					volLabel.ImageTransparency = 0
+					volLabelText.Text = ""
+					volLabel.BackgroundColor3 = Color3.fromRGB(120, 50, 50)
 					-- Deshabilitar slider visualmente
 					TweenService:Create(volSliderBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(50, 30, 30)}):Play()
 					volSliderFill.BackgroundColor3 = Color3.fromRGB(150, 70, 70)
 				else
 					-- Se desactivó el mute: restaurar volumen guardado
 					musicSoundGroup.Volume = currentVolume
-					-- Restaurar texto normal
-					volLabel.Text = math.floor(currentVolume * 100) .. "%"
-					volLabel.TextColor3 = THEME.text
+					-- Ocultar imagen, mostrar porcentaje
+					volLabel.ImageTransparency = 1
+					volLabelText.Text = math.floor(currentVolume * 100) .. "%"
+					volLabelText.TextColor3 = THEME.text
+					volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
 					-- Restaurar apariencia del slider
 					TweenService:Create(volSliderBg, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 48)}):Play()
 					volSliderFill.BackgroundColor3 = THEME.accent
@@ -677,7 +695,7 @@ volSliderBg.InputBegan:Connect(function(input)
 			-- Mostrar notificación si está muteado
 			if Notify then
 				Notify.new({
-					title = "🔇 Música Muteada",
+					title = "Música Silenciada",
 					text = "Desmutea el sonido en el topbar para cambiar el volumen",
 					duration = 2,
 					type = "info"
@@ -707,7 +725,7 @@ volLabel.MouseButton1Click:Connect(function()
 		-- Mostrar notificación si está muteado
 		if Notify then
 			Notify.new({
-				title = "🔇 Música Muteada",
+				title = "Música Silenciada",
 				text = "Desmutea el sonido en el topbar para cambiar el volumen",
 				duration = 2,
 				type = "info"
@@ -715,7 +733,6 @@ volLabel.MouseButton1Click:Connect(function()
 		end
 		return
 	end
-	volLabel.Visible = false
 	volInput.Visible = true
 	volInput:CaptureFocus()
 	volInput.Text = tostring(math.floor(currentVolume * 100))
@@ -752,11 +769,19 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 volLabel.MouseEnter:Connect(function()
-	TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 70, 80)}):Play()
+	if isMusicMuted() then
+		TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(140, 60, 60)}):Play()
+	else
+		TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 70, 80)}):Play()
+	end
 end)
 
 volLabel.MouseLeave:Connect(function()
-	TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(50, 50, 58)}):Play()
+	if isMusicMuted() then
+		TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(120, 50, 50)}):Play()
+	else
+		TweenService:Create(volLabel, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(50, 50, 58)}):Play()
+	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
