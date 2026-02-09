@@ -1,0 +1,22 @@
+local Plr = game:GetService("Players")
+local G2 = game:GetService("GroupService")
+local ID = 35712251
+
+local V2 = Plr.LocalPlayer
+
+local function showGroupPrompt()
+	if not V2:IsInGroup(ID) then
+		pcall(function()
+			G2:PromptJoinAsync(ID)
+		end)
+	end
+end
+
+V2.CharacterAdded:Connect(function(char)
+	task.wait(1)
+
+	while char and char.Parent and not V2:IsInGroup(ID) do
+		showGroupPrompt()
+		task.wait(60)
+	end
+end)
