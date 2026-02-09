@@ -489,49 +489,69 @@ miniCoverStroke.Parent = miniCover
 
 -- Song info
 local songInfoFrame = Instance.new("Frame")
-songInfoFrame.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, MINI_COVER_SIZE-16)
-songInfoFrame.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 8)
+songInfoFrame.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, isMobileDevice and 16 or 22)
+songInfoFrame.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 2)
 songInfoFrame.BackgroundTransparency = 1
 songInfoFrame.ZIndex = 105
 songInfoFrame.Parent = nowPlayingSection
 
 local songTitle = Instance.new("TextLabel")
 songTitle.Name = "SongTitle"
-songTitle.Size = UDim2.new(1, 0, 0, 22)
+songTitle.Size = UDim2.new(1, 0, 1, 0)
 songTitle.BackgroundTransparency = 1
 songTitle.Text = "No song playing"
 songTitle.TextColor3 = THEME.text
 songTitle.Font = Enum.Font.GothamBold
-songTitle.TextSize = 16
+songTitle.TextSize = isMobileDevice and 13 or 18
 songTitle.TextXAlignment = Enum.TextXAlignment.Left
 songTitle.TextTruncate = Enum.TextTruncate.AtEnd
 songTitle.ZIndex = 105
 songTitle.Parent = songInfoFrame
 
-headerDJName = Instance.new("TextLabel")
-headerDJName.Name = "DJName"
-headerDJName.Size = UDim2.new(1, 0, 0, 18)
-headerDJName.Position = UDim2.new(0, 0, 0, 22)
-headerDJName.BackgroundTransparency = 1
-headerDJName.Text = ""
-headerDJName.TextColor3 = THEME.muted
-headerDJName.Font = Enum.Font.GothamMedium
-headerDJName.TextSize = 13
-headerDJName.TextXAlignment = Enum.TextXAlignment.Left
-headerDJName.ZIndex = 105
-headerDJName.Parent = songInfoFrame
+-- DJ Name (solo en PC es una línea, en mobile va junto con progress)
+if not isMobileDevice then
+	headerDJName = Instance.new("TextLabel")
+	headerDJName.Name = "DJName"
+	headerDJName.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, 18)
+	headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 26)
+	headerDJName.BackgroundTransparency = 1
+	headerDJName.Text = ""
+	headerDJName.TextColor3 = THEME.muted
+	headerDJName.Font = Enum.Font.GothamMedium
+	headerDJName.TextSize = 15
+	headerDJName.TextXAlignment = Enum.TextXAlignment.Left
+	headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
+	headerDJName.ZIndex = 105
+	headerDJName.Parent = nowPlayingSection
+else
+	-- En mobile, DJ va en el contenedor de abajo
+	headerDJName = Instance.new("TextLabel")
+	headerDJName.Name = "DJName"
+	headerDJName.Size = UDim2.new(0, 80, 0, 16)
+	headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, 24)
+	headerDJName.BackgroundTransparency = 1
+	headerDJName.Text = ""
+	headerDJName.TextColor3 = THEME.muted
+	headerDJName.Font = Enum.Font.GothamMedium
+	headerDJName.TextSize = 10
+	headerDJName.TextXAlignment = Enum.TextXAlignment.Left
+	headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
+	headerDJName.ZIndex = 105
+	headerDJName.Parent = nowPlayingSection
+end
 
--- Progress bar
+-- Progress bar (alineado abajo en PC, al lado en mobile)
 local progressContainer = Instance.new("Frame")
-progressContainer.Size = UDim2.new(1, -(MINI_COVER_SIZE+80), 0, 18)
-progressContainer.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, MINI_COVER_SIZE-10)
+progressContainer.Name = "ProgressContainer"
+progressContainer.Size = UDim2.new(1, -MINI_COVER_SIZE-80, 0, 18)
+progressContainer.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, isMobileDevice and 24 or 48)
 progressContainer.BackgroundTransparency = 1
 progressContainer.ZIndex = 105
 progressContainer.Parent = nowPlayingSection
 
 local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(1, -100, 0, 5)
-progressBar.Position = UDim2.new(0, 0, 0.5, -2)
+progressBar.Size = UDim2.new(1, -100, 0, isMobileDevice and 4 or 6)
+progressBar.Position = UDim2.new(0, 0, 0.5, isMobileDevice and -2 or -3)
 progressBar.BackgroundColor3 = Color3.fromRGB(60, 60, 68)
 progressBar.BorderSizePixel = 0
 progressBar.ZIndex = 105
@@ -553,7 +573,7 @@ currentTimeLabel.BackgroundTransparency = 1
 currentTimeLabel.Text = "0:00"
 currentTimeLabel.TextColor3 = THEME.muted
 currentTimeLabel.Font = Enum.Font.GothamMedium
-currentTimeLabel.TextSize = 13
+currentTimeLabel.TextSize = isMobileDevice and 11 or 14
 currentTimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 currentTimeLabel.ZIndex = 105
 currentTimeLabel.Parent = progressContainer
@@ -565,7 +585,7 @@ timeSeparator.BackgroundTransparency = 1
 timeSeparator.Text = "/"
 timeSeparator.TextColor3 = THEME.muted
 timeSeparator.Font = Enum.Font.GothamMedium
-timeSeparator.TextSize = 13
+timeSeparator.TextSize = isMobileDevice and 11 or 14
 timeSeparator.ZIndex = 105
 timeSeparator.Parent = progressContainer
 
@@ -576,7 +596,7 @@ totalTimeLabel.BackgroundTransparency = 1
 totalTimeLabel.Text = "0:00"
 totalTimeLabel.TextColor3 = THEME.muted
 totalTimeLabel.Font = Enum.Font.GothamMedium
-totalTimeLabel.TextSize = 13
+totalTimeLabel.TextSize = isMobileDevice and 11 or 14
 totalTimeLabel.TextXAlignment = Enum.TextXAlignment.Left
 totalTimeLabel.ZIndex = 105
 totalTimeLabel.Parent = progressContainer
@@ -1916,9 +1936,11 @@ if R.Update then
 		currentSoundObject = workspace:FindFirstChild("QueueSound")
 
 		if currentSong then
-			songTitle.Text = currentSong.name .. " - " .. (currentSong.artist or "Unknown")
+			songTitle.Text = currentSong.name
+			headerDJName.Text = currentSong.artist or "Unknown"
 		else
 			songTitle.Text = "No song playing"
+			headerDJName.Text = ""
 		end
 
 		-- Actualizar header cover basado en la canción actual
