@@ -71,11 +71,11 @@ local function isPlayerInRingPhysically(character)
 	if not character or not character:FindFirstChild("HumanoidRootPart") then
 		return false
 	end
-	
+
 	local hrp = character.HumanoidRootPart
 	local ringsFolder = workspace:FindFirstChild("Rings")
 	if not ringsFolder then return false end
-	
+
 	for _, ringName in ipairs({"Ring1", "Ring2"}) do
 		local ring = ringsFolder:FindFirstChild(ringName)
 		if ring then
@@ -84,37 +84,37 @@ local function isPlayerInRingPhysically(character)
 				local hrpPos = hrp.Position
 				local basePos = baseRing.Position
 				local baseSize = baseRing.Size
-				
+
 				local deltaX = math.abs(hrpPos.X - basePos.X)
 				local deltaZ = math.abs(hrpPos.Z - basePos.Z)
 				local halfSizeX = baseSize.X / 2
 				local halfSizeZ = baseSize.Z / 2
 				local baseTop = basePos.Y + (baseSize.Y / 2)
-				
+
 				if deltaX <= halfSizeX and deltaZ <= halfSizeZ and hrpPos.Y >= (baseTop - 3) then
 					return true
 				end
 			end
 		end
 	end
-	
+
 	return false
 end
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
+		task.wait(0.15)
 
 		for _, player in ipairs(Players:GetPlayers()) do
 			if player.Character then
 				local uid = player.UserId
 				local isInFight = player.Character.Parent and 
 					(player.Character.Parent.Name == "Player1" or player.Character.Parent.Name == "Player2")
-				
+
 				if not isInFight then
 					local isInRingNow = isPlayerInRingPhysically(player.Character)
 					local wasInRing = playersInRing[uid] == true
-					
+
 					if isInRingNow and not wasInRing then
 						playersInRing[uid] = true
 						local now = os.clock()
@@ -131,6 +131,11 @@ task.spawn(function()
 							ringNotificationRemote:FireClient(player, false)
 							print("[RingCombat] Salió:", player.Name)
 						end
+					end
+				else
+					-- Cuando está en pelea, asegurar que esté en playersInRing
+					if not playersInRing[uid] then
+						playersInRing[uid] = true
 					end
 				end
 			end
@@ -160,7 +165,7 @@ end
 eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	if not player.Character then return end
 	if not playersInRing[player.UserId] then return end
-	
+
 	local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then return end
 
@@ -187,7 +192,7 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 
 				if targetHumanoid and targetHumanoid.Health > 0 and targetChar ~= player.Character and not hitTargets[targetChar] then
 					if not isPlayerInRingPhysically(targetChar) then return end
-					
+
 					hitTargets[targetChar] = true
 					hitDetection(targetHumanoid, targetChar)
 
