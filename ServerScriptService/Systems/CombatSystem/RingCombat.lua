@@ -1,24 +1,13 @@
 -- ════════════════════════════════════════════════════════════════
--- RING COMBAT SYSTEM
+-- RING COMBAT SYSTEM - Server
 -- ════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
-local RemotesGlobal = ReplicatedStorage:FindFirstChild("RemotesGlobal")
-if not RemotesGlobal then
-	RemotesGlobal = Instance.new("Folder")
-	RemotesGlobal.Name = "RemotesGlobal"
-	RemotesGlobal.Parent = ReplicatedStorage
-end
-
-local CombatFolder = RemotesGlobal:FindFirstChild("Combat")
-if not CombatFolder then
-	CombatFolder = Instance.new("Folder")
-	CombatFolder.Name = "Combat"
-	CombatFolder.Parent = RemotesGlobal
-end
+local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local CombatFolder = RemotesGlobal:WaitForChild("Combat")
 
 local function getOrCreateRemote(name)
 	local remote = CombatFolder:FindFirstChild(name)
@@ -32,22 +21,28 @@ end
 
 local eventPunch = getOrCreateRemote("PunchRemote")
 local eventBlock = getOrCreateRemote("BlockRemote")
-local ringNotificationRemote = getOrCreateRemote("RingNotification")
+local ringStateRemote = getOrCreateRemote("RingStateRemote")
 local effectRemote = getOrCreateRemote("EffectRemote")
 
 local DAMAGE = 10
 local PUNCH_SOUND_ID = "rbxassetid://4766118952"
-local NOTIFICATION_COOLDOWN = 1
 
-local effectPunch = ReplicatedStorage.Effect:WaitForChild("Part")
-local playersInRing = {}
-local lastNotification = {}
+local effectPunch = ReplicatedStorage:WaitForChild("Effect"):WaitForChild("Part")
+
+-- Tabla para rastrear estado de jugadores
+local playerStates = {}  -- "FREE", "WAITING", "FIGHTING"
 local activePunches = {}
 
+---------------------------------------------------
+-- EFECTO DE GOLPE
+---------------------------------------------------
 local function effect(character)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
 	local clone = effectPunch:Clone()
-	clone.Parent = character.HumanoidRootPart
-	clone.CFrame = CFrame.new(character.HumanoidRootPart.Position)
+	clone.Parent = hrp
+	clone.CFrame = CFrame.new(hrp.Position)
 
 	for i = 1, 15 do
 		clone.Transparency = clone.Transparency + (1/15)
@@ -59,171 +54,156 @@ local function effect(character)
 end
 
 local function playPunchSound(character)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
 	local soundClone = Instance.new("Sound")
 	soundClone.SoundId = PUNCH_SOUND_ID
 	soundClone.Volume = 0.5
-	soundClone.Parent = character.HumanoidRootPart
+	soundClone.Parent = hrp
 	soundClone:Play()
 	Debris:AddItem(soundClone, 1)
 end
 
-local function isPlayerInRingPhysically(character)
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		return false
-	end
-
-	local hrp = character.HumanoidRootPart
-	local ringsFolder = workspace:FindFirstChild("Rings")
-	if not ringsFolder then return false end
-
-	for _, ringName in ipairs({"Ring1", "Ring2"}) do
-		local ring = ringsFolder:FindFirstChild(ringName)
-		if ring then
-			local baseRing = ring:FindFirstChild("BaseRingUpdate")
-			if baseRing and baseRing:IsA("BasePart") then
-				local hrpPos = hrp.Position
-				local basePos = baseRing.Position
-				local baseSize = baseRing.Size
-
-				local deltaX = math.abs(hrpPos.X - basePos.X)
-				local deltaZ = math.abs(hrpPos.Z - basePos.Z)
-				local halfSizeX = baseSize.X / 2
-				local halfSizeZ = baseSize.Z / 2
-				local baseTop = basePos.Y + (baseSize.Y / 2)
-
-				if deltaX <= halfSizeX and deltaZ <= halfSizeZ and hrpPos.Y >= (baseTop - 3) then
-					return true
-				end
-			end
-		end
-	end
-
-	return false
-end
-
-task.spawn(function()
-	while true do
-		task.wait(0.15)
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player.Character then
-				local uid = player.UserId
-				local isInFight = player.Character.Parent and 
-					(player.Character.Parent.Name == "Player1" or player.Character.Parent.Name == "Player2")
-
-				if not isInFight then
-					local isInRingNow = isPlayerInRingPhysically(player.Character)
-					local wasInRing = playersInRing[uid] == true
-
-					if isInRingNow and not wasInRing then
-						playersInRing[uid] = true
-						local now = os.clock()
-						if not lastNotification[uid] or (now - lastNotification[uid]) > NOTIFICATION_COOLDOWN then
-							lastNotification[uid] = now
-							ringNotificationRemote:FireClient(player, true)
-							print("[RingCombat] Entró:", player.Name)
-						end
-					elseif not isInRingNow and wasInRing then
-						playersInRing[uid] = nil
-						local now = os.clock()
-						if not lastNotification[uid] or (now - lastNotification[uid]) > NOTIFICATION_COOLDOWN then
-							lastNotification[uid] = now
-							ringNotificationRemote:FireClient(player, false)
-							print("[RingCombat] Salió:", player.Name)
-						end
-					end
-				else
-					-- Cuando está en pelea, asegurar que esté en playersInRing
-					if not playersInRing[uid] then
-						playersInRing[uid] = true
-					end
-				end
-			end
-		end
-	end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	local uid = player.UserId
-	playersInRing[uid] = nil
-	lastNotification[uid] = nil
-end)
-
+---------------------------------------------------
+-- LÓGICA DE GOLPE
+---------------------------------------------------
 local function hitDetection(humanoid, character)
 	playPunchSound(character)
 
 	local blockValue = character:FindFirstChild("block")
-	if blockValue and blockValue.Value == false then
-		humanoid:TakeDamage(DAMAGE)
-		effect(character)
-	elseif not blockValue then
-		humanoid:TakeDamage(DAMAGE)
-		effect(character)
-	end
-end
-
-eventPunch.OnServerEvent:Connect(function(player, num, punchId)
-	if not player.Character then return end
-	if not playersInRing[player.UserId] then return end
-
-	local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then return end
-
-	if not isPlayerInRingPhysically(player.Character) then
-		print("[RingCombat] Golpe bloqueado:", player.Name)
+	if blockValue and blockValue.Value == true then
+		print("[ServerCombat] Golpe bloqueado")
 		return
 	end
 
+	humanoid:TakeDamage(DAMAGE)
+	effect(character)
+end
+
+---------------------------------------------------
+-- EVENTOS DE JUGADORES
+---------------------------------------------------
+Players.PlayerAdded:Connect(function(player)
+	playerStates[player.UserId] = "FREE"
+
+	player.CharacterAdded:Connect(function()
+		playerStates[player.UserId] = "FREE"
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	playerStates[player.UserId] = nil
+	activePunches[player.UserId] = nil
+end)
+
+-- Sincronización de estado desde Ring Script
+ringStateRemote.OnServerEvent:Connect(function(player, newState)
+	if newState == "WAITING" or newState == "FIGHTING" or newState == "FREE" then
+		playerStates[player.UserId] = newState
+		print("[ServerCombat] Estado actualizado:", player.Name, "→", newState)
+	end
+end)
+
+---------------------------------------------------
+-- EVENTO DE GOLPE
+---------------------------------------------------
+eventPunch.OnServerEvent:Connect(function(player, num, punchId)
+	local character = player.Character
+	if not character then return end
+
+	-- SOLO permitir golpes si está EN PELEA
+	local currentState = playerStates[player.UserId]
+	if currentState ~= "FIGHTING" then
+		print("[ServerCombat] Golpe bloqueado - Estado:", currentState or "nil")
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+
+	-- Evitar duplicados
 	local punchKey = player.UserId .. "_" .. punchId
-	if activePunches[punchKey] then return end
+	if activePunches[punchKey] then 
+		print("[ServerCombat] Golpe duplicado ignorado")
+		return 
+	end
 	activePunches[punchKey] = true
 
-	local bodyParts = player.Character:GetChildren()
+	-- Tiempo de ventana de detección
+	local waitTime = (num == 2) and 1.0 or 0.7
 	local hitTargets = {}
 	local connections = {}
+	local detected = false
+
+	local bodyParts = character:GetChildren()
 
 	for _, part in ipairs(bodyParts) do
 		if part:IsA("BasePart") then
 			local connection = part.Touched:Connect(function(hit)
 				local targetChar = hit.Parent
 				if not targetChar or not targetChar:FindFirstChild("Humanoid") then return end
+				if targetChar == character then return end
+				if hitTargets[targetChar] then return end
 
-				local targetHumanoid = targetChar:FindFirstChild("Humanoid")
+				local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+				if not targetHumanoid or targetHumanoid.Health <= 0 then return end
 
-				if targetHumanoid and targetHumanoid.Health > 0 and targetChar ~= player.Character and not hitTargets[targetChar] then
-					if not isPlayerInRingPhysically(targetChar) then return end
+				-- Verificar que el objetivo TAMBIÉN está en pelea
+				local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+				if not targetPlayer then return end
 
-					hitTargets[targetChar] = true
-					hitDetection(targetHumanoid, targetChar)
-
-					local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-					if targetPlayer then
-						effectRemote:FireClient(targetPlayer)
-					end
+				local targetState = playerStates[targetPlayer.UserId]
+				if targetState ~= "FIGHTING" then 
+					print("[ServerCombat] Objetivo no está en pelea:", targetState or "nil")
+					return 
 				end
+
+				hitTargets[targetChar] = true
+				detected = true
+
+				print("[ServerCombat] GOLPE:", player.Name, "→", targetChar.Name)
+				hitDetection(targetHumanoid, targetChar)
+
+				-- Efecto visual en el cliente
+				effectRemote:FireClient(targetPlayer)
 			end)
 			table.insert(connections, connection)
 		end
 	end
 
-	local waitTime = (num == 2) and 0.6 or 0.4
+	-- Esperar ventana de detección
 	task.wait(waitTime)
 
+	-- Desconectar
 	for _, connection in ipairs(connections) do
-		connection:Disconnect()
+		pcall(function() connection:Disconnect() end)
 	end
+
 	activePunches[punchKey] = nil
+
+	if not detected then
+		print("[ServerCombat] Golpe sin impacto")
+	end
 end)
 
+---------------------------------------------------
+-- EVENTO DE BLOQUEO
+---------------------------------------------------
 eventBlock.OnServerEvent:Connect(function(player, block)
-	if not player.Character then return end
+	local character = player.Character
+	if not character then return end
 
-	local blockValue = player.Character:FindFirstChild("block")
+	local blockValue = character:FindFirstChild("block")
 	if not blockValue then
 		blockValue = Instance.new("BoolValue")
 		blockValue.Name = "block"
-		blockValue.Parent = player.Character
+		blockValue.Parent = character
 	end
 
 	blockValue.Value = block
+
+	if block then
+		print("[ServerCombat] Bloqueo activado:", player.Name)
+	end
 end)

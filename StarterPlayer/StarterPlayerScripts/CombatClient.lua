@@ -1,74 +1,49 @@
 -- ════════════════════════════════════════════════════════════════
--- COMBAT CLIENT - Sistema completo de combate con Ring
--- Integración de Punch system con Ring verification
+-- COMBAT CLIENT - Sistema mejorado sin redundancia
 -- ════════════════════════════════════════════════════════════════
 
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
--- Obtener remotes desde RemotesGlobal con manejo robusto
-local function getRemotes()
-	local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 30)
-	if not RemotesGlobal then 
-		error("[CombatClient] RemotesGlobal no encontrado después de 30s")
-	end
+local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 30)
+local CombatRemotes = RemotesGlobal:WaitForChild("Combat", 30)
 
-	local CombatRemotes = RemotesGlobal:WaitForChild("Combat", 30)
-	if not CombatRemotes then 
-		error("[CombatClient] Carpeta Combat no encontrada")
-	end
+local eventPunch = CombatRemotes:WaitForChild("PunchRemote", 30)
+local eventBlock = CombatRemotes:WaitForChild("BlockRemote", 30)
+local ringStateRemote = CombatRemotes:WaitForChild("RingStateRemote", 30)
+local effectRemote = CombatRemotes:WaitForChild("EffectRemote", 30)
 
-	local eventPunch = CombatRemotes:WaitForChild("PunchRemote", 30)
-	local eventBlock = CombatRemotes:WaitForChild("BlockRemote", 30)
-	local ringNotificationRemote = CombatRemotes:WaitForChild("RingNotification", 30)
-	local effectRemote = CombatRemotes:WaitForChild("EffectRemote", 30)
-
-	return {
-		eventPunch = eventPunch,
-		eventBlock = eventBlock,
-		ringNotificationRemote = ringNotificationRemote,
-		effectRemote = effectRemote
-	}
-end
-
-local remotes = getRemotes()
-local eventPunch = remotes.eventPunch
-local eventBlock = remotes.eventBlock
-local ringNotificationRemote = remotes.ringNotificationRemote
-local effectRemote = remotes.effectRemote
-
--- Cargar NotificationSystem con manejo de errores
+-- Cargar sistema de notificaciones
 local NotificationSystem
 pcall(function()
 	NotificationSystem = require(ReplicatedStorage:WaitForChild("Systems", 10):WaitForChild("NotificationSystem", 10):WaitForChild("NotificationSystem", 10))
 end)
 
--- Inicializar variables de jugador
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-
 local humanoid = character:WaitForChild("Humanoid", 10)
 local rootPart = character:WaitForChild("HumanoidRootPart", 10)
 
-if not humanoid or not rootPart then
-	error("[CombatClient] No se pudo obtener Humanoid o HumanoidRootPart")
-end
-
 local COOLDOWN = 0.8
-local inRing = false
+local currentState = "FREE"  -- Estados: FREE, WAITING, FIGHTING
 local aux = true
-local punchCounter = 0  -- Contador para IDs únicos de golpes
+local punchCounter = 0
+local lastNotificationState = nil  -- Para evitar notificaciones duplicadas
 
--- Actualizar referencias cuando muere o respawnea
 player.CharacterAdded:Connect(function(newCharacter)
 	character = newCharacter
 	humanoid = character:WaitForChild("Humanoid", 10)
 	rootPart = character:WaitForChild("HumanoidRootPart", 10)
 	aux = true
+	currentState = "FREE"
+	lastNotificationState = nil
+	hideCombatButtons()
 end)
 
--- Crear animaciones con IDs directos
+---------------------------------------------------
+-- ANIMACIONES
+---------------------------------------------------
 local animPunchR = Instance.new("Animation")
 animPunchR.AnimationId = "rbxassetid://73048975017223"
 
@@ -81,48 +56,48 @@ animBlock.AnimationId = "rbxassetid://125626942999742"
 local animKick = Instance.new("Animation")
 animKick.AnimationId = "rbxassetid://138408477594658"
 
--- Efecto rojo de golpe en la cámara (salpicadura) - MEJORADO
+---------------------------------------------------
+-- EFECTO ROJO DE GOLPE
+---------------------------------------------------
 local redFlashGui = Instance.new("ScreenGui")
 redFlashGui.Name = "RedFlash"
 redFlashGui.ResetOnSpawn = false
-redFlashGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+redFlashGui.Parent = player:WaitForChild("PlayerGui")
 
 local redFlash = Instance.new("Frame")
 redFlash.Name = "RedSplash"
 redFlash.Size = UDim2.new(0, 200, 0, 200)
-redFlash.Position = UDim2.new(0.5, -100, 0.5, -100)  -- Centro de la pantalla
+redFlash.Position = UDim2.new(0.5, -100, 0.5, -100)
 redFlash.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 redFlash.BackgroundTransparency = 1
 redFlash.BorderSizePixel = 0
 redFlash.ZIndex = 99
 redFlash.Parent = redFlashGui
 
--- Hacer redonda la salpicadura
 local splashCorner = Instance.new("UICorner")
 splashCorner.CornerRadius = UDim.new(1, 0)
 splashCorner.Parent = redFlash
 
--- Función para efecto rojo de golpe mejorado
 local function punchEffect()
-	-- Rojo más intenso y más grande
 	local tween = TweenService:Create(redFlash, TweenInfo.new(0.08), {BackgroundTransparency = 0.2})
 	tween:Play()
 	tween.Completed:Connect(function()
-		-- Desvanece rápido
 		local tweenBack = TweenService:Create(redFlash, TweenInfo.new(0.25), {BackgroundTransparency = 1})
 		tweenBack:Play()
 	end)
 end
 
--- Escuchar cuando el servidor envía confirmación de golpe
 effectRemote.OnClientEvent:Connect(function()
 	punchEffect()
 end)
 
--- Función para detectar botones de combate
+---------------------------------------------------
+-- BOTONES DE COMBATE
+---------------------------------------------------
 function fightButton(actionName, inputState, inputObject)
-	if not inRing then return end  -- Solo funciona en el ring
-	if not humanoid or humanoid.Health <= 0 then return end  -- Validar humanoid
+	-- SOLO funciona si está EN PELEA
+	if currentState ~= "FIGHTING" then return end
+	if not humanoid or humanoid.Health <= 0 then return end
 
 	if actionName == "leftPunch" then
 		if inputState == Enum.UserInputState.Begin and aux then
@@ -175,14 +150,12 @@ function fightButton(actionName, inputState, inputObject)
 				anim:Play()
 			end
 			eventPunch:FireServer(2, punchCounter)
-			-- Cooldown más largo para el kick (1.2s)
 			task.wait(1.2)
 			aux = true
 		end
 	end
 end
 
--- Función para mostrar botones de combate
 local function showCombatButtons()
 	ContextActionService:BindAction("leftPunch", fightButton, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
 	ContextActionService:BindAction("rightPunch", fightButton, true, Enum.KeyCode.E, Enum.KeyCode.ButtonR1)
@@ -200,8 +173,7 @@ local function showCombatButtons()
 	ContextActionService:SetPosition("Patada", UDim2.new(0.05, 0, 0.7, 0))
 end
 
--- Función para ocultar botones de combate
-local function hideCombatButtons()
+function hideCombatButtons()
 	pcall(function()
 		ContextActionService:UnbindAction("leftPunch")
 		ContextActionService:UnbindAction("rightPunch")
@@ -210,35 +182,54 @@ local function hideCombatButtons()
 	end)
 end
 
--- Escuchar notificación del ring DESPUÉS de asegurar que existe
-task.spawn(function()
-	local lastRingStatus = false
-
-	while not ringNotificationRemote do
-		task.wait(0.5)
-		ringNotificationRemote = remotes.ringNotificationRemote
+---------------------------------------------------
+-- ESCUCHAR CAMBIOS DE ESTADO (MEJORADO)
+---------------------------------------------------
+ringStateRemote.OnClientEvent:Connect(function(newState)
+	-- IGNORAR si el estado no cambió realmente
+	if currentState == newState then
+		return
 	end
 
-	ringNotificationRemote.OnClientEvent:Connect(function(ringStatus)
-		-- Solo mostrar notificación cuando cambia el estado
-		if ringStatus ~= lastRingStatus then
-			if ringStatus then
-				if NotificationSystem then
-					NotificationSystem:Info("Ring", "Has ingresado al ring", 3)
-				end
-				showCombatButtons()  -- Mostrar botones cuando entra
-			else
-				if NotificationSystem then
-					NotificationSystem:Info("Ring", "Has salido del ring", 3)
-				end
-				hideCombatButtons()  -- Ocultar botones cuando sale
-			end
-			lastRingStatus = ringStatus
+	-- IGNORAR notificaciones duplicadas del mismo estado
+	if lastNotificationState == newState then
+		return
+	end
+
+	local oldState = currentState
+	currentState = newState
+	lastNotificationState = newState
+
+	print("[ClientCombat] Estado:", oldState, "→", newState)
+
+	-- ══════════════════════════════════════════════════════════════
+	-- CRÍTICO: Notificar al servidor del cambio de estado
+	-- ══════════════════════════════════════════════════════════════
+	-- El CombatServer NECESITA saber que estás en "FIGHTING" para
+	-- permitir que tus golpes hagan daño. Sin esta línea, todos los
+	-- golpes serán bloqueados con el mensaje:
+	-- "[ServerCombat] Golpe bloqueado - Estado: nil"
+	-- ══════════════════════════════════════════════════════════════
+	ringStateRemote:FireServer(newState)
+
+	-- Acciones según el nuevo estado
+	if newState == "WAITING" then
+		if NotificationSystem then
+			NotificationSystem:Info("Ring", "Esperando oponente...", 3)
 		end
-		inRing = ringStatus  -- Guardar estado del ring
-	end)
+		hideCombatButtons()
+
+	elseif newState == "FIGHTING" then
+		if NotificationSystem then
+			NotificationSystem:Info("Ring", "PELEA INICIADA", 2)
+		end
+		showCombatButtons()
+
+	elseif newState == "FREE" then
+		if NotificationSystem then
+			NotificationSystem:Info("Ring", "Saliste del ring", 2)
+		end
+		hideCombatButtons()
+		lastNotificationState = nil  -- Reset para permitir nueva entrada
+	end
 end)
-
-
-
-
