@@ -67,21 +67,46 @@ end
 ---------------------------------------------------
 
 local function v23(v24)
-	local v25 = v24:WaitForChild("PlayerQueueZones")
-	local v26 = v24:WaitForChild("Players")
+	print("[Rin.lua] v23: Inicializando ring: " .. v24.Name)
+	
+	-- Proteger cada WaitForChild
+	local v25 = v24:WaitForChild("PlayerQueueZones", 10)
+	if not v25 then print("[ERROR] PlayerQueueZones no encontrado en " .. v24.Name); return end
+	
+	local v26 = v24:WaitForChild("Players", 10)
+	if not v26 then print("[ERROR] Players no encontrado en " .. v24.Name); return end
 
-	local v27 = v25:WaitForChild("PlayerQueueZone1")
-	local v28 = v25:WaitForChild("PlayerQueueZone2")
+	local v27 = v25:WaitForChild("PlayerQueueZone1", 10)
+	if not v27 then print("[ERROR] PlayerQueueZone1 no encontrado"); return end
+	
+	local v28 = v25:WaitForChild("PlayerQueueZone2", 10)
+	if not v28 then print("[ERROR] PlayerQueueZone2 no encontrado"); return end
 
-	local v29 = v27:WaitForChild("Player1AppearancePart")
-	local v30 = v28:WaitForChild("Player2AppearancePart")
+	local v29 = v27:WaitForChild("Player1AppearancePart", 10)
+	if not v29 then print("[ERROR] Player1AppearancePart no encontrado"); return end
+	
+	local v30 = v28:WaitForChild("Player2AppearancePart", 10)
+	if not v30 then print("[ERROR] Player2AppearancePart no encontrado"); return end
 
-	local v31 = v26:WaitForChild("Player1")
-	local v32 = v26:WaitForChild("Player2")
+	local v31 = v26:WaitForChild("Player1", 10)
+	if not v31 then print("[ERROR] Player1 no encontrado"); return end
+	
+	local v32 = v26:WaitForChild("Player2", 10)
+	if not v32 then print("[ERROR] Player2 no encontrado"); return end
 
-	local v33 = v24:WaitForChild("Player1Teleport")
-	local v34 = v24:WaitForChild("Player2Teleport")
-	local v35 = v24:WaitForChild("Return1")
+	local v33 = v24:WaitForChild("Player1Teleport", 10)
+	if not v33 then print("[ERROR] Player1Teleport no encontrado"); return end
+	
+	local v34 = v24:WaitForChild("Player2Teleport", 10)
+	if not v34 then print("[ERROR] Player2Teleport no encontrado"); return end
+	
+	-- Obtener Return1 (pero no es crítico si no existe - usaremos fallback)
+	local v35 = v24:FindFirstChild("Return1")
+	if not v35 then
+		print("Info: Return1 no encontrado en " .. v24.Name .. ". Se usarán posiciones alternativas para teletransporte.")
+	else
+		print("[Rin.lua] v23: Return1 encontrado en " .. v24.Name)
+	end
 
 	local v36 = v29
 	local v37 = v30
@@ -123,17 +148,80 @@ local function v23(v24)
 		if not v48 then return end
 
 		v48.Died:Once(function()
-			if not v39 then return end
-
-			-- Esperar a que sync esté listo
-			task.wait(0.2)
-
-			if v47 and v47.Parent then
-				pcall(function()
-					v47:PivotTo(v35.CFrame)
-				end)
+			print("[Rin.lua] Muerte detectada - Iniciando teleport del ganador")
+			if not v39 then 
+				print("[Rin.lua] Pelea no está activa, cancelando teleport")
+				return 
 			end
 
+			-- Esperar a que el servidor procese la muerte completamente
+			task.wait(0.5)
+
+			-- VALIDAR que el ganador aún existe
+			if not v47 or not v47.Parent then
+				warn("[Rin.lua] Ganador no existe o fue removido")
+				v44()
+				return
+			end
+
+			-- Obtener humanoid del ganador para verificar que está vivo
+			local winnerHumanoid = v47:FindFirstChildOfClass("Humanoid")
+			if not winnerHumanoid or winnerHumanoid.Health <= 0 then
+				warn("[Rin.lua] Ganador no tiene humanoid o está muerto")
+				v44()
+				return
+			end
+
+			-- DETERMINAR posición de teleport con fallback
+			local teleportPos = nil
+			local positionSource = "unknown"
+			
+			if v35 and v35.Parent then
+				teleportPos = v35.Position + Vector3.new(0, 10, 0) -- +10 para evitar clipping
+				positionSource = "Return1"
+			elseif v31 and v31.Parent then
+				teleportPos = v31.Position + Vector3.new(0, 10, 0)
+				positionSource = "Player1"
+			elseif v32 and v32.Parent then
+				teleportPos = v32.Position + Vector3.new(0, 10, 0)
+				positionSource = "Player2"
+			else
+				warn("[Rin.lua] ERROR CRÍTICO: No hay posición válida de teleport")
+				v44()
+				return
+			end
+
+			print("[Rin.lua] Teletransportando ganador usando: " .. positionSource)
+			print("[Rin.lua] Posición destino: " .. tostring(teleportPos))
+
+			-- MÉTODO 1: WaitForChild para garantizar que existe (con timeout)
+			local success = pcall(function()
+				local hrp = v47:WaitForChild("HumanoidRootPart", 2)
+				if hrp then
+					-- Desactivar físicas temporalmente
+					hrp.Anchored = true
+					
+					-- Teletransportar con CFrame completo (incluye rotación)
+					hrp.CFrame = CFrame.new(teleportPos) * CFrame.Angles(0, math.rad(180), 0)
+					
+					-- Esperar un frame para el sync
+					task.wait(0.1)
+					
+					-- Reactivar físicas
+					hrp.Anchored = false
+					hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+					hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+					
+					print("[Rin.lua] ✓ Teleport exitoso a " .. positionSource)
+				end
+			end)
+
+			if not success then
+				warn("[Rin.lua] ✗ Falló el teleport del ganador")
+			end
+
+			-- Limpiar ring
+			task.wait(0.5)
 			v44()
 		end)
 	end
@@ -141,15 +229,56 @@ local function v23(v24)
 	local function v49(v50, v51)
 		v40 = task.delay(40, function()
 			if not v39 then return end
+			print("[Rin.lua] Timeout de 40s alcanzado - Expulsando ambos jugadores")
 
+			-- Obtener posición de teletransporte con fallback
+			local teleportPos = nil
+			local positionSource = "unknown"
+			
+			if v35 and v35.Parent then
+				teleportPos = v35.Position + Vector3.new(0, 10, 0)
+				positionSource = "Return1"
+			elseif v31 and v31.Parent then
+				teleportPos = v31.Position + Vector3.new(0, 10, 0)
+				positionSource = "Player1"
+			elseif v32 and v32.Parent then
+				teleportPos = v32.Position + Vector3.new(0, 10, 0)
+				positionSource = "Player2"
+			else
+				warn("[Rin.lua] ERROR: No hay posición válida para timeout")
+				v44()
+				return
+			end
+
+			print("[Rin.lua] Teletransporte timeout usando: " .. positionSource)
+
+			-- Teletransportar jugador 1
 			if v50 and v50.Parent then
 				pcall(function()
-					v50:PivotTo(v35.CFrame)
+					local hrp = v50:WaitForChild("HumanoidRootPart", 2)
+					if hrp then
+						hrp.Anchored = true
+						hrp.CFrame = CFrame.new(teleportPos)
+						task.wait(0.1)
+						hrp.Anchored = false
+						hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+						print("[Rin.lua] ✓ Player1 teletransportado (timeout)")
+					end
 				end)
 			end
+			
+			-- Teletransportar jugador 2 (offset lateral para evitar superposición)
 			if v51 and v51.Parent then
 				pcall(function()
-					v51:PivotTo(v35.CFrame)
+					local hrp = v51:WaitForChild("HumanoidRootPart", 2)
+					if hrp then
+						hrp.Anchored = true
+						hrp.CFrame = CFrame.new(teleportPos + Vector3.new(5, 0, 0))
+						task.wait(0.1)
+						hrp.Anchored = false
+						hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+						print("[Rin.lua] ✓ Player2 teletransportado (timeout)")
+					end
 				end)
 			end
 
@@ -310,9 +439,15 @@ end
 ---------------------------------------------------
 -- INICIALIZAR TODOS LOS RINGS
 ---------------------------------------------------
+print("[Rin.lua] Iniciando carga de rings...")
+local ringsFound = 0
 for _, v75 in ipairs(v2:GetChildren()) do
+	print("[Rin.lua] Encontrado child: " .. v75.Name .. " (IsModel: " .. tostring(v75:IsA("Model")) .. ")")
 	if v75:IsA("Model") then
+		print("[Rin.lua] Inicializando ring: " .. v75.Name)
+		ringsFound = ringsFound + 1
 		v23(v75)
 	end
 end
+print("[Rin.lua] Total rings inicializados: " .. ringsFound)
 

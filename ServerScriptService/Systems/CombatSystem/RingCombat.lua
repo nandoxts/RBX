@@ -119,23 +119,23 @@ local function setupRingDetection()
 	-- Función para verificar si un jugador está dentro del ring
 	local function isPlayerInRing(character, baseRing)
 		if not baseRing or not character then return false end
-		
+
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
 		if not rootPart then return false end
-		
+
 		-- Calcular distancia al centro del ring (solo en eje Y para altura)
 		local basePos = baseRing.Position
 		local playerPos = rootPart.Position
-		
+
 		-- Distancia horizontal (ignorar altura)
 		local horizontalDistance = math.sqrt(
 			(playerPos.X - basePos.X)^2 + 
-			(playerPos.Z - basePos.Z)^2
+				(playerPos.Z - basePos.Z)^2
 		)
-		
+
 		-- Usar el radio más pequeño de la parte para mayor compatibilidad
 		local ringRadius = math.min(baseRing.Size.X, baseRing.Size.Z) / 2
-		
+
 		-- Sumar un margen para evitar salidas falsas
 		return horizontalDistance <= (ringRadius + 2)
 	end
@@ -144,12 +144,12 @@ local function setupRingDetection()
 	task.spawn(function()
 		while true do
 			task.wait(0.3)
-			
+
 			for _, player in ipairs(Players:GetPlayers()) do
 				if player.Character then
 					local uid = player.UserId
 					local inRingNow = false
-					
+
 					-- Verificar si está en alguno de los rings
 					for _, data in pairs(ringData) do
 						if isPlayerInRing(player.Character, data.basePart) then
@@ -157,7 +157,7 @@ local function setupRingDetection()
 							break
 						end
 					end
-					
+
 					-- Detectar cambios de estado
 					local wasInRing = playersInRing[uid] or false
 					if inRingNow and not wasInRing then
