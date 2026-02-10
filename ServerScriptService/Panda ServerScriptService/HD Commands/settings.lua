@@ -315,6 +315,7 @@ return{
 		["buildingTools"] = "Owner";
 		["ranks"] = "DJ";
 		["warp"] = "Owner";
+		["freecam"] = "Influencer"; -- Free Camera (Owner + Influencer)
 		-- Influencer
 		["title"] = "Influencer";
 		-- Socios

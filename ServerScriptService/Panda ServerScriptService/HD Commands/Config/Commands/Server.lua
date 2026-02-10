@@ -1112,6 +1112,33 @@ local module = {
 		end;
 	};
 
+	-- FREE CAMERA
+	{
+		Name = "freecam";
+		Aliases = {"fc", "camera", "cam"};
+		Prefixes = {settings.Prefix};
+		Rank = 0;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"admin", "utility"};
+		Description = "Activa/desactiva free camera - USA SHIFT+P";
+		Contributors = {"SX-System"};
+		Args = {};
+		Function = function(speaker, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local freeCamToggle = ReplicatedStorage:FindFirstChild("FreeCamToggle")
+			
+			if not freeCamToggle then
+				freeCamToggle = Instance.new("RemoteEvent")
+				freeCamToggle.Name = "FreeCamToggle"
+				freeCamToggle.Parent = ReplicatedStorage
+			end
+			
+			freeCamToggle:FireClient(speaker)
+			print("[FreeCam] ✓ Activado para " .. speaker.Name)
+		end;
+	};
+
 
 };
 
