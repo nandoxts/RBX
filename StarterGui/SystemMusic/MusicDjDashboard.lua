@@ -694,12 +694,7 @@ volSliderBg.InputBegan:Connect(function(input)
 		if isMusicMuted() then
 			-- Mostrar notificación si está muteado
 			if Notify then
-				Notify.new({
-					title = "Música Silenciada",
-					text = "Desmutea el sonido en el topbar para cambiar el volumen",
-					duration = 2,
-					type = "info"
-				})
+				Notify:Info("Música Silenciada", "Desmutea el sonido en el topbar para cambiar el volumen", 2)
 			end
 			return
 		end
@@ -724,12 +719,7 @@ volLabel.MouseButton1Click:Connect(function()
 	if isMusicMuted() then
 		-- Mostrar notificación si está muteado
 		if Notify then
-			Notify.new({
-				title = "Música Silenciada",
-				text = "Desmutea el sonido en el topbar para cambiar el volumen",
-				duration = 2,
-				type = "info"
-			})
+			Notify:Info("Música Silenciada", "Desmutea el sonido en el topbar para cambiar el volumen", 2)
 		end
 		return
 	end

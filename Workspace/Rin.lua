@@ -34,10 +34,10 @@ end
 
 local function v17(v18)
 	if not v18 or not v18.Parent then return end
-	
+
 	local v19 = v18:FindFirstChildOfClass("Humanoid")
 	if not v19 then return end
-	
+
 	local v20 = v19:FindFirstChildWhichIsA("Animator") or Instance.new("Animator", v19)
 
 	-- Detener TODAS las animaciones antes de cargar una nueva
@@ -118,7 +118,7 @@ local function v23(v24)
 
 	local function v45(v46, v47)
 		if not v46 or not v46.Parent then return end
-		
+
 		local v48 = v46:FindFirstChildOfClass("Humanoid")
 		if not v48 then return end
 
@@ -257,7 +257,7 @@ local function v23(v24)
 		v42[v68] = (v42[v68] or 0) - 1
 		if v42[v68] <= 0 then
 			v42[v68] = nil
-			
+
 			-- Si está en pelea, no remover
 			if not v39 then
 				v58(v31, v67, v36)
@@ -295,7 +295,7 @@ local function v23(v24)
 		v43[v74] = (v43[v74] or 0) - 1
 		if v43[v74] <= 0 then
 			v43[v74] = nil
-			
+
 			-- Si está en pelea, no remover
 			if not v39 then
 				v58(v32, v73, v37)

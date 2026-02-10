@@ -217,9 +217,15 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	]]
 	--// -- // -- // -- // -- // --
 
-	if not game.Players:GetNameFromUserIdAsync(userId) then return end
+	-- Obtener el nombre CORRECTO del receptor desde el ID (no usar el parámetro username que viene del cliente)
+	local recipientName = nil
+	local success = pcall(function()
+		recipientName = game.Players:GetNameFromUserIdAsync(userId)
+	end)
+	
+	if not success or not recipientName then return end
 
-	Username = username
+	Username = recipientName
 	UserId = identifier
 
 	for _, purchaseablegamepass in pairs(getAllPurchaseables()) do

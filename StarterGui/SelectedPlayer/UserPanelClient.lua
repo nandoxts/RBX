@@ -620,7 +620,7 @@ local function createAvatarSection(panel, data, playerColor)
 				ScaleType = Enum.ScaleType.Fit,
 				AutoButtonColor = false,
 				ZIndex = 15,
-				Parent = likeButtonsContainer+= 2.5
+				Parent = likeButtonsContainer
 			})
 			Utils.addConnection(btn.MouseButton1Click:Connect(onClick))
 			Utils.addConnection(btn.MouseEnter:Connect(function() Utils.tween(btn, { ImageTransparency = 0.3 }, Config.ANIM_FAST) end))
@@ -777,11 +777,10 @@ local function createPanel(data)
 
 			task.spawn(function()
 				while panelContainer.Parent do
-					gradient.Rotation += 2.5
+					gradient.Rotation = gradient.Rotation + 2.5
 					task.wait()
 				end
 			end)
-
 			break
 		end
 	end
