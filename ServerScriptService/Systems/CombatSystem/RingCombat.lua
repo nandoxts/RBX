@@ -1,12 +1,11 @@
 -- ════════════════════════════════════════════════════════════════
--- RING COMBAT - VERSIÓN SIMPLE
+-- RING COMBAT SYSTEM
 -- ════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
--- Crear RemotesGlobal si no existe
 local RemotesGlobal = ReplicatedStorage:FindFirstChild("RemotesGlobal")
 if not RemotesGlobal then
 	RemotesGlobal = Instance.new("Folder")
@@ -14,7 +13,6 @@ if not RemotesGlobal then
 	RemotesGlobal.Parent = ReplicatedStorage
 end
 
--- Crear carpeta Combat si no existe
 local CombatFolder = RemotesGlobal:FindFirstChild("Combat")
 if not CombatFolder then
 	CombatFolder = Instance.new("Folder")
@@ -22,47 +20,30 @@ if not CombatFolder then
 	CombatFolder.Parent = RemotesGlobal
 end
 
--- Crear remotes de combate si no existen
-local eventPunch = CombatFolder:FindFirstChild("PunchRemote")
-if not eventPunch then
-	eventPunch = Instance.new("RemoteEvent")
-	eventPunch.Name = "PunchRemote"
-	eventPunch.Parent = CombatFolder
+local function getOrCreateRemote(name)
+	local remote = CombatFolder:FindFirstChild(name)
+	if not remote then
+		remote = Instance.new("RemoteEvent")
+		remote.Name = name
+		remote.Parent = CombatFolder
+	end
+	return remote
 end
 
-local eventBlock = CombatFolder:FindFirstChild("BlockRemote")
-if not eventBlock then
-	eventBlock = Instance.new("RemoteEvent")
-	eventBlock.Name = "BlockRemote"
-	eventBlock.Parent = CombatFolder
-end
-
-local ringNotificationRemote = CombatFolder:FindFirstChild("RingNotification")
-if not ringNotificationRemote then
-	ringNotificationRemote = Instance.new("RemoteEvent")
-	ringNotificationRemote.Name = "RingNotification"
-	ringNotificationRemote.Parent = CombatFolder
-end
-
--- Crear remote para efectos de golpe
-local effectRemote = CombatFolder:FindFirstChild("EffectRemote")
-if not effectRemote then
-	effectRemote = Instance.new("RemoteEvent")
-	effectRemote.Name = "EffectRemote"
-	effectRemote.Parent = CombatFolder
-end
-
+local eventPunch = getOrCreateRemote("PunchRemote")
+local eventBlock = getOrCreateRemote("BlockRemote")
+local ringNotificationRemote = getOrCreateRemote("RingNotification")
+local effectRemote = getOrCreateRemote("EffectRemote")
 
 local DAMAGE = 10
 local PUNCH_SOUND_ID = "rbxassetid://4766118952"
+local NOTIFICATION_COOLDOWN = 1
 
 local effectPunch = ReplicatedStorage.Effect:WaitForChild("Part")
-
--- Tabla para rastrear quién está en ring
 local playersInRing = {}
-local lastNotification = {} -- Debounce para notificaciones
+local lastNotification = {}
+local activePunches = {}
 
--- Función para crear efecto visual de golpe
 local function effect(character)
 	local clone = effectPunch:Clone()
 	clone.Parent = character.HumanoidRootPart
@@ -77,8 +58,6 @@ local function effect(character)
 	clone:Destroy()
 end
 
-local activePunches = {}
-
 local function playPunchSound(character)
 	local soundClone = Instance.new("Sound")
 	soundClone.SoundId = PUNCH_SOUND_ID
@@ -88,145 +67,130 @@ local function playPunchSound(character)
 	Debris:AddItem(soundClone, 1)
 end
 
--- Setup de BaseRingUpdate para detectar jugadores en ring (MEJORADO con detección periódica)
-local function setupRingDetection()
-	local ringsFolder = workspace:WaitForChild("Rings", 10)
-	if not ringsFolder then 
-		warn("[RingCombat] Rings folder no encontrado")
-		return 
+local function isPlayerInRingPhysically(character)
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		return false
 	end
-
-	local ringData = {}
-
+	
+	local hrp = character.HumanoidRootPart
+	local ringsFolder = workspace:FindFirstChild("Rings")
+	if not ringsFolder then return false end
+	
 	for _, ringName in ipairs({"Ring1", "Ring2"}) do
 		local ring = ringsFolder:FindFirstChild(ringName)
 		if ring then
 			local baseRing = ring:FindFirstChild("BaseRingUpdate")
 			if baseRing and baseRing:IsA("BasePart") then
-				ringData[ringName] = {
-					basePart = baseRing,
-					size = baseRing.Size,
-					position = baseRing.Position
-				}
-			else
-				warn("[RingCombat] BaseRingUpdate NO encontrado en " .. ringName)
+				local hrpPos = hrp.Position
+				local basePos = baseRing.Position
+				local baseSize = baseRing.Size
+				
+				local deltaX = math.abs(hrpPos.X - basePos.X)
+				local deltaZ = math.abs(hrpPos.Z - basePos.Z)
+				local halfSizeX = baseSize.X / 2
+				local halfSizeZ = baseSize.Z / 2
+				local baseTop = basePos.Y + (baseSize.Y / 2)
+				
+				if deltaX <= halfSizeX and deltaZ <= halfSizeZ and hrpPos.Y >= (baseTop - 3) then
+					return true
+				end
 			end
-		else
-			warn("[RingCombat] Ring " .. ringName .. " NO encontrado")
 		end
 	end
+	
+	return false
+end
 
-	-- Función para verificar si un jugador está dentro del ring
-	local function isPlayerInRing(character, baseRing)
-		if not baseRing or not character then return false end
+task.spawn(function()
+	while true do
+		task.wait(0.5)
 
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then return false end
-
-		-- Calcular distancia al centro del ring (solo en eje Y para altura)
-		local basePos = baseRing.Position
-		local playerPos = rootPart.Position
-
-		-- Distancia horizontal (ignorar altura)
-		local horizontalDistance = math.sqrt(
-			(playerPos.X - basePos.X)^2 + 
-				(playerPos.Z - basePos.Z)^2
-		)
-
-		-- Usar el radio más pequeño de la parte para mayor compatibilidad
-		local ringRadius = math.min(baseRing.Size.X, baseRing.Size.Z) / 2
-
-		-- Sumar un margen para evitar salidas falsas
-		return horizontalDistance <= (ringRadius + 2)
-	end
-
-	-- Verificación periódica cada 0.3 segundos
-	task.spawn(function()
-		while true do
-			task.wait(0.3)
-
-			for _, player in ipairs(Players:GetPlayers()) do
-				if player.Character then
-					local uid = player.UserId
-					local inRingNow = false
-
-					-- Verificar si está en alguno de los rings
-					for _, data in pairs(ringData) do
-						if isPlayerInRing(player.Character, data.basePart) then
-							inRingNow = true
-							break
-						end
-					end
-
-					-- Detectar cambios de estado
-					local wasInRing = playersInRing[uid] or false
-					if inRingNow and not wasInRing then
-						-- Entró al ring
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character then
+				local uid = player.UserId
+				local isInFight = player.Character.Parent and 
+					(player.Character.Parent.Name == "Player1" or player.Character.Parent.Name == "Player2")
+				
+				if not isInFight then
+					local isInRingNow = isPlayerInRingPhysically(player.Character)
+					local wasInRing = playersInRing[uid] == true
+					
+					if isInRingNow and not wasInRing then
 						playersInRing[uid] = true
-						ringNotificationRemote:FireClient(player, true)
-					elseif not inRingNow and wasInRing then
-						-- Salió del ring
+						local now = os.clock()
+						if not lastNotification[uid] or (now - lastNotification[uid]) > NOTIFICATION_COOLDOWN then
+							lastNotification[uid] = now
+							ringNotificationRemote:FireClient(player, true)
+							print("[RingCombat] Entró:", player.Name)
+						end
+					elseif not isInRingNow and wasInRing then
 						playersInRing[uid] = nil
-						ringNotificationRemote:FireClient(player, false)
+						local now = os.clock()
+						if not lastNotification[uid] or (now - lastNotification[uid]) > NOTIFICATION_COOLDOWN then
+							lastNotification[uid] = now
+							ringNotificationRemote:FireClient(player, false)
+							print("[RingCombat] Salió:", player.Name)
+						end
 					end
 				end
 			end
 		end
-	end)
-end
+	end
+end)
 
-task.wait(1)
-setupRingDetection()
+Players.PlayerRemoving:Connect(function(player)
+	local uid = player.UserId
+	playersInRing[uid] = nil
+	lastNotification[uid] = nil
+end)
 
--- Función para detectar golpe y aplicar daño
 local function hitDetection(humanoid, character)
 	playPunchSound(character)
 
 	local blockValue = character:FindFirstChild("block")
-	if blockValue then
-		if blockValue.Value == false then
-			humanoid:TakeDamage(DAMAGE)
-			effect(character)
-		end
-	else
+	if blockValue and blockValue.Value == false then
+		humanoid:TakeDamage(DAMAGE)
+		effect(character)
+	elseif not blockValue then
 		humanoid:TakeDamage(DAMAGE)
 		effect(character)
 	end
 end
 
--- Evento de golpe (mano derecha = 0, mano izquierda = 1, patada = 2)
 eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	if not player.Character then return end
-
-	-- Verificar si está en ring (simple)
 	if not playersInRing[player.UserId] then return end
+	
+	local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then return end
+
+	if not isPlayerInRingPhysically(player.Character) then
+		print("[RingCombat] Golpe bloqueado:", player.Name)
+		return
+	end
 
 	local punchKey = player.UserId .. "_" .. punchId
 	if activePunches[punchKey] then return end
 	activePunches[punchKey] = true
 
-	-- Usar todas las partes del cuerpo para detectar contacto
 	local bodyParts = player.Character:GetChildren()
 	local hitTargets = {}
 	local connections = {}
 
 	for _, part in ipairs(bodyParts) do
 		if part:IsA("BasePart") then
-			local connection
-			connection = part.Touched:Connect(function(hit)
+			local connection = part.Touched:Connect(function(hit)
 				local targetChar = hit.Parent
-
-				-- Validar que targetChar es un Character válido
 				if not targetChar or not targetChar:FindFirstChild("Humanoid") then return end
 
-				local humanoid = targetChar:FindFirstChild("Humanoid")
+				local targetHumanoid = targetChar:FindFirstChild("Humanoid")
 
-				-- Verificar que es un enemigo y no lo hemos golpeado ya
-				if humanoid and targetChar ~= player.Character and not hitTargets[targetChar] then
+				if targetHumanoid and targetHumanoid.Health > 0 and targetChar ~= player.Character and not hitTargets[targetChar] then
+					if not isPlayerInRingPhysically(targetChar) then return end
+					
 					hitTargets[targetChar] = true
-					hitDetection(humanoid, targetChar)
+					hitDetection(targetHumanoid, targetChar)
 
-					-- Obtener el Player asociado al Character golpeado
 					local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 					if targetPlayer then
 						effectRemote:FireClient(targetPlayer)
@@ -237,7 +201,6 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 		end
 	end
 
-	-- Solo escuchar durante la animación del golpe (menos tiempo = menos contacto accidental)
 	local waitTime = (num == 2) and 0.6 or 0.4
 	task.wait(waitTime)
 
@@ -247,7 +210,6 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	activePunches[punchKey] = nil
 end)
 
--- Evento de bloqueo
 eventBlock.OnServerEvent:Connect(function(player, block)
 	if not player.Character then return end
 
@@ -258,9 +220,5 @@ eventBlock.OnServerEvent:Connect(function(player, block)
 		blockValue.Parent = player.Character
 	end
 
-	if block then
-		blockValue.Value = true
-	else
-		blockValue.Value = false
-	end
+	blockValue.Value = block
 end)
