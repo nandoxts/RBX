@@ -519,10 +519,27 @@ songTitle.ZIndex = 105
 songTitle.Parent = songInfoFrame
 
 -- DJ Name (creado una sola vez con propiedades dinámicas)
+-- Contenedor para DJ name y Song ID (alineados horizontalmente junto al mini cover)
+local headerNameContainer = Instance.new("Frame")
+headerNameContainer.Name = "HeaderNameRow"
+headerNameContainer.Size = UDim2.new(1, -MINI_COVER_SIZE-12, 0, isMobileDevice and 16 or 18)
+headerNameContainer.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, isMobileDevice and 20 or 26)
+headerNameContainer.BackgroundTransparency = 1
+headerNameContainer.ZIndex = 105
+headerNameContainer.Parent = nowPlayingSection
+
+local headerNameLayout = Instance.new("UIListLayout")
+headerNameLayout.FillDirection = Enum.FillDirection.Horizontal
+headerNameLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+headerNameLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+headerNameLayout.Padding = UDim.new(0, 8)
+headerNameLayout.SortOrder = Enum.SortOrder.LayoutOrder
+headerNameLayout.Parent = headerNameContainer
+
+-- DJ Name (creado una sola vez con propiedades dinámicas)
 headerDJName = Instance.new("TextLabel")
 headerDJName.Name = "DJName"
-headerDJName.Size = UDim2.new(isMobileDevice and 0 or 1, isMobileDevice and 80 or (-MINI_COVER_SIZE-80), 0, isMobileDevice and 16 or 18)
-headerDJName.Position = UDim2.new(0, MINI_COVER_SIZE+12, 0, isMobileDevice and 20 or 26)
+headerDJName.Size = UDim2.new(0, isMobileDevice and 120 or 220, 1, 0)
 headerDJName.BackgroundTransparency = 1
 headerDJName.Text = ""
 headerDJName.TextColor3 = THEME.muted
@@ -530,8 +547,24 @@ headerDJName.Font = Enum.Font.GothamMedium
 headerDJName.TextSize = isMobileDevice and 10 or 15
 headerDJName.TextXAlignment = Enum.TextXAlignment.Left
 headerDJName.TextTruncate = Enum.TextTruncate.AtEnd
+headerDJName.LayoutOrder = 1
 headerDJName.ZIndex = 105
-headerDJName.Parent = nowPlayingSection
+headerDJName.Parent = headerNameContainer
+
+-- Song ID visible en header (alineado a la derecha del DJ name)
+local headerSongID = Instance.new("TextLabel")
+headerSongID.Name = "SongID"
+headerSongID.Size = UDim2.new(0, isMobileDevice and 110 or 150, 1, 0)
+headerSongID.BackgroundTransparency = 1
+headerSongID.Text = ""
+headerSongID.TextColor3 = THEME.text
+headerSongID.Font = Enum.Font.GothamBold
+headerSongID.TextSize = isMobileDevice and 11 or 14
+headerSongID.TextXAlignment = Enum.TextXAlignment.Left
+headerSongID.LayoutOrder = 2
+headerSongID.ZIndex = 108
+headerSongID.Parent = headerNameContainer
+
 
 -- Progress bar (alineado abajo en PC, al lado en mobile)
 local progressContainer = Instance.new("Frame")
@@ -1589,6 +1622,13 @@ local function updateHeaderCover(song)
 	end
 
 	headerDJName.Text = djName
+
+	-- Mostrar ID en el header si está disponible
+	if song and song.id then
+		headerSongID.Text = "ID: " .. tostring(song.id)
+	else
+		headerSongID.Text = ""
+	end
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1935,9 +1975,16 @@ if R.Update then
 		if currentSong then
 			songTitle.Text = currentSong.name
 			headerDJName.Text = currentSong.artist or "Unknown"
+			-- actualizar ID en header
+			if currentSong.id then
+				headerSongID.Text = "ID: " .. tostring(currentSong.id)
+			else
+				headerSongID.Text = ""
+			end
 		else
 			songTitle.Text = "No song playing"
 			headerDJName.Text = ""
+			headerSongID.Text = ""
 		end
 
 		-- Actualizar header cover basado en la canción actual
