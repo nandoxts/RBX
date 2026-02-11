@@ -199,28 +199,26 @@ local function initializeRing(ring)
 	local function endFight(reason)
 
 		if not fightActive then 
-
 			return 
 		end
 
 		fightActive = false
 		preparingFight = false
 
-		-- 1. CANCELAR ANTI-ESCAPE (esto restaura el vuelo)
+		-- 1. CANCELAR ANTI-ESCAPE
 		if antiEscapeThread then
 			task.cancel(antiEscapeThread)
 			antiEscapeThread = nil
-
 		end
 
-		-- 2. OBTENER JUGADORES
-		local char1 = Player1Container:FindFirstChildOfClass("Model")
-		local char2 = Player2Container:FindFirstChildOfClass("Model")
+		-- 2. OBTENER JUGADORES (buscar en el workspace también, no solo en contenedores)
+		local char1 = Player1Container:FindFirstChildOfClass("Model") or workspace:FindFirstChild(Player1Container.Parent.Name)
+		local char2 = Player2Container:FindFirstChildOfClass("Model") or workspace:FindFirstChild(Player2Container.Parent.Name)
 
 		local player1 = char1 and Players:GetPlayerFromCharacter(char1)
 		local player2 = char2 and Players:GetPlayerFromCharacter(char2)
 
-		-- 3. RESTAURAR VUELO MANUALMENTE (por si acaso)
+		-- 3. RESTAURAR VUELO para los dos
 		if char1 then
 			local hum1 = char1:FindFirstChildOfClass("Humanoid")
 			if hum1 then
@@ -244,24 +242,26 @@ local function initializeRing(ring)
 			pendingNotifications[player2.UserId] = nil
 		end
 
-		-- 5. MOVER A RETURN POINT
-		if char1 and char1:FindFirstChild("HumanoidRootPart") then
-			char1.Parent = workspace
-			char1:PivotTo(ReturnPoint.CFrame * CFrame.new(2, 0, 0))
-		end
+		-- 5. MOVER A RETURN POINT (ambos jugadores si existen)
+		task.spawn(function()
+			if char1 and char1:FindFirstChild("HumanoidRootPart") then
+				char1.Parent = workspace
+				char1:PivotTo(ReturnPoint.CFrame * CFrame.new(2, 0, 0))
+			end
 
-		if char2 and char2:FindFirstChild("HumanoidRootPart") then
-			char2.Parent = workspace
-			char2:PivotTo(ReturnPoint.CFrame * CFrame.new(-2, 0, 0))
-		end
+			if char2 and char2:FindFirstChild("HumanoidRootPart") then
+				char2.Parent = workspace
+				char2:PivotTo(ReturnPoint.CFrame * CFrame.new(-2, 0, 0))
+			end
+		end)
 
-		-- 6. ESPERAR Y NOTIFICAR FREE (con delay corto)
+		-- 6. ESPERAR Y NOTIFICAR FREE (INMEDIATO)
 		task.wait(0.2)
 		if player1 then 
-			notifyPlayerState(player1, "FREE")
+			notifyPlayerState(player1, "FREE", true)
 		end
 		if player2 then 
-			notifyPlayerState(player2, "FREE")
+			notifyPlayerState(player2, "FREE", true)
 		end
 
 		-- 7. LIMPIAR CONTENEDORES
@@ -282,20 +282,14 @@ local function initializeRing(ring)
 	---------------------------------------------------
 	-- DETECCIÓN DE MUERTE
 	---------------------------------------------------
-	local function setupDeathDetection(attacker, victim)
-		local humanoid = attacker:FindFirstChildOfClass("Humanoid")
+	local function setupDeathDetection(character)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if not humanoid then return end
 
-		humanoid.Died:Once(function()
+		humanoid.Died:Connect(function()
 			if not fightActive then return end
-
-			-- Mover ganador ANTES de terminar pelea
-			if victim and victim.Parent then
-				victim.Parent = workspace
-				victim:PivotTo(ReturnPoint.CFrame)
-			end
-
-			task.wait(0.1)
+			
+			-- Terminar pelea inmediatamente cuando alguien muere
 			endFight("muerte")
 		end)
 	end
@@ -322,7 +316,6 @@ local function initializeRing(ring)
 			-- Solo verificar durante la cuenta regresiva
 			if not Player1Container:FindFirstChild(char1.Name) or 
 				not Player2Container:FindFirstChild(char2.Name) then
-				print("[Ring] Alguien salio durante cuenta regresiva")
 				preparingFight = false
 				return
 			end
@@ -362,12 +355,41 @@ local function initializeRing(ring)
 		-- Anti-escape con posiciones dinámicas
 		antiEscapeThread = createAntiEscapeZone(ring, char1, char2, teleport1Pos, teleport2Pos)
 
-		-- Detección de muerte
-		setupDeathDetection(char1, char2)
-		setupDeathDetection(char2, char1)
+		-- Detección de muerte para AMBOS caracteres
+		setupDeathDetection(char1)
+		setupDeathDetection(char2)
 
 		-- Timer de pelea
 		startFightTimer(char1, char2)
+		
+		-- ════════════════════════════════════════════════════════════
+		-- DETECCIÓN DE ESCAPE VOLANDO - DEVOLVERLO AL RING
+		-- ════════════════════════════════════════════════════════════
+		local escapeThread = task.spawn(function()
+			local ringCenter = (Teleport1.Position + Teleport2.Position) / 2
+			local maxDistance = 80 -- Distancia máxima permitida
+			
+			while fightActive and char1 and char1.Parent and char2 and char2.Parent do
+				local hrp1 = char1:FindFirstChild("HumanoidRootPart")
+				local hrp2 = char2:FindFirstChild("HumanoidRootPart")
+				
+				if hrp1 and hrp2 then
+					local dist1 = (hrp1.Position - ringCenter).Magnitude
+					local dist2 = (hrp2.Position - ringCenter).Magnitude
+					
+					-- Si alguien escapa, devolverlo al ring
+					if dist1 > maxDistance then
+						hrp1:PivotTo(Teleport1.CFrame)
+					end
+					
+					if dist2 > maxDistance then
+						hrp2:PivotTo(Teleport2.CFrame)
+					end
+				end
+				
+				task.wait(0.3)
+			end
+		end)
 	end
 
 	---------------------------------------------------
