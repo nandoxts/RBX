@@ -45,6 +45,12 @@ local GRID_CONFIG = {
 local gamepassCache = {} -- [gamePassId] = boolean
 
 local function playerOwnsGamePass(gamePassId)
+	--  Validar que gamePassId sea válido
+	if not gamePassId or type(gamePassId) ~= "number" then
+		warn("⚠️ GamePass ID inválido: ", gamePassId)
+		return false
+	end
+	
 	-- Retornar del cache si existe
 	if gamepassCache[gamePassId] ~= nil then
 		return gamepassCache[gamePassId]
@@ -104,6 +110,7 @@ local PRODUCTS = {
 	{name = "POLICÍA", price = 135, gamepassId = Configuration.TOMBO, icon = "106800054163320", cmd = ";tombo"},
 	{name = "LADRÓN", price = 135, gamepassId = Configuration.CHORO, icon = "84699864716808", cmd = ";choro"},
 	{name = "SEGURIDAD", price = 135, gamepassId = Configuration.SERE, icon = "85734290151599", cmd = ";sere"},
+	{name = "ARMY BOOMS", price = 100, gamepassId = Configuration.ARMYBOOMS, icon = "134501492548324", cmd = "ARMY BOOMS"},
 }
 
 -- ════════════════════════════════════════════════════════════════

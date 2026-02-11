@@ -65,6 +65,10 @@ local SPECIAL_COMMANDS = {
 	CHORO = {
 		gamepassKey = Configuration.CHORO,
 		itemFolder = "CHORO"
+	},
+	ARMYBOOMS = {
+		gamepassKey = Configuration.ARMYBOOMS,
+		itemFolder = "ARMYBOOMS"
 	}
 }
 
@@ -314,6 +318,7 @@ local function equipAccessory(character, accessoryId)
 		local accessory = asset:FindFirstChildOfClass("Accessory")
 		if accessory then
 			accessory.Parent = character
+			task.wait(0.05) -- Esperar a que se parente correctamente
 		end
 	end
 end
@@ -453,9 +458,10 @@ local function equipItems(player, itemType)
 end
 
 local function grantItemsBasedOnPasses(player)
-	-- Solo otorgar VIP al inicio, los demás se entregan por comando
+	-- Otorgar automáticamente al inicio
 	local gamepassesToCheck = {
 		{key = "VIP", folder = "VIP", id = Configuration.VIP},
+		{key = "ARMYBOOMS", folder = "ARMYBOOMS", id = Configuration.ARMYBOOMS},
 	}
 
 	for _, gamepass in ipairs(gamepassesToCheck) do
@@ -517,7 +523,7 @@ local function isVIPItem(item)
 	if not itemsFolder then return false end
 
 	local paidItemsFolders = {
-		"VIP", "TOMBO", "CHORO", "SERE"
+		"VIP", "TOMBO", "CHORO", "SERE", "ARMYBOOMS"
 	}
 
 	for _, folderName in ipairs(paidItemsFolders) do
@@ -858,6 +864,7 @@ Players.PlayerAdded:Connect(function(player)
 			local tombo = message:match(Configuration.CommandTOMBO)
 			local choro = message:match(Configuration.CommandCHORO)
 			local sere = message:match(Configuration.CommandSERE)
+			local armybooms = message:match(Configuration.CommandARMYBOOMS)
 
 			-- Verificar si tiene gamepass de comandos
 			local hasCommands = GamepassManager.HasGamepass(player, Configuration.COMMANDS)
@@ -946,6 +953,9 @@ Players.PlayerAdded:Connect(function(player)
 
 			elseif sere then
 				handleSpecialCommand(player, "SERE")
+
+			elseif armybooms then
+				handleSpecialCommand(player, "ARMYBOOMS")
 
 				-- PANDA (requiere estar en el grupo)
 			elseif pandaCommand and player:IsInGroup(Configuration.GroupID) and not pandaUsed then

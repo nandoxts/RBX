@@ -270,6 +270,12 @@ game.Players.PlayerAdded:Connect(function(player)
 	local function handleGamepasses()
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
+			
+			-- ⚠️ Skip si GamepassID es nil o inválido
+			if not GamepassID or type(GamepassID) ~= "number" then
+				warn("⚠️ Error: GamepassID inválido en Config - ", gamepass)
+				continue
+			end
 
 			-- ✅ Verificar correctamente si tiene el gamepass (comprado O regalado)
 			local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
@@ -456,11 +462,20 @@ CentralPurchaseHandler.registerGiftHandler(handleGiftPurchase)
 
 -- Verificar propiedad de gamepass
 local function DoesUserOwnGamePass(player, gamepassId)
+	-- ⚠️ Validar gamepassId
+	if not gamepassId or type(gamepassId) ~= "number" then
+		warn("⚠️ DoesUserOwnGamePass - GamepassId inválido: ", gamepassId)
+		return false
+	end
+	
 	local success, Info = pcall(function()
 		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)
 
-	if not success or not Info then return false end
+	if not success or not Info then 
+		warn("⚠️ No se pudo obtener info del gamepass ", gamepassId)
+		return false 
+	end
 
 	local Folder = player:FindFirstChild("Gamepasses")
 	if Folder then

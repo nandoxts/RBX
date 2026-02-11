@@ -20,6 +20,13 @@ local LikesSystem = require(Modules.LikesSystem)
 local EventListeners = require(Modules.EventListeners)
 local InputHandler = require(Modules.InputHandler)
 
+-- Detección dinámica de dispositivo (como ModalManager)
+local UserInputService = game:GetService("UserInputService")
+
+local function isMobileDevice()
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
+
 -- Inicializar Remotes
 local Remotes = RemotesSetup()
 
@@ -68,7 +75,7 @@ local function createButton(parent, text, layoutOrder, accentColor)
 	Utils.addCorner(rippleContainer, Config.BUTTON_CORNER)
 
 	-- Tamaño de fuente responsivo
-	local textSize = Config.IS_MOBILE and 13 or 14
+	local textSize = isMobileDevice() and 13 or 14
 
 	local label = Utils.createLabel({
 		Size = UDim2.new(1, 0, 1, 0),
@@ -103,7 +110,7 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 	-- Header con botón de volver
 	local header = Utils.createFrame({
-		Size = UDim2.new(1, 0, 0, 28),
+		Size = UDim2.new(1, 0, 0, isMobileDevice() and 32 or 28),
 		Parent = State.dynamicSection
 	})
 
@@ -144,11 +151,11 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 	local title = viewType == "donations" and ("Donar a " .. (targetName or "Usuario")) or "Regalar Pase"
 	Utils.createLabel({
-		Size = UDim2.new(1, -36, 0, 28),
+		Size = UDim2.new(1, -36, 0, isMobileDevice() and 32 or 28),
 		Position = UDim2.new(0, 34, 0, 0),
 		Text = title,
 		TextColor3 = THEME.text,
-		TextSize = Config.IS_MOBILE and 14 or 16,
+		TextSize = isMobileDevice() and 12 or 16,
 		Font = Enum.Font.GothamBold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -157,8 +164,8 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 	-- Scroll de cards
 	local scroll = Utils.create("ScrollingFrame", {
-		Size = UDim2.new(1, 0, 1, -36),
-		Position = UDim2.new(0, 0, 0, 34),
+		Size = UDim2.new(1, 0, 1, -(isMobileDevice() and 40 or 36)),
+		Position = UDim2.new(0, 0, 0, isMobileDevice() and 36 or 34),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
@@ -502,7 +509,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Position = UDim2.new(0, 0, 0, 4),
 			Text = tostring(data[stat.key] or 0),
 			TextColor3 = THEME.text,
-			TextSize = Config.IS_MOBILE and 12 or 16,
+			TextSize = isMobileDevice() and 12 or 16,
 			Font = Enum.Font.GothamBold,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ZIndex = 11,
@@ -514,7 +521,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Position = UDim2.new(0, 0, 0, 26),
 			Text = stat.label,
 			TextColor3 = THEME.muted,
-			TextSize = Config.IS_MOBILE and 7 or 9,
+			TextSize = isMobileDevice() and 7 or 9,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			ZIndex = 11,
 			Parent = statContainer
@@ -586,7 +593,7 @@ local function createAvatarSection(panel, data, playerColor)
 		Position = UDim2.new(0, 10, 1, -28),
 		Text = "@" .. data.username,
 		TextColor3 = THEME.muted,
-		TextSize = Config.IS_MOBILE and 10 or 13,
+		TextSize = isMobileDevice() and 10 or 13,
 		Font = Enum.Font.GothamMedium,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -614,7 +621,7 @@ local function createAvatarSection(panel, data, playerColor)
 
 		local function createLikeButton(imageId, onClick)
 			local btn = Utils.create("ImageButton", {
-				Size = UDim2.new(0, Config.IS_MOBILE and 24 or 28, 0, Config.IS_MOBILE and 24 or 28),
+				Size = UDim2.new(0, isMobileDevice() and 24 or 28, 0, isMobileDevice() and 24 or 28),
 				BackgroundTransparency = 1,
 				Image = imageId,
 				ScaleType = Enum.ScaleType.Fit,
@@ -651,7 +658,7 @@ local function createPanel(data)
 	if State.closing or not data or not data.userId then return end
 
 	local screenGui = Utils.createScreenGui(playerGui)
-	local initialOffset = Config.IS_MOBILE and 30 or 50
+	local initialOffset = isMobileDevice() and 30 or 50
 	State.container = Utils.createFrame({
 		Size = UDim2.new(0, Config.PANEL_WIDTH, 0, Config.PANEL_HEIGHT),
 		Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset),
@@ -668,15 +675,15 @@ local function createPanel(data)
 	State.target = target
 
 	-- Drag Handle (barra superior para arrastrar)
-	local dragHandleHeight = Config.IS_MOBILE and 24 or 18
+	local dragHandleHeight = isMobileDevice() and 24 or 18
 	local dragHandle = Utils.createFrame({
 		Size = UDim2.new(1, 0, 0, dragHandleHeight),
 		Parent = State.container
 	})
 
 	local dragIndicator = Utils.createFrame({
-		Size = UDim2.new(0, 44, 0, Config.IS_MOBILE and 4 or 5),
-		Position = UDim2.new(0.5, -22, 0.5, Config.IS_MOBILE and -2 or -2),
+		Size = UDim2.new(0, 44, 0, isMobileDevice() and 4 or 5),
+		Position = UDim2.new(0.5, -22, 0.5, isMobileDevice() and -2 or -2),
 		BackgroundColor3 = playerColor,
 		BackgroundTransparency = 0.3,
 		Parent = dragHandle
@@ -714,7 +721,7 @@ local function createPanel(data)
 	end))
 
 	-- Panel Container
-	local panelContainerPosition = Config.IS_MOBILE and 26 or 22
+	local panelContainerPosition = isMobileDevice() and 26 or 22
 	local panelContainer = Utils.createFrame({
 		Size = UDim2.new(1, 0, 0, Config.PANEL_HEIGHT),
 		Position = UDim2.new(0, 0, 0, panelContainerPosition),
@@ -781,6 +788,7 @@ local function createPanel(data)
 					task.wait()
 				end
 			end)
+
 			break
 		end
 	end
@@ -868,8 +876,8 @@ local function createPanel(data)
 	createButtonsSection(panel, State.target, playerColor)
 
 	-- Animación de entrada
-	local initialOffset = Config.IS_MOBILE and 30 or 50
-	local finalOffset = Config.IS_MOBILE and 70 or 90
+	local initialOffset = isMobileDevice() and 30 or 50
+	local finalOffset = isMobileDevice() and 70 or 90
 	State.container.Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset)
 	State.container.Size = UDim2.new(0, Config.PANEL_WIDTH, 0, Config.PANEL_HEIGHT)
 
@@ -901,7 +909,7 @@ function closePanel()
 
 	-- Animación de salida
 	if State.container then
-		local initialOffset = Config.IS_MOBILE and 30 or 50
+		local initialOffset = isMobileDevice() and 30 or 50
 		Utils.tween(State.container, {
 			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset)
 		}, 0.3, Enum.EasingStyle.Quad)
