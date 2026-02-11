@@ -61,9 +61,9 @@ return {
 	-- Cards
 	CARD_SIZE = dims.CARD_SIZE,
 
-	-- Animaciones
-	ANIM_FAST = 0.12,
-	ANIM_NORMAL = 0.2,
+	-- Animaciones (smooth & fluidas)
+	ANIM_FAST = 0.28,
+	ANIM_NORMAL = 0.4,
 
 	-- Cache y refresh
 	AVATAR_CACHE_TIME = 300,

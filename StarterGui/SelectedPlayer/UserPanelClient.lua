@@ -88,10 +88,10 @@ local function createButton(parent, text, layoutOrder, accentColor)
 
 	Utils.addConnection(btn.MouseEnter:Connect(function()
 		local dark = Utils.darkenColor(accentColor or THEME.accent, 0.25)
-		Utils.tween(btn, { BackgroundColor3 = dark }, Config.ANIM_FAST)
+		Utils.tween(btn, { BackgroundColor3 = dark }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	end))
 	Utils.addConnection(btn.MouseLeave:Connect(function()
-		Utils.tween(btn, { BackgroundColor3 = THEME.elevated:Lerp(accentColor or THEME.accent, 0.12) }, Config.ANIM_FAST)
+		Utils.tween(btn, { BackgroundColor3 = THEME.elevated:Lerp(accentColor or THEME.accent, 0.12) }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	end))
 	Utils.addConnection(btn.MouseButton1Click:Connect(function(x, y)
 		Utils.createRipple(btn, rippleContainer, x, y)
@@ -129,19 +129,19 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 	Utils.addConnection(backBtn.MouseEnter:Connect(function()
 		local dark = Utils.darkenColor(playerColor or THEME.accent, 0.25)
-		Utils.tween(backBtn, { BackgroundColor3 = dark }, Config.ANIM_FAST)
+		Utils.tween(backBtn, { BackgroundColor3 = dark }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	end))
 	Utils.addConnection(backBtn.MouseLeave:Connect(function()
-		Utils.tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12) }, Config.ANIM_FAST)
+		Utils.tween(backBtn, { BackgroundColor3 = THEME.elevated:Lerp(playerColor or THEME.accent, 0.12) }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	end))
 	Utils.addConnection(backBtn.MouseButton1Click:Connect(function()
 		if State.dynamicSection then
-			Utils.tween(State.dynamicSection, { Position = UDim2.new(1, 0, 0, State.dynamicSection.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
-			task.delay(0.15, function()
+			Utils.tween(State.dynamicSection, { Position = UDim2.new(1, 0, 0, State.dynamicSection.Position.Y.Offset) }, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			task.delay(0.32, function()
 				if State.dynamicSection then State.dynamicSection:Destroy() State.dynamicSection = nil end
 				if State.buttonsFrame then
 					State.buttonsFrame.Visible = true
-					Utils.tween(State.buttonsFrame, { Position = UDim2.new(0, Config.PANEL_PADDING, 0, State.buttonsFrame.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
+					Utils.tween(State.buttonsFrame, { Position = UDim2.new(0, Config.PANEL_PADDING, 0, State.buttonsFrame.Position.Y.Offset) }, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 				end
 				State.currentView = "buttons"
 				State.isLoadingDynamic = false
@@ -271,10 +271,10 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 			})
 
 			Utils.addConnection(clickBtn.MouseEnter:Connect(function()
-				Utils.tween(circleStroke, { Color = playerColor or THEME.accent, Thickness = 2.5 }, Config.ANIM_FAST)
+				Utils.tween(circleStroke, { Color = playerColor or THEME.accent, Thickness = 2.5 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 			end))
 			Utils.addConnection(clickBtn.MouseLeave:Connect(function()
-				Utils.tween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, Config.ANIM_FAST)
+				Utils.tween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 			end))
 
 			Utils.addConnection(clickBtn.MouseButton1Click:Connect(function()
@@ -319,8 +319,8 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 	State.currentView = viewType
 
 	if State.buttonsFrame then
-		Utils.tween(State.buttonsFrame, { Position = UDim2.new(-1, 0, 0, State.buttonsFrame.Position.Y.Offset) }, 0.15, Enum.EasingStyle.Quad)
-		task.delay(0.15, function()
+		Utils.tween(State.buttonsFrame, { Position = UDim2.new(-1, 0, 0, State.buttonsFrame.Position.Y.Offset) }, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+		task.delay(0.32, function()
 			if State.buttonsFrame then State.buttonsFrame.Visible = false end
 		end)
 	end
@@ -337,9 +337,9 @@ local function showDynamicSection(viewType, items, targetName, playerColor)
 	})
 
 	renderDynamicSection(viewType, items, targetName, playerColor)
-	Utils.tween(State.dynamicSection, { Position = UDim2.new(0, Config.PANEL_PADDING, 0, startY) }, 0.15, Enum.EasingStyle.Quad)
+	Utils.tween(State.dynamicSection, { Position = UDim2.new(0, Config.PANEL_PADDING, 0, startY) }, 0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 
-	task.delay(0.15, function()
+	task.delay(0.32, function()
 		State.isLoadingDynamic = false
 	end)
 end
@@ -378,7 +378,7 @@ local function createButtonsSection(panel, target, playerColor)
 
 		donateBtn.Active = false
 		donateText.Text = "Cargando..."
-		Utils.tween(donateBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
+		Utils.tween(donateBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 
 		task.spawn(function()
 			local ok, donations = pcall(function()
@@ -388,7 +388,7 @@ local function createButtonsSection(panel, target, playerColor)
 			if donateBtn and donateBtn.Parent then
 				donateBtn.Active = true
 				donateText.Text = "Donar"
-				Utils.tween(donateBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST)
+				Utils.tween(donateBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 			end
 
 			if ok and donations then
@@ -411,7 +411,7 @@ local function createButtonsSection(panel, target, playerColor)
 
 			giftBtn.Active = false
 			giftText.Text = "Cargando..."
-			Utils.tween(giftBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
+			Utils.tween(giftBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 
 			task.spawn(function()
 				local ok, passes = pcall(function()
@@ -421,7 +421,7 @@ local function createButtonsSection(panel, target, playerColor)
 				if giftBtn and giftBtn.Parent then
 					giftBtn.Active = true
 					giftText.Text = "Regalar Pase"
-					Utils.tween(giftBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST)
+					Utils.tween(giftBtn, { BackgroundTransparency = 0 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 				end
 
 				if ok and passes then
@@ -527,7 +527,7 @@ local function createAvatarSection(panel, data, playerColor)
 			Parent = statContainer
 		})
 	end
-	
+
 	local displayText = data.displayName
 
 	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
@@ -549,7 +549,7 @@ local function createAvatarSection(panel, data, playerColor)
 		ZIndex = 25,
 		Parent = avatarSection
 	})
-	
+
 	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
 		if id == data.userId then
 
@@ -630,8 +630,8 @@ local function createAvatarSection(panel, data, playerColor)
 				Parent = likeButtonsContainer
 			})
 			Utils.addConnection(btn.MouseButton1Click:Connect(onClick))
-			Utils.addConnection(btn.MouseEnter:Connect(function() Utils.tween(btn, { ImageTransparency = 0.3 }, Config.ANIM_FAST) end))
-			Utils.addConnection(btn.MouseLeave:Connect(function() Utils.tween(btn, { ImageTransparency = 0 }, Config.ANIM_FAST) end))
+			Utils.addConnection(btn.MouseEnter:Connect(function() Utils.tween(btn, { ImageTransparency = 0.3 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) end))
+			Utils.addConnection(btn.MouseLeave:Connect(function() Utils.tween(btn, { ImageTransparency = 0 }, Config.ANIM_FAST, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) end))
 			return btn
 		end
 
@@ -732,7 +732,7 @@ local function createPanel(data)
 	})
 	Utils.addCorner(panelContainer, 12)
 	local panelStroke = Utils.addStroke(panelContainer, playerColor, 2)
-	
+
 	local panelImage = Utils.create("ImageLabel", {
 		Size = UDim2.new(1, 0, 1, 0),
 		Position = UDim2.new(0, 0, 0, 0),
@@ -765,10 +765,10 @@ local function createPanel(data)
 	end
 
 
-	
+
 	Utils.addCorner(panelImage, 12)
 
-	
+
 	-- SOLO DEVELOPERS: borde animado blanco / negro
 	for _, id in ipairs(GroupRoles.Group.DeveloperUserIds) do
 		if id == data.userId then
@@ -853,11 +853,11 @@ local function createPanel(data)
 					local increase = newLikes - lastLikesValue
 					local sizeIncrease = increase >= 10 and 6 or 4
 
-					Utils.tween(State.statsLabels.likes, { TextSize = originalSize + sizeIncrease }, 0.15)
-					task.delay(0.15, function()
+					Utils.tween(State.statsLabels.likes, { TextSize = originalSize + sizeIncrease }, 0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+					task.delay(0.25, function()
 						if State.statsLabels.likes and State.statsLabels.likes.Parent then
-							Utils.tween(State.statsLabels.likes, { TextSize = originalSize }, 0.15)
-							task.delay(0.15, function()
+							Utils.tween(State.statsLabels.likes, { TextSize = originalSize }, 0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+							task.delay(0.25, function()
 								isAnimating = false
 							end)
 						end
@@ -884,7 +884,7 @@ local function createPanel(data)
 	task.defer(function()
 		Utils.tween(State.container, {
 			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, -(Config.PANEL_HEIGHT + finalOffset))
-		}, 0.5, Enum.EasingStyle.Quint)
+		}, 0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	end)
 
 	Utils.startAutoRefresh(State, Remotes)
@@ -912,10 +912,10 @@ function closePanel()
 		local initialOffset = isMobileDevice() and 30 or 50
 		Utils.tween(State.container, {
 			Position = UDim2.new(0.5, -Config.PANEL_WIDTH / 2, 1, initialOffset)
-		}, 0.3, Enum.EasingStyle.Quad)
+		}, 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
 	end
 
-	task.delay(0.3, function()
+	task.delay(0.5, function()
 		Utils.clearConnections()
 		Utils.detachHighlight(State)
 		if State.ui then State.ui:Destroy() end
