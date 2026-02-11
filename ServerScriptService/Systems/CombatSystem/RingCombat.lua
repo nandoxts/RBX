@@ -73,7 +73,6 @@ local function hitDetection(humanoid, character)
 
 	local blockValue = character:FindFirstChild("block")
 	if blockValue and blockValue.Value == true then
-		print("[ServerCombat] Golpe bloqueado")
 		return
 	end
 
@@ -101,7 +100,6 @@ end)
 ringStateRemote.OnServerEvent:Connect(function(player, newState)
 	if newState == "WAITING" or newState == "FIGHTING" or newState == "FREE" then
 		playerStates[player.UserId] = newState
-		print("[ServerCombat] Estado actualizado:", player.Name, "→", newState)
 	end
 end)
 
@@ -115,7 +113,6 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	-- SOLO permitir golpes si está EN PELEA
 	local currentState = playerStates[player.UserId]
 	if currentState ~= "FIGHTING" then
-		print("[ServerCombat] Golpe bloqueado - Estado:", currentState or "nil")
 		return
 	end
 
@@ -125,7 +122,6 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	-- Evitar duplicados
 	local punchKey = player.UserId .. "_" .. punchId
 	if activePunches[punchKey] then 
-		print("[ServerCombat] Golpe duplicado ignorado")
 		return 
 	end
 	activePunches[punchKey] = true
@@ -155,14 +151,12 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 
 				local targetState = playerStates[targetPlayer.UserId]
 				if targetState ~= "FIGHTING" then 
-					print("[ServerCombat] Objetivo no está en pelea:", targetState or "nil")
 					return 
 				end
 
 				hitTargets[targetChar] = true
 				detected = true
 
-				print("[ServerCombat] GOLPE:", player.Name, "→", targetChar.Name)
 				hitDetection(targetHumanoid, targetChar)
 
 				-- Efecto visual en el cliente
@@ -181,10 +175,6 @@ eventPunch.OnServerEvent:Connect(function(player, num, punchId)
 	end
 
 	activePunches[punchKey] = nil
-
-	if not detected then
-		print("[ServerCombat] Golpe sin impacto")
-	end
 end)
 
 ---------------------------------------------------
@@ -202,8 +192,4 @@ eventBlock.OnServerEvent:Connect(function(player, block)
 	end
 
 	blockValue.Value = block
-
-	if block then
-		print("[ServerCombat] Bloqueo activado:", player.Name)
-	end
 end)

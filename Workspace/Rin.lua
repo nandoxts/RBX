@@ -66,8 +66,6 @@ end
 -- VERSIÓN ULTRA-SIMPLE (SOLO DESHABILITA VUELO)
 ---------------------------------------------------
 local function createAntiEscapeZone(ring, player1Char, player2Char, teleport1Pos, teleport2Pos)
-	print("[Ring] ✓ Solo deshabilitando vuelo - SIN anti-escape")
-
 	-- Deshabilitar vuelo
 	local function disableFlying(character)
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -97,7 +95,6 @@ local function createAntiEscapeZone(ring, player1Char, player2Char, teleport1Pos
 		-- Restaurar vuelo al terminar
 		enableFlying(player1Char)
 		enableFlying(player2Char)
-		print("[Ring] ✓ Vuelo restaurado")
 	end)
 
 	return antiEscapeThread
@@ -139,7 +136,6 @@ local function notifyPlayerState(player, newState, immediate)
 	if newState == "FIGHTING" or immediate then
 		ringStateRemote:FireClient(player, newState)
 		player:SetAttribute("LastRingNotification", newState)
-		print("[Ring] Notificacion:", player.Name, "→", newState)
 		return
 	end
 
@@ -154,7 +150,6 @@ local function notifyPlayerState(player, newState, immediate)
 			if currentNotification ~= newState then
 				ringStateRemote:FireClient(player, newState)
 				player:SetAttribute("LastRingNotification", newState)
-				print("[Ring] Notificacion (delayed):", player.Name, "→", newState)
 			end
 			pendingNotifications[userId] = nil
 		end)
@@ -202,19 +197,9 @@ local function initializeRing(ring)
 	-- FIN DE PELEA
 	---------------------------------------------------
 	local function endFight(reason)
-		-- ═══════════════════════════════════════════════════════════
-		-- DEBUG: Rastrear exactamente por qué termina la pelea
-		-- ═══════════════════════════════════════════════════════════
-		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		print("[Ring] endFight() llamado")
-		print("[Ring] Razón:", reason or "DESCONOCIDA")
-		print("[Ring] fightActive ANTES:", fightActive)
-		print("[Ring] preparingFight ANTES:", preparingFight)
-		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 		if not fightActive then 
-			print("[Ring] ⚠️ WARNING: endFight llamado pero fightActive = false")
-			print("[Ring] Stack trace disponible en logs")
+
 			return 
 		end
 
@@ -225,15 +210,12 @@ local function initializeRing(ring)
 		if antiEscapeThread then
 			task.cancel(antiEscapeThread)
 			antiEscapeThread = nil
-			print("[Ring] Anti-escape cancelado")
+
 		end
 
 		-- 2. OBTENER JUGADORES
 		local char1 = Player1Container:FindFirstChildOfClass("Model")
 		local char2 = Player2Container:FindFirstChildOfClass("Model")
-
-		print("[Ring] Char1:", char1 and char1.Name or "nil")
-		print("[Ring] Char2:", char2 and char2.Name or "nil")
 
 		local player1 = char1 and Players:GetPlayerFromCharacter(char1)
 		local player2 = char2 and Players:GetPlayerFromCharacter(char2)
@@ -243,14 +225,12 @@ local function initializeRing(ring)
 			local hum1 = char1:FindFirstChildOfClass("Humanoid")
 			if hum1 then
 				hum1:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
-				print("[Ring] Vuelo restaurado para char1")
 			end
 		end
 		if char2 then
 			local hum2 = char2:FindFirstChildOfClass("Humanoid")
 			if hum2 then
 				hum2:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
-				print("[Ring] Vuelo restaurado para char2")
 			end
 		end
 
@@ -268,13 +248,11 @@ local function initializeRing(ring)
 		if char1 and char1:FindFirstChild("HumanoidRootPart") then
 			char1.Parent = workspace
 			char1:PivotTo(ReturnPoint.CFrame * CFrame.new(2, 0, 0))
-			print("[Ring] Char1 movido a ReturnPoint")
 		end
 
 		if char2 and char2:FindFirstChild("HumanoidRootPart") then
 			char2.Parent = workspace
 			char2:PivotTo(ReturnPoint.CFrame * CFrame.new(-2, 0, 0))
-			print("[Ring] Char2 movido a ReturnPoint")
 		end
 
 		-- 6. ESPERAR Y NOTIFICAR FREE (con delay corto)
@@ -289,7 +267,6 @@ local function initializeRing(ring)
 		-- 7. LIMPIAR CONTENEDORES
 		Player1Container:ClearAllChildren()
 		Player2Container:ClearAllChildren()
-		print("[Ring] Contenedores limpiados")
 
 		-- 8. RESTAURAR COLORES
 		changeBeamColor(Appearance1, COLOR_WAITING)
@@ -299,11 +276,7 @@ local function initializeRing(ring)
 		if fightTimer then
 			task.cancel(fightTimer)
 			fightTimer = nil
-			print("[Ring] Timer de pelea cancelado")
 		end
-
-		print("[Ring] ✅ Pelea finalizada correctamente")
-		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	end
 
 	---------------------------------------------------
@@ -315,7 +288,6 @@ local function initializeRing(ring)
 
 		humanoid.Died:Once(function()
 			if not fightActive then return end
-			print("[Ring] Jugador murio:", attacker.Name)
 
 			-- Mover ganador ANTES de terminar pelea
 			if victim and victim.Parent then
@@ -332,7 +304,6 @@ local function initializeRing(ring)
 	-- SIN TIMER - PELEA HASTA LA MUERTE
 	---------------------------------------------------
 	local function startFightTimer(char1, char2)
-		print("[Ring] ✓ Pelea sin límite de tiempo - Solo termina por muerte")
 
 		-- NO crear timer - la pelea solo termina cuando alguien muere
 		fightTimer = nil
@@ -344,8 +315,6 @@ local function initializeRing(ring)
 	local function startFight(char1, char2)
 		if preparingFight or fightActive then return end
 		preparingFight = true
-
-		print("[Ring] Iniciando pelea:", char1.Name, "vs", char2.Name)
 
 		-- Esperar 4 segundos de cuenta regresiva
 		local startTime = tick()
@@ -399,8 +368,6 @@ local function initializeRing(ring)
 
 		-- Timer de pelea
 		startFightTimer(char1, char2)
-
-		print("[Ring] PELEA ACTIVA - Ya no se verifica si salen de contenedores")
 	end
 
 	---------------------------------------------------
@@ -455,21 +422,13 @@ local function initializeRing(ring)
 			-- Notificar WAITING (UNA SOLA VEZ)
 			notifyPlayerState(player, "WAITING")
 
-			print("[Ring] Player1 en espera:", character.Name)
 			tryMatchPlayers()
 		end
 	end)
 
 	Appearance1.TouchEnded:Connect(function(hit)
 		-- CRÍTICO: NO procesar si hay pelea activa
-		if fightActive then 
-			-- DEBUG: Registrar si esto se dispara durante pelea
-			local character = hit.Parent
-			if character and character:FindFirstChild("Humanoid") then
-				print("[Ring] ⚠️ TouchEnded disparado durante pelea activa para:", character.Name)
-			end
-			return 
-		end
+		if fightActive then return end
 
 		local character = hit.Parent
 		local player = Players:GetPlayerFromCharacter(character)
@@ -483,12 +442,9 @@ local function initializeRing(ring)
 			-- Notificar FREE
 			notifyPlayerState(player, "FREE")
 
-			print("[Ring] Player1 salio:", character.Name)
-
 			-- Solo cancelar preparación si no hay pelea activa
 			if preparingFight and not fightActive then
 				preparingFight = false
-				print("[Ring] Preparacion cancelada - Player1 salio")
 			end
 		end
 	end)
@@ -515,21 +471,13 @@ local function initializeRing(ring)
 			-- Notificar WAITING (UNA SOLA VEZ)
 			notifyPlayerState(player, "WAITING")
 
-			print("[Ring] Player2 en espera:", character.Name)
 			tryMatchPlayers()
 		end
 	end)
 
 	Appearance2.TouchEnded:Connect(function(hit)
 		-- CRÍTICO: NO procesar si hay pelea activa
-		if fightActive then 
-			-- DEBUG: Registrar si esto se dispara durante pelea
-			local character = hit.Parent
-			if character and character:FindFirstChild("Humanoid") then
-				print("[Ring] ⚠️ TouchEnded disparado durante pelea activa para:", character.Name)
-			end
-			return 
-		end
+		if fightActive then return end
 
 		local character = hit.Parent
 		local player = Players:GetPlayerFromCharacter(character)
@@ -543,12 +491,9 @@ local function initializeRing(ring)
 			-- Notificar FREE
 			notifyPlayerState(player, "FREE")
 
-			print("[Ring] Player2 salio:", character.Name)
-
 			-- Solo cancelar preparación si no hay pelea activa
 			if preparingFight and not fightActive then
 				preparingFight = false
-				print("[Ring] Preparacion cancelada - Player2 salio")
 			end
 		end
 	end)

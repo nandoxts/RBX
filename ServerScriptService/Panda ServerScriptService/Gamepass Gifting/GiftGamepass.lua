@@ -236,7 +236,7 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 				
 				if isAdmin then
 					-- ADMINS: Regalar SIN COSTO
-					giftGamepassFree(player, gamepass, userId, username)
+					giftGamepassFree(player, gamepass, userId, recipientName)
 				else
 					-- USUARIOS NORMALES: Regalar PAGANDO robux
 					local owns = checkUserGamepassOwnership(userId, gamepass[1])

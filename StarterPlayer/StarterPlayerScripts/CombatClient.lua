@@ -200,8 +200,6 @@ ringStateRemote.OnClientEvent:Connect(function(newState)
 	currentState = newState
 	lastNotificationState = newState
 
-	print("[ClientCombat] Estado:", oldState, "→", newState)
-
 	-- ══════════════════════════════════════════════════════════════
 	-- CRÍTICO: Notificar al servidor del cambio de estado
 	-- ══════════════════════════════════════════════════════════════
