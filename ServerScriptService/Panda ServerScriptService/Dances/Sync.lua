@@ -95,11 +95,12 @@ InitializeDanceCache()
 -- UTILIDADES
 --------------------------------------------------------------------------------
 
--- Validar que un jugador existe y tiene datos
+-- Validar que un jugador existe, tiene datos, y NO está en proceso de salir
 local function IsValidPlayer(player)
 	return player 
 		and player.Parent == Players 
 		and PlayerData[player] ~= nil
+		and not PlayerData[player].Leaving -- [FIX-LAG] Rechazar jugadores que están saliendo
 end
 
 -- Implementación de GetSyncState RemoteFunction
@@ -236,7 +237,7 @@ local function NotifyFollowers(player)
 
 		if #followerNames > 0 then
 			pcall(function()
-				SyncUpdate:FireClient(player, {
+				SendSyncUpdate(player, {
 					followerNotification = true,
 					followerNames = followerNames
 				})
@@ -248,6 +249,21 @@ end
 --------------------------------------------------------------------------------
 -- SISTEMA DE ANIMACIONES
 --------------------------------------------------------------------------------
+
+-- [FIX-LAG] Helper centralizado para enviar SyncUpdate con número de secuencia.
+-- El cliente puede usar `seq` para descartar mensajes que lleguen fuera de orden.
+-- Ejemplo: si recibe seq=5 y luego seq=3, descarta el seq=3.
+local function SendSyncUpdate(player, payload)
+	if not player or not PlayerData[player] then return end
+
+	-- Incrementar secuencia
+	PlayerData[player].SyncSeq = (PlayerData[player].SyncSeq or 0) + 1
+	payload.seq = PlayerData[player].SyncSeq
+
+	pcall(function()
+		SendSyncUpdate(player, payload)
+	end)
+end
 
 -- Notificar al cliente sobre cambio de animación
 local function NotifyClient(player, animationName)
@@ -276,7 +292,7 @@ local function NotifyClient(player, animationName)
 		end
 
 		-- SIEMPRE enviar payload completo con todos los campos
-		SyncUpdate:FireClient(player, { 
+		SendSyncUpdate(player, { 
 			isSynced = isSynced, 
 			leaderName = leaderName, 
 			leaderUserId = leaderUserId, 
@@ -345,9 +361,6 @@ local function StopPlayerAnimation(player)
 		data.Animation = nil
 	end
 	data.AnimationName = nil
-
-	-- NOTA: NO enviamos SyncUpdate aquí porque puede interferir con Follow()
-	-- El estado de sync se maneja en Follow(), Unfollow() y NotifyClient()
 end
 
 -- Reproducir una animación en un jugador específico
@@ -392,7 +405,6 @@ local function GetValidFollowers(player)
 
 	local validFollowers = {}
 	for _, follower in ipairs(PlayerData[player].Followers) do
-		-- Validar que sea un jugador válido ANTES de agregarlo
 		if follower and follower.Parent == Players and PlayerData[follower] then
 			table.insert(validFollowers, follower)
 		end
@@ -400,14 +412,13 @@ local function GetValidFollowers(player)
 	return validFollowers
 end
 
--- Agregar seguidor SIN duplicados (más rápido que table.find)
+-- Agregar seguidor SIN duplicados
 local function AddFollower(leader, follower)
 	if not IsValidPlayer(leader) or not IsValidPlayer(follower) then return false end
 
-	-- Verificar si ya existe en la lista
 	for _, existing in ipairs(PlayerData[leader].Followers) do
 		if existing == follower then
-			return false -- Ya existe, no agregar
+			return false
 		end
 	end
 
@@ -426,18 +437,15 @@ local function PropagateToFollowerChain(followers, animId, animName, timePos, sp
 	local queue = {}
 	local processed = {}
 
-	-- Agregar followers iniciales a la cola
 	for _, follower in ipairs(followers) do
 		if IsValidPlayer(follower) then
 			table.insert(queue, follower)
 		end
 	end
 
-	-- Procesar cola de forma iterativa
 	while #queue > 0 do
 		local follower = table.remove(queue, 1)
 
-		-- Evitar procesar el mismo follower dos veces
 		if not processed[follower] then
 			processed[follower] = true
 
@@ -445,7 +453,6 @@ local function PropagateToFollowerChain(followers, animId, animName, timePos, sp
 				PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
 				NotifyClient(follower, animName)
 
-				-- Agregar sub-followers de este follower a la cola (sin recursión)
 				local subFollowers = GetValidFollowers(follower)
 				for _, subFollower in ipairs(subFollowers) do
 					if not processed[subFollower] then
@@ -457,13 +464,12 @@ local function PropagateToFollowerChain(followers, animId, animName, timePos, sp
 	end
 end
 
--- Detener animaciones de todos los seguidores (y opcionalmente desincronizarlos)
-local function StopFollowersAnimations(leader, alsoUnsync)
-	-- Si el leader no tiene PlayerData, no hay nada que hacer
+-- Detener animaciones de todos los seguidores (sin tocar estado de sync)
+-- NOTA: Este método ya NO recibe alsoUnsync. Solo detiene animaciones.
+-- Para desincronizar al salir un líder, usar OnLeaderRemoving().
+local function StopFollowersAnimations(leader)
 	if not PlayerData[leader] then return end
 
-	-- Obtener seguidores directamente sin validar si el leader está en Players
-	-- (esto es importante para OnPlayerRemoving donde player.Parent ya no es Players)
 	local allFollowers = {}
 	local function collectFollowers(currentPlayer, visited)
 		visited = visited or {}
@@ -483,39 +489,108 @@ local function StopFollowersAnimations(leader, alsoUnsync)
 	collectFollowers(leader)
 
 	for _, follower in ipairs(allFollowers) do
-		-- Validar que el seguidor sigue siendo válido
 		if IsValidPlayer(follower) then
-			if alsoUnsync then
-				-- Limpiar el estado de sincronización cuando el líder se sale
-				if PlayerData[follower] then
-					PlayerData[follower].Following = nil
-
-					-- ACTUALIZAR atributo "following" para DanceLeaderSystem
-					pcall(function()
-						follower:SetAttribute("following", nil)
-					end)
-				end
+			if CanAnimate(follower) then
+				StopPlayerAnimation(follower)
 			end
+			NotifyClient(follower, nil)
+		end
+	end
+end
 
-			-- Detener animación si existe
+--[[
+	[FIX] Cuando un líder se sale del juego, solo desincronizar a sus seguidores DIRECTOS.
+	Los sub-seguidores mantienen su relación con su sub-líder intacta.
+	
+	Ejemplo: K,L → A → X ← B ← M,N  y  C → X
+	X se sale:
+	  - A, B, C: Following = nil (seguían a X directo) → se desincronizan
+	  - K, L: siguen synced a A → NO se tocan (A.Followers intacto)
+	  - M, N: siguen synced a B → NO se tocan (B.Followers intacto)
+	  - Animaciones se detienen para TODOS (el root source ya no existe)
+	  
+	Después del cleanup:
+	  - A es ahora un líder independiente con K,L como seguidores
+	  - B es ahora un líder independiente con M,N como seguidores
+	  - Cuando A baile algo nuevo, K y L lo seguirán normalmente
+]]
+local function OnLeaderRemoving(leavingPlayer)
+	local data = PlayerData[leavingPlayer]
+	if not data then return end
+
+	-- Construir set de seguidores DIRECTOS para lookup rápido
+	local directFollowers = data.Followers or {}
+	local directSet = {}
+	for _, df in ipairs(directFollowers) do
+		directSet[df] = true
+	end
+
+	-- Recolectar TODOS los seguidores recursivamente (para detener animaciones)
+	local allFollowers = {}
+	local function collectAll(currentPlayer, visited)
+		visited = visited or {}
+		if visited[currentPlayer] then return end
+		visited[currentPlayer] = true
+
+		local d = PlayerData[currentPlayer]
+		if not d or not d.Followers then return end
+
+		for _, follower in ipairs(d.Followers) do
+			if follower and follower.Parent == Players and PlayerData[follower] and not visited[follower] then
+				table.insert(allFollowers, follower)
+				collectAll(follower, visited)
+			end
+		end
+	end
+	collectAll(leavingPlayer)
+
+	-- Procesar cada seguidor encontrado
+	for _, follower in ipairs(allFollowers) do
+		if IsValidPlayer(follower) then
+			-- Detener animación de TODOS (el root source se fue)
 			if CanAnimate(follower) then
 				StopPlayerAnimation(follower)
 			end
 
-			-- ENVIAR notificación al cliente
-			if alsoUnsync then
-				-- Cuando se desincroniza, avisar que no hay más sync
+			if directSet[follower] then
+				-- ═══ SEGUIDOR DIRECTO de X ═══
+				-- Pierde su Following (ya no sigue a nadie)
+				-- PERO conserva sus propios Followers intactos
+				PlayerData[follower].Following = nil
+
 				pcall(function()
-					SyncUpdate:FireClient(follower, { 
+					follower:SetAttribute("following", nil)
+				end)
+
+				-- Notificar: ya no está synced, sin animación
+				pcall(function()
+					SendSyncUpdate(follower, { 
 						isSynced = false, 
 						leaderName = nil, 
 						animationName = nil, 
 						speed = nil 
 					})
+					StopAnimationRemote:FireClient(follower)
 				end)
 			else
-				-- Cuando solo se detiene, usar NotifyClient normal
-				NotifyClient(follower, nil)
+				-- ═══ SUB-SEGUIDOR (no seguía a X directamente) ═══
+				-- Mantiene su Following y su posición en la cadena intacta
+				-- Solo pierde la animación porque el root ya no existe
+				local fData = PlayerData[follower]
+				local leaderRef = fData.Following
+				local leaderName = (leaderRef and IsValidPlayer(leaderRef)) and leaderRef.Name or nil
+				local leaderUserId = (leaderRef and IsValidPlayer(leaderRef)) and leaderRef.UserId or nil
+
+				pcall(function()
+					SendSyncUpdate(follower, { 
+						isSynced = (leaderRef ~= nil), 
+						leaderName = leaderName,
+						leaderUserId = leaderUserId,
+						animationName = nil,
+						speed = nil 
+					})
+					StopAnimationRemote:FireClient(follower)
+				end)
 			end
 		end
 	end
@@ -533,25 +608,18 @@ local function Unfollow(player)
 	local currentLeader = data.Following
 
 	if currentLeader and IsValidPlayer(currentLeader) then
-		-- Remover de la lista de seguidores del líder anterior
 		RemoveFollower(currentLeader, player)
-		-- ACTUALIZAR atributo del líder para que Dance Leader System se entere
 		UpdateFollowerCount(currentLeader)
 	end
 
 	data.Following = nil
 
-	-- ACTUALIZAR atributo "following" para DanceLeaderSystem
 	pcall(function()
 		player:SetAttribute("following", nil)
 	end)
 
-	-- Actualizar indicador visual
-	-- Nota: dejamos de usar SyncOnOff/atributos en el character; el cliente recibirá el estado por SyncUpdate
-
-	-- Notificar cliente inmediatamente que dejó de seguir
 	pcall(function()
-		SyncUpdate:FireClient(player, { isSynced = false, leaderName = nil, animationName = nil, speed = nil })
+		SendSyncUpdate(player, { isSynced = false, leaderName = nil, animationName = nil, speed = nil })
 	end)
 end
 
@@ -576,7 +644,6 @@ local function Follow(follower, leader)
 	local currentLeader = followerData.Following
 	if currentLeader and IsValidPlayer(currentLeader) then
 		RemoveFollower(currentLeader, follower)
-		-- ACTUALIZAR atributo del líder anterior para que Dance Leader System se entere
 		UpdateFollowerCount(currentLeader)
 	end
 
@@ -586,15 +653,11 @@ local function Follow(follower, leader)
 	-- Establecer nuevo líder
 	followerData.Following = leader
 
-	-- ACTUALIZAR atributo "following" para DanceLeaderSystem
 	pcall(function()
 		follower:SetAttribute("following", leader.Name)
 	end)
 
-	-- Agregar a la lista de seguidores del nuevo líder (sin duplicados)
 	AddFollower(leader, follower)
-
-	-- ACTUALIZAR atributo del nuevo líder para que Dance Leader System se entere
 	UpdateFollowerCount(leader)
 
 	-- Restaurar mis seguidores (ellos me siguen a mí, no al nuevo líder)
@@ -615,40 +678,32 @@ local function Follow(follower, leader)
 			speed = rootData.Animation.Speed
 			hasAnimation = true
 
-			-- Aplicar animación al nuevo seguidor
 			PlayAnimationOnPlayer(follower, animId, animName, timePos, speed)
 
-			-- Propagar a todos mis seguidores usando el helper
 			if #myFollowers > 0 then
 				PropagateToFollowerChain(myFollowers, animId, animName, timePos, speed)
 			end
 		end
 	end
 
-	-- ✅ ENVIAR UN SOLO SyncUpdate CON TODO EL ESTADO ACTUALIZADO
 	local leaderUserId = rootLeader and rootLeader.UserId or leader.UserId
 
-	local success = pcall(function()
-		SyncUpdate:FireClient(follower, { 
+	pcall(function()
+		SendSyncUpdate(follower, { 
 			isSynced = true, 
 			leaderName = leader.Name, 
 			leaderUserId = leaderUserId, 
 			animationName = animName, 
 			speed = speed,
-			success = true -- ✅ Indicador explícito de éxito
+			success = true
 		})
 	end)
 
-	-- ✅ También enviar PlayAnimationRemote si hay animación activa
-	-- (esto sincroniza la UI en EmoteUI.lua)
 	if hasAnimation and animName then
 		pcall(function()
 			PlayAnimationRemote:FireClient(follower, "playAnim", animName)
 		end)
 	end
-
-	-- ✅ NOTA: NotifyFollowers() ahora se llama desde OnSyncAction DESPUÉS de confirmar éxito
-	-- (movido fuera de Follow para evitar notificaciones prematuras)
 
 	return true
 end
@@ -662,22 +717,16 @@ local function OnPlayAnimation(player, action, animationData)
 	if not IsValidPlayer(player) then return end
 
 	if action == "playAnim" and animationData and DanceCache[animationData] then
-		-- Guardar mis seguidores válidos antes de cambiar
 		local myFollowers = GetValidFollowers(player)
 
-		-- Si estoy siguiendo a alguien, dejar de seguir
-		-- (porque ahora YO soy el que elige el baile)
 		Unfollow(player)
 
-		-- Restaurar mis seguidores
 		PlayerData[player].Followers = myFollowers
 
-		-- Reproducir la animación
 		local animId = DanceCache[animationData]
 		if PlayAnimationOnPlayer(player, animId, animationData, 0, 1) then
 			NotifyClient(player, animationData)
 
-			-- Propagar a todos mis seguidores
 			if IsValidPlayer(player) and #myFollowers > 0 then
 				PropagateToFollowerChain(myFollowers, animId, animationData, 0, 1)
 			end
@@ -689,11 +738,9 @@ end
 local function OnStopAnimation(player)
 	if not IsValidPlayer(player) then return end
 
-	-- Detener mi animación
 	StopPlayerAnimation(player)
 	NotifyClient(player, nil)
 
-	-- Detener animaciones de todos mis seguidores
 	StopFollowersAnimations(player)
 end
 
@@ -702,7 +749,6 @@ local function OnSyncAction(player, action, target)
 	if not IsValidPlayer(player) then return end
 
 	if action == "sync" then
-		-- El cliente puede enviar un Player object o un string (nombre)
 		local targetPlayer
 		if typeof(target) == "Instance" and target:IsA("Player") then
 			targetPlayer = target
@@ -710,12 +756,9 @@ local function OnSyncAction(player, action, target)
 			targetPlayer = FindPlayerByName(target)
 		end
 
-		-- ✅ VALIDACIONES TEMPRANAS: Verificar TODO antes de ejecutar Follow()
-
-		-- Validación 1: Jugador no encontrado
 		if not targetPlayer or not IsValidPlayer(targetPlayer) then
 			pcall(function()
-				SyncUpdate:FireClient(player, { 
+				SendSyncUpdate(player, { 
 					isSynced = false, 
 					leaderName = nil, 
 					animationName = nil, 
@@ -726,10 +769,9 @@ local function OnSyncAction(player, action, target)
 			return
 		end
 
-		-- Validación 2: Intentar sincronizarse consigo mismo
 		if player == targetPlayer then
 			pcall(function()
-				SyncUpdate:FireClient(player, { 
+				SendSyncUpdate(player, { 
 					isSynced = false, 
 					leaderName = nil, 
 					animationName = nil, 
@@ -740,12 +782,11 @@ local function OnSyncAction(player, action, target)
 			return
 		end
 
-		-- Validación 3: Prevenir loops (el target ya me sigue directa o indirectamente)
 		local allMyFollowers = GetAllFollowers(player)
 		for _, f in ipairs(allMyFollowers) do
 			if f == targetPlayer then
 				pcall(function()
-					SyncUpdate:FireClient(player, { 
+					SendSyncUpdate(player, { 
 						isSynced = false, 
 						leaderName = nil, 
 						animationName = nil, 
@@ -757,16 +798,13 @@ local function OnSyncAction(player, action, target)
 			end
 		end
 
-		-- ✅ AHORA sí, ejecutar Follow (todas las validaciones pasaron)
 		local syncSuccess = Follow(player, targetPlayer)
 
 		if syncSuccess then
-			-- ✅ Solo notificar al líder si la sincronización fue exitosa
 			NotifyFollowers(targetPlayer)
 		else
-			-- Si Follow falló por alguna razón inesperada, notificar error
 			pcall(function()
-				SyncUpdate:FireClient(player, { 
+				SendSyncUpdate(player, { 
 					isSynced = false, 
 					leaderName = nil, 
 					animationName = nil, 
@@ -777,17 +815,13 @@ local function OnSyncAction(player, action, target)
 		end
 
 	elseif action == "unsync" then
-		-- Guardar seguidores válidos antes de desincronizar
 		local myFollowers = GetValidFollowers(player)
 
-		-- Dejar de seguir
 		Unfollow(player)
 
-		-- Detener mi animación
 		StopPlayerAnimation(player)
 		NotifyClient(player, nil)
 
-		-- Restaurar seguidores y detener sus animaciones
 		PlayerData[player].Followers = myFollowers
 		StopFollowersAnimations(player)
 	end
@@ -798,32 +832,25 @@ end
 --------------------------------------------------------------------------------
 
 local function OnCharacterAdded(character)
-	-- Obtener player ANTES de cualquier otra cosa
 	local player = Players:GetPlayerFromCharacter(character)
 	if not player or not PlayerData[player] then return end
 
-	-- 🔄 IMPORTANTE: GUARDAR estado de sync ANTES de limpiar
 	local wasFollowing = PlayerData[player].Following
-	local myFollowers = GetValidFollowers(player) -- Validar followers ANTES de copiar
+	local myFollowers = GetValidFollowers(player)
 
-	-- LIMPIAR referencias stale en TODOS los demás jugadores
-	-- (previene que la animación se propague al nuevo character)
 	for otherPlayer, data in pairs(PlayerData) do
 		if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
 			RemoveFollower(otherPlayer, player)
 		end
 	end
 
-	-- Crear instancias necesarias en el nuevo character
 	local animation = Instance.new("Animation")
 	animation.Name = "Baile"
 	animation.Parent = character
 
-	-- Usar spawn para no bloquear si Humanoid tarda
 	task.spawn(function()
 		local humanoid = character:FindFirstChild("Humanoid")
 
-		-- Si no hay Humanoid inmediatamente, esperar máximo 1 segundo
 		if not humanoid then
 			humanoid = character:WaitForChild("Humanoid", 1)
 		end
@@ -831,29 +858,22 @@ local function OnCharacterAdded(character)
 		if humanoid then
 			local diedConnection
 			diedConnection = humanoid.Died:Connect(function()
-				-- Desconectar de inmediato
 				if diedConnection then
 					diedConnection:Disconnect()
 					diedConnection = nil
 				end
 
-				-- Validar jugador sigue siendo válido
 				if not IsValidPlayer(player) then return end
 				if not PlayerData[player] then return end
 
-				-- Detener animación al morir
 				StopPlayerAnimation(player)
 
-				-- Guardar seguidores antes de limpiar
 				local myFollowers = ShallowCopy(PlayerData[player].Followers)
 
-				-- Dejar de seguir a líder
 				if PlayerData[player].Following then
 					Unfollow(player)
 				end
 
-				-- SIEMPRE limpiar referencias stale en TODOS los casos
-				-- (esto previene que se propague animaciones al respawnear)
 				for otherPlayer, data in pairs(PlayerData) do
 					if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
 						RemoveFollower(otherPlayer, player)
@@ -861,10 +881,7 @@ local function OnCharacterAdded(character)
 				end
 
 				if Settings.ResetAnimationOnRespawn then
-					-- Notificar a seguidores que ya no hay animación
 					StopFollowersAnimations(player)
-
-					-- Limpiar seguidores
 					PlayerData[player].Followers = {}
 				end
 			end)
@@ -874,22 +891,49 @@ local function OnCharacterAdded(character)
 			end
 		end
 
-		--  RESTAURAR sync después del respawn/;char
-		task.wait(0.5) -- Esperar a que el character esté completamente cargado
+		-- [FIX-LAG] Esperar a que el character esté REALMENTE listo
+		-- En vez de task.wait(0.5) hardcodeado, verificar que Humanoid+Animator+Baile existan
+		-- con timeout máximo de 3 segundos para tolerar lag
+		local ready = false
+		local maxWait = 3
+		local elapsed = 0
+		local step = 0.2
+
+		while elapsed < maxWait do
+			task.wait(step)
+			elapsed = elapsed + step
+
+			if not IsValidPlayer(player) then return end
+
+			local char = player.Character
+			if char then
+				local hum = char:FindFirstChild("Humanoid")
+				local anim = hum and hum:FindFirstChild("Animator")
+				local baile = char:FindFirstChild("Baile")
+				if hum and hum.Health > 0 and anim and baile then
+					ready = true
+					break
+				end
+			end
+		end
 
 		if not IsValidPlayer(player) then return end
 
-		-- Restaurar mis seguidores
+		-- [FIX-LAG] SIEMPRE restaurar seguidores, incluso si el character no está listo
+		-- (las relaciones de sync son independientes de poder animar)
 		PlayerData[player].Followers = myFollowers
 		UpdateFollowerCount(player)
 
-		-- Si estaba siguiendo a alguien, RE-SINCRONIZAR
+		if not ready then
+			-- Character no está listo después de 3s, restauramos relaciones pero
+			-- no intentamos animar ni re-sync (se re-intentará en el próximo respawn)
+			return
+		end
+
 		if wasFollowing and IsValidPlayer(wasFollowing) then
-			-- Re-establecer la sincronización
 			Follow(player, wasFollowing)
 		end
 
-		-- Notificar a mis seguidores que sigo disponible
 		if #myFollowers > 0 then
 			NotifyFollowers(player)
 		end
@@ -897,25 +941,23 @@ local function OnCharacterAdded(character)
 end
 
 local function OnPlayerAdded(player)
-	-- Inicializar datos del jugador
 	PlayerData[player] = {
 		Animation = nil,
 		AnimationName = nil,
 		Following = nil,
 		Followers = {},
 		Connections = {},
+		Leaving = false, -- [FIX-LAG] Flag para rechazar Follow() durante PlayerRemoving
+		SyncSeq = 0, -- [FIX-LAG] Contador de secuencia para que el cliente descarte mensajes stale
 	}
 
-	-- Conexión para cuando se agrega el personaje
 	local charConnection = player.CharacterAdded:Connect(OnCharacterAdded)
 	table.insert(PlayerData[player].Connections, charConnection)
 
-	-- Si ya tiene personaje, inicializarlo
 	if player.Character then
 		OnCharacterAdded(player.Character)
 	end
 
-	-- Manejar comandos de chat
 	local chatConnection = player.Chatted:Connect(function(message)
 		local args = message:split(" ")
 		local command = args[1] and args[1]:lower()
@@ -932,38 +974,84 @@ local function OnPlayerAdded(player)
 	table.insert(PlayerData[player].Connections, chatConnection)
 end
 
+--[[
+	[FIX] OnPlayerRemoving reescrito completamente.
+	
+	Problema original: 
+	  1. Unfollow() fallaba porque IsValidPlayer chequea player.Parent == Players
+	     y al dispararse PlayerRemoving el jugador ya está saliendo.
+	  2. StopFollowersAnimations(player, true) destruía TODA la cadena de sync,
+	     incluyendo sub-seguidores que no seguían al jugador directamente.
+	
+	Fix:
+	  - Usar OnLeaderRemoving() que solo desincroniza DIRECTOS y preserva sub-cadenas
+	  - Limpiar relación con líder manualmente (sin Unfollow)
+	  - Limpiar referencias stale en todos los demás jugadores
+]]
 local function OnPlayerRemoving(player)
 	if not PlayerData[player] then return end
 
-	-- Desincronizar a TODOS los seguidores (detener animaciones + limpiar sync + notificar)
-	StopFollowersAnimations(player, true)
+	local data = PlayerData[player]
 
-	-- Detener mi animación
-	StopPlayerAnimation(player)
+	-- [FIX-LAG] Marcar como "saliendo" PRIMERO para que IsValidPlayer lo rechace
+	-- Esto previene que alguien haga Follow(x, player) durante el cleanup
+	data.Leaving = true
 
-	-- Dejar de seguir a mi líder
-	Unfollow(player)
+	-- 1. [FIX] Desincronizar solo seguidores DIRECTOS, preservar sub-cadenas
+	--    K,L→A→X: solo A pierde sync, K y L siguen a A normalmente
+	OnLeaderRemoving(player)
 
-	-- Remover de la lista de seguidores de otros jugadores
-	for otherPlayer, data in pairs(PlayerData) do
-		if otherPlayer ~= player and IsValidPlayer(otherPlayer) then
-			RemoveFollower(otherPlayer, player)
+	-- 2. Detener mi animación (sin usar IsValidPlayer que falla aquí)
+	if data.Animation then
+		pcall(function()
+			data.Animation:Stop(FADE_TIME)
+			data.Animation:Destroy()
+		end)
+		data.Animation = nil
+	end
+	data.AnimationName = nil
+
+	-- 3. [FIX] Limpiar mi relación con mi líder MANUALMENTE
+	--    (no usar Unfollow() porque IsValidPlayer(player) falla aquí)
+	local myLeader = data.Following
+	if myLeader and PlayerData[myLeader] then
+		SafeRemoveFromArray(PlayerData[myLeader].Followers, player)
+
+		if myLeader.Parent == Players then
+			UpdateFollowerCount(myLeader)
+			NotifyFollowers(myLeader)
+		end
+	end
+	data.Following = nil
+
+	-- 4. [FIX] Remover de la lista de seguidores de TODOS los demás jugadores
+	--    + actualizar sus follower counts
+	for otherPlayer, otherData in pairs(PlayerData) do
+		if otherPlayer ~= player and otherPlayer.Parent == Players then
+			local hadFollower = false
+			for i = #otherData.Followers, 1, -1 do
+				if otherData.Followers[i] == player then
+					table.remove(otherData.Followers, i)
+					hadFollower = true
+				end
+			end
+			if hadFollower then
+				UpdateFollowerCount(otherPlayer)
+			end
 		end
 	end
 
-	-- Limpiar broadcasts pendientes de este jugador
-	if PendingBroadcasts[player] then
-		PendingBroadcasts[player] = nil
-	end
+	-- 5. Limpiar broadcasts pendientes
+	PendingBroadcasts[player] = nil
 
-	-- Desconectar todas las conexiones
-	for _, connection in ipairs(PlayerData[player].Connections) do
+	-- 6. Desconectar todas las conexiones
+	for _, connection in ipairs(data.Connections) do
 		if connection then
 			pcall(function() connection:Disconnect() end)
 		end
 	end
 
-	-- Limpiar datos
+	-- 7. Limpiar datos
 	PlayerData[player] = nil
 end
 
@@ -971,15 +1059,12 @@ end
 -- INICIALIZACIÓN
 --------------------------------------------------------------------------------
 
--- Conectar eventos
 Players.PlayerAdded:Connect(OnPlayerAdded)
 Players.PlayerRemoving:Connect(OnPlayerRemoving)
 PlayAnimationRemote.OnServerEvent:Connect(OnPlayAnimation)
 StopAnimationRemote.OnServerEvent:Connect(OnStopAnimation)
 SyncRemote.OnServerEvent:Connect(OnSyncAction)
 
--- Inicializar jugadores existentes
 for _, player in ipairs(Players:GetPlayers()) do
 	OnPlayerAdded(player)
 end
-

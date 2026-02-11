@@ -470,7 +470,7 @@ local function onPurchase(player, assetId, wasPurchased, isGamepass)
 			DonationNotify:FireClient(donatedPlayer, player.UserId, price, creatorId)
 		end
 		if DonationMessage then
-			DonationMessage:FireClient(player, player.Name, price, creatorName)
+			DonationMessage:FireAllClients(player.Name, price, creatorName)
 		end
 
 		-- Registrar donación

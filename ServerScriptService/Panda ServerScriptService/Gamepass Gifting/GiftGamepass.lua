@@ -109,9 +109,7 @@ end
 
 -- Función para regalar un gamepass SIN COSTO (para admins)
 local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsername)
-	-- Validar parámetros
 	if not admin or not gamepass or not gamepass[1] or not recipientUserId or not recipientUsername then
-		warn("Error: Parámetros inválidos en giftGamepassFree")
 		if admin then
 			GamepassGifting:FireClient(admin, "Error", "Parámetros inválidos")
 		end
@@ -121,8 +119,10 @@ local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsern
 	-- Verificar si el destinatario ya tiene el gamepass
 	local owns = checkUserGamepassOwnership(recipientUserId, gamepass[1])
 	if owns then
-		local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-		GamepassGifting:FireClient(admin, "Error", recipientUsername .. " ya tiene el gamepass " .. (Asset and Asset.Name or "Unknown"))
+		local success, Asset = pcall(function()
+			return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+		end)
+		GamepassGifting:FireClient(admin, "Error", recipientUsername .. " ya tiene el gamepass " .. (success and Asset and Asset.Name or "Unknown"))
 		return
 	end
 
@@ -181,7 +181,6 @@ local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsern
 		end)
 	end
 
-	-- ✅ DISPARA EL BROADCAST A TODOS LOS CLIENTES
 	GiftBroadcastEvent:FireAllClients("GiftNotification", {
 		Donor = admin.Name,
 		Recipient = recipientUsername,
@@ -199,25 +198,14 @@ end
 
 -- Evento para iniciar el proceso de regalo
 GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, username, identifier)
-	--// -- // -- // -- // -- // --
-	-- Forzar a número y validar
-	userId = tonumber(userId)
-	identifier = tonumber(identifier)
-	--[[
-	if not userId or not identifier then
-		warn("Datos inválidos recibidos en GamepassGifting")
+	if not gamepass or type(gamepass) ~= "table" or not gamepass[1] or not gamepass[2] then
+		GamepassGifting:FireClient(player, "Error", "Datos del gamepass inválidos")
 		return
 	end
 
-	-- Verificar si existe el usuario por ID
-	local success, name = pcall(function()
-		return Players:GetNameFromUserIdAsync(userId)
-	end)
-	if not success or not name then return end
-	]]
-	--// -- // -- // -- // -- // --
+	userId = tonumber(userId)
+	identifier = tonumber(identifier)
 
-	-- Obtener el nombre CORRECTO del receptor desde el ID (no usar el parámetro username que viene del cliente)
 	local recipientName = nil
 	local success = pcall(function()
 		recipientName = game.Players:GetNameFromUserIdAsync(userId)
@@ -231,23 +219,27 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	for _, purchaseablegamepass in pairs(getAllPurchaseables()) do
 		if purchaseablegamepass[1] == gamepass[1] and purchaseablegamepass[2] == gamepass[2] then
 			if player.UserId ~= userId then
-				-- ✅ VERIFICAR SI ES ADMIN
 				local isAdmin = AdminConfig:IsAdmin(player)
 				
 				if isAdmin then
-					-- ADMINS: Regalar SIN COSTO
 					giftGamepassFree(player, gamepass, userId, recipientName)
 				else
-					-- USUARIOS NORMALES: Regalar PAGANDO robux
 					local owns = checkUserGamepassOwnership(userId, gamepass[1])
 
 					if not owns then
 						PlayersGifted[player.UserId] = userId
 						MarketplaceService:PromptProductPurchase(player, gamepass[2])
 					else
-						local Asset = MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
-						GamepassGifting:FireClient(player, "Error", 
-							game.Players:GetNameFromUserIdAsync(userId).. " ya tiene el gamepass ".. Asset.Name)
+						local success, Asset = pcall(function()
+							return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
+						end)
+						
+						if success and Asset then
+							pcall(function()
+								local recipName = game.Players:GetNameFromUserIdAsync(userId)
+								GamepassGifting:FireClient(player, "Error", recipName .. " ya tiene el gamepass " .. Asset.Name)
+							end)
+						end
 					end
 				end
 			end
@@ -271,44 +263,35 @@ game.Players.PlayerAdded:Connect(function(player)
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
 			
-			-- ⚠️ Skip si GamepassID es nil o inválido
-			if not GamepassID or type(GamepassID) ~= "number" then
-				warn("⚠️ Error: GamepassID inválido en Config - ", gamepass)
-				continue
-			end
+			if GamepassID and type(GamepassID) == "number" then
+				local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
 
-			-- ✅ Verificar correctamente si tiene el gamepass (comprado O regalado)
-			local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
+				if ownsGamepass then
+					local success, Asset = pcall(function()
+						return MarketplaceService:GetProductInfo(GamepassID, Enum.InfoType.GamePass)
+					end)
 
-			if ownsGamepass then
-				local success, Asset = pcall(function()
-					return MarketplaceService:GetProductInfo(GamepassID, Enum.InfoType.GamePass)
-				end)
-
-				if success and Asset then
-					-- Verificar si ya existe el BoolValue para este gamepass
-					local existingValue = Folder:FindFirstChild(Asset.Name)
-					if not existingValue then
-						-- Solo crear si no existe
-						local GamepassValue = Instance.new("BoolValue")
-						GamepassValue.Parent = Folder
-						GamepassValue.Name = Asset.Name
-						GamepassValue.Value = true
-					else
-						-- Actualizar el valor si ya existe
-						existingValue.Value = true
+					if success and Asset then
+						local existingValue = Folder:FindFirstChild(Asset.Name)
+						if not existingValue then
+							local GamepassValue = Instance.new("BoolValue")
+							GamepassValue.Parent = Folder
+							GamepassValue.Name = Asset.Name
+							GamepassValue.Value = true
+						else
+							existingValue.Value = true
+						end
 					end
-				end
-			else
-				-- Si no tiene el gamepass, eliminar el BoolValue si existe
-				local success, Asset = pcall(function()
-					return MarketplaceService:GetProductInfo(GamepassID, Enum.InfoType.GamePass)
-				end)
+				else
+					local success, Asset = pcall(function()
+						return MarketplaceService:GetProductInfo(GamepassID, Enum.InfoType.GamePass)
+					end)
 
-				if success and Asset then
-					local existingValue = Folder:FindFirstChild(Asset.Name)
-					if existingValue then
-						existingValue.Value = false
+					if success and Asset then
+						local existingValue = Folder:FindFirstChild(Asset.Name)
+						if existingValue then
+							existingValue.Value = false
+						end
 					end
 				end
 			end
@@ -462,9 +445,7 @@ CentralPurchaseHandler.registerGiftHandler(handleGiftPurchase)
 
 -- Verificar propiedad de gamepass
 local function DoesUserOwnGamePass(player, gamepassId)
-	-- ⚠️ Validar gamepassId
 	if not gamepassId or type(gamepassId) ~= "number" then
-		warn("⚠️ DoesUserOwnGamePass - GamepassId inválido: ", gamepassId)
 		return false
 	end
 	
@@ -473,7 +454,6 @@ local function DoesUserOwnGamePass(player, gamepassId)
 	end)
 
 	if not success or not Info then 
-		warn("⚠️ No se pudo obtener info del gamepass ", gamepassId)
 		return false 
 	end
 

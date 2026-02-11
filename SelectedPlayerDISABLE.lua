@@ -814,15 +814,9 @@ Ev_DonationMessage.OnClientEvent:Connect(function(donatingPlayer, amount, donate
 	local TextChannels = TextChatService:WaitForChild("TextChannels")
 	local RBXSystem = TextChannels:WaitForChild("RBXSystem")
 
-	-- Verificar si el receptor de la donacion debe ser reemplazado
-	local displayName = donatedPlayer
-	if donatedPlayer == "Panda Mania' [Games]" or donatedPlayer == "Panda15Fps" or donatedPlayer == "Panda Mania' [UGC]" then
-		displayName = "Zona Peruana"
-	end
-
 	-- Mostrar mensaje de donacion en el chat del sistema
 	RBXSystem:DisplaySystemMessage(
-		'<font color="#8762FF"><b>' .. donatingPlayer .. " dono " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. displayName .. "</b></font>"
+		'<font color="#8762FF"><b>' .. donatingPlayer .. " dono " .. utf8.char(0xE002) .. tostring(amount) .. " a " .. donatedPlayer .. "</b></font>"
 	)
 end)
 
