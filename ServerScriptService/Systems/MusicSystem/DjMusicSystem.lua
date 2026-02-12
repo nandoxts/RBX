@@ -251,10 +251,10 @@ local function loadMetadataBatch(ids, callback)
 		if callback then callback({}) end 
 		return 
 	end
-	
+
 	local results = {}
 	local idsToFetch = {}
-	
+
 	-- FASE 1 (SINCRÓNICA): Verificar cache y determinar qué cargar
 	for _, id in ipairs(ids) do
 		if metadataCache[id] and metadataCache[id].loaded then
@@ -267,28 +267,28 @@ local function loadMetadataBatch(ids, callback)
 		end
 		-- Si está en metadataLoadingSet, otro request ya lo está cargando
 	end
-	
+
 	-- Si todo estaba en cache o ya se está cargando, ejecutar callback inmediatamente
 	if #idsToFetch == 0 then
 		if callback then callback(results) end
 		return
 	end
-	
+
 	-- FASE 2 (ASINCRÓNICA): Cargar IDs faltantes
 	local pending = #idsToFetch
-	
+
 	for _, id in ipairs(idsToFetch) do
 		task.spawn(function()
 			local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
-			
+
 			local metadata = ok and info and info.AssetTypeId == 3
 				and {name = info.Name or "Audio "..id, artist = (info.Creator and info.Creator.Name) or "Unknown", loaded = true}
 				or {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
-			
+
 			metadataCache[id] = metadata
 			results[id] = metadata
 			metadataLoadingSet[id] = nil -- Liberar
-			
+
 			pending = pending - 1
 			if pending == 0 and callback then
 				callback(results)
