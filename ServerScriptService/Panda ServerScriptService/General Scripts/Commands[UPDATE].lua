@@ -69,6 +69,10 @@ local SPECIAL_COMMANDS = {
 	ARMYBOOMS = {
 		gamepassKey = Configuration.ARMYBOOMS,
 		itemFolder = "ARMYBOOMS"
+	},
+	LIGHTSTICK = {
+		gamepassKey = Configuration.LIGHTSTICK,
+		itemFolder = "LIGHTSTICK"
 	}
 }
 
@@ -461,7 +465,6 @@ local function grantItemsBasedOnPasses(player)
 	-- Otorgar automáticamente al inicio
 	local gamepassesToCheck = {
 		{key = "VIP", folder = "VIP", id = Configuration.VIP},
-		{key = "ARMYBOOMS", folder = "ARMYBOOMS", id = Configuration.ARMYBOOMS},
 	}
 
 	for _, gamepass in ipairs(gamepassesToCheck) do
@@ -523,7 +526,7 @@ local function isVIPItem(item)
 	if not itemsFolder then return false end
 
 	local paidItemsFolders = {
-		"VIP", "TOMBO", "CHORO", "SERE", "ARMYBOOMS"
+		"VIP", "TOMBO", "CHORO", "SERE", "ARMYBOOMS", "LIGHTSTICK"
 	}
 
 	for _, folderName in ipairs(paidItemsFolders) do
@@ -865,6 +868,7 @@ Players.PlayerAdded:Connect(function(player)
 			local choro = message:match(Configuration.CommandCHORO)
 			local sere = message:match(Configuration.CommandSERE)
 			local armybooms = message:match(Configuration.CommandARMYBOOMS)
+			local lightstick = message:match(Configuration.CommandLIGHTSTICK)
 
 			-- Verificar si tiene gamepass de comandos
 			local hasCommands = GamepassManager.HasGamepass(player, Configuration.COMMANDS)
@@ -956,6 +960,9 @@ Players.PlayerAdded:Connect(function(player)
 
 			elseif armybooms then
 				handleSpecialCommand(player, "ARMYBOOMS")
+
+			elseif lightstick then
+				handleSpecialCommand(player, "LIGHTSTICK")
 
 				-- PANDA (requiere estar en el grupo)
 			elseif pandaCommand and player:IsInGroup(Configuration.GroupID) and not pandaUsed then

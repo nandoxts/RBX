@@ -687,7 +687,7 @@ end)
 R.Next.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "NextSong") then return end
 	if isActionBlockedByEventMode("NextSong", player) then return end
-	print("SKIP por:", player.Name)
+	print("Skip normal por:", player.Name)
 	nextSong()
 end)
 
@@ -708,7 +708,7 @@ if R.PurchaseSkip then
 			return
 		end
 
-		print("Skip por:", player.Name)
+		print("Skip Pagado por:", player.Name)
 		nextSong()
 	end)
 end

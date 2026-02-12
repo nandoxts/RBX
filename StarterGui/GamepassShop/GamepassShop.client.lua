@@ -97,10 +97,11 @@ local FEATURED_PRODUCT = {
 local PRODUCTS = {
 	{name = "VIP",       price = 200, gamepassId = Configuration.VIP,       icon = "76721656269888", cmd = ""},
 	{name = "COLORES",   price = 50,  gamepassId = Configuration.COLORS,    icon = "91877799240345",  cmd = ";cl [color]"},
-	{name = "POLICÍA",   price = 135, gamepassId = Configuration.TOMBO,     icon = "106800054163320", cmd = ";tombo"},
+	{name = "POLICÍA",   price = 135, gamepassId = Configuration.TOMBO,     icon = "139661313218787", cmd = ";tombo"},
 	{name = "LADRÓN",    price = 135, gamepassId = Configuration.CHORO,     icon = "84699864716808",  cmd = ";choro"},
 	{name = "SEGURIDAD", price = 135, gamepassId = Configuration.SERE,      icon = "85734290151599",  cmd = ";sere"},
 	{name = "ARMY BOOMS",price = 100, gamepassId = Configuration.ARMYBOOMS, icon = "134501492548324", cmd = ""},
+	{name = "LIGHTSTICK",price = 200, gamepassId = Configuration.LIGHTSTICK, icon = "86122436659328", cmd = ";lightstick"},
 }
 
 -- ════════════════════════════════════════════════════════════════
@@ -386,13 +387,13 @@ local iconStroke = UI.stroked(iconFrame, 1.5, COLORS.accent)
 iconStroke.ZIndex = 109
 
 local iconImg = Instance.new("ImageLabel")
-	iconImg.Size = UDim2.new(1, 0, 1, 0)
-	iconImg.Position = UDim2.new(0, 0, 0, 0)
-	iconImg.BackgroundTransparency = 1
-	iconImg.Image = "rbxassetid://" .. FEATURED_PRODUCT.icon
-	iconImg.ScaleType = Enum.ScaleType.Crop
-	iconImg.ZIndex = 106
-	iconImg.Parent = iconFrame
+iconImg.Size = UDim2.new(1, 0, 1, 0)
+iconImg.Position = UDim2.new(0, 0, 0, 0)
+iconImg.BackgroundTransparency = 1
+iconImg.Image = "rbxassetid://" .. FEATURED_PRODUCT.icon
+iconImg.ScaleType = Enum.ScaleType.Crop
+iconImg.ZIndex = 106
+iconImg.Parent = iconFrame
 
 -- Info lado derecho
 local infoX = 115 -- offset desde la izquierda

@@ -7,7 +7,8 @@ local gamepasses = {
 	{Configuration.CHORO, Configuration.DEV_CHORO},
 	{Configuration.SERE, Configuration.DEV_SERE},
 	{Configuration.COLORS, Configuration.DEV_COLORS},
-	{Configuration.ARMYBOOMS, Configuration.DEV_ARMYBOOMS}
+	{Configuration.ARMYBOOMS, Configuration.DEV_ARMYBOOMS},
+	{Configuration.LIGHTSTICK, Configuration.DEV_LIGHTSTICK}
 }
 
 local tools = {

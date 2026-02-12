@@ -40,6 +40,8 @@ return {
 	CHORO = 1557650753,
 	SERE = 1561726418,
 	ARMYBOOMS = 1709795779,
+	LIGHTSTICK = 1709767521,
+	PINK = 1709767521,
 	-- DEV PASS --
 	DEV_VIP = 3414346471,
 	DEV_COMMANDS = 3448375846,
@@ -48,6 +50,7 @@ return {
 	DEV_CHORO = 3448376072,
 	DEV_SERE = 3448376069,
 	DEV_ARMYBOOMS = 3448376073,
+	DEV_LIGHTSTICK = 3535308027,
 	-- DEV SUPER LIKE --
 	SUPER_LIKE = 3447051605,
 	LIKE_COOLDOWN = 600,
@@ -71,6 +74,7 @@ return {
 	USER03_EMOTE = 129598253972213,
 	USER04_EMOTE = 71302743123422,
 	USER05_EMOTE = 71302743123422,
+	USER06_EMOTE = 73236219340808,
 	-- COMMANDS --
 	CommandKorblox = "[,.;]korblox",
 	CommandHeadless = "[,.;]headless",
@@ -94,6 +98,7 @@ return {
 	CommandCHORO = "[,.;]choro$",
 	CommandSERE = "[,.;]sere$",
 	CommandARMYBOOMS = "[,.;]armybooms$",
+	CommandLIGHTSTICK = "[,.;]lightstick$",
 	-- MUSIC ID BANNED --
 	MusicBanned = { 0, 0,},
 	-- MUSIC COOLDOWN --
