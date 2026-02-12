@@ -165,8 +165,12 @@ local PlayerEffects = {
 
 				local trail = Instance.new("Trail")
 				trail.Color = ColorSequence.new(color)
-				trail.LightEmission = 0.7
-				trail.Transparency = NumberSequence.new(0, 1)
+				trail.LightEmission = 1
+				trail.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0),
+					NumberSequenceKeypoint.new(0.6, 0.2),
+					NumberSequenceKeypoint.new(1, 0.9)
+				})
 				trail.WidthScale = NumberSequence.new(0.2, 1)
 				trail.Lifetime = 0.6
 				trail.Attachment0 = att0

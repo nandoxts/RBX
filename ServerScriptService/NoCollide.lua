@@ -11,22 +11,17 @@ pcall(function()
 end)
 
 -- Asegurar que el grupo no colisione consigo mismo
-PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false)
+pcall(function()
+    PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false)
+end)
 
 -- Función mejorada para aplicar nocollide a una parte
 local function SetupPart(part)
     if part:IsA("BasePart") then
-        -- Usar la nueva propiedad CollisionGroup (string)
-        local success = pcall(function()
+        -- Usar la nueva propiedad CollisionGroup directamente
+        pcall(function()
             part.CollisionGroup = COLLISION_GROUP
         end)
-        
-        if not success then
-            -- Fallback si hay error
-            pcall(function()
-                PhysicsService:CollisionGroupSetPartCollisionGroup(part, COLLISION_GROUP)
-            end)
-        end
     end
 end
 
