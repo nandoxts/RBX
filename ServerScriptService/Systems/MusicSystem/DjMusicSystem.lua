@@ -263,8 +263,7 @@ local function getOrLoadMetadata(audioId)
 			-- Está en biblioteca → usar nombre genérico (graceful degradation)
 			local name = "Audio " .. audioId
 			local artist = djName
-			-- Guardar en cache para no reintentar constantemente
-			metadataCache[audioId] = {name = name, artist = artist, loaded = true}
+			-- NO guardar en cache (permitir reintentos cuando scrolleen más despacio)
 			return name, artist, true
 		else
 			-- NO está en biblioteca → error real
@@ -282,23 +281,37 @@ local function loadMetadataBatch(ids, callback)
 	local results = {}
 	local pending = #ids
 
-	-- Usar getOrLoadMetadata para cada ID (thread-safe, sin race conditions)
-	for _, id in ipairs(ids) do
-		task.spawn(function()
-			local name, artist, success = getOrLoadMetadata(id)
+	-- Throttling: procesar de a 3 audios con delay de 0.5s entre cada batch
+	local BATCH_SIZE = 3
+	local BATCH_DELAY = 0.5
 
-			-- Construir metadata en formato esperado
-			if success then
-				results[id] = {name = name, artist = artist, loaded = true}
-			else
-				results[id] = {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
-			end
+	for batchStart = 1, #ids, BATCH_SIZE do
+		local batchEnd = math.min(batchStart + BATCH_SIZE - 1, #ids)
+		
+		-- Procesar batch actual
+		for i = batchStart, batchEnd do
+			local id = ids[i]
+			task.spawn(function()
+				local name, artist, success = getOrLoadMetadata(id)
 
-			pending = pending - 1
-			if pending == 0 and callback then
-				callback(results)
-			end
-		end)
+				-- Construir metadata en formato esperado
+				if success then
+					results[id] = {name = name, artist = artist, loaded = true}
+				else
+					results[id] = {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
+				end
+
+				pending = pending - 1
+				if pending == 0 and callback then
+					callback(results)
+				end
+			end)
+		end
+		
+		-- Delay antes del siguiente batch (evita rate limiting)
+		if batchEnd < #ids then
+			task.wait(BATCH_DELAY)
+		end
 	end
 end
 
