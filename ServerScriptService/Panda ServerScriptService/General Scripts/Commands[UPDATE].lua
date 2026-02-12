@@ -465,6 +465,8 @@ local function grantItemsBasedOnPasses(player)
 	-- Otorgar automáticamente al inicio
 	local gamepassesToCheck = {
 		{key = "VIP", folder = "VIP", id = Configuration.VIP},
+		{key = "ARMYBOOMS", folder = "ARMYBOOMS", id = Configuration.ARMYBOOMS},
+		{key = "LIGHTSTICK", folder = "LIGHTSTICK", id = Configuration.LIGHTSTICK},
 	}
 
 	for _, gamepass in ipairs(gamepassesToCheck) do
@@ -868,7 +870,6 @@ Players.PlayerAdded:Connect(function(player)
 			local choro = message:match(Configuration.CommandCHORO)
 			local sere = message:match(Configuration.CommandSERE)
 			local armybooms = message:match(Configuration.CommandARMYBOOMS)
-			local lightstick = message:match(Configuration.CommandLIGHTSTICK)
 
 			-- Verificar si tiene gamepass de comandos
 			local hasCommands = GamepassManager.HasGamepass(player, Configuration.COMMANDS)
@@ -957,12 +958,6 @@ Players.PlayerAdded:Connect(function(player)
 
 			elseif sere then
 				handleSpecialCommand(player, "SERE")
-
-			elseif armybooms then
-				handleSpecialCommand(player, "ARMYBOOMS")
-
-			elseif lightstick then
-				handleSpecialCommand(player, "LIGHTSTICK")
 
 				-- PANDA (requiere estar en el grupo)
 			elseif pandaCommand and player:IsInGroup(Configuration.GroupID) and not pandaUsed then

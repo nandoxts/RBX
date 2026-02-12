@@ -35,7 +35,6 @@ local currentSongIndex = 1
 local isPlaying = false
 local isPaused = false
 local metadataCache = {}
-local metadataLoadingSet = {} -- IDs que están siendo cargados (evita duplicados)
 local playerCooldowns = {}
 local isTransitioning = false
 local currentPlayingId = nil
@@ -245,26 +244,27 @@ local function getOrLoadMetadata(audioId)
 	if cached and cached.loaded and not cached.error then
 		return cached.name, cached.artist, true
 	end
-	
+
 	-- 2. Verificar si está en biblioteca (conocido)
-	local djName = findDJForSong(audioId)
-	
-	-- 3. Intentar GetProductInfo
+	local djName, djCover = findDJForSong(audioId)
+
+	-- 3. Intentar GetProductInfo (para obtener nombre real)
 	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, audioId, Enum.InfoType.Asset)
-	
+
 	if ok and info and info.AssetTypeId == 3 then
-		-- ✅ Éxito: guardar y retornar
+		-- ✅ GetProductInfo funcionó: guardar y retornar nombre real
 		local name = info.Name or "Audio " .. audioId
 		local artist = (info.Creator and info.Creator.Name) or "Unknown"
 		metadataCache[audioId] = {name = name, artist = artist, loaded = true}
 		return name, artist, true
 	else
-		-- ❌ Falló GetProductInfo
+		-- ❌ GetProductInfo falló
 		if djName then
-			-- Está en biblioteca → usar nombre genérico (el audio existe)
+			-- Está en biblioteca → usar nombre genérico (graceful degradation)
 			local name = "Audio " .. audioId
 			local artist = djName
-			-- NO guardar en cache con error para reintentar después
+			-- Guardar en cache para no reintentar constantemente
+			metadataCache[audioId] = {name = name, artist = artist, loaded = true}
 			return name, artist, true
 		else
 			-- NO está en biblioteca → error real
@@ -280,41 +280,19 @@ local function loadMetadataBatch(ids, callback)
 	end
 
 	local results = {}
-	local idsToFetch = {}
+	local pending = #ids
 
-	-- FASE 1 (SINCRÓNICA): Verificar cache y determinar qué cargar
+	-- Usar getOrLoadMetadata para cada ID (thread-safe, sin race conditions)
 	for _, id in ipairs(ids) do
-		if metadataCache[id] and metadataCache[id].loaded then
-			-- Ya está en cache 
-			results[id] = metadataCache[id]
-		elseif not metadataLoadingSet[id] then
-			-- Necesita cargarse y NO está en proceso
-			table.insert(idsToFetch, id)
-			metadataLoadingSet[id] = true
-		end
-		-- Si está en metadataLoadingSet, otro request ya lo está cargando
-	end
-
-	-- Si todo estaba en cache o ya se está cargando, ejecutar callback inmediatamente
-	if #idsToFetch == 0 then
-		if callback then callback(results) end
-		return
-	end
-
-	-- FASE 2 (ASINCRÓNICA): Cargar IDs faltantes
-	local pending = #idsToFetch
-
-	for _, id in ipairs(idsToFetch) do
 		task.spawn(function()
-			local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
+			local name, artist, success = getOrLoadMetadata(id)
 
-			local metadata = ok and info and info.AssetTypeId == 3
-				and {name = info.Name or "Audio "..id, artist = (info.Creator and info.Creator.Name) or "Unknown", loaded = true}
-				or {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
-
-			metadataCache[id] = metadata
-			results[id] = metadata
-			metadataLoadingSet[id] = nil -- Liberar
+			-- Construir metadata en formato esperado
+			if success then
+				results[id] = {name = name, artist = artist, loaded = true}
+			else
+				results[id] = {name = "Audio "..id, artist = "Unknown", loaded = true, error = true}
+			end
 
 			pending = pending - 1
 			if pending == 0 and callback then
@@ -782,12 +760,12 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	-- PASO 1: Obtener metadata (usa función centralizada)
 	-- ============================================================
 	local name, artist, metadataSuccess = getOrLoadMetadata(id)
-	
+
 	if not metadataSuccess then
 		-- GetProductInfo falló Y no está en biblioteca
 		return send(response(RC.NOT_FOUND, "Audio no encontrado"))
 	end
-	
+
 	-- ============================================================
 	-- PASO 2: Validar permisos de audio (SIEMPRE - puede estar baneado)
 	-- ============================================================
@@ -795,7 +773,7 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	if not canPlay then
 		return send(response(RC.NOT_AUTHORIZED, "Audio bloqueado o sin permisos"))
 	end
-	
+
 	-- ============================================================
 	-- PASO 3: Buscar información de biblioteca (para UI)
 	-- ============================================================

@@ -286,6 +286,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "🌙",
 		clanColor = {255, 192, 203}, -- Rosado
 	},
+	{
+		clanName = "DM Demons",
+		ownerId = 3186256515,
+		clanTag = "DM",
+		clanLogo = "rbxassetid://89593175600646",
+		descripcion = "Clan DM Demons",
+		clanEmoji = "😈",
+		clanColor = {148, 0, 211}, -- Morado
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════
