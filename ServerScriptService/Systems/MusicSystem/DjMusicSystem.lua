@@ -749,9 +749,41 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local dup, existing = isInQueue(id)
 	if dup then return send(response(RC.DUPLICATE, "Ya está en la cola", {songName = existing.name})) end
 
-	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
-	if not ok or not info then return send(response(RC.NOT_FOUND, "Audio no encontrado")) end
-	if info.AssetTypeId ~= 3 then return send(response(RC.NOT_AUDIO, "No es audio")) end
+	-- ============================================================
+	-- PASO 1: Buscar en biblioteca y obtener metadata
+	-- ============================================================
+	local djName, djCover = findDJForSong(id)
+	local name, artist
+	local cached = metadataCache[id]
+	
+	-- Intentar usar cache primero
+	if cached and cached.loaded and not cached.error then
+		name = cached.name
+		artist = cached.artist
+	else
+		-- Sin cache → obtener de MarketplaceService
+		local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
+		if not ok or not info then 
+			return send(response(RC.NOT_FOUND, "Audio no encontrado")) 
+		end
+		if info.AssetTypeId ~= 3 then 
+			return send(response(RC.NOT_AUDIO, "No es un audio válido")) 
+		end
+		
+		name = info.Name or "Audio " .. id
+		artist = (info.Creator and info.Creator.Name) or "Unknown"
+		
+		-- Guardar en cache
+		metadataCache[id] = {name = name, artist = artist, loaded = true}
+	end
+	
+	-- ============================================================
+	-- PASO 2: Validar permisos de audio (SIEMPRE - puede ser baneado)
+	-- ============================================================
+	local canPlay = validateAudioPermission(id)
+	if not canPlay then
+		return send(response(RC.NOT_AUTHORIZED, "Audio bloqueado o sin permisos"))
+	end
 
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
 		return send(response(RC.QUEUE_FULL, "Cola llena ("..#playQueue.."/"..MusicConfig.LIMITS.MaxQueueSize..")"))
@@ -783,19 +815,12 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 		return send(response(RC.QUEUE_FULL, "Límite de canciones alcanzado ("..userSongCount.."/"..maxSongsPerUser.." como "..roleLabel..")"))
 	end
 
-	local canPlay = validateAudioPermission(id)
-	if not canPlay then
-		return send(response(RC.NOT_AUTHORIZED, "No tienes permisos para usar este audio"))
-	end
-
-	local djName, djCover = findDJForSong(id)
 	local songInfo = {
-		id = id, name = info.Name or "Audio "..id, artist = info.Creator.Name or "Unknown",
+		id = id, name = name, artist = artist,
 		userId = player.UserId, requestedBy = player.Name, addedAt = os.time(),
 		dj = djName, djCover = djCover
 	}
 
-	metadataCache[id] = {name = songInfo.name, artist = songInfo.artist, loaded = true}
 	table.insert(playQueue, songInfo)
 
 	send(response(RC.SUCCESS, "Añadido", {songName = songInfo.name, artist = songInfo.artist, position = #playQueue}))
