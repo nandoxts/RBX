@@ -566,21 +566,29 @@ local function createAvatarSection(panel, data, playerColor)
 
 			local TweenService = game:GetService("TweenService")
 			local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			local animationRunning = true
+
+			local function stopAnimation()
+				animationRunning = false
+			end
+			Utils.addConnection(displayNameLabel.Parent:GetPropertyChangedSignal("Parent"):Connect(stopAnimation))
 
 			task.spawn(function()
-				while displayNameLabel.Parent do
+				while displayNameLabel.Parent and animationRunning do
 					local tween1 = TweenService:Create(uiGradient, tweenInfo, {
 						Offset = Vector2.new(1, 0)
 					})
 					tween1:Play()
 					tween1.Completed:Wait()
 
+					if not animationRunning then break end
+
 					local tween2 = TweenService:Create(uiGradient, tweenInfo, {
 						Offset = Vector2.new(-1, 0)
 					})
 					tween2:Play()
 					tween2.Completed:Wait()
-				end
+			end
 			end)
 
 			break
@@ -782,10 +790,16 @@ local function createPanel(data)
 				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)) -- blanco
 			})
 
+			local borderAnimating = true
+			local function stopBorderAnimation()
+				borderAnimating = false
+			end
+			Utils.addConnection(panelContainer:GetPropertyChangedSignal("Parent"):Connect(stopBorderAnimation))
+
 			task.spawn(function()
-				while panelContainer.Parent do
+				while panelContainer.Parent and borderAnimating do
 					gradient.Rotation = gradient.Rotation + 2.5
-					task.wait()
+					task.wait(0.05)  -- Actualizar cada 50ms en lugar de cada frame
 				end
 			end)
 
