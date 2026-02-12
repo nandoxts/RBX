@@ -204,7 +204,16 @@ local PlayerEffects = {
 local function clearPlayerEffect(player)
 	if activeEffects[player] then
 		for _, inst in ipairs(activeEffects[player]) do
-			if inst and typeof(inst) == "Instance" and inst.Parent then
+			-- Manejar tanto instancias directas como tablas de instancias
+			if typeof(inst) == "table" then
+				-- Es una tabla (como trail con attachments)
+				for _, subInst in ipairs(inst) do
+					if typeof(subInst) == "Instance" and subInst.Parent then
+						pcall(function() subInst:Destroy() end)
+					end
+				end
+			elseif typeof(inst) == "Instance" and inst.Parent then
+				-- Es una instancia directa
 				pcall(function() inst:Destroy() end)
 			end
 		end
