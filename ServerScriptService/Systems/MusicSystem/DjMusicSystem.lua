@@ -698,7 +698,17 @@ end)
 
 if R.PurchaseSkip then
 	R.PurchaseSkip.OnServerEvent:Connect(function(player)
-		print("Skip pagado por:", player.Name)
+		-- VALIDAR: Modo evento
+		if isActionBlockedByEventMode("NextSong", player) then
+			return
+		end
+
+		-- VALIDAR: Permisos
+		if not hasPermission(player, "NextSong") then
+			return
+		end
+
+		print("Skip por:", player.Name)
 		nextSong()
 	end)
 end

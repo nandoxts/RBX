@@ -817,8 +817,26 @@ local skipRemote = ReplicatedStorage:WaitForChild("RemotesGlobal")
 	:WaitForChild("MusicQueue")
 	:WaitForChild("PurchaseSkip")
 
+-- Cooldown para skip
+local lastSkipTime = 0
+local skipCooldown = MusicSystemConfig.LIMITS.SkipCooldown or 3
+
 -- Botón Skip
 skipB.MouseButton1Click:Connect(function()
+	local now = tick()
+	local timeSinceSkip = now - lastSkipTime
+	
+	-- Validar cooldown (SOLO para jugadores normales, NO para admins)
+	if not isAdmin and timeSinceSkip < skipCooldown then
+		if Notify then
+			Notify:Info("Cooldown", "Espera " .. math.ceil(skipCooldown - timeSinceSkip) .. " segundos")
+		end
+		skipB.Enabled = false
+		return
+	end
+	
+	lastSkipTime = now
+	
 	if isAdmin then
 		if R.Next then
 			R.Next:FireServer()
