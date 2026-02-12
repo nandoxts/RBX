@@ -51,14 +51,6 @@ local function detectDevice()
 	return DeviceType
 end
 
-local function isMobile()
-	return DeviceType == "mobile"
-end
-
-local function isTablet()
-	return DeviceType == "tablet"
-end
-
 -- ═══════════════════════════════════════════════════════════════
 -- LAYOUT RESPONSIVO
 -- ═══════════════════════════════════════════════════════════════
