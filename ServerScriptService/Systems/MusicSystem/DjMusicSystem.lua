@@ -43,7 +43,7 @@ local currentPlayingId = nil
 -- Response Codes
 local RC = {
 	SUCCESS = "SUCCESS", INVALID_ID = "ERROR_INVALID_ID", BLACKLISTED = "ERROR_BLACKLISTED",
-	DUPLICATE = "ERROR_DUPLICATE", NOT_FOUND = "ERROR_NOT_FOUND", NOT_AUDIO = "ERROR_NOT_AUDIO",
+	DUPLICATE = "ERROR_DUPLICATE", NOT_FOUND = "ERROR_NOT_FOUND",
 	NOT_AUTHORIZED = "ERROR_NOT_AUTHORIZED", QUEUE_FULL = "ERROR_QUEUE_FULL",
 	PERMISSION = "ERROR_PERMISSION", COOLDOWN = "ERROR_COOLDOWN", UNKNOWN = "ERROR_UNKNOWN",
 	EVENT_LOCKED = "ERROR_EVENT_LOCKED"
@@ -64,7 +64,6 @@ local R = {
 	Play = getRemote("MusicPlayback", "PlaySong"),
 	Next = getRemote("MusicPlayback", "NextSong"),
 	Stop = getRemote("MusicPlayback", "StopSong"),
-	ChangeVolume = getRemote("MusicPlayback", "ChangeVolume"),
 	Update = getRemote("UI", "UpdateUI"),
 	AddToQueue = getRemote("MusicQueue", "AddToQueue"),
 	AddResponse = getRemote("MusicQueue", "AddToQueueResponse"),
@@ -179,14 +178,6 @@ local function fireClient(remote, player, data)
 	if remote then pcall(function() remote:FireClient(player, data) end) end
 end
 
-local function fireAllClients(remote, message)
-	if remote then
-		for _, p in ipairs(Players:GetPlayers()) do
-			pcall(function() remote:FireClient(p, message) end)
-		end
-	end
-end
-
 local function updateAllClients()
 	if not R.Update then return end
 	local currentSong = (#playQueue > 0 and currentSongIndex <= #playQueue) and playQueue[currentSongIndex] or nil
@@ -246,6 +237,42 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- METADATA
 -- ════════════════════════════════════════════════════════════════
+
+-- Función centralizada: Obtener metadata de un audio individual (síncrona)
+local function getOrLoadMetadata(audioId)
+	-- 1. Verificar cache válido (sin error)
+	local cached = metadataCache[audioId]
+	if cached and cached.loaded and not cached.error then
+		return cached.name, cached.artist, true
+	end
+	
+	-- 2. Verificar si está en biblioteca (conocido)
+	local djName = findDJForSong(audioId)
+	
+	-- 3. Intentar GetProductInfo
+	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, audioId, Enum.InfoType.Asset)
+	
+	if ok and info and info.AssetTypeId == 3 then
+		-- ✅ Éxito: guardar y retornar
+		local name = info.Name or "Audio " .. audioId
+		local artist = (info.Creator and info.Creator.Name) or "Unknown"
+		metadataCache[audioId] = {name = name, artist = artist, loaded = true}
+		return name, artist, true
+	else
+		-- ❌ Falló GetProductInfo
+		if djName then
+			-- Está en biblioteca → usar nombre genérico (el audio existe)
+			local name = "Audio " .. audioId
+			local artist = djName
+			-- NO guardar en cache con error para reintentar después
+			return name, artist, true
+		else
+			-- NO está en biblioteca → error real
+			return nil, nil, false
+		end
+	end
+end
+
 local function loadMetadataBatch(ids, callback)
 	if #ids == 0 then 
 		if callback then callback({}) end 
@@ -478,11 +505,19 @@ playRandomSong = function()
 	local randomSong = getRandomSongFromLibrary()
 	if not randomSong then return end
 
-	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, randomSong.id, Enum.InfoType.Asset)
-	local name = (ok and info and info.Name) or "Audio " .. randomSong.id
-	local artist = (ok and info and info.Creator and info.Creator.Name) or "Unknown"
+	-- ✅ USAR FUNCIÓN CENTRALIZADA
+	local name, artist, success = getOrLoadMetadata(randomSong.id)
+	if not success then 
+		-- No se pudo obtener metadata, reintentar con otra canción
+		return
+	end
 
-	metadataCache[randomSong.id] = {name = name, artist = artist, loaded = true}
+	-- ✅ VALIDAR PERMISOS (puede estar baneado)
+	local canPlay = validateAudioPermission(randomSong.id)
+	if not canPlay then
+		-- Audio baneado, reintentar con otra canción
+		return
+	end
 
 	table.insert(playQueue, {
 		id = randomSong.id, name = name, artist = artist,
@@ -713,12 +748,6 @@ if R.PurchaseSkip then
 	end)
 end
 
-if R.ChangeVolume then
-	R.ChangeVolume.OnServerEvent:Connect(function(player, vol)
-		if type(vol) ~= "number" or not hasPermission(player, "ChangeVolume") then return end
-	end)
-end
-
 R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	local function send(r) fireClient(R.AddResponse, player, r) end
 
@@ -750,40 +779,27 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 	if dup then return send(response(RC.DUPLICATE, "Ya está en la cola", {songName = existing.name})) end
 
 	-- ============================================================
-	-- PASO 1: Buscar en biblioteca y obtener metadata
+	-- PASO 1: Obtener metadata (usa función centralizada)
 	-- ============================================================
-	local djName, djCover = findDJForSong(id)
-	local name, artist
-	local cached = metadataCache[id]
+	local name, artist, metadataSuccess = getOrLoadMetadata(id)
 	
-	-- Intentar usar cache primero
-	if cached and cached.loaded and not cached.error then
-		name = cached.name
-		artist = cached.artist
-	else
-		-- Sin cache → obtener de MarketplaceService
-		local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
-		if not ok or not info then 
-			return send(response(RC.NOT_FOUND, "Audio no encontrado")) 
-		end
-		if info.AssetTypeId ~= 3 then 
-			return send(response(RC.NOT_AUDIO, "No es un audio válido")) 
-		end
-		
-		name = info.Name or "Audio " .. id
-		artist = (info.Creator and info.Creator.Name) or "Unknown"
-		
-		-- Guardar en cache
-		metadataCache[id] = {name = name, artist = artist, loaded = true}
+	if not metadataSuccess then
+		-- GetProductInfo falló Y no está en biblioteca
+		return send(response(RC.NOT_FOUND, "Audio no encontrado"))
 	end
 	
 	-- ============================================================
-	-- PASO 2: Validar permisos de audio (SIEMPRE - puede ser baneado)
+	-- PASO 2: Validar permisos de audio (SIEMPRE - puede estar baneado)
 	-- ============================================================
 	local canPlay = validateAudioPermission(id)
 	if not canPlay then
 		return send(response(RC.NOT_AUTHORIZED, "Audio bloqueado o sin permisos"))
 	end
+	
+	-- ============================================================
+	-- PASO 3: Buscar información de biblioteca (para UI)
+	-- ============================================================
+	local djName, djCover = findDJForSong(id)
 
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
 		return send(response(RC.QUEUE_FULL, "Cola llena ("..#playQueue.."/"..MusicConfig.LIMITS.MaxQueueSize..")"))
