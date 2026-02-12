@@ -6,7 +6,7 @@ script.Run.OnServerEvent:Connect(function(plr, information)
 	local char = plr.Character or plr.CharacterAdded:Wait()
 	local hum = char:FindFirstChildWhichIsA("Humanoid")
 	if not hum then return end
-	
+
 	if information == "RunActive" then
 		game:GetService("TweenService"):Create(hum, TweenInfo.new(script.Parent.Configuration.AccelerationTime.Value, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {WalkSpeed = script.Parent.Configuration.MaximumSpeed.Value}):Play()
 	elseif information == "RunDisable" then

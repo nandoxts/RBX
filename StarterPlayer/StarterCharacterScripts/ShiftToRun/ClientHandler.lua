@@ -23,11 +23,11 @@ local function activateShiftCamera()
 	if cameraConnection then
 		cameraConnection:Disconnect()
 	end
-	
+
 	local startFOV = camera.FieldOfView
 	local targetFOV = SHIFT_FOV
 	local lerpSpeed = 0.08
-	
+
 	cameraConnection = RunService.RenderStepped:Connect(function()
 		if isShiftActive and camera then
 			-- Transición suave del FOV
@@ -44,18 +44,18 @@ local function deactivateShiftCamera()
 		cameraConnection:Disconnect()
 		cameraConnection = nil
 	end
-	
+
 	-- Restaurar FOV de forma suave
 	local startFOV = camera.FieldOfView
 	local targetFOV = NORMAL_FOV
 	local lerpSpeed = 0.06
-	
+
 	cameraConnection = RunService.RenderStepped:Connect(function()
 		if not isShiftActive and camera then
 			local newFOV = startFOV + (targetFOV - startFOV) * lerpSpeed
 			camera.FieldOfView = newFOV
 			startFOV = newFOV
-			
+
 			-- Si casi llegamos al FOV normal, desconectar
 			if math.abs(newFOV - NORMAL_FOV) < 0.5 then
 				camera.FieldOfView = NORMAL_FOV
@@ -67,14 +67,17 @@ local function deactivateShiftCamera()
 end
 
 -- // CREAR BOTÓN PARA MÓVIL (SHIFT)
+local speedButtonGui = nil  -- Referencia al ScreenGui específico
+
 local function createMobileButton()
 	if speedButton then return end
-	
+
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "SpeedBoostGUI"
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = playerGui
-	
+	speedButtonGui = screenGui  -- Guardar referencia
+
 	speedButton = Instance.new("TextButton")
 	speedButton.Name = "SpeedBoostBtn"
 	speedButton.Size = UDim2.new(0, 70, 0, 70)
@@ -84,18 +87,18 @@ local function createMobileButton()
 	speedButton.Text = ""
 	speedButton.ZIndex = 10
 	speedButton.Parent = screenGui
-	
+
 	-- Esquinas redondas
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = speedButton
-	
+
 	-- Borde blanco
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(255, 255, 255)
 	stroke.Thickness = 3
 	stroke.Parent = speedButton
-	
+
 	-- Texto SIN borde
 	local textLabel = Instance.new("TextLabel")
 	textLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -106,7 +109,7 @@ local function createMobileButton()
 	textLabel.TextSize = 12
 	textLabel.ZIndex = 11
 	textLabel.Parent = speedButton
-	
+
 	-- Eventos del botón SHIFT
 	speedButton.MouseButton1Down:Connect(function()
 		-- Si Q está activo, desactivarlo
@@ -119,7 +122,7 @@ local function createMobileButton()
 		activateShiftCamera()
 		speedButton.BackgroundTransparency = 0.3
 	end)
-	
+
 	speedButton.MouseButton1Up:Connect(function()
 		isShiftActive = false
 		script.Parent.ServerHandler.Run:FireServer("ShiftDisable")
@@ -137,8 +140,10 @@ end
 
 -- // Detectar teclas (Q y SHIFT - SOLO PC)
 UserInputService.InputBegan:Connect(function(key, processed)
+	-- Respetar teclas procesadas por otros sistemas (TOPBAR, chat, etc)
 	if processed then return end
-	if not UserInputService.TouchEnabled then
+	-- Solo procesar si NO hay botón móvil activo
+	if not speedButton then
 		-- Q para correr
 		if key.KeyCode == Enum.KeyCode.Q then
 			-- Si SHIFT está activo, desactivarlo
@@ -168,7 +173,8 @@ UserInputService.InputBegan:Connect(function(key, processed)
 end)
 
 UserInputService.InputEnded:Connect(function(key, processed)
-	if not UserInputService.TouchEnabled then
+	-- Solo procesar si NO hay botón móvil activo
+	if not speedButton then
 		-- SHIFT soltar
 		if key.KeyCode == Enum.KeyCode.LeftShift or key.KeyCode == Enum.KeyCode.RightShift then
 			isShiftActive = false
@@ -183,9 +189,11 @@ UserInputService.LastInputTypeChanged:Connect(function(lastInputType)
 	if lastInputType == Enum.UserInputType.Touch and not speedButton then
 		createMobileButton()
 	elseif lastInputType ~= Enum.UserInputType.Touch and speedButton then
-		if speedButton.Parent and speedButton.Parent.Parent then
-			speedButton.Parent.Parent:Destroy()
+		-- Solo destruir el ScreenGui específico del botón SHIFT
+		if speedButtonGui and speedButtonGui.Parent then
+			speedButtonGui:Destroy()
 		end
+		speedButtonGui = nil
 		speedButton = nil
 	end
 end)

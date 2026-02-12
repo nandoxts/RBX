@@ -258,7 +258,7 @@ local function getOrLoadMetadata(audioId)
 		metadataCache[audioId] = {name = name, artist = artist, loaded = true}
 		return name, artist, true
 	else
-		-- ❌ GetProductInfo falló
+		--  GetProductInfo falló
 		if djName then
 			-- Está en biblioteca → usar nombre genérico (graceful degradation)
 			local name = "Audio " .. audioId
@@ -493,31 +493,49 @@ playRandomSong = function()
 
 	if isTransitioning then return end
 
-	local randomSong = getRandomSongFromLibrary()
-	if not randomSong then return end
+	-- Reintentar hasta 5 veces para encontrar una canción válida
+	local MAX_RETRIES = 5
+	local attempts = 0
+	
+	while attempts < MAX_RETRIES do
+		attempts = attempts + 1
+		
+		local randomSong = getRandomSongFromLibrary()
+		if not randomSong then
+			warn("[playRandomSong] No hay canciones en biblioteca")
+			return
+		end
 
-	-- ✅ USAR FUNCIÓN CENTRALIZADA
-	local name, artist, success = getOrLoadMetadata(randomSong.id)
-	if not success then 
-		-- No se pudo obtener metadata, reintentar con otra canción
-		return
+		--  USAR FUNCIÓN CENTRALIZADA
+		local name, artist, success = getOrLoadMetadata(randomSong.id)
+		if not success then 
+			warn(string.format("[playRandomSong] Intento %d/%d: Metadata falló para %s", attempts, MAX_RETRIES, randomSong.id))
+			-- Continuar al siguiente intento
+			task.wait(0.1)
+		else
+			--  VALIDAR PERMISOS (puede estar baneado)
+			local canPlay = validateAudioPermission(randomSong.id)
+			if not canPlay then
+				warn(string.format("[playRandomSong] Intento %d/%d: Permiso denegado para %s", attempts, MAX_RETRIES, randomSong.id))
+				-- Continuar al siguiente intento
+				task.wait(0.1)
+			else
+				--  CANCIÓN VÁLIDA: Agregar a cola y reproducir
+				table.insert(playQueue, {
+					id = randomSong.id, name = name, artist = artist,
+					userId = DEV_USER_ID, requestedBy = DEV_DISPLAY_NAME, addedAt = os.time(),
+					dj = randomSong.dj, djCover = randomSong.djCover, isAutoPlay = true
+				})
+
+				currentSongIndex = 1
+				task.delay(0.3, function() playSong(1) end)
+				return  --  ÉXITO: salir
+			end
+		end
 	end
-
-	-- ✅ VALIDAR PERMISOS (puede estar baneado)
-	local canPlay = validateAudioPermission(randomSong.id)
-	if not canPlay then
-		-- Audio baneado, reintentar con otra canción
-		return
-	end
-
-	table.insert(playQueue, {
-		id = randomSong.id, name = name, artist = artist,
-		userId = DEV_USER_ID, requestedBy = DEV_DISPLAY_NAME, addedAt = os.time(),
-		dj = randomSong.dj, djCover = randomSong.djCover, isAutoPlay = true
-	})
-
-	currentSongIndex = 1
-	task.delay(0.3, function() playSong(1) end)
+	
+	-- Si llegamos aquí, fallaron todos los intentos
+	warn("[playRandomSong] No se pudo encontrar canción válida después de "..MAX_RETRIES.." intentos")
 end
 
 nextSong = function()
