@@ -7,17 +7,27 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- ═══════════════════════════════════════════════════════════════════
 local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
+local HDConnect = require(game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService"):WaitForChild("Gamepass Gifting"):WaitForChild("HD-CONNECT"))
+
+-- Obtener HD Admin main
+local SetupHd = ReplicatedStorage:WaitForChild("HDAdminSetup", 10)
+local hdMain = SetupHd and require(SetupHd):GetMain()
+local hd = hdMain and hdMain:GetModule("API")
 
 local CONFIG = {
 	prefix = ";tono",
 	eventPrefix = ";event",
 	uneventPrefix = ";unevent",
+	m2Prefix = ";m2",
 	messages = {
 		disabled = "Sistema de tono desactivado.",
 		rainbow = "Modo rainbow activado.",
 		theme = "Modo %s se ha activado.",
 	}
 }
+
+-- ║ Permisos para ;m2 (Rango mínimo = 0, todos pueden usar)
+local M2_MIN_RANK = 0
 
 -- ═══════════════════════════════════════════════════════════════════
 -- REMOTES
@@ -33,9 +43,43 @@ local eventMessageEvent = commandsFolder:WaitForChild("EventMessage")
 -- RemoteFunction para obtener temas disponibles de RainbowSync
 local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
 
+-- M2 Announcement Remotes
+local messageFolder = remotesGlobal:FindFirstChild("Message")
+if not messageFolder then
+	messageFolder = Instance.new("Folder")
+	messageFolder.Name = "Message"
+	messageFolder.Parent = remotesGlobal
+end
+
+local M2CommandProcessor = messageFolder:FindFirstChild("M2CommandProcessor")
+if not M2CommandProcessor then
+	M2CommandProcessor = Instance.new("RemoteFunction")
+	M2CommandProcessor.Name = "M2CommandProcessor"
+	M2CommandProcessor.Parent = messageFolder
+end
+
+local localAnnouncement = messageFolder:FindFirstChild("LocalAnnouncement")
+if not localAnnouncement then
+	localAnnouncement = Instance.new("RemoteEvent")
+	localAnnouncement.Name = "LocalAnnouncement"
+	localAnnouncement.Parent = messageFolder
+end
+
 -- ═══════════════════════════════════════════════════════════════════
--- ESTADO GLOBAL
+-- FUNCIONES AUXILIARES
 -- ═══════════════════════════════════════════════════════════════════
+-- Obtener el rango HD Admin del usuario
+local function getUserRank(player)
+	if not hd then return 0 end
+	local rank = hd:GetRankFor(player) or 0
+	return rank
+end
+
+-- Validar permisos para ;m2
+local function canUseM2Command(player)
+	local userRank = getUserRank(player)
+	return userRank >= M2_MIN_RANK
+end
 local eventModeActive = MusicConfig.EVENT_MODE.Enabled or false
 
 -- Exportar a _G para que otros scripts puedan acceder
@@ -141,6 +185,37 @@ local function connectPlayer(player)
 		player.Chatted:Connect(function(msg) onChatted(player, msg) end)
 	end
 end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- REMOTEFUNCTION M2COMMANDPROCESSOR
+-- ═══════════════════════════════════════════════════════════════════
+M2CommandProcessor.OnServerInvoke = function(player, message)
+	print("[M2 SYSTEM] Cliente (" .. player.Name .. ") invocó M2CommandProcessor:", message)
+	
+	-- Validar permisos con HD Admin
+	if not canUseM2Command(player) then
+		print("[M2 SYSTEM] DENEGADO - Usuario sin permisos (Rango:", getUserRank(player), ")")
+		return false
+	end
+	
+	print("[M2 SYSTEM] Permiso APROBADO para", player.Name)
+	
+	-- Validar mensaje
+	if not message or message == "" then
+		print("[M2 SYSTEM] ERROR - Mensaje vacío")
+		return false
+	end
+	
+	-- Disparar anuncio a todos los clientes
+	print("[M2 SYSTEM] Disparando anuncio:", player.Name, " - ", message)
+	pcall(function()
+		localAnnouncement:FireAllClients(player.Name, message)
+	end)
+	
+	return true
+end
+
+print("[M2 SYSTEM] RemoteFunction M2CommandProcessor inicializada ✓")
 
 -- ═══════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN

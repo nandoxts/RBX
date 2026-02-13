@@ -1040,6 +1040,96 @@ local module = {
 		end;
 	};
 
+
+	{
+		Name = "acid";
+		Aliases = {"acid"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Activa efecto aurora (usa 'all' para todos)";
+		Contributors = {"ignxts"};
+		Args = {"Player"};
+		Function = function(player, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+			local evt = eventsFolder and eventsFolder:FindFirstChild("AcidTripEvent")
+			if not evt then return end
+
+			local target = args and args[1]
+			local resolved = resolveTargets(player, target)
+			if resolved == "ALL" then
+				evt:FireAllClients()
+				return
+			end
+
+			for _,p in ipairs(resolved) do
+				if p and p:IsA("Player") then
+					evt:FireClient(p)
+				end
+			end
+		end;
+	};
+	{
+		Name = "pyscho";
+		Aliases = {"pyscho"};
+		Prefixes = {settings.Prefix};
+		Rank = 1.1;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"effects"};
+		Description = "Activa efecto pyscho (usa 'all' para todos)";
+		Contributors = {"ignxts"};
+		Args = {"Player"};
+		Function = function(player, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local eventsFolder = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Events")
+			local evt = eventsFolder and eventsFolder:FindFirstChild("PsicoSkyEvent")
+			if not evt then return end
+
+			local target = args and args[1]
+			local resolved = resolveTargets(player, target)
+			if resolved == "ALL" then
+				evt:FireAllClients()
+				return
+			end
+
+			for _,p in ipairs(resolved) do
+				if p and p:IsA("Player") then
+					evt:FireClient(p)
+				end
+			end
+		end;
+	};
+	-- FREE CAMERA
+	{
+		Name = "freecam";
+		Aliases = {"fc", "camera", "cam"};
+		Prefixes = {settings.Prefix};
+		Rank = 0;
+		RankLock = false;
+		Loopable = false;
+		Tags = {"admin", "utility"};
+		Description = "Activa/desactiva free camera - USA SHIFT+P";
+		Contributors = {"SX-System"};
+		Args = {};
+		Function = function(speaker, args)
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local freeCamToggle = ReplicatedStorage:FindFirstChild("FreeCamToggle")
+
+			if not freeCamToggle then
+				freeCamToggle = Instance.new("RemoteEvent")
+				freeCamToggle.Name = "FreeCamToggle"
+				freeCamToggle.Parent = ReplicatedStorage
+			end
+
+			freeCamToggle:FireClient(speaker)
+		end;
+	};
+
+
 	{
 		Name = "aura2";
 		Aliases = {"aura2", "eff"};
@@ -1066,7 +1156,8 @@ local module = {
 
 			-- Tabla de efectos disponibles
 			local DONATION_EFFECTS = {
-				{MaxAmount = 500,   Attachment = "Explosion",  Duration = 20},
+				{MaxAmount = 500,   Attachment = "x1",  Duration = 20},
+				{MaxAmount = 500,   Attachment = "x2",  Duration = 20},
 			}
 
 			local selectedEffect = nil
@@ -1111,34 +1202,6 @@ local module = {
 			-- Sin sonido
 		end;
 	};
-
-	-- FREE CAMERA
-	{
-		Name = "freecam";
-		Aliases = {"fc", "camera", "cam"};
-		Prefixes = {settings.Prefix};
-		Rank = 0;
-		RankLock = false;
-		Loopable = false;
-		Tags = {"admin", "utility"};
-		Description = "Activa/desactiva free camera - USA SHIFT+P";
-		Contributors = {"SX-System"};
-		Args = {};
-		Function = function(speaker, args)
-			local ReplicatedStorage = game:GetService("ReplicatedStorage")
-			local freeCamToggle = ReplicatedStorage:FindFirstChild("FreeCamToggle")
-			
-			if not freeCamToggle then
-				freeCamToggle = Instance.new("RemoteEvent")
-				freeCamToggle.Name = "FreeCamToggle"
-				freeCamToggle.Parent = ReplicatedStorage
-			end
-			
-			freeCamToggle:FireClient(speaker)
-			print("[FreeCam] ✓ Activado para " .. speaker.Name)
-		end;
-	};
-
 
 };
 
