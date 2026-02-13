@@ -14,10 +14,12 @@ local playerGui = player:WaitForChild("PlayerGui")
 local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
 local messageFolder = RemotesGlobal:WaitForChild("Message")
 local localAnnouncement = messageFolder:WaitForChild("LocalAnnouncement")
-
-print("[LocalAnnouncementClient] RemoteEvent encontrado, esperando anuncios...")
+local m2CooldownNotif = messageFolder:WaitForChild("M2CooldownNotif")
 
 local THEME = require(ReplicatedStorage.Config.ThemeConfig)
+
+-- NotificationSystem para mostrar cooldown
+local NotificationSystem = require(ReplicatedStorage.Systems.NotificationSystem.NotificationSystem)
 
 local COLORS = {
 	Background = THEME.bg,
@@ -191,24 +193,56 @@ local function createAnnouncement(senderName, message)
 	textContainer.ZIndex = 101
 	textContainer.Parent = announcement
 
+	-- Contenedor de nombre y username (lado a lado)
+	local nameHandleContainer = Instance.new("Frame")
+	nameHandleContainer.Name = "NameHandleContainer"
+	nameHandleContainer.Size = UDim2.new(1, 0, 0, 18)
+	nameHandleContainer.Position = UDim2.new(0, 0, 0, 0)
+	nameHandleContainer.BackgroundTransparency = 1
+	nameHandleContainer.ZIndex = 101
+	nameHandleContainer.Parent = textContainer
+
+	local nameHandleLayout = Instance.new("UIListLayout")
+	nameHandleLayout.FillDirection = Enum.FillDirection.Horizontal
+	nameHandleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	nameHandleLayout.Padding = UDim.new(0, 4)
+	nameHandleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	nameHandleLayout.Parent = nameHandleContainer
+
 	-- Nombre del remitente
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "SenderName"
-	nameLabel.Size = UDim2.new(1, 0, 0, 18)
-	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.Size = UDim2.new(0, 0, 0, 16)
+	nameLabel.AutomaticSize = Enum.AutomaticSize.X
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = senderName
-	nameLabel.TextSize = 18
+	nameLabel.TextSize = 16
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextColor3 = COLORS.Accent
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.LayoutOrder = 1
 	nameLabel.ZIndex = 102
-	nameLabel.Parent = textContainer
+	nameLabel.Parent = nameHandleContainer
+
+	-- Username del remitente
+	local handleLabel = Instance.new("TextLabel")
+	handleLabel.Name = "SenderHandle"
+	handleLabel.Size = UDim2.new(0, 0, 0, 14)
+	handleLabel.AutomaticSize = Enum.AutomaticSize.X
+	handleLabel.BackgroundTransparency = 1
+	handleLabel.Text = "@usuario"
+	handleLabel.TextSize = 12
+	handleLabel.Font = Enum.Font.GothamMedium
+	handleLabel.TextColor3 = COLORS.TextSecondary
+	handleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	handleLabel.LayoutOrder = 2
+	handleLabel.ZIndex = 102
+	handleLabel.Parent = nameHandleContainer
 
 	-- Mensaje
 	local messageLabel = Instance.new("TextLabel")
 	messageLabel.Name = "Message"
-	messageLabel.Size = UDim2.new(1, 0, 1, -22)
+	messageLabel.Size = UDim2.new(1, 0, 1, -24)
 	messageLabel.Position = UDim2.new(0, 0, 0, 20)
 	messageLabel.BackgroundTransparency = 1
 	messageLabel.Text = message
@@ -230,7 +264,7 @@ local function createAnnouncement(senderName, message)
 	-- Calcular posición final antes de animar
 	local finalPosition = UDim2.new(0.5, -CONFIG.ANNOUNCEMENT_WIDTH/2, 0, yOffset)
 
-	-- Obtener avatar del remitente
+	-- Obtener avatar y username del remitente
 	task.spawn(function()
 		local success, userId = pcall(function()
 			local targetPlayer = Players:FindFirstChild(senderName)
@@ -241,6 +275,18 @@ local function createAnnouncement(senderName, message)
 		end)
 
 		if success and userId then
+			-- Obtener username/handle
+			local handleSuccess, handleName = pcall(function()
+				return Players:GetNameFromUserIdAsync(userId)
+			end)
+			
+			if handleSuccess and handleName then
+				if handleLabel and handleLabel.Parent then
+					handleLabel.Text = "@" .. handleName
+				end
+			end
+			
+			-- Obtener avatar
 			local thumbSuccess, thumb = pcall(function()
 				return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
 			end)
@@ -296,4 +342,13 @@ localAnnouncement.OnClientEvent:Connect(function(senderName, message)
 	if senderName and message then
 		createAnnouncement(senderName, message)
 	end
+end)
+
+-- Mostrar notificación de cooldown del ;m2
+m2CooldownNotif.OnClientEvent:Connect(function(remainingTime)
+	NotificationSystem:Warning(
+		"Cooldown de ;m2",
+		string.format("Espera %d segundo%s más", remainingTime, remainingTime == 1 and "" or "s"),
+		2
+	)
 end)

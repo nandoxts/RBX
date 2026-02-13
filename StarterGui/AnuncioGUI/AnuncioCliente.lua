@@ -21,14 +21,6 @@ local COLORS = {
 	Verified = THEME.text,
 }
 
--- Debug flag: cambia a true para activar logs
-local DEBUG = false
-local function debugLog(...)
-	if DEBUG then
-		print(...)
-	end
-end
-
 -- ScreenGui (DisplayOrder alto para estar encima de todo)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AnuncioGlobalGui"
@@ -242,25 +234,20 @@ local startProcessing
 
 local function processQueue()
 	while #announcementQueue > 0 do
-		debugLog("[AnuncioGlobal] Procesando anuncio, cola:", #announcementQueue)
 		local item = table.remove(announcementQueue, 1)
-		debugLog("[AnuncioGlobal] Item extraído:", item and item.creatorName, item and item.msg)
 		local ok, err = pcall(function()
 			local creatorName = item.creatorName
 			local msg = item.msg
 			local duration = item.duration or 4
-			debugLog("[AnuncioGlobal] Datos:", creatorName, msg, duration)
 
 			local userId
 			local targetPlayer = Players:FindFirstChild(creatorName)
 			if targetPlayer then
 				userId = targetPlayer.UserId
-				debugLog("[AnuncioGlobal] UserId directo:", userId)
 			else
 				local success, result = pcall(function()
 					return Players:GetUserIdFromNameAsync(creatorName)
 				end)
-				debugLog("[AnuncioGlobal] UserId por nombre:", success, result)
 				if success then
 					userId = result
 				end
@@ -273,10 +260,8 @@ local function processQueue()
 			local handleName = creatorName
 			if userId then
 				local ok1, dname = pcall(function() return Players:GetDisplayNameAsync(userId) end)
-				debugLog("[AnuncioGlobal] DisplayName:", ok1, dname)
 				if ok1 and dname and dname ~= "" then displayName = dname end
 				local ok2, uname = pcall(function() return Players:GetNameFromUserIdAsync(userId) end)
-				debugLog("[AnuncioGlobal] HandleName:", ok2, uname)
 				if ok2 and uname and uname ~= "" then handleName = uname end
 			end
 
@@ -295,7 +280,6 @@ local function processQueue()
 			local lineHeightFactor = 1.15
 
 			if mainContainer.AbsoluteSize.X == 0 then
-				debugLog("[AnuncioGlobal] Esperando tamaño de mainContainer...")
 				repeat task.wait() until mainContainer.AbsoluteSize.X > 0
 			end
 			local availableWidth = math.max(10, maxWidth - 110 - 12)
@@ -303,7 +287,6 @@ local function processQueue()
 				local okSize, sizeVec = pcall(function()
 					return TextService:GetTextSize(text or msg, size, messageText.Font, Vector2.new(availableWidth, 10000))
 				end)
-				debugLog("[AnuncioGlobal] textHeightFor:", size, text, okSize, sizeVec and sizeVec.Y)
 				return (okSize and sizeVec.Y) or 0
 			end
 
@@ -313,7 +296,6 @@ local function processQueue()
 				local maxAllowed = maxLines * s * lineHeightFactor
 				if h <= maxAllowed then
 					chosenSize = s
-					debugLog("[AnuncioGlobal] FontSize elegido:", chosenSize)
 					break
 				end
 			end
@@ -328,13 +310,11 @@ local function processQueue()
 						break
 					end
 				end
-				debugLog("[AnuncioGlobal] FontSize singleLine ajustado:", chosenSize)
 			end
 
 			messageText.TextSize = chosenSize
 			local requiredHeight = textHeightFor(chosenSize, messageText.Text)
 			local desiredHeight = math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight)
-			debugLog("[AnuncioGlobal] requiredHeight:", requiredHeight, "desiredHeight:", desiredHeight)
 
 			local targetSize = UDim2.new(0, maxWidth, 0, math.min(desiredHeight, maxContainerHeight))
 			TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
@@ -347,7 +327,7 @@ local function processQueue()
 				requiredHeight = textHeightFor(chosenSize, messageText.Text)
 				local finalSize = UDim2.new(0, maxWidth, 0, math.clamp(requiredHeight + 55, minContainerHeight, maxContainerHeight))
 				TweenService:Create(mainContainer, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = finalSize}):Play()
-				debugLog("[AnuncioGlobal] Mensaje truncado:", messageText.Text)
+
 			end
 			messageText.TextSize = chosenSize
 
@@ -355,7 +335,6 @@ local function processQueue()
 				local successThumb, thumb = pcall(function()
 					return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
 				end)
-				debugLog("[AnuncioGlobal] Thumbnail:", successThumb, thumb)
 				if successThumb then
 					userImage.Image = thumb
 				end
@@ -367,14 +346,11 @@ local function processQueue()
 			progressBar.Size = UDim2.new(1, 0, 1, 0)
 			mainContainer.Position = UDim2.new(0.5, 0, 0, -150)
 			mainContainer.Visible = false
-			debugLog("[AnuncioGlobal] Estado visual reseteado antes de mostrar anuncio")
-
-			debugLog("[AnuncioGlobal] Mostrando anuncio...")
 			animateIn()
 			animateProgress(duration)
 
 			task.wait(duration)
-			debugLog("[AnuncioGlobal] Ocultando anuncio...")
+
 			animateOut()
 		end)
 		if not ok then
@@ -401,8 +377,6 @@ startProcessing = function()
 end
 
 crearAnuncio.OnClientEvent:Connect(function(creatorName, msg, duration, uid)
-	debugLog("[AnuncioGlobal] Recibido anuncio de:", creatorName, msg, duration, uid)
 	table.insert(announcementQueue, {creatorName = creatorName, msg = msg, duration = duration or 4, uid = uid})
-	debugLog("[AnuncioGlobal] Cola actual:", #announcementQueue)
 	startProcessing()
 end)

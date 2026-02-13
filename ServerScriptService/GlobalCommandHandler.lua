@@ -7,9 +7,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- ═══════════════════════════════════════════════════════════════════
 local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
-local HDConnect = require(game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService"):WaitForChild("Gamepass Gifting"):WaitForChild("HD-CONNECT"))
 
--- Obtener HD Admin main
+-- Configuración HD Admin
 local SetupHd = ReplicatedStorage:WaitForChild("HDAdminSetup", 10)
 local hdMain = SetupHd and require(SetupHd):GetMain()
 local hd = hdMain and hdMain:GetModule("API")
@@ -26,9 +25,6 @@ local CONFIG = {
 	}
 }
 
--- ║ Permisos para ;m2 (Rango mínimo = 0, todos pueden usar)
-local M2_MIN_RANK = 0
-
 -- ═══════════════════════════════════════════════════════════════════
 -- REMOTES
 -- ═══════════════════════════════════════════════════════════════════
@@ -44,42 +40,51 @@ local eventMessageEvent = commandsFolder:WaitForChild("EventMessage")
 local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
 
 -- M2 Announcement Remotes
-local messageFolder = remotesGlobal:FindFirstChild("Message")
-if not messageFolder then
-	messageFolder = Instance.new("Folder")
-	messageFolder.Name = "Message"
-	messageFolder.Parent = remotesGlobal
-end
-
-local M2CommandProcessor = messageFolder:FindFirstChild("M2CommandProcessor")
-if not M2CommandProcessor then
-	M2CommandProcessor = Instance.new("RemoteFunction")
-	M2CommandProcessor.Name = "M2CommandProcessor"
-	M2CommandProcessor.Parent = messageFolder
-end
-
-local localAnnouncement = messageFolder:FindFirstChild("LocalAnnouncement")
-if not localAnnouncement then
-	localAnnouncement = Instance.new("RemoteEvent")
-	localAnnouncement.Name = "LocalAnnouncement"
-	localAnnouncement.Parent = messageFolder
-end
+local messageFolder = remotesGlobal:WaitForChild("Message")
+local localAnnouncement = messageFolder:WaitForChild("LocalAnnouncement")
+local m2CooldownNotif = messageFolder:WaitForChild("M2CooldownNotif")
 
 -- ═══════════════════════════════════════════════════════════════════
 -- FUNCIONES AUXILIARES
 -- ═══════════════════════════════════════════════════════════════════
--- Obtener el rango HD Admin del usuario
-local function getUserRank(player)
-	if not hd then return 0 end
-	local rank = hd:GetRankFor(player) or 0
-	return rank
+-- Validar permisos para ;m2 (Solo Influencer en adelante)
+local function canUseM2Command(player)
+	if not hd then return false end
+	
+	-- Obtener rango actual del usuario
+	local rankId = hd:GetRank(player)
+	
+	-- Obtener rankId de Influencer (es el rango mínimo para M2)
+	local influencerRankId = hd:GetRankId("Influencer")
+	
+	-- Comparar si es >= Influencer
+	if rankId and influencerRankId then
+		return rankId >= influencerRankId
+	end
+	
+	return false
 end
 
--- Validar permisos para ;m2
-local function canUseM2Command(player)
-	local userRank = getUserRank(player)
-	return userRank >= M2_MIN_RANK
+-- m2Cooldown
+local m2Cooldown = {}
+local M2_COOLDOWN_TIME = 7
+
+local function canUseM2Cooldown(player)
+	local now = tick()
+	local lastUse = m2Cooldown[player.UserId]
+	
+	if lastUse and (now - lastUse) < M2_COOLDOWN_TIME then
+		local remainingTime = math.ceil(M2_COOLDOWN_TIME - (now - lastUse))
+		pcall(function()
+			m2CooldownNotif:FireClient(player, remainingTime)
+		end)
+		return false
+	end
+	
+	m2Cooldown[player.UserId] = now
+	return true
 end
+
 local eventModeActive = MusicConfig.EVENT_MODE.Enabled or false
 
 -- Exportar a _G para que otros scripts puedan acceder
@@ -153,73 +158,72 @@ end
 local function onChatted(player, message)
 	local lower = message:lower()
 
-	-- Procesar comando ;tono
+	-- Procesar comando ;tono (requiere admin)
 	if lower:sub(1, #CONFIG.prefix) == CONFIG.prefix then
+		if not AdminConfig:IsAdmin(player) then
+			return
+		end
 		local args = message:sub(#CONFIG.prefix + 1)
 		handleCommand(args)
 	end
 
-	-- Procesar comando ;event
+	-- Procesar comando ;event (requiere admin)
 	if lower == CONFIG.eventPrefix then
-		if MusicConfig:IsAdmin(player) then
+		if AdminConfig:IsAdmin(player) then
 			setEventMode(true)
 			local msg = "MODO EVENTO ACTIVADO"
-			print("Modo Evento ACTIVADO por: " .. player.Name)
 			fireAllClients(eventMessageEvent, msg)
 		end
 	end
 
-	-- Procesar comando ;unevent
+	-- Procesar comando ;unevent (requiere admin)
 	if lower == CONFIG.uneventPrefix then
-		if MusicConfig:IsAdmin(player) then
+		if AdminConfig:IsAdmin(player) then
 			setEventMode(false)
 			local msg = " MODO EVENTO DESACTIVADO"
-			print("Modo Evento DESACTIVADO por: " .. player.Name)
 			fireAllClients(eventMessageEvent, msg)
+		end
+	end
+
+	-- Procesar comando ;m2 (requiere Influencer+ en HD Admin)
+	if lower:sub(1, #CONFIG.m2Prefix) == CONFIG.m2Prefix and lower:sub(#CONFIG.m2Prefix + 1, #CONFIG.m2Prefix + 1) == " " then
+		-- Si modo evento está activo, deshabilitar ;m2
+		if eventModeActive then
+			return
+		end
+		
+		-- Validar cooldown
+		if not canUseM2Cooldown(player) then
+			return
+		end
+		
+		-- Validar permisos (Solo Influencer+)
+		if not canUseM2Command(player) then
+			return
+		end
+
+		-- Extraer mensaje original (preserva mayúsculas)
+		local m2Message = message:sub(#CONFIG.m2Prefix + 2)
+
+		if m2Message and m2Message ~= "" then
+			-- Disparar anuncio a todos los clientes
+			pcall(function()
+				localAnnouncement:FireAllClients(player.Name, m2Message)
+			end)
 		end
 	end
 end
 
 local function connectPlayer(player)
-	if AdminConfig:IsAdmin(player) then
-		player.Chatted:Connect(function(msg) onChatted(player, msg) end)
-	end
+	player.Chatted:Connect(function(msg) onChatted(player, msg) end)
 end
-
--- ═══════════════════════════════════════════════════════════════════
--- REMOTEFUNCTION M2COMMANDPROCESSOR
--- ═══════════════════════════════════════════════════════════════════
-M2CommandProcessor.OnServerInvoke = function(player, message)
-	print("[M2 SYSTEM] Cliente (" .. player.Name .. ") invocó M2CommandProcessor:", message)
-	
-	-- Validar permisos con HD Admin
-	if not canUseM2Command(player) then
-		print("[M2 SYSTEM] DENEGADO - Usuario sin permisos (Rango:", getUserRank(player), ")")
-		return false
-	end
-	
-	print("[M2 SYSTEM] Permiso APROBADO para", player.Name)
-	
-	-- Validar mensaje
-	if not message or message == "" then
-		print("[M2 SYSTEM] ERROR - Mensaje vacío")
-		return false
-	end
-	
-	-- Disparar anuncio a todos los clientes
-	print("[M2 SYSTEM] Disparando anuncio:", player.Name, " - ", message)
-	pcall(function()
-		localAnnouncement:FireAllClients(player.Name, message)
-	end)
-	
-	return true
-end
-
-print("[M2 SYSTEM] RemoteFunction M2CommandProcessor inicializada ✓")
 
 -- ═══════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN
 -- ═══════════════════════════════════════════════════════════════════
+-- Pequeño delay para asegurar que los Remotes estén disponibles en clientes
+task.wait(0.5)
+
 for _, player in ipairs(Players:GetPlayers()) do
 	connectPlayer(player)
 end
