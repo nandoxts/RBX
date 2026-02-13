@@ -295,6 +295,15 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "😈",
 		clanColor = {148, 0, 211}, -- Morado
 	},
+	{
+		clanName = "Fallen Kin",
+		ownerId = 1585157576, -- Cambiar con el ownerId correcto
+		clanTag = "FLK",
+		clanLogo = "rbxassetid://106583675209015",
+		descripcion = "Fallen no representa derrota, sino decisión, Kin representa familia",
+		clanEmoji = "🤍⚡",
+		clanColor = {219, 39, 119}, -- Magenta/Rosa
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════

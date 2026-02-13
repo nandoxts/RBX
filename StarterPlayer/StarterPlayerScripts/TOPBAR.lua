@@ -16,6 +16,7 @@ local FrameSettings = settingsUI:WaitForChild("MainFrame")
 -- Esperar a que se carguen las GUIs de sistema
 task.wait(1)
 
+
 -- ════════════════════════════════════════════════════════════════
 -- MÓDULOS
 -- ════════════════════════════════════════════════════════════════
@@ -166,10 +167,11 @@ end)
 
 -- Obtener el SoundGroup (creado manualmente en Studio dentro de SoundService)
 local musicSoundGroup = SoundService:WaitForChild("MusicSoundGroup", 10)
+local soundIcon = nil
 
 if musicSoundGroup then
 	-- Crear el icono de sonido
-	local soundIcon = Icon.new()
+	soundIcon = Icon.new()
 		:setImage(166377448)
 		:setName("SoundToggle")
 		:setCaption("Música")
@@ -212,6 +214,106 @@ if musicSoundGroup then
 else
 	warn("[Topbar] No se encontró 'MusicSoundGroup' en SoundService - Créalo manualmente en Studio")
 end
+
+-- ════════════════════════════════════════════════════════════════
+-- ICONO: FREECAM (DINÁMICO) - MEJORES PRÁCTICAS
+-- ════════════════════════════════════════════════════════════════
+
+-- Crear BindableEvent para comunicación eficiente (mejor que _G polling)
+local FreeCamEvent = Instance.new("BindableEvent")
+_G.FreeCamEvent = FreeCamEvent
+
+local FreeCamIcon = nil
+local iconsHidden = false
+
+-- Lista de todos los iconos a gestionar
+local topbarIcons = {
+	_G.ShopIcon,
+	configIcon,
+	_G.ClanSystemIcon,
+	_G.EmotesIcon,
+	_G.MusicDashboardIcon,
+	soundIcon
+}
+
+-- Función optimizada para ocultar todos los iconos
+local function HideAllIcons()
+	if iconsHidden then return end
+	
+	for _, icon in ipairs(topbarIcons) do
+		if icon then
+			pcall(function()
+				icon:setEnabled(false)
+			end)
+		end
+	end
+	
+	iconsHidden = true
+end
+
+-- Función optimizada para mostrar todos los iconos
+local function ShowAllIcons()
+	if not iconsHidden then return end
+	
+	for _, icon in ipairs(topbarIcons) do
+		if icon then
+			pcall(function()
+				icon:setEnabled(true)
+			end)
+		end
+	end
+	
+	iconsHidden = false
+end
+
+-- Función para activar FreeCam UI
+local function EnableFreeCamUI()
+	if FreeCamIcon then return end
+	
+	-- Ocultar todos los botones del TopBar
+	HideAllIcons()
+	
+	-- Crear icono de FreeCam
+	FreeCamIcon = Icon.new()
+		:setLabel("F6 DESACTIVAR")
+		:setCaption("Presiona para desactivar (F6)")
+		:align("Right")
+		:setOrder(0)
+		:select()
+	
+	-- Evento para desactivar
+	FreeCamIcon:bindEvent("deselected", function()
+		-- Notificar a FreeCam.lua que debe desactivarse
+		FreeCamEvent:Fire(false)
+	end)
+end
+
+-- Función para desactivar FreeCam UI
+local function DisableFreeCamUI()
+	if not FreeCamIcon then return end
+	
+	-- Destruir icono
+	pcall(function()
+		FreeCamIcon:destroy()
+	end)
+	FreeCamIcon = nil
+	
+	-- Restaurar todos los botones del TopBar
+	ShowAllIcons()
+end
+
+-- Escuchar eventos de FreeCam (mejor que polling)
+FreeCamEvent.Event:Connect(function(isActive)
+	if isActive then
+		EnableFreeCamUI()
+	else
+		DisableFreeCamUI()
+	end
+end)
+
+-- Variable global solo para compatibilidad (se usa BindableEvent internamente)
+_G.FreeCamActive = false
+_G.FreeCamIcon = FreeCamIcon
 
 -- ════════════════════════════════════════════════════════════════
 -- FIN DEL SCRIPT
