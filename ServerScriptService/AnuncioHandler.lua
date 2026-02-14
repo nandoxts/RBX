@@ -23,12 +23,13 @@ Players.PlayerAdded:Connect(function(plr)
 			if string.sub(msg, 1, 8) == "/global " then
 				local actualMessage = string.sub(msg, 9)
 				local duration = 10
+				local displayName = plr.DisplayName or plr.Name
 
 				local uid = getUniqueId()
 				pcall(function()
 					MessagingService:PublishAsync(
 						"GlobalAnnouncement",
-						plr.Name .. "sTrInGsEpErAtOr" .. actualMessage .. "sTrInGsEpErAtOr" .. duration .. "sTrInGsEpErAtOr" .. uid
+						displayName .. "sTrInGsEpErAtOr" .. plr.Name .. "sTrInGsEpErAtOr" .. actualMessage .. "sTrInGsEpErAtOr" .. duration .. "sTrInGsEpErAtOr" .. uid
 					)
 				end)
 			end
@@ -37,12 +38,13 @@ Players.PlayerAdded:Connect(function(plr)
 			if durationMatch then
 				local duration = math.clamp(tonumber(durationMatch), 1, 30)
 				local actualMessage = string.sub(msg, #("/global:" .. durationMatch .. " ") + 1)
+				local displayName = plr.DisplayName or plr.Name
 
 				local uid = getUniqueId()
 				pcall(function()
 					MessagingService:PublishAsync(
 						"GlobalAnnouncement",
-						plr.Name .. "sTrInGsEpErAtOr" .. actualMessage .. "sTrInGsEpErAtOr" .. duration .. "sTrInGsEpErAtOr" .. uid
+						displayName .. "sTrInGsEpErAtOr" .. plr.Name .. "sTrInGsEpErAtOr" .. actualMessage .. "sTrInGsEpErAtOr" .. duration .. "sTrInGsEpErAtOr" .. uid
 					)
 				end)
 			end
@@ -53,12 +55,13 @@ end)
 pcall(function()
 	MessagingService:SubscribeAsync("GlobalAnnouncement", function(msg)
 		local splitMessage = string.split(msg.Data, "sTrInGsEpErAtOr")
-		local plrName = splitMessage[1]
-		local message = splitMessage[2]
-		local duration = tonumber(splitMessage[3]) or 10
-		local uid = splitMessage[4] -- unique id (optional)
+		local displayName = splitMessage[1]
+		local userName = splitMessage[2]
+		local message = splitMessage[3]
+		local duration = tonumber(splitMessage[4]) or 10
+		local uid = splitMessage[5] -- unique id (optional)
 
 		-- Fire clients including uid to avoid identical payloads being coalesced
-		crearAnuncio:FireAllClients(plrName, message, duration, uid)
+		crearAnuncio:FireAllClients(displayName, userName, message, duration, uid)
 	end)
 end)

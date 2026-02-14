@@ -137,7 +137,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- Crear Anuncio
 -- ════════════════════════════════════════════════════════════════
-local function createAnnouncement(senderName, message)
+local function createAnnouncement(displayName, userName, message)
 	if #activeAnnouncements >= CONFIG.MAX_ANNOUNCEMENTS then
 		removeAnnouncement(activeAnnouncements[1])
 	end
@@ -209,13 +209,13 @@ local function createAnnouncement(senderName, message)
 	nameHandleLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	nameHandleLayout.Parent = nameHandleContainer
 
-	-- Nombre del remitente
+	-- Display name del remitente
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "SenderName"
 	nameLabel.Size = UDim2.new(0, 0, 0, 16)
 	nameLabel.AutomaticSize = Enum.AutomaticSize.X
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = senderName
+	nameLabel.Text = displayName
 	nameLabel.TextSize = 20
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextColor3 = COLORS.Accent
@@ -230,7 +230,7 @@ local function createAnnouncement(senderName, message)
 	handleLabel.Size = UDim2.new(0, 0, 0, 14)
 	handleLabel.AutomaticSize = Enum.AutomaticSize.X
 	handleLabel.BackgroundTransparency = 1
-	handleLabel.Text = "@usuario"
+	handleLabel.Text = "@" .. userName
 	handleLabel.TextSize = 14
 	handleLabel.Font = Enum.Font.GothamBold
 	handleLabel.TextColor3 = COLORS.Accent
@@ -264,28 +264,17 @@ local function createAnnouncement(senderName, message)
 	-- Calcular posición final antes de animar
 	local finalPosition = UDim2.new(0.5, -CONFIG.ANNOUNCEMENT_WIDTH/2, 0, yOffset)
 
-	-- Obtener avatar y username del remitente
+	-- Obtener avatar del usuario (por username)
 	task.spawn(function()
 		local success, userId = pcall(function()
-			local targetPlayer = Players:FindFirstChild(senderName)
+			local targetPlayer = Players:FindFirstChild(userName)
 			if targetPlayer then
 				return targetPlayer.UserId
 			end
-			return Players:GetUserIdFromNameAsync(senderName)
+			return Players:GetUserIdFromNameAsync(userName)
 		end)
 
 		if success and userId then
-			-- Obtener username/handle
-			local handleSuccess, handleName = pcall(function()
-				return Players:GetNameFromUserIdAsync(userId)
-			end)
-			
-			if handleSuccess and handleName then
-				if handleLabel and handleLabel.Parent then
-					handleLabel.Text = "@" .. handleName
-				end
-			end
-			
 			-- Obtener avatar
 			local thumbSuccess, thumb = pcall(function()
 				return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
@@ -300,6 +289,7 @@ local function createAnnouncement(senderName, message)
 	-- Inicial: transparente y fuera de pantalla (arriba)
 	announcement.BackgroundTransparency = 1
 	nameLabel.TextTransparency = 1
+	handleLabel.TextTransparency = 1
 	messageLabel.TextTransparency = 1
 	avatarImage.BackgroundTransparency = 1
 	announcement.Position = UDim2.new(0.5, -CONFIG.ANNOUNCEMENT_WIDTH/2, 0, -CONFIG.ANNOUNCEMENT_HEIGHT)
@@ -321,6 +311,10 @@ local function createAnnouncement(senderName, message)
 		TextTransparency = 0
 	}):Play()
 
+	TweenService:Create(handleLabel, TweenInfo.new(CONFIG.ANIMATION_TIME), {
+		TextTransparency = 0
+	}):Play()
+
 	TweenService:Create(messageLabel, TweenInfo.new(CONFIG.ANIMATION_TIME), {
 		TextTransparency = 0
 	}):Play()
@@ -338,9 +332,9 @@ local function createAnnouncement(senderName, message)
 end
 
 -- Conectar al evento
-localAnnouncement.OnClientEvent:Connect(function(senderName, message)
-	if senderName and message then
-		createAnnouncement(senderName, message)
+localAnnouncement.OnClientEvent:Connect(function(displayName, userName, message)
+	if displayName and userName and message then
+		createAnnouncement(displayName, userName, message)
 	end
 end)
 

@@ -86,7 +86,7 @@ textContainer.Parent = mainContainer
 -- Contenedor del nombre + check
 local nameContainer = Instance.new("Frame")
 nameContainer.Name = "NameContainer"
-nameContainer.Size = UDim2.new(1, 0, 0, 22)
+nameContainer.Size = UDim2.new(1, 0, 0, 28) -- Aumentado para dar espacio
 nameContainer.Position = UDim2.new(0, 0, 0, 5)
 nameContainer.BackgroundTransparency = 1
 nameContainer.ZIndex = 101
@@ -95,18 +95,18 @@ nameContainer.Parent = textContainer
 local nameLayout = Instance.new("UIListLayout")
 nameLayout.FillDirection = Enum.FillDirection.Horizontal
 nameLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-nameLayout.Padding = UDim.new(0, 6)
+nameLayout.Padding = UDim.new(0, 8) -- Más espacio entre elementos
 nameLayout.SortOrder = Enum.SortOrder.LayoutOrder
 nameLayout.Parent = nameContainer
 
--- Nombre de usuario
+-- Nombre de usuario (MÁS GRANDE)
 local displayNameLabel = Instance.new("TextLabel")
 displayNameLabel.Name = "DisplayName"
-displayNameLabel.Size = UDim2.new(0, 0, 0, 26)
+displayNameLabel.Size = UDim2.new(0, 0, 0, 28)
 displayNameLabel.AutomaticSize = Enum.AutomaticSize.X
 displayNameLabel.BackgroundTransparency = 1
 displayNameLabel.Text = "DisplayName"
-displayNameLabel.TextSize = 18
+displayNameLabel.TextSize = 24 -- AUMENTADO de 18 a 24
 displayNameLabel.Font = Enum.Font.GothamBold
 displayNameLabel.TextColor3 = COLORS.TextPrimary
 displayNameLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -116,11 +116,11 @@ displayNameLabel.Parent = nameContainer
 
 local userHandle = Instance.new("TextLabel")
 userHandle.Name = "UserHandle"
-userHandle.Size = UDim2.new(0, 0, 0, 20)
+userHandle.Size = UDim2.new(0, 0, 0, 24)
 userHandle.AutomaticSize = Enum.AutomaticSize.X
 userHandle.BackgroundTransparency = 1
 userHandle.Text = "@usuario"
-userHandle.TextSize = 14
+userHandle.TextSize = 18 -- AUMENTADO de 14 a 18
 userHandle.Font = Enum.Font.GothamMedium
 userHandle.TextColor3 = COLORS.TextSecondary
 userHandle.TextXAlignment = Enum.TextXAlignment.Left
@@ -128,14 +128,14 @@ userHandle.LayoutOrder = 2
 userHandle.ZIndex = 102
 userHandle.Parent = nameContainer
 
--- Check de verificado (Roblox verified badge)
+-- Check de verificado (Roblox verified badge) - MÁS GRANDE
 local verifiedCheck = Instance.new("TextLabel")
 verifiedCheck.Name = "VerifiedCheck"
-verifiedCheck.Size = UDim2.new(0, 18, 0, 18)
+verifiedCheck.Size = UDim2.new(0, 24, 0, 24) -- AUMENTADO de 18 a 24
 verifiedCheck.BackgroundTransparency = 1
-verifiedCheck.Text = ""
+verifiedCheck.Text = ""
 verifiedCheck.Font = Enum.Font.GothamBold
-verifiedCheck.TextSize = 16
+verifiedCheck.TextSize = 22 -- AUMENTADO de 16 a 22
 verifiedCheck.TextColor3 = COLORS.Verified
 verifiedCheck.TextXAlignment = Enum.TextXAlignment.Left
 verifiedCheck.TextYAlignment = Enum.TextYAlignment.Center
@@ -147,7 +147,7 @@ verifiedCheck.Parent = nameContainer
 local messageText = Instance.new("TextLabel")
 messageText.Name = "MessageText"
 messageText.Size = UDim2.new(1, 0, 0, 45)
-messageText.Position = UDim2.new(0, 0, 0, 28)
+messageText.Position = UDim2.new(0, 0, 0, 35) -- Ajustado para dar espacio al nombre más grande
 messageText.BackgroundTransparency = 1
 messageText.Text = ""
 messageText.TextSize = 26
@@ -236,17 +236,18 @@ local function processQueue()
 	while #announcementQueue > 0 do
 		local item = table.remove(announcementQueue, 1)
 		local ok, err = pcall(function()
-			local creatorName = item.creatorName
+			local displayName = item.displayName
+			local userName = item.userName
 			local msg = item.msg
 			local duration = item.duration or 4
 
 			local userId
-			local targetPlayer = Players:FindFirstChild(creatorName)
+			local targetPlayer = Players:FindFirstChild(userName)
 			if targetPlayer then
 				userId = targetPlayer.UserId
 			else
 				local success, result = pcall(function()
-					return Players:GetUserIdFromNameAsync(creatorName)
+					return Players:GetUserIdFromNameAsync(userName)
 				end)
 				if success then
 					userId = result
@@ -255,20 +256,11 @@ local function processQueue()
 
 			messageText.Text = msg
 
-			-- Obtener nombres: display (si existe) y handle (username)
-			local displayName = creatorName
-			local handleName = creatorName
-			if userId then
-				local ok1, dname = pcall(function() return Players:GetDisplayNameAsync(userId) end)
-				if ok1 and dname and dname ~= "" then displayName = dname end
-				local ok2, uname = pcall(function() return Players:GetNameFromUserIdAsync(userId) end)
-				if ok2 and uname and uname ~= "" then handleName = uname end
-			end
-
+			-- Establecer nombres directamente (ya vienen del servidor)
 			local displayLabel = nameContainer:FindFirstChild("DisplayName")
 			local handleLabel = nameContainer:FindFirstChild("UserHandle")
 			if displayLabel then displayLabel.Text = displayName end
-			if handleLabel then handleLabel.Text = "@" .. handleName end
+			if handleLabel then handleLabel.Text = "@" .. userName end
 
 			-- Ajuste preciso usando TextService:GetTextSize (misma lógica que antes)
 			local maxWidth = 640
@@ -376,7 +368,7 @@ startProcessing = function()
 	end)
 end
 
-crearAnuncio.OnClientEvent:Connect(function(creatorName, msg, duration, uid)
-	table.insert(announcementQueue, {creatorName = creatorName, msg = msg, duration = duration or 4, uid = uid})
+crearAnuncio.OnClientEvent:Connect(function(displayName, userName, msg, duration, uid)
+	table.insert(announcementQueue, {displayName = displayName, userName = userName, msg = msg, duration = duration or 4, uid = uid})
 	startProcessing()
 end)

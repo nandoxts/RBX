@@ -206,9 +206,12 @@ local function onChatted(player, message)
 		local m2Message = message:sub(#CONFIG.m2Prefix + 2)
 
 		if m2Message and m2Message ~= "" then
-			-- Disparar anuncio a todos los clientes
+			-- Obtener display name del jugador (player.DisplayName es la propiedad nativa)
+			local displayName = player.DisplayName or player.Name
+			
+			-- Disparar anuncio a todos los clientes con display name
 			pcall(function()
-				localAnnouncement:FireAllClients(player.Name, m2Message)
+				localAnnouncement:FireAllClients(displayName, player.Name, m2Message)
 			end)
 		end
 	end
