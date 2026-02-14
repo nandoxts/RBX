@@ -216,7 +216,7 @@ local function createAnnouncement(senderName, message)
 	nameLabel.AutomaticSize = Enum.AutomaticSize.X
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = senderName
-	nameLabel.TextSize = 16
+	nameLabel.TextSize = 20
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextColor3 = COLORS.Accent
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -231,9 +231,9 @@ local function createAnnouncement(senderName, message)
 	handleLabel.AutomaticSize = Enum.AutomaticSize.X
 	handleLabel.BackgroundTransparency = 1
 	handleLabel.Text = "@usuario"
-	handleLabel.TextSize = 12
-	handleLabel.Font = Enum.Font.GothamMedium
-	handleLabel.TextColor3 = COLORS.TextSecondary
+	handleLabel.TextSize = 14
+	handleLabel.Font = Enum.Font.GothamBold
+	handleLabel.TextColor3 = COLORS.Accent
 	handleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	handleLabel.LayoutOrder = 2
 	handleLabel.ZIndex = 102
