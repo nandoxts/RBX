@@ -18,10 +18,14 @@ local CONFIG = {
 	eventPrefix = ";event",
 	uneventPrefix = ";unevent",
 	m2Prefix = ";m2",
+	nochePrefix = ";noche",
+	diaPrefix = ";dia",
 	messages = {
 		disabled = "Sistema de tono desactivado.",
 		rainbow = "Modo rainbow activado.",
 		theme = "Modo %s se ha activado.",
+		noche = "Noche Activa",
+		dia = "CICLO DÍA/NOCHE ACTIVADO",
 	}
 }
 
@@ -35,6 +39,7 @@ local toneModeEvent = commandsFolder:WaitForChild("ToneModeChanged")
 local getModeFunction = commandsFolder:WaitForChild("GetToneMode")
 local toneMessageEvent = commandsFolder:WaitForChild("ToneMessage")
 local eventMessageEvent = commandsFolder:WaitForChild("EventMessage")
+local nocheMessageEvent = commandsFolder:WaitForChild("NocheMessage")
 
 -- RemoteFunction para obtener temas disponibles de RainbowSync
 local getThemesFunction = commandsFolder:WaitForChild("GetAvailableThemes")
@@ -176,6 +181,29 @@ local function onChatted(player, message)
 		end
 	end
 
+
+	-- Procesar comando ;noche (requiere admin)
+	if lower == CONFIG.nochePrefix then
+		if AdminConfig:IsAdmin(player) then
+			-- Desactivar ciclo de tiempo y forzar noche
+			_G.ClockEnabled = false
+			game:GetService("Lighting").ClockTime = 22
+			
+			-- Notificar a todos los jugadores
+			fireAllClients(nocheMessageEvent, CONFIG.messages.noche)
+		end
+	end
+
+	-- Procesar comando ;dia (requiere admin)
+	if lower == CONFIG.diaPrefix then
+		if AdminConfig:IsAdmin(player) then
+			-- Activar ciclo día/noche
+			_G.ClockEnabled = true
+			
+			-- Notificar a todos los jugadores
+			fireAllClients(nocheMessageEvent, CONFIG.messages.dia)
+		end
+	end
 	-- Procesar comando ;unevent (requiere admin)
 	if lower == CONFIG.uneventPrefix then
 		if AdminConfig:IsAdmin(player) then
