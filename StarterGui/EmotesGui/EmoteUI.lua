@@ -294,7 +294,6 @@ TabIndicator.Name = "TabIndicator"
 TabIndicator.Size = UDim2.new(0.5, -4, 1, -4)
 TabIndicator.Position = UDim2.new(0, 2, 0, 2)
 TabIndicator.BackgroundColor3 = THEME_CONFIG.accent
-TabIndicator.BackgroundTransparency = 0.15
 TabIndicator.BorderSizePixel = 0
 TabIndicator.ZIndex = 2
 TabIndicator.Parent = TabsContainer
@@ -592,18 +591,18 @@ CreateCorner(ScrollbarThumb, 4)
 local function UpdateScrollbar()
 	local canvasSize = ScrollFrame.AbsoluteCanvasSize.Y
 	local windowSize = ScrollFrame.AbsoluteWindowSize.Y
-	
+
 	if canvasSize <= windowSize then
 		ScrollbarContainer.Visible = false
 		return
 	else
 		ScrollbarContainer.Visible = true
 	end
-	
+
 	local scrollPercent = ScrollFrame.CanvasPosition.Y / (canvasSize - windowSize)
 	local thumbHeight = math.max(0.1, windowSize / canvasSize)
 	local maxThumbY = 1 - thumbHeight
-	
+
 	ScrollbarThumb.Size = UDim2.new(1, 0, thumbHeight, 0)
 	ScrollbarThumb.Position = UDim2.new(0, 0, scrollPercent * maxThumbY, 0)
 end
@@ -997,7 +996,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 						innerBtn.ImageColor3 = THEME_CONFIG.accent
 						innerBtn.ImageTransparency = 0
 					end
-			end
+				end
 			end
 
 			NotificationSystem:Success("Favorito", nombre .. " añadido", 2)
@@ -1008,7 +1007,7 @@ local function CrearTarjeta(nombre, id, tipo, orden, esVIP)
 			card:SetAttribute("IsFavorite", false)
 
 			if TabActual == "Favoritos" then
-			Tween(favBtn, 0.2, {ImageColor3 = THEME_CONFIG.accent, ImageTransparency = THEME_CONFIG.mediumAlpha})
+				Tween(favBtn, 0.2, {ImageColor3 = THEME_CONFIG.accent, ImageTransparency = THEME_CONFIG.mediumAlpha})
 
 				CleanupCard(card)
 

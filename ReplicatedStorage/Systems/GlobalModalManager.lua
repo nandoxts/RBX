@@ -11,6 +11,8 @@ local GlobalModalManager = {}
 GlobalModalManager.currentMainModal = nil  -- Solo puede ser "Clan" or "Music"
 GlobalModalManager.isEmoteOpen = false     -- EmoteUI independiente
 GlobalModalManager.isUserPanelOpen = false -- UserPanel independiente
+GlobalModalManager.isSettingsOpen = false  -- Settings independiente
+GlobalModalManager.settingsModalMgr = nil  -- Instancia del modal de settings
 
 -- Configuración de modales (nombre → funciones open/close)
 -- Categorías: "main" (Clan/Music - exclusivos) | "independent" (Emotes - puede coexistir)
@@ -215,6 +217,61 @@ function GlobalModalManager:isModalOpen(modalName)
 		end
 	end
 	return false
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- SETTINGS MODAL (NUEVO)
+-- ════════════════════════════════════════════════════════════════
+
+function GlobalModalManager:ShowSettings(createFn)
+	if self.isSettingsOpen then
+		return
+	end
+	
+	local Players = game:GetService("Players")
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+	
+	-- Cerrar modal principal si está abierto
+	if self.currentMainModal then
+		local prevModal = modals[self.currentMainModal]
+		prevModal.close()
+		local prevIcon = prevModal.icon()
+		if prevIcon then
+			pcall(function() prevIcon:deselect() end)
+		end
+		self.currentMainModal = nil
+	end
+	
+	-- Crear ScreenGui contenedor
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "SettingsScreenGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.Parent = playerGui
+	
+	-- Crear modal usando la función proporcionada
+	self.settingsModalMgr = createFn(screenGui)
+	
+	-- Abrir modal (usar open() no Show())
+	self.settingsModalMgr:open()
+	self.isSettingsOpen = true
+end
+
+function GlobalModalManager:CloseSettings()
+	if not self.isSettingsOpen or not self.settingsModalMgr then
+		return
+	end
+	
+	self.settingsModalMgr:close()
+	
+	local screenGui = self.settingsModalMgr.screenGui
+	if screenGui and screenGui.Parent then
+		screenGui:Destroy()
+	end
+	
+	self.settingsModalMgr = nil
+	self.isSettingsOpen = false
 end
 
 return GlobalModalManager

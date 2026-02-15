@@ -7,14 +7,25 @@ local Icon = require(game:GetService("ReplicatedStorage").Icon)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ════════════════════════════════════════════════════════════════
--- REFERENCIAS A GUIs
--- ════════════════════════════════════════════════════════════════
-local settingsUI = playerGui:WaitForChild("Settings")
-local FrameSettings = settingsUI:WaitForChild("MainFrame")
-
 -- Esperar a que se carguen las GUIs de sistema
 task.wait(1)
+
+-- ════════════════════════════════════════════════════════════════
+-- CARGAR SETTINGS MODULE (EXPONE FUNCIONES GLOBALES)
+-- ════════════════════════════════════════════════════════════════
+local settingsLoaded = false
+task.spawn(function()
+	local success, result = pcall(function()
+		require(game:GetService("StarterGui"):WaitForChild("Settings"):WaitForChild("SettingsUI"))
+	end)
+	
+	if success then
+		settingsLoaded = true
+		print("✅ [Topbar] Settings cargado correctamente")
+	else
+		warn("❌ [Topbar] Error cargando Settings: " .. tostring(result))
+	end
+end)
 
 
 -- ════════════════════════════════════════════════════════════════
@@ -60,21 +71,6 @@ local function closeGUIAnimation()
 	TweenService:Create(Camera, Info, {FieldOfView = FOV}):Play()
 end
 
-local function toggleSettingsUI()
-	if guiDebounce then return end
-	guiDebounce = true
-
-	if FrameSettings.Visible then
-		closeGUIAnimation()
-		FrameSettings.Visible = false
-	else
-		openGUIAnimation()
-		FrameSettings.Visible = true
-	end
-
-	guiDebounce = false
-end
-
 -- ════════════════════════════════════════════════════════════════
 -- ICONOS DEL TOPBAR
 -- ════════════════════════════════════════════════════════════════
@@ -98,19 +94,28 @@ _G.ShopIcon:bindEvent("deselected", function()
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- ICONO: CONFIGURACIÓN
+-- ICONO: CONFIGURACIÓN (SETTINGS MODAL)
 -- ════════════════════════════════════════════════════════════════
-local configIcon = Icon.new()
+_G.SettingsIcon = Icon.new()
 	:setImage(9753762469)
 	:setName("Configuración")
 	:setCaption("Configuración")
 	:align("Right")
 	:bindToggleKey(Enum.KeyCode.C)
 	:autoDeselect(false)
-	:oneClick()
 
-configIcon:bindEvent("deselected", function()
-	toggleSettingsUI()
+_G.SettingsIcon:bindEvent("selected", function()
+	if _G.OpenSettingsUI then
+		_G.OpenSettingsUI()
+	else
+		warn("[Topbar] OpenSettingsUI no está disponible")
+	end
+end)
+
+_G.SettingsIcon:bindEvent("deselected", function()
+	if _G.CloseSettingsUI then
+		_G.CloseSettingsUI()
+	end
 end)
 
 -- ════════════════════════════════════════════════════════════════
@@ -229,7 +234,7 @@ local iconsHidden = false
 -- Lista de todos los iconos a gestionar
 local topbarIcons = {
 	_G.ShopIcon,
-	configIcon,
+	_G.SettingsIcon,
 	_G.ClanSystemIcon,
 	_G.EmotesIcon,
 	_G.MusicDashboardIcon,
@@ -239,7 +244,7 @@ local topbarIcons = {
 -- Función optimizada para ocultar todos los iconos
 local function HideAllIcons()
 	if iconsHidden then return end
-	
+
 	for _, icon in ipairs(topbarIcons) do
 		if icon then
 			pcall(function()
@@ -247,14 +252,14 @@ local function HideAllIcons()
 			end)
 		end
 	end
-	
+
 	iconsHidden = true
 end
 
 -- Función optimizada para mostrar todos los iconos
 local function ShowAllIcons()
 	if not iconsHidden then return end
-	
+
 	for _, icon in ipairs(topbarIcons) do
 		if icon then
 			pcall(function()
@@ -262,17 +267,17 @@ local function ShowAllIcons()
 			end)
 		end
 	end
-	
+
 	iconsHidden = false
 end
 
 -- Función para activar FreeCam UI
 local function EnableFreeCamUI()
 	if FreeCamIcon then return end
-	
+
 	-- Ocultar todos los botones del TopBar
 	HideAllIcons()
-	
+
 	-- Crear icono de FreeCam
 	FreeCamIcon = Icon.new()
 		:setLabel("F6 DESACTIVAR")
@@ -280,7 +285,7 @@ local function EnableFreeCamUI()
 		:align("Right")
 		:setOrder(0)
 		:select()
-	
+
 	-- Evento para desactivar
 	FreeCamIcon:bindEvent("deselected", function()
 		-- Notificar a FreeCam.lua que debe desactivarse
@@ -291,13 +296,13 @@ end
 -- Función para desactivar FreeCam UI
 local function DisableFreeCamUI()
 	if not FreeCamIcon then return end
-	
+
 	-- Destruir icono
 	pcall(function()
 		FreeCamIcon:destroy()
 	end)
 	FreeCamIcon = nil
-	
+
 	-- Restaurar todos los botones del TopBar
 	ShowAllIcons()
 end
