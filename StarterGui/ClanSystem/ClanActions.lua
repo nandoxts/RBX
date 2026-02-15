@@ -101,7 +101,7 @@ function ClanActions:editColor(gui, onSuccess)
 		table.insert(colorList, c.name:lower())
 	end
 	local colorNames = table.concat(colorList, ", ")
-	
+
 	showModal(gui, {
 		title = "Cambiar Color", 
 		message = "Colores disponibles:\n" .. colorNames,
@@ -112,7 +112,7 @@ function ClanActions:editColor(gui, onSuccess)
 				Notify:Warning("Inválido", "Ingresa un nombre de color", 3) 
 				return false 
 			end
-			
+
 			local colorName = v:lower():gsub("%s+", "")
 			local found = false
 			for _, c in ipairs(CONFIG.colors) do
@@ -121,25 +121,25 @@ function ClanActions:editColor(gui, onSuccess)
 					break
 				end
 			end
-			
+
 			if not found then
 				Notify:Warning("Color inválido", "Usa uno de: " .. colorNames, 4)
 				return false
 			end
-			
+
 			return true 
 		end,
 		action = function(v) 
 			local colorName = v:lower():gsub("%s+", "")
 			local colorRGB = nil
-			
+
 			for _, c in ipairs(CONFIG.colors) do
 				if c.name:lower() == colorName then
 					colorRGB = c.rgb
 					break
 				end
 			end
-			
+
 			if colorRGB then
 				return ClanClient:ChangeClanColor(colorRGB)
 			else
@@ -201,7 +201,7 @@ function ClanActions:adminDelete(gui, clanData, onSuccess)
 		Notify:Error("Error", "Datos del clan inválidos", 3)
 		return
 	end
-	
+
 	showModal(gui, {
 		title = "Eliminar Clan",
 		message = string.format('¿Eliminar "%s"?\nID: %s', clanData.name or "Sin nombre", clanData.clanId),

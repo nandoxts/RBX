@@ -362,17 +362,17 @@ function ClanClient:LeaveClan()
 	if not remote then return false, "Función no disponible" end
 
 	remote:FireServer(self.currentClanId)
-	
+
 	-- LIMPIAR ESTADO INMEDIATAMENTE
 	self.currentClan = nil
 	self.currentClanId = nil
-	
+
 	-- INVALIDAR TODA LA CACHÉ para refrescar listado
 	clansListCache = nil
 	clansListCacheTime = 0
 	pendingRequestsCache = nil
 	pendingRequestsCacheTime = 0
-	
+
 	return true
 end
 
@@ -383,17 +383,17 @@ function ClanClient:DissolveClan()
 	if not remote then return false, "Función no disponible" end
 
 	remote:FireServer(self.currentClanId)
-	
+
 	-- LIMPIAR ESTADO INMEDIATAMENTE
 	self.currentClan = nil
 	self.currentClanId = nil
-	
+
 	-- INVALIDAR TODA LA CACHÉ
 	clansListCache = nil
 	clansListCacheTime = 0
 	pendingRequestsCache = nil
 	pendingRequestsCacheTime = 0
-	
+
 	return true
 end
 
@@ -429,7 +429,7 @@ function ClanClient:RequestJoinClan(clanId)
 	if not remote then 
 		return false, "Función no disponible" 
 	end
-	
+
 	-- Disparar sin esperar (la respuesta se maneja en el listener global)
 	remote:FireServer(clanId)
 	return true
@@ -609,10 +609,10 @@ task.spawn(function()
 			-- Invalidar caché de solicitudes pendientes
 			pendingRequestsCache = nil
 			pendingRequestsCacheTime = 0
-			
+
 			-- ✅ Manejar notificaciones AQUÍ directamente (sin callbacks acumulativos)
 			local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
-			
+
 			if success then
 				Notify:Success("Solicitud enviada", msg or "Esperando aprobación", 5)
 				clansListCache = nil

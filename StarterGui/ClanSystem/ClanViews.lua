@@ -277,10 +277,10 @@ function ClanViews.createPendingView(parent, clanData, playerRole, screenGui, re
 	local function loadPendingRequests()
 		-- Limpiar lista anterior
 		Memory:destroyChildren(listContainer)
-		
+
 		-- Obtener solicitudes actuales
 		local requests = ClanClient:GetJoinRequests(clanData.clanId) or {}
-		
+
 		if not State.isOpen or not pendingView.Parent then return end
 
 		State.pendingList = MembersList.new({
@@ -296,7 +296,7 @@ function ClanViews.createPendingView(parent, clanData, playerRole, screenGui, re
 
 	-- Cargar por primera vez
 	task.spawn(loadPendingRequests)
-	
+
 	return pendingView
 end
 

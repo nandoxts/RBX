@@ -142,7 +142,7 @@ local function notifyChanged(changedClanId)
 			end
 		end
 	end
-	
+
 	-- TAMBIÉN notificar a TODOS los players para refrescar lista global
 	-- (usuarios viendo lista de clanes para unirse)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -184,7 +184,7 @@ GetClansList.OnServerInvoke = function(player)
 	if not clans or #clans == 0 then
 		return {}  -- Devolver tabla vacía, no nil
 	end
-	
+
 	local playerClan = ClanData:GetPlayerClan(player.UserId)
 	local playerClanId = playerClan and playerClan.clanId
 
@@ -494,7 +494,7 @@ ApproveJoinRequest.OnServerEvent:Connect(function(player, clanId, targetUserId)
 
 	if success then
 		updatePlayerAttributes(targetUserId)
-		
+
 		-- 🔥 Notificar al usuario aprobado para que limpie su caché
 		local targetPlayer = Players:GetPlayerByUserId(targetUserId)
 		if targetPlayer then
@@ -508,7 +508,7 @@ RejectJoinRequest.OnServerEvent:Connect(function(player, clanId, targetUserId)
 	if not ok then return end
 
 	local success = ClanData:RejectRequest(clanId, player.UserId, targetUserId)
-	
+
 	if success then
 		-- 🔥 Notificar al usuario rechazado para que limpie su caché
 		local targetPlayer = Players:GetPlayerByUserId(targetUserId)
@@ -530,9 +530,9 @@ end
 CancelJoinRequest.OnServerEvent:Connect(function(player, clanId)
 	local ok, err = checkCooldown(player.UserId, "CancelJoinRequest", 1)
 	if not ok then return end
-	
+
 	ClanData:CancelRequest(clanId, player.UserId)
-	
+
 	-- 🔥 Notificar al cliente que sus solicitudes cambiaron
 	ClansUpdated:FireClient(player, clanId)
 end)
@@ -540,9 +540,9 @@ end)
 CancelAllJoinRequests.OnServerEvent:Connect(function(player)
 	local ok, err = checkCooldown(player.UserId, "CancelAllJoinRequests", 1)
 	if not ok then return end
-	
+
 	ClanData:CancelAllRequests(player.UserId)
-	
+
 	-- 🔥 Notificar a TODOS los players que algo cambió en solicitudes
 	ClansUpdated:FireAllClients(nil)
 end)

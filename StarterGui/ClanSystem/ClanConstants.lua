@@ -33,7 +33,6 @@ ClanConstants.State = {
 	currentPage = nil,
 	currentView = "main",
 	loadingId = 0,  -- Sistema de cancelación de refreshes obsoletos
-	isUpdating = false,  -- Flag simple de "ocupado" (sin timestamp)
 	isOpen = false,
 	selectedColor = 1,
 	selectedEmoji = 1,
