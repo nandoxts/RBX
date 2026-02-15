@@ -825,7 +825,7 @@ local skipCooldown = MusicSystemConfig.LIMITS.SkipCooldown or 3
 skipB.MouseButton1Click:Connect(function()
 	local now = tick()
 	local timeSinceSkip = now - lastSkipTime
-	
+
 	-- Validar cooldown (SOLO para jugadores normales, NO para admins)
 	if not isAdmin and timeSinceSkip < skipCooldown then
 		if Notify then
@@ -834,9 +834,9 @@ skipB.MouseButton1Click:Connect(function()
 		skipB.Enabled = false
 		return
 	end
-	
+
 	lastSkipTime = now
-	
+
 	if isAdmin then
 		if R.Next then
 			R.Next:FireServer()

@@ -63,6 +63,7 @@ local R = {
 	Play = getRemote("MusicPlayback", "PlaySong"),
 	Next = getRemote("MusicPlayback", "NextSong"),
 	Stop = getRemote("MusicPlayback", "StopSong"),
+	ChangeVolume = getRemote("MusicPlayback", "ChangeVolume"),
 	Update = getRemote("UI", "UpdateUI"),
 	AddToQueue = getRemote("MusicQueue", "AddToQueue"),
 	AddResponse = getRemote("MusicQueue", "AddToQueueResponse"),
@@ -287,7 +288,7 @@ local function loadMetadataBatch(ids, callback)
 
 	for batchStart = 1, #ids, BATCH_SIZE do
 		local batchEnd = math.min(batchStart + BATCH_SIZE - 1, #ids)
-		
+
 		-- Procesar batch actual
 		for i = batchStart, batchEnd do
 			local id = ids[i]
@@ -307,7 +308,7 @@ local function loadMetadataBatch(ids, callback)
 				end
 			end)
 		end
-		
+
 		-- Delay antes del siguiente batch (evita rate limiting)
 		if batchEnd < #ids then
 			task.wait(BATCH_DELAY)
@@ -496,10 +497,10 @@ playRandomSong = function()
 	-- Reintentar hasta 5 veces para encontrar una canción válida
 	local MAX_RETRIES = 5
 	local attempts = 0
-	
+
 	while attempts < MAX_RETRIES do
 		attempts = attempts + 1
-		
+
 		local randomSong = getRandomSongFromLibrary()
 		if not randomSong then
 			warn("[playRandomSong] No hay canciones en biblioteca")
@@ -533,7 +534,7 @@ playRandomSong = function()
 			end
 		end
 	end
-	
+
 	-- Si llegamos aquí, fallaron todos los intentos
 	warn("[playRandomSong] No se pudo encontrar canción válida después de "..MAX_RETRIES.." intentos")
 end
@@ -739,6 +740,15 @@ R.Stop.OnServerEvent:Connect(function(player)
 	if not hasPermission(player, "StopSong") then return end
 	stopSong()
 end)
+
+-- HANDLER PARA CHANGE VOLUME
+if R.ChangeVolume then
+	R.ChangeVolume.OnServerEvent:Connect(function(player, volume)
+		-- Solo guardar la preferencia del cliente, no forzar volumen global
+		-- El control de volumen es principalmente del lado del cliente
+		player:SetAttribute("MusicVolume", math.clamp(tonumber(volume) or 0.5, 0, 1))
+	end)
+end
 
 if R.PurchaseSkip then
 	R.PurchaseSkip.OnServerEvent:Connect(function(player)
