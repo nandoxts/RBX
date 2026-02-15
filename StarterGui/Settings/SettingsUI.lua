@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,7 +9,6 @@ local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChil
 local SettingsCreator = require(script.Parent:WaitForChild("SettingsCreator"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 
--- Crear ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SettingsGui"
 screenGui.ResetOnSpawn = false

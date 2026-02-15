@@ -5,10 +5,9 @@
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
-local DeviceDetector = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("DeviceDetector"))
-local isMobileDevice = DeviceDetector.isMobile
 
 local function getScreenSize(screenGui)
 	-- Intentar múltiples métodos para obtener el tamaño real
@@ -43,7 +42,12 @@ local function getScreenSize(screenGui)
 	end
 
 	-- Fallback seguro basado en el tipo de dispositivo
-	return isMobileDevice() and Vector2.new(800, 600) or Vector2.new(1920, 1080)
+	local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+	return isMobile and Vector2.new(800, 600) or Vector2.new(1920, 1080)
+end
+
+local function isMobileDevice()
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 end
 
 local function calculateModalSize(screenSize, baseWidth, baseHeight, isMobile)

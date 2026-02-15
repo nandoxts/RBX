@@ -61,7 +61,7 @@ SettingsConfig.TABS = {
 	},
 	{
 		id = "alerts",
-		title = "ALERTAS",
+		title = "NOTIFICACIONES",
 		icon = "🔔",
 		order = 3
 	},
@@ -71,12 +71,7 @@ SettingsConfig.TABS = {
 		icon = "⭐",
 		order = 4
 	},
-	{
-		id = "comments",
-		title = "COMENTARIOS",
-		icon = "💬",
-		order = 5
-	},
+	-- comentarios está temporalmente deshabilitado
 }
 
 -- ============================================
@@ -86,8 +81,8 @@ SettingsConfig.SETTINGS = {
 	gameplay = {
 		{
 			id = "chat",
-			label = "Burbujas de Chat",
-			desc = "Ver burbujas de chat de otros jugadores",
+			label = "Burbujas de chat",
+			desc = "Mostrar burbujas de chat de otros jugadores",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -96,8 +91,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "viewTagsUsers",
-			label = "Tags de Jugadores",
-			desc = "Ver tags sobre otros jugadores",
+			label = "Etiquetas de jugadores",
+			desc = "Mostrar etiquetas sobre otros jugadores",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -106,8 +101,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "viewUsers",
-			label = "Ver Jugadores",
-			desc = "Mostrar/ocultar otros jugadores",
+			label = "Mostrar jugadores",
+			desc = "Mostrar u ocultar otros jugadores",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -116,7 +111,7 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "viewFlagUser",
-			label = "Ver Mi Bandera",
+			label = "Mostrar mi bandera",
 			desc = "Mostrar tu bandera de país",
 			type = "toggle",
 			default = false,
@@ -126,8 +121,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "viewSelected",
-			label = "Cuadro de Selección",
-			desc = "Ver cuadro al seleccionar jugadores",
+			label = "Resaltar seleccionado",
+			desc = "Mostrar un cuadro al seleccionar jugadores",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -140,7 +135,7 @@ SettingsConfig.SETTINGS = {
 		{
 			id = "atmosphere",
 			label = "Atmósfera",
-			desc = "Efecto de atmósfera/niebla",
+			desc = "Efecto de atmósfera / niebla",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -150,7 +145,7 @@ SettingsConfig.SETTINGS = {
 		{
 			id = "blur",
 			label = "Desenfoque",
-			desc = "Efecto de desenfoque de profundidad",
+			desc = "Desenfoque de profundidad (Depth of Field)",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -162,7 +157,7 @@ SettingsConfig.SETTINGS = {
 		{
 			id = "clouds",
 			label = "Nubes",
-			desc = "Nubes en el cielo",
+			desc = "Activar nubes en el terreno",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -174,7 +169,7 @@ SettingsConfig.SETTINGS = {
 		{
 			id = "shadows",
 			label = "Sombras",
-			desc = "Sombras globales",
+			desc = "Activar sombras globales",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -203,8 +198,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "diffuse",
-			label = "Difusión",
-			desc = "Difusión ambiental",
+			label = "Difusión ambiental",
+			desc = "Escala de difusión ambiental",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -223,7 +218,7 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "effects",
-			label = "Efectos Especiales",
+			label = "Efectos especiales",
 			desc = "Efectos visuales especiales",
 			type = "toggle",
 			default = true,
@@ -238,8 +233,8 @@ SettingsConfig.SETTINGS = {
 	alerts = {
 		{
 			id = "soundDiscord",
-			label = "Sonido Discord",
-			desc = "Notificación de Discord",
+			label = "Notificaciones: Discord",
+			desc = "Reproducir sonido de notificación de Discord",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -251,8 +246,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "soundTwitter",
-			label = "Sonido Twitter",
-			desc = "Notificación de Twitter",
+			label = "Notificaciones: Twitter",
+			desc = "Reproducir sonido de notificación de Twitter",
 			type = "toggle",
 			default = true,
 			action = function(value)
@@ -264,8 +259,8 @@ SettingsConfig.SETTINGS = {
 		},
 		{
 			id = "soundWhatsApp",
-			label = "Sonido WhatsApp",
-			desc = "Notificación de WhatsApp",
+			label = "Notificaciones: WhatsApp",
+			desc = "Reproducir sonido de notificación de WhatsApp",
 			type = "toggle",
 			default = true,
 			action = function(value)

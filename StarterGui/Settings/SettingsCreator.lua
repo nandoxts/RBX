@@ -1,6 +1,6 @@
 --[[
 	SETTINGS CREATOR - Constructor de UI puro (sin instancias)
-	v2 — Containers modernos, textos más visibles, créditos rediseñados
+	v3 — Developer cards modernos, avatars con borde, roles, containers corregidos
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -221,21 +221,26 @@ local function calculateContentHeight(settingsList)
 end
 
 -- ============================================
--- CREAR PORTADA DE CRÉDITOS MODERNA
+-- CREAR PORTADA DE CRÉDITOS MODERNA v3
 -- ============================================
 local function createCreditsPage(container, THEME)
 	local creditsList = SettingsConfig.SETTINGS["credits"] or {}
+	local Players = game:GetService("Players")
 
-	-- Wrapper centrado vertical y horizontalmente
+	-- Wrapper principal
 	local creditsCover = UI.frame({
 		name = "CreditsCover",
 		size = UDim2.new(1, 0, 1, 0),
 		bgT = 1,
 		z = 103,
-		parent = container
+		parent = container,
+		clips = true
 	})
 
-	-- Inner container que se centra con AnchorPoint
+	-- ══════════════════════════════════════════════════════════
+	-- FONDO TRANSPARENTE (imagen configurable)
+	-- ══════════════════════════════════════════════════════════
+	-- Inner container — SIN ScrollingFrame, centrado vertical
 	local innerWrap = UI.frame({
 		name = "InnerWrap",
 		size = UDim2.new(1, -40, 0, 0),
@@ -251,12 +256,12 @@ local function createCreditsPage(container, THEME)
 	innerLayout.FillDirection = Enum.FillDirection.Vertical
 	innerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	innerLayout.Padding = UDim.new(0, 22)
+	innerLayout.Padding = UDim.new(0, 14)
 	innerLayout.Parent = innerWrap
 
 	-- ── Línea decorativa superior ──
 	local topLine = UI.frame({
-		size = UDim2.new(0.3, 0, 0, 2),
+		size = UDim2.new(0.25, 0, 0, 2),
 		bg = THEME.accent,
 		z = 105,
 		parent = innerWrap,
@@ -268,10 +273,10 @@ local function createCreditsPage(container, THEME)
 	-- ── Título principal ──
 	if creditsList[1] then
 		local titleLabel = UI.label({
-			size = UDim2.new(1, 0, 0, 50),
+			size = UDim2.new(1, 0, 0, 36),
 			text = creditsList[1].label,
 			color = THEME.accent,
-			textSize = 36,
+			textSize = 28,
 			font = Enum.Font.GothamBold,
 			alignX = Enum.TextXAlignment.Center,
 			alignY = Enum.TextYAlignment.Center,
@@ -283,7 +288,7 @@ local function createCreditsPage(container, THEME)
 
 	-- ── Línea separadora bajo título ──
 	local divider = UI.frame({
-		size = UDim2.new(0.15, 0, 0, 2),
+		size = UDim2.new(0.12, 0, 0, 2),
 		bg = THEME.accent,
 		z = 105,
 		parent = innerWrap,
@@ -292,13 +297,13 @@ local function createCreditsPage(container, THEME)
 	divider.BackgroundTransparency = 0.4
 	divider.LayoutOrder = 3
 
-	-- ── Párrafo principal ──
+	-- ── Párrafo principal — AutomaticSize.Y, texto más grande ──
 	if creditsList[2] then
 		local paragraphLabel = UI.label({
 			size = UDim2.new(1, 0, 0, 0),
 			text = creditsList[2].label,
 			color = THEME.text,
-			textSize = 18,
+			textSize = 16,
 			font = Enum.Font.Gotham,
 			alignX = Enum.TextXAlignment.Center,
 			alignY = Enum.TextYAlignment.Top,
@@ -312,69 +317,203 @@ local function createCreditsPage(container, THEME)
 		paragraphLabel.LayoutOrder = 4
 	end
 
-	-- ── Card de Developers ──
+	-- ══════════════════════════════════════════════════════════
+	-- SECCIÓN DEVELOPERS
+	-- ══════════════════════════════════════════════════════════
 	if creditsList[3] then
 		local devItem = creditsList[3]
 
-		local devCard = UI.frame({
-			size = UDim2.new(1, 0, 0, 64),
-			bg = THEME.surface,
-			z = 105,
-			parent = innerWrap,
-			corner = 10,
-			stroke = true,
-			strokeA = 0.15
-		})
-		devCard.LayoutOrder = 5
-		applyCardGradient(devCard, THEME)
-
-		-- Línea accent lateral
-		local accentBar = UI.frame({
-			size = UDim2.new(0, 3, 0.6, 0),
-			pos = UDim2.new(0, 8, 0.2, 0),
-			bg = THEME.accent,
-			z = 106,
-			parent = devCard,
-			corner = 2
-		})
-
-		UI.label({
-			size = UDim2.new(1, -30, 0, 24),
-			pos = UDim2.new(0, 20, 0, 8),
-			text = devItem.label,
+		local sectionLabel = UI.label({
+			size = UDim2.new(1, 0, 0, 20),
+			text = "DEVELOPERS",
 			color = THEME.accent,
-			textSize = 14,
+			textSize = 12,
 			font = Enum.Font.GothamBold,
 			alignX = Enum.TextXAlignment.Center,
-			z = 107,
-			parent = devCard
+			alignY = Enum.TextYAlignment.Center,
+			z = 105,
+			parent = innerWrap
 		})
+		sectionLabel.LayoutOrder = 5
 
-		UI.label({
-			size = UDim2.new(1, -30, 0, 22),
-			pos = UDim2.new(0, 20, 0, 34),
-			text = devItem.desc or "",
-			color = THEME.muted,
-			textSize = 12,
-			font = Enum.Font.Gotham,
-			alignX = Enum.TextXAlignment.Center,
-			z = 107,
-			parent = devCard
+		local devNamesRaw = devItem.desc or ""
+		local tokens = {}
+		for token in string.gmatch(devNamesRaw, "([^|]+)") do
+			local s = token:gsub("^%s*(.-)%s*$", "%1")
+			table.insert(tokens, s)
+		end
+
+		local devs = {}
+		local i = 1
+		while i <= #tokens do
+			local username = tokens[i]
+			local role = nil
+			if tokens[i + 1] and string.sub(tokens[i + 1], 1, 1) == "@" then
+				role = string.sub(tokens[i + 1], 2)
+				i = i + 2
+			else
+				role = "Developer"
+				i = i + 1
+			end
+			table.insert(devs, { name = username, role = role })
+		end
+
+		local devsGrid = UI.frame({
+			name = "DevsGrid",
+			size = UDim2.new(1, 0, 0, 0),
+			bgT = 1,
+			z = 105,
+			parent = innerWrap
 		})
+		devsGrid.AutomaticSize = Enum.AutomaticSize.Y
+		devsGrid.LayoutOrder = 6
+
+		local gridLayout = Instance.new("UIListLayout")
+		gridLayout.FillDirection = Enum.FillDirection.Vertical
+		gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		gridLayout.Padding = UDim.new(0, 8)
+		gridLayout.Parent = devsGrid
+
+		for idx, dev in ipairs(devs) do
+			local DEV_CARD_HEIGHT = 68
+			local AVATAR_SIZE = 46
+
+			local devCard = UI.frame({
+				size = UDim2.new(1, 0, 0, DEV_CARD_HEIGHT),
+				bg = THEME.surface,
+				z = 106,
+				parent = devsGrid,
+				corner = 12,
+				stroke = true,
+				strokeA = 0.12
+			})
+			devCard.LayoutOrder = idx
+			applyCardGradient(devCard, THEME)
+
+			local accentBar = UI.frame({
+				size = UDim2.new(0, 3, 0.5, 0),
+				pos = UDim2.new(0, 0, 0.25, 0),
+				bg = THEME.accent,
+				z = 107,
+				parent = devCard,
+				corner = 2
+			})
+
+			local avatarRing = UI.frame({
+				size = UDim2.new(0, AVATAR_SIZE + 4, 0, AVATAR_SIZE + 4),
+				pos = UDim2.new(0, 14, 0.5, 0),
+				bg = THEME.accent,
+				z = 107,
+				parent = devCard,
+				corner = (AVATAR_SIZE + 4) / 2
+			})
+			avatarRing.AnchorPoint = Vector2.new(0, 0.5)
+			avatarRing.BackgroundTransparency = 0.6
+
+			local avatarWrapper = UI.frame({
+				size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE),
+				pos = UDim2.new(0.5, 0, 0.5, 0),
+				bg = THEME.card,
+				z = 108,
+				parent = avatarRing,
+				corner = AVATAR_SIZE / 2
+			})
+			avatarWrapper.AnchorPoint = Vector2.new(0.5, 0.5)
+			avatarWrapper.ClipsDescendants = true
+
+			local success, userId = pcall(function()
+				return Players:GetUserIdFromNameAsync(dev.name)
+			end)
+			userId = (success and userId) and userId or 0
+
+			local avatarImg = Instance.new("ImageLabel")
+			avatarImg.Size = UDim2.fromScale(1, 1)
+			avatarImg.Position = UDim2.new(0, 0, 0, 0)
+			avatarImg.BackgroundTransparency = 1
+			avatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150"
+			avatarImg.ZIndex = 109
+			avatarImg.ScaleType = Enum.ScaleType.Crop
+			avatarImg.Parent = avatarWrapper
+
+			local avatarCorner = Instance.new("UICorner")
+			avatarCorner.CornerRadius = UDim.new(0, AVATAR_SIZE / 2)
+			avatarCorner.Parent = avatarImg
+
+			local TEXT_LEFT = 14 + (AVATAR_SIZE + 4) + 12
+
+			local nameLabel = UI.label({
+				size = UDim2.new(1, -(TEXT_LEFT + 30), 0, 22),
+				pos = UDim2.new(0, TEXT_LEFT, 0, 12),
+				text = dev.name,
+				color = THEME.text,
+				textSize = 15,
+				font = Enum.Font.GothamBold,
+				alignX = Enum.TextXAlignment.Left,
+				z = 108,
+				parent = devCard
+			})
+			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+			UI.label({
+				size = UDim2.new(1, -(TEXT_LEFT + 30), 0, 18),
+				pos = UDim2.new(0, TEXT_LEFT, 0, 36),
+				text = dev.role,
+				color = THEME.accent,
+				textSize = 12,
+				font = Enum.Font.GothamMedium,
+				alignX = Enum.TextXAlignment.Left,
+				z = 108,
+				parent = devCard
+			})
+
+			local badge = UI.frame({
+				size = UDim2.new(0, 8, 0, 8),
+				pos = UDim2.new(1, -20, 0.5, 0),
+				bg = THEME.accent,
+				z = 108,
+				parent = devCard,
+				corner = 4
+			})
+			badge.AnchorPoint = Vector2.new(0, 0.5)
+			badge.BackgroundTransparency = 0.4
+
+			devCard.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					TweenService:Create(devCard, TweenInfo.new(0.2), {
+						BackgroundColor3 = THEME.elevated or THEME.surface
+					}):Play()
+					TweenService:Create(accentBar, TweenInfo.new(0.2), {
+						Size = UDim2.new(0, 3, 0.7, 0),
+						Position = UDim2.new(0, 0, 0.15, 0)
+					}):Play()
+				end
+			end)
+			devCard.InputEnded:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseMovement then
+					TweenService:Create(devCard, TweenInfo.new(0.25), {
+						BackgroundColor3 = THEME.surface
+					}):Play()
+					TweenService:Create(accentBar, TweenInfo.new(0.25), {
+						Size = UDim2.new(0, 3, 0.5, 0),
+						Position = UDim2.new(0, 0, 0.25, 0)
+					}):Play()
+				end
+			end)
+		end
 	end
 
 	-- ── Línea decorativa inferior ──
 	local bottomLine = UI.frame({
-		size = UDim2.new(0.2, 0, 0, 1),
+		size = UDim2.new(0.15, 0, 0, 1),
 		bg = THEME.muted,
 		z = 105,
 		parent = innerWrap,
 		corner = 1
 	})
 	bottomLine.BackgroundTransparency = 0.7
-	bottomLine.LayoutOrder = 6
+	bottomLine.LayoutOrder = 7
 end
-
 -- ============================================
 -- CREAR MODAL PRINCIPAL
 -- ============================================
@@ -517,7 +656,7 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 		})
 		page.LayoutOrder = tabIndex
 
-		local container = UI.frame({
+		local pageContainer = UI.frame({
 			name = "Container",
 			size = UDim2.new(1, 0, 1, 0),
 			pos = UDim2.new(0, 0, 0, 0),
@@ -528,10 +667,10 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 		})
 
 		-- ═══════════════════════════════════════════════════════════
-		-- CRÉDITOS — Portada moderna
+		-- CRÉDITOS — Portada moderna v3
 		-- ═══════════════════════════════════════════════════════════
 		if tab.id == "credits" then
-			createCreditsPage(container, THEME)
+			createCreditsPage(pageContainer, THEME)
 
 			-- ═══════════════════════════════════════════════════════════
 			-- LAYOUT NORMAL PARA OTROS TABS
@@ -551,7 +690,7 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 			scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.None
 			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
 			scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-			scrollFrame.Parent = container
+			scrollFrame.Parent = pageContainer
 
 			local layout = Instance.new("UIListLayout")
 			layout.Padding = UDim.new(0, CARD_GAP)
@@ -577,7 +716,7 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 				if contentHeight > windowHeight then
 					scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
 
-					local scrollbar = ModernScrollbar.setup(scrollFrame, container, THEME, {
+					local scrollbar = ModernScrollbar.setup(scrollFrame, pageContainer, THEME, {
 						position = "right",
 						offset = -8,
 						width = 6
