@@ -15,7 +15,7 @@ local cameraConnection = nil
 
 -- // Configuración de cámara para SHIFT
 local NORMAL_FOV = 70
-local SHIFT_FOV = 90
+local SHIFT_FOV = 85  -- Reducido de 90 (menos drástico)
 local CAMERA_TILT = 15 -- Inclinación hacia adelante en grados
 
 -- // Función para activar animación de cámara SHIFT
@@ -26,14 +26,23 @@ local function activateShiftCamera()
 
 	local startFOV = camera.FieldOfView
 	local targetFOV = SHIFT_FOV
-	local lerpSpeed = 0.08
+	local lerpSpeed = 0.03  -- Más lento = más suave (era 0.08)
 
 	cameraConnection = RunService.RenderStepped:Connect(function()
 		if isShiftActive and camera then
-			-- Transición suave del FOV
-			local newFOV = startFOV + (targetFOV - startFOV) * lerpSpeed
-			camera.FieldOfView = newFOV
-			startFOV = newFOV
+			-- Solo aplicar efecto si el jugador se está moviendo
+			local humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+			if humanoid and humanoid.MoveDirection.Magnitude > 0 then
+				-- Transición suave del FOV
+				local newFOV = startFOV + (targetFOV - startFOV) * lerpSpeed
+				camera.FieldOfView = newFOV
+				startFOV = newFOV
+			else
+				-- Si no se mueve, volver al FOV normal
+				local newFOV = startFOV + (NORMAL_FOV - startFOV) * lerpSpeed
+				camera.FieldOfView = newFOV
+				startFOV = newFOV
+			end
 		end
 	end)
 end
@@ -48,7 +57,7 @@ local function deactivateShiftCamera()
 	-- Restaurar FOV de forma suave
 	local startFOV = camera.FieldOfView
 	local targetFOV = NORMAL_FOV
-	local lerpSpeed = 0.06
+	local lerpSpeed = 0.04  -- Más lento para desactivación (era 0.06)
 
 	cameraConnection = RunService.RenderStepped:Connect(function()
 		if not isShiftActive and camera then
