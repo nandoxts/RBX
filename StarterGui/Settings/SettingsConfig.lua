@@ -1,12 +1,20 @@
 --[[
 	SETTINGS CONFIG - Configuración centralizada de Settings
-	5 Tabs: Gráficos, Jugabilidad, Créditos, Comentarios, Alertas
+		label = [[¡Gracias por ser parte de esta gran familia!
 ]]
 
 local SettingsConfig = {}
 
 -- ============================================
 -- INICIALES (DEFAULTS)
+	--[[ Comentado temporalmente: sección de comentarios
+	{
+		id = "comments",
+		title = "COMENTARIOS",
+		icon = "💬",
+		order = 5,
+	},
+	]]
 -- ============================================
 SettingsConfig.DEFAULTS = {
 	-- JUGABILIDAD
@@ -271,31 +279,24 @@ SettingsConfig.SETTINGS = {
 	
 	credits = {
 		{
-			id = "credits_info",
-			label = "Sistema de Modales",
-			desc = "Creado por ignxts",
-			type = "info"
+			id = "credits_title",
+			label = "Créditos",
+			type = "credit"
 		},
 		{
-			id = "credits_ui",
-			label = "UI/UX",
-			desc = "Diseño y estructura profesional",
-			type = "info"
+			id = "credits_text",
+			label = "¡Gracias por ser parte de Ritmo Latino! 💜🎶 A cada persona que entra, participa, baila y comparte buena vibra: gracias de corazón. Su apoyo, sus ideas y su energía han sido clave para que este servidor crezca y se sienta como casa. Ritmo Latino no sería lo mismo sin ustedes. ✨ ¡Sigamos construyendo juntos más momentos, música y comunidad! 🕺💃",
+			type = "credit"
 		},
 		{
-			id = "credits_clan",
-			label = "Sistema de Clanes",
-			desc = "Integración completa con DataStore",
-			type = "info"
-		},
-		{
-			id = "credits_music",
-			label = "Sistema de Música",
-			desc = "DJ Dashboard con virtualización",
-			type = "info"
+			id = "credits_devs",
+			label = "Developers",
+			desc = "xlm_brem | ignxts",
+			type = "credit"
 		},
 	},
 	
+	--[[ Comentado temporalmente: settings de comentarios
 	comments = {
 		{
 			id = "comments_placeholder",
@@ -304,6 +305,7 @@ SettingsConfig.SETTINGS = {
 			type = "info"
 		},
 	},
+	]]
 }
 
 return SettingsConfig
