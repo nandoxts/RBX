@@ -4,24 +4,24 @@ local AdminConfig = {}
 
 -- Lista de admins por nombre de usuario ONLY (sin UserIds)
 AdminConfig.AdminUserNames = {
-    "xlm_brem",
-    "AngeloGarciia",
-    "bvwdhfv",
-    "ignxts",
+	"xlm_brem",
+	"AngeloGarciia",
+	"bvwdhfv",
+	"ignxts",
 }
 
 -- Acepta un Instance (Player) o un string (nombre)
 function AdminConfig:IsAdmin(playerOrName)
-    local name
-    if typeof(playerOrName) == "Instance" and playerOrName.Name then
-        name = playerOrName.Name
-    elseif type(playerOrName) == "string" then
-        name = playerOrName
-    else
-        return false
-    end
-    if not name then return false end
-    return table.find(self.AdminUserNames, name) ~= nil
+	local name
+	if typeof(playerOrName) == "Instance" and playerOrName.Name then
+		name = playerOrName.Name
+	elseif type(playerOrName) == "string" then
+		name = playerOrName
+	else
+		return false
+	end
+	if not name then return false end
+	return table.find(self.AdminUserNames, name) ~= nil
 end
 
 return AdminConfig
