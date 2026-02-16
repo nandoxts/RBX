@@ -234,6 +234,12 @@ end
 function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	if not state.highlight or not targetPlayer or not targetPlayer.Character then return end
 	
+	-- Chequear si el highlight está habilitado en Settings
+	if _G.ShowSelectedHighlight == false then
+		state.highlight.Enabled = false
+		return
+	end
+	
 	-- Obtener color del atributo del jugador (como en OLD)
 	local color
 	if ColorEffects then

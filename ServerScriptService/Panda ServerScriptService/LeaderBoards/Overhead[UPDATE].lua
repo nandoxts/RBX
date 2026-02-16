@@ -39,7 +39,6 @@ local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitFo
 local Colors = require(PandaSSS.Effects.ColorEffectsModule)
 local ModulesFolder = PandaSSS:WaitForChild("Modules")
 local GroupRolesModule = require(ModulesFolder:WaitForChild("GroupRolesModule"))
-local LevelConfigModule = require(ModulesFolder:WaitForChild("LevelConfigModule"))
 local DataStoreQueue = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
 -- DataStore Queues para manejo de rate limit
@@ -57,19 +56,6 @@ local GROUP_ROLES = GroupRolesModule.GROUP_ROLES
 local CLAN_LOAD_DELAY = 1.5
 local CLAN_MAX_WAIT = 5
 local CLAN_CHECK_INTERVAL = 0.5
-
---// Utilidad para banderas de país (fallback)
-local FlagUtils = {}
-do
-	local flagOffset = 0x1F1E6
-	local asciiOffset = 0x41
-
-	function FlagUtils.GetFlag(country)
-		local first = utf8.codepoint(country, 1) - asciiOffset + flagOffset
-		local second = utf8.codepoint(country, 2) - asciiOffset + flagOffset
-		return utf8.char(first, second)
-	end
-end
 
 --// Cache de componentes del overhead para acceso rápido
 local function getOverheadComponents(char)
@@ -115,21 +101,21 @@ end
 
 --------------------------------------------------------------------------------------------------------
 -- ✅ Country Flags Catalog desde ReplicatedStorage/Config/CountryFlags (ModuleScript)
-local CountryFlagsCatalog = nil
+local CountryFlags = nil
+
 do
 	local configFolder = ReplicatedStorage:FindFirstChild("Config")
 	if configFolder then
-		local mod = configFolder:FindFirstChild("CountryFlags")
-		if mod and mod:IsA("ModuleScript") then
-			local ok, data = pcall(require, mod)
-			if ok and type(data) == "table" then
-				CountryFlagsCatalog = data
-			else
-				warn("[FLAGS] CountryFlags no retornó tabla.")
+		local flags = configFolder:FindFirstChild("CountryFlags")
+		if flags and flags:IsA("ModuleScript") then
+			local ok, data = pcall(require, flags)
+			if ok then
+				CountryFlags = data
 			end
 		end
 	end
 end
+
 
 -- cache país por userId para no spammear LocalizationService
 local countryCache = {} -- [userId] = { code="PE", t=os.clock() }
@@ -155,24 +141,8 @@ local function getCountryCodeSafe(player)
 	return nil
 end
 
-local function getCountryEmojiSmart(code)
-	if not code or code == "" then return "" end
 
-	if CountryFlagsCatalog and CountryFlagsCatalog[code] then
-		return CountryFlagsCatalog[code]
-	end
-
-	local ok, emoji = pcall(function()
-		return FlagUtils.GetFlag(code)
-	end)
-	if ok and type(emoji) == "string" then
-		return emoji
-	end
-
-	return ""
-end
-
--- ✅ Render del DisplayName con Bandera + Racha (bandera al INICIO)
+-- ✅ Render del DisplayName SIN bandera (solo nombre + racha)
 local function renderDisplayName(player, streakValue)
 	if not player or not player.Character then return end
 
@@ -182,28 +152,9 @@ local function renderDisplayName(player, streakValue)
 	local displayNameLabel = components.nameFrame:FindFirstChild("DisplayName")
 	if not displayNameLabel then return end
 
-	local showFlag = player:GetAttribute("ShowFlag")
-	if showFlag == nil then
-		showFlag = true
-		player:SetAttribute("ShowFlag", true)
-	end
-
-	local emoji = ""
-	if showFlag then
-		local code = player:GetAttribute("CountryCode")
-		if not code or code == "" then
-			code = getCountryCodeSafe(player) or ""
-			if code ~= "" then
-				player:SetAttribute("CountryCode", code)
-			end
-		end
-		emoji = getCountryEmojiSmart(code)
-		player:SetAttribute("CountryEmoji", emoji)
-	end
-
-	local prefix = (emoji ~= "" and (emoji .. " ")) or ""
-	displayNameLabel.Text = prefix .. player.DisplayName .. " 🔥" .. tostring(streakValue or 1)
+	displayNameLabel.Text = player.DisplayName .. " 🔥" .. tostring(streakValue or 1)
 end
+
 
 local function resolveCountryForPlayer(player)
 	if not player or not player.Parent then return end
@@ -212,7 +163,7 @@ local function resolveCountryForPlayer(player)
 		local code = getCountryCodeSafe(player)
 		if code and code ~= "" then
 			player:SetAttribute("CountryCode", code)
-			player:SetAttribute("CountryEmoji", getCountryEmojiSmart(code))
+			
 		else
 			player:SetAttribute("CountryCode", "")
 			player:SetAttribute("CountryEmoji", "")
@@ -225,6 +176,38 @@ local function updateVIPStatus(player)
 	if not player or not player.Parent then return end
 	local hasVIP = GamepassManager.HasGamepass(player, VIP_ID)
 	player:SetAttribute("HasVIP", hasVIP)
+end
+
+local function renderCountryFlag(player)
+	if not player or not player.Character then return end
+
+	local components = getOverheadComponents(player.Character)
+	if not components then return end
+
+	local paisFrame = components.frame:FindFirstChild("PaisFrame")
+	if not paisFrame then return end
+
+	-- Mostrar el frame siempre
+	paisFrame.Visible = true
+
+	-- Actualizar contenido de la bandera
+	local code = player:GetAttribute("CountryCode")
+	if not code or code == "" then
+		code = getCountryCodeSafe(player) or ""
+		player:SetAttribute("CountryCode", code)
+	end
+
+	code = string.upper(code)
+
+	local flagLabel = paisFrame:FindFirstChildWhichIsA("TextLabel")
+	if flagLabel then
+		if CountryFlags and CountryFlags[code] then
+			local data = CountryFlags[code]
+			flagLabel.Text = data.emoji .. " " .. data.name
+		else
+			flagLabel.Text = ""
+		end
+	end
 end
 
 --------------------------------------------------------------------------------------------------------
@@ -261,7 +244,7 @@ local function getSavedStreak(player)
 
 	local result = 1
 	local isComplete = false
-	
+
 	streakQueue:GetAsync(userId, function(success, data)
 		if success and data and data.streak then
 			streakCache[userId] = {
@@ -278,7 +261,7 @@ local function getSavedStreak(player)
 	while not isComplete and (tick() - startTime) < 1 do
 		task.wait(0.02)
 	end
-	
+
 	return result
 end
 
@@ -295,7 +278,7 @@ local function updateStreak(player)
 
 	local success, data = false, nil
 	local isComplete = false
-	
+
 	streakQueue:GetAsync(userId, function(s, d)
 		success = s
 		data = d
@@ -413,16 +396,6 @@ Players.PlayerAdded:Connect(function(plr)
 		end
 	end)
 end)
-
---------------------------------------------------------------------------------------------------------
--- Actualizar display de nivel
-local function updateLevelDisplay(levelLabel, level)
-	if not levelLabel then return end
-
-	local config = LevelConfigModule.getLevelConfig(level)
-	levelLabel.Text = "Lv. " .. level .. " " .. config.Emoji
-	levelLabel.TextColor3 = config.Color
-end
 
 --------------------------------------------------------------------------------------------------------
 -- Actualizar color del nombre
@@ -555,7 +528,7 @@ function OverheadManager:configureOverhead(overhead, player, char)
 	local roleFrame = frame:FindFirstChild("RoleFrame")
 	local nameFrame = frame:FindFirstChild("NameFrame")
 	local otherFrame = frame:FindFirstChild("OtherFrame")
-	local levelFrame = frame:FindFirstChild("LevelFrame")
+	local PaisFrame = frame:FindFirstChild("PaisFrame")
 
 	if nameFrame then
 		local clanTagLabel = nameFrame:FindFirstChild("ClanTag")
@@ -566,11 +539,11 @@ function OverheadManager:configureOverhead(overhead, player, char)
 		-- ✅ Nombre renderizado con bandera + racha (bandera al inicio)
 		local streak = getSavedStreak(player)
 		renderDisplayName(player, streak)
+		renderCountryFlag(player)
 	end
 
 	self:setupRole(roleFrame, player)
 	self:setupBadges(otherFrame, player)
-	self:setupLevelDisplay(levelFrame, player)
 end
 
 function OverheadManager:setupRole(roleFrame, player)
@@ -615,15 +588,15 @@ function OverheadManager:setupRole(roleFrame, player)
 				roleText.Text = "[ VIP ]"
 				roleText.TextColor3 = Color3.fromRGB(217, 43, 13)
 			else
-				roleText.Text = "[ Tonero ]"
-				roleText.TextColor3 = Color3.fromRGB(0, 85, 255)
+				roleText.Text = "[ Latino ]"
+				roleText.TextColor3 = Color3.fromRGB(119, 0, 255)
 			end
 		end
 	end
 
 	-- Inicial
 	updateRoleDisplay()
-	
+
 	-- Escuchar cambios en atributo HasVIP en tiempo real
 	trackConnection(player, player:GetAttributeChangedSignal("HasVIP"):Connect(function()
 		updateRoleDisplay()
@@ -646,41 +619,9 @@ function OverheadManager:setupBadges(otherFrame, player)
 
 	-- Inicial
 	updateBadges()
-	
+
 	-- Escuchar cambios en HasVIP
 	trackConnection(player, player:GetAttributeChangedSignal("HasVIP"):Connect(updateBadges))
-end
-
-function OverheadManager:setupLevelDisplay(levelFrame, player)
-	if not levelFrame then return end
-
-	local levelLabel = levelFrame:FindFirstChild("Level")
-	if not levelLabel then return end
-
-	levelLabel.Text = "Cargando nivel..."
-	player:SetAttribute("Level", 0)
-
-	local leaderstats = player:WaitForChild("leaderstats", 10)
-	if not leaderstats then
-		warn("No se encontraron leaderstats para: " .. player.Name)
-		levelLabel.Text = "Lv. ?"
-		return
-	end
-
-	local levelStat = leaderstats:WaitForChild("Level 🌟", 10)
-	if not levelStat then
-		warn("No se encontró Level 🌟 en leaderstats de: " .. player.Name)
-		levelLabel.Text = "Lv. ?"
-		return
-	end
-
-	updateLevelDisplay(levelLabel, levelStat.Value)
-	player:SetAttribute("Level", levelStat.Value)
-
-	trackConnection(player, levelStat:GetPropertyChangedSignal("Value"):Connect(function()
-		updateLevelDisplay(levelLabel, levelStat.Value)
-		player:SetAttribute("Level", levelStat.Value)
-	end))
 end
 
 --------------------------------------------------------------------------------------------------------

@@ -21,9 +21,8 @@ SettingsConfig.DEFAULTS = {
 	chat = true,
 	viewTagsUsers = true,
 	viewUsers = true,
-	viewFlagUser = false,
 	viewSelected = true,
-	
+
 	-- GRÁFICOS
 	atmosphere = true,
 	blur = true,
@@ -36,7 +35,7 @@ SettingsConfig.DEFAULTS = {
 	shadows = true,
 	textures = true,
 	effects = true,
-	
+
 	-- ALERTAS
 	soundDiscord = true,
 	soundTwitter = true,
@@ -86,7 +85,19 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				game.Chat.BubbleChatEnabled = value
+				pcall(function()
+					local TCS = game:GetService("TextChatService")
+					TCS.BubbleChatEnabled = value
+				end)
+				pcall(function()
+					local TCS = game:GetService("TextChatService")
+					if TCS and TCS:FindFirstChild("BubbleChatConfiguration") then
+						TCS.BubbleChatConfiguration.Enabled = value
+					end
+				end)
+				pcall(function()
+					game.Chat.BubbleChatEnabled = value
+				end)
 			end
 		},
 		{
@@ -96,7 +107,21 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				-- Manejado en cliente
+				pcall(function()
+					local Players = game:GetService("Players")
+					local localPlayer = Players.LocalPlayer
+					for _, player in pairs(Players:GetPlayers()) do
+						if player and player ~= localPlayer and player.Character then
+							local head = player.Character:FindFirstChild("Head")
+							if head then
+								local overhead = head:FindFirstChild("Overhead")
+								if overhead then
+									overhead.Enabled = value
+								end
+							end
+						end
+					end
+				end)
 			end
 		},
 		{
@@ -106,19 +131,41 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				-- Manejado en cliente
+				pcall(function()
+					local localPlayer = game.Players.LocalPlayer
+					for _, player in pairs(game.Players:GetPlayers()) do
+						if player ~= localPlayer and player.Character then
+							-- Ocultar/mostrar partes del character (guardando transparencia original)
+							for _, part in pairs(player.Character:GetDescendants()) do
+								if part:IsA("BasePart") then
+									if not value then  -- Ocultando
+										if not part:GetAttribute("OriginalTransparency") then
+											part:SetAttribute("OriginalTransparency", part.Transparency)
+										end
+										part.Transparency = 1
+									else  -- Mostrando (restaurar original)
+										local original = part:GetAttribute("OriginalTransparency")
+										if original ~= nil then
+											part.Transparency = original
+										end
+									end
+								end
+							end
+							
+							-- Ocultar/mostrar overhead
+							local head = player.Character:FindFirstChild("Head")
+							if head then
+								local overhead = head:FindFirstChild("Overhead")
+								if overhead then
+									overhead.Enabled = value
+								end
+							end
+						end
+					end
+				end)
 			end
 		},
-		{
-			id = "viewFlagUser",
-			label = "Mostrar mi bandera",
-			desc = "Mostrar tu bandera de país",
-			type = "toggle",
-			default = false,
-			action = function(value)
-				-- Manejado en servidor
-			end
-		},
+			
 		{
 			id = "viewSelected",
 			label = "Resaltar seleccionado",
@@ -126,11 +173,11 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				-- Manejado en cliente
+				_G.ShowSelectedHighlight = value
 			end
 		},
 	},
-	
+
 	graphics = {
 		{
 			id = "atmosphere",
@@ -151,6 +198,30 @@ SettingsConfig.SETTINGS = {
 			action = function(value)
 				if game.Lighting:FindFirstChild("Desenfoque") then
 					game.Lighting.Desenfoque.Size = value and 2 or 0
+				end
+			end
+		},
+		{
+			id = "colorCorrection",
+			label = "Corrección de color",
+			desc = "Ajustes de color y saturation",
+			type = "toggle",
+			default = false,
+			action = function(value)
+				if game.Lighting:FindFirstChild("ColorCorrection") then
+					game.Lighting.ColorCorrection.Enabled = value
+				end
+			end
+		},
+		{
+			id = "depthOfField",
+			label = "Profundidad de campo",
+			desc = "Efecto de profundidad de campo (DoF)",
+			type = "toggle",
+			default = false,
+			action = function(value)
+				if game.Lighting:FindFirstChild("DepthOfField") then
+					game.Lighting.DepthOfField.Enabled = value
 				end
 			end
 		},
@@ -183,7 +254,29 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				-- Manejado en cliente
+				pcall(function()
+					local originalMaterials = {}
+					
+					local function toggleMaterials(isEnabled)
+						for _, part in pairs(game.Workspace:GetDescendants()) do
+							if part:IsA("BasePart") then
+								if not isEnabled then
+									if not originalMaterials[part] then
+										originalMaterials[part] = part.Material
+									end
+									part.Material = Enum.Material.SmoothPlastic
+								else
+									if originalMaterials[part] then
+										part.Material = originalMaterials[part]
+										originalMaterials[part] = nil
+									end
+								end
+							end
+						end
+					end
+					
+					toggleMaterials(value)
+				end)
 			end
 		},
 		{
@@ -213,7 +306,13 @@ SettingsConfig.SETTINGS = {
 			type = "toggle",
 			default = true,
 			action = function(value)
-				-- Manejado en cliente
+				pcall(function()
+					for _, particle in pairs(game.Workspace:GetDescendants()) do
+						if particle:IsA("ParticleEmitter") then
+							particle.Enabled = value
+						end
+					end
+				end)
 			end
 		},
 		{
@@ -229,7 +328,7 @@ SettingsConfig.SETTINGS = {
 			end
 		},
 	},
-	
+
 	alerts = {
 		{
 			id = "soundDiscord",
@@ -271,7 +370,7 @@ SettingsConfig.SETTINGS = {
 			end
 		},
 	},
-	
+
 	credits = {
 		{
 			id = "credits_title",
@@ -282,25 +381,17 @@ SettingsConfig.SETTINGS = {
 			id = "credits_text",
 			label = "¡Gracias por ser parte de Ritmo Latino! 💜🎶 A cada persona que entra, participa, baila y comparte buena vibra: gracias de corazón. Su apoyo, sus ideas y su energía han sido clave para que este servidor crezca y se sienta como casa. Ritmo Latino no sería lo mismo sin ustedes. ✨ ¡Sigamos construyendo juntos más momentos, música y comunidad! 🕺💃",
 			type = "credit"
-		},
-		{
-			id = "credits_devs",
-			label = "Developers",
-			desc = "xlm_brem | ignxts",
-			type = "credit"
-		},
-	},
-	
-	--[[ Comentado temporalmente: settings de comentarios
-	comments = {
-		{
-			id = "comments_placeholder",
-			label = "Sección de Comentarios",
-			desc = "Próximamente: Sistema de feedback en vivo",
-			type = "info"
-		},
-	},
-	]]
+		}
+	}
+
 }
+
+-- Lista separada de contribuidores (mejor práctica: datos estructurados separados de la UI)
+SettingsConfig.CONTRIBUTORS = {
+	{ name = "ignxts", role = "Developer" },
+	{ name = "xlm_brem", role = "Developer" },
+	{ name = "AngeloGarciia", role = "Owner" },
+}
+
 
 return SettingsConfig

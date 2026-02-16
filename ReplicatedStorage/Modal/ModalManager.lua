@@ -116,6 +116,9 @@ function ModalManager.new(config)
 	self.isOpen = false
 	self.activeTweens = {}
 	self.connections = {}
+	-- Background image for the panel (optional)
+	self.panelBackgroundImage = config.panelBackgroundImage or nil
+	self.panelBackgroundTransparency = config.panelBackgroundTransparency or 0.85
 
 	-- Detectar dispositivo y calcular tamaño inicial
 	self:_updateDimensions()
@@ -215,6 +218,24 @@ function ModalManager:_createPanel()
 
 	rounded(self.panel, self.cornerRadius)
 	stroked(self.panel, THEME.mediumAlpha or 0.5)
+
+	-- Optional background image for the panel (behind content)
+	if self.panelBackgroundImage and self.panelBackgroundImage ~= "" then
+		local bg = Instance.new("ImageLabel")
+		bg.Name = "PanelBackgroundImage"
+		bg.Size = UDim2.fromScale(1, 1)
+		bg.Position = UDim2.fromScale(0, 0)
+		bg.BackgroundTransparency = 1
+		bg.Image = self.panelBackgroundImage
+		bg.ImageTransparency = self.panelBackgroundTransparency or 0.85
+		bg.ScaleType = Enum.ScaleType.Crop
+		bg.ZIndex = self.panel.ZIndex
+		bg.Parent = self.panel
+
+		local bgCorner = Instance.new("UICorner")
+		bgCorner.CornerRadius = UDim.new(0, self.cornerRadius)
+		bgCorner.Parent = bg
+	end
 end
 
 function ModalManager:open()

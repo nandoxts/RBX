@@ -11,24 +11,6 @@ local playerGui = player:WaitForChild("PlayerGui")
 task.wait(1)
 
 -- ════════════════════════════════════════════════════════════════
--- CARGAR SETTINGS MODULE (EXPONE FUNCIONES GLOBALES)
--- ════════════════════════════════════════════════════════════════
-local settingsLoaded = false
-task.spawn(function()
-	local success, result = pcall(function()
-		require(game:GetService("StarterGui"):WaitForChild("Settings"):WaitForChild("SettingsUI"))
-	end)
-	
-	if success then
-		settingsLoaded = true
-		print("✅ [Topbar] Settings cargado correctamente")
-	else
-		warn("❌ [Topbar] Error cargando Settings: " .. tostring(result))
-	end
-end)
-
-
--- ════════════════════════════════════════════════════════════════
 -- MÓDULOS
 -- ════════════════════════════════════════════════════════════════
 local GlobalModalManager = require(game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("GlobalModalManager"))

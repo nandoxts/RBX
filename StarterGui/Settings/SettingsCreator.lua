@@ -220,9 +220,6 @@ local function calculateContentHeight(settingsList)
 	return totalHeight + PADDING_Y
 end
 
--- ============================================
--- CREAR PORTADA DE CRÉDITOS MODERNA v3
--- ============================================
 local function createCreditsPage(container, THEME)
 	local creditsList = SettingsConfig.SETTINGS["credits"] or {}
 	local Players = game:GetService("Players")
@@ -237,9 +234,6 @@ local function createCreditsPage(container, THEME)
 		clips = true
 	})
 
-	-- ══════════════════════════════════════════════════════════
-	-- FONDO TRANSPARENTE (imagen configurable)
-	-- ══════════════════════════════════════════════════════════
 	-- Inner container — SIN ScrollingFrame, centrado vertical
 	local innerWrap = UI.frame({
 		name = "InnerWrap",
@@ -297,7 +291,7 @@ local function createCreditsPage(container, THEME)
 	divider.BackgroundTransparency = 0.4
 	divider.LayoutOrder = 3
 
-	-- ── Párrafo principal — AutomaticSize.Y, texto más grande ──
+	-- ── Párrafo principal ──
 	if creditsList[2] then
 		local paragraphLabel = UI.label({
 			size = UDim2.new(1, 0, 0, 0),
@@ -318,14 +312,25 @@ local function createCreditsPage(container, THEME)
 	end
 
 	-- ══════════════════════════════════════════════════════════
-	-- SECCIÓN DEVELOPERS
+	-- SECCIÓN CONTRIBUIDORES
 	-- ══════════════════════════════════════════════════════════
-	if creditsList[3] then
-		local devItem = creditsList[3]
+	local devs = {}
 
+	if SettingsConfig.CONTRIBUTORS and type(SettingsConfig.CONTRIBUTORS) == "table" then
+		for _, entry in ipairs(SettingsConfig.CONTRIBUTORS) do
+			if type(entry) == "table" then
+				table.insert(devs, {
+					name = tostring(entry.name or ""),
+					role = tostring(entry.role or "Developer")
+				})
+			end
+		end
+	end
+
+	if #devs > 0 then
 		local sectionLabel = UI.label({
 			size = UDim2.new(1, 0, 0, 20),
-			text = "DEVELOPERS",
+			text = "CONTRIBUIDORES",
 			color = THEME.accent,
 			textSize = 12,
 			font = Enum.Font.GothamBold,
@@ -335,28 +340,6 @@ local function createCreditsPage(container, THEME)
 			parent = innerWrap
 		})
 		sectionLabel.LayoutOrder = 5
-
-		local devNamesRaw = devItem.desc or ""
-		local tokens = {}
-		for token in string.gmatch(devNamesRaw, "([^|]+)") do
-			local s = token:gsub("^%s*(.-)%s*$", "%1")
-			table.insert(tokens, s)
-		end
-
-		local devs = {}
-		local i = 1
-		while i <= #tokens do
-			local username = tokens[i]
-			local role = nil
-			if tokens[i + 1] and string.sub(tokens[i + 1], 1, 1) == "@" then
-				role = string.sub(tokens[i + 1], 2)
-				i = i + 2
-			else
-				role = "Developer"
-				i = i + 1
-			end
-			table.insert(devs, { name = username, role = role })
-		end
 
 		local devsGrid = UI.frame({
 			name = "DevsGrid",

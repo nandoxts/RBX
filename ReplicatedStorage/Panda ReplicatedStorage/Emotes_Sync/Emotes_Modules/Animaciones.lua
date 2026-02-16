@@ -88,12 +88,12 @@ Animaciones.Recomendado = {
 	{ID = 91219524625419, Nombre = 'RADIANT I'},
 	{ID = 98837556665887, Nombre = 'RADIANT II'},
 	{ID = 101780256353339, Nombre = 'Ghost Siqui'},
-	
-	
 
-	{ID = 107109795056101, Nombre = 'Rebote I'},
-	{ID = 72067682558080, Nombre = 'Rebote II'},
+
+	{ID = 72067682558080, Nombre = 'Rebote I'},
+	{ID = 79331636189776, Nombre = 'Rebote II'},
 	{ID = 75256518776176, Nombre = 'Rebote III'},
+	{ID = 121948001514440, Nombre = 'Rebote IV'},
 
 	{ID = 104685509336391, Nombre = 'Jump I'},
 	{ID = 131751661872100, Nombre = 'Jump II'},
@@ -104,6 +104,7 @@ Animaciones.Recomendado = {
 	{ID = 113057522886646, Nombre = 'SMOOTH II'},
 	{ID = 106876962974091, Nombre = 'SMOOTH III'},
 	{ID = 107368506872693, Nombre = 'SMOOTH IV'},
+	{ID = 131829783462785, Nombre = 'SMOOTH V'},
 
 	{ID = 96072539308174, Nombre = 'FLOW I'},
 	{ID = 103571429590163, Nombre = 'FLOW II'},
@@ -207,7 +208,7 @@ Animaciones.Recomendado = {
 
 Animaciones.Vip = {
 
-	
+
 	{ID = 118764069021230, Nombre = 'Jefrain Dance'},
 	{ID = 112455083563294, Nombre = 'Perreo I'},
 	{ID = 89794141549021, Nombre = 'Perreo II'},
@@ -238,6 +239,7 @@ Animaciones.Vip = {
 	{ID = 112176404394603, Nombre = 'Menea VII'},
 
 	{ID = 110121575064039, Nombre = 'BTS DYNAMITE'},
+	{ID = 103149041437995, Nombre = 'BTS RUN'},
 
 	{ID = 101758039233408, Nombre = 'Diva I'},
 	{ID = 79464831560180, Nombre = 'Diva II'},
