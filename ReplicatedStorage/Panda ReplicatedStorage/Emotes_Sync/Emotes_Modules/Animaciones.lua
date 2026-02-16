@@ -105,6 +105,7 @@ Animaciones.Recomendado = {
 	{ID = 106876962974091, Nombre = 'SMOOTH III'},
 	{ID = 107368506872693, Nombre = 'SMOOTH IV'},
 	{ID = 131829783462785, Nombre = 'SMOOTH V'},
+	{ID = 125649626570657, Nombre = 'SMOOTH VI'},
 
 	{ID = 96072539308174, Nombre = 'FLOW I'},
 	{ID = 103571429590163, Nombre = 'FLOW II'},
