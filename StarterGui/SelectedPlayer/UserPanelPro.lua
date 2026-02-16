@@ -145,7 +145,7 @@ function DevSystem.getBadgeInfo(userId, baseColor)
 	if DevSystem.isDeveloper(userId) then
 		baseColor = baseColor or THEME.accent
 		return {
-			text = "DEV",
+			text = "OWNER",
 			color = baseColor,
 			glowColor = baseColor,
 			icon = "rbxassetid://79346090571461",
@@ -698,7 +698,7 @@ local function createButtonsSection(panel, target, playerColor)
 
 	-- ─── Overlay detrás de nombres + botones (extendido para cubrir todo el contenido) ───
 	-- Empieza arriba de los nombres y se extiende hasta el final del panel
-	local overlayTopExtend = 65 -- cuánto sube por encima del avatar bottom (cubre nombres)
+	local overlayTopExtend = 40 -- cuánto sube por encima del avatar bottom (cubre nombres)
 	local overlayStartY = L.avatarHeight - overlayTopExtend
 
 	local buttonsOverlay = Utils.createFrame({
@@ -928,15 +928,31 @@ local function createAvatarSection(panel, data, playerColor)
 	end
 
 	-- Display Name (sobre el overlay)
-	local nameYOffset = isDev and -56 or -52
+	local nameYOffset = isDev and -50 or -46
 
-	-- Contenedor para nombre + check (layout horizontal)
-	local nameContainer = Utils.createFrame({
-		Size = UDim2.new(1, -L.statsWidth - 16, 0, 24),
+	-- Contenedor vertical principal para nombre completo + username
+	local nameMainContainer = Utils.createFrame({
+		Size = UDim2.new(1, -L.statsWidth - 16, 0, 36),
 		Position = UDim2.new(0, 10, 1, nameYOffset),
 		BackgroundTransparency = 1,
 		ZIndex = 25,
 		Parent = avatarSection
+	})
+
+	Utils.create("UIListLayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		VerticalAlignment = Enum.VerticalAlignment.Top,
+		Padding = UDim.new(0, 0),
+		Parent = nameMainContainer
+	})
+
+	-- Contenedor horizontal para displayName + check
+	local nameContainer = Utils.createFrame({
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundTransparency = 1,
+		LayoutOrder = 1,
+		Parent = nameMainContainer
 	})
 
 	Utils.create("UIListLayout", {
@@ -978,6 +994,19 @@ local function createAvatarSection(panel, data, playerColor)
 		})
 	end
 
+	-- Username (dentro del mismo contenedor vertical)
+	Utils.createLabel({
+		Size = UDim2.new(1, 0, 0, 16),
+		Text = "@" .. data.username,
+		TextColor3 = THEME.muted,
+		TextSize = L.fontSize.subtitle + 1,
+		Font = Enum.Font.GothamMedium,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		LayoutOrder = 2,
+		Parent = nameMainContainer
+	})
+
 
 	-- Badge de developer junto al nombre
 	if isDev and badgeInfo then
@@ -985,20 +1014,6 @@ local function createAvatarSection(panel, data, playerColor)
 		badge.Position = UDim2.new(0, 10, 1, nameYOffset - 20)
 		badge.ZIndex = 26
 	end
-
-	-- Username
-	Utils.createLabel({
-		Size = UDim2.new(1, -L.statsWidth - 16, 0, 18),
-		Position = UDim2.new(0, 10, 1, -28),
-		Text = "@" .. data.username,
-		TextColor3 = THEME.muted,
-		TextSize = L.fontSize.subtitle,
-		Font = Enum.Font.GothamMedium,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 25,
-		Parent = avatarSection
-	})
 
 	-- Like buttons (solo si no es el propio jugador)
 	if data.userId ~= player.UserId then
