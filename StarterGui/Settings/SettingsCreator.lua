@@ -1,6 +1,6 @@
 --[[
 	SETTINGS CREATOR - Constructor de UI puro (sin instancias)
-	v3 — Developer cards modernos, avatars con borde, roles, containers corregidos
+	v4 — Scroll dinámico responsive, compatible con ModalManager resize
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +35,46 @@ local function applyCardGradient(frame, THEME)
 	}
 	grad.Rotation = 135
 	grad.Parent = frame
+end
+
+-- ============================================
+-- HELPER: Setup dinámico de scroll + scrollbar
+-- ============================================
+local function setupDynamicScroll(scrollFrame, parentContainer, THEME)
+	local activeScrollbar = nil
+
+	local function evaluateScroll()
+		local windowH = scrollFrame.AbsoluteWindowSize.Y
+		local canvasH = scrollFrame.AbsoluteCanvasSize.Y
+
+		if canvasH > windowH + 2 then
+			if not activeScrollbar then
+				activeScrollbar = ModernScrollbar.setup(scrollFrame, parentContainer, THEME, {
+					position = "right",
+					offset = -8,
+					width = 6
+				})
+			end
+			if activeScrollbar and activeScrollbar.update then
+				activeScrollbar.update()
+			end
+		else
+			if activeScrollbar and activeScrollbar.hide then
+				activeScrollbar.hide()
+				activeScrollbar = nil
+			end
+		end
+	end
+
+	scrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
+		task.defer(evaluateScroll)
+	end)
+
+	scrollFrame:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(function()
+		task.defer(evaluateScroll)
+	end)
+
+	task.delay(0.3, evaluateScroll)
 end
 
 -- ============================================
@@ -206,20 +246,8 @@ local function createSettingItem(parent, setting, THEME)
 end
 
 -- ============================================
--- Calcular alto total del contenido
+-- CREDITS PAGE
 -- ============================================
-local function calculateContentHeight(settingsList)
-	local totalHeight = 0
-	for i, setting in ipairs(settingsList) do
-		local itemHeight = setting.type == "credit" and CARD_HEIGHT_CREDIT_SECTION or CARD_HEIGHT
-		totalHeight = totalHeight + itemHeight
-		if i < #settingsList then
-			totalHeight = totalHeight + CARD_GAP
-		end
-	end
-	return totalHeight + PADDING_Y
-end
-
 local function createCreditsPage(container, THEME)
 	local creditsList = SettingsConfig.SETTINGS["credits"] or {}
 	local Players = game:GetService("Players")
@@ -234,16 +262,31 @@ local function createCreditsPage(container, THEME)
 		clips = true
 	})
 
-	-- Inner container — SIN ScrollingFrame, centrado vertical
+	-- ScrollingFrame para créditos (responsive)
+	local creditsScroll = Instance.new("ScrollingFrame")
+	creditsScroll.Name = "CreditsScroll"
+	creditsScroll.Size = UDim2.fromScale(1, 1)
+	creditsScroll.Position = UDim2.fromScale(0, 0)
+	creditsScroll.BackgroundTransparency = 1
+	creditsScroll.BorderSizePixel = 0
+	creditsScroll.ScrollBarThickness = 0
+	creditsScroll.ScrollBarImageTransparency = 1
+	creditsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	creditsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	creditsScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	creditsScroll.ZIndex = 103
+	creditsScroll.Parent = creditsCover
+
+	-- Inner container dentro del scroll
 	local innerWrap = UI.frame({
 		name = "InnerWrap",
 		size = UDim2.new(1, -40, 0, 0),
-		pos = UDim2.new(0.5, 0, 0.5, 0),
+		pos = UDim2.new(0.5, 0, 0, 20),
 		bgT = 1,
 		z = 104,
-		parent = creditsCover
+		parent = creditsScroll
 	})
-	innerWrap.AnchorPoint = Vector2.new(0.5, 0.5)
+	innerWrap.AnchorPoint = Vector2.new(0.5, 0)
 	innerWrap.AutomaticSize = Enum.AutomaticSize.Y
 
 	local innerLayout = Instance.new("UIListLayout")
@@ -496,7 +539,11 @@ local function createCreditsPage(container, THEME)
 	})
 	bottomLine.BackgroundTransparency = 0.7
 	bottomLine.LayoutOrder = 7
+
+	-- ── Scroll dinámico para créditos ──
+	setupDynamicScroll(creditsScroll, creditsCover, THEME)
 end
+
 -- ============================================
 -- CREAR MODAL PRINCIPAL
 -- ============================================
@@ -660,7 +707,6 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 			-- ═══════════════════════════════════════════════════════════
 		else
 			local settingsList = SettingsConfig.SETTINGS[tab.id] or {}
-			local contentHeight = calculateContentHeight(settingsList)
 
 			local scrollFrame = Instance.new("ScrollingFrame")
 			scrollFrame.Name = "Scroll"
@@ -670,9 +716,10 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 			scrollFrame.BorderSizePixel = 0
 			scrollFrame.ScrollBarThickness = 0
 			scrollFrame.ScrollBarImageTransparency = 1
-			scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.None
-			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+			scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 			scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+			scrollFrame.ScrollingEnabled = true
 			scrollFrame.Parent = pageContainer
 
 			local layout = Instance.new("UIListLayout")
@@ -691,29 +738,8 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 				createSettingItem(scrollFrame, setting, THEME)
 			end
 
-			-- Scrollbar check
-			task.spawn(function()
-				task.wait(0.4)
-				local windowHeight = scrollFrame.AbsoluteWindowSize.Y
-
-				if contentHeight > windowHeight then
-					scrollFrame.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-
-					local scrollbar = ModernScrollbar.setup(scrollFrame, pageContainer, THEME, {
-						position = "right",
-						offset = -8,
-						width = 6
-					})
-
-					if scrollbar then
-						task.wait(0.1)
-						scrollbar.update()
-					end
-				else
-					scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-					scrollFrame.ScrollingEnabled = false
-				end
-			end)
+			-- Scroll dinámico responsive
+			setupDynamicScroll(scrollFrame, pageContainer, THEME)
 		end
 	end
 

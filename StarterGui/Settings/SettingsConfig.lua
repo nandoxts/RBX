@@ -255,27 +255,26 @@ SettingsConfig.SETTINGS = {
 			default = true,
 			action = function(value)
 				pcall(function()
-					local originalMaterials = {}
+					-- Usar una tabla global para persistir los materiales entre llamadas
+					if not _G.OriginalMaterials then
+						_G.OriginalMaterials = {}
+					end
 					
-					local function toggleMaterials(isEnabled)
-						for _, part in pairs(game.Workspace:GetDescendants()) do
-							if part:IsA("BasePart") then
-								if not isEnabled then
-									if not originalMaterials[part] then
-										originalMaterials[part] = part.Material
-									end
-									part.Material = Enum.Material.SmoothPlastic
-								else
-									if originalMaterials[part] then
-										part.Material = originalMaterials[part]
-										originalMaterials[part] = nil
-									end
+					for _, part in pairs(game.Workspace:GetDescendants()) do
+						if part:IsA("BasePart") then
+							if not value then -- Desactivar: cambiar a SmoothPlastic
+								if not _G.OriginalMaterials[part] then
+									_G.OriginalMaterials[part] = part.Material
+								end
+								part.Material = Enum.Material.SmoothPlastic
+							else -- Activar: restaurar material original
+								if _G.OriginalMaterials[part] then
+									part.Material = _G.OriginalMaterials[part]
+									_G.OriginalMaterials[part] = nil
 								end
 							end
 						end
 					end
-					
-					toggleMaterials(value)
 				end)
 			end
 		},
