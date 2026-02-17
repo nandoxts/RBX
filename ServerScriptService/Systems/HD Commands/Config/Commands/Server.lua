@@ -1150,9 +1150,9 @@ local module = {
 			end
 
 			local ServerScriptService = game:GetService("ServerScriptService")
-			local donationScript = ServerScriptService:FindFirstChild("Panda ServerScriptService") and 
-				ServerScriptService["Panda ServerScriptService"]:FindFirstChild("SelectedPlayer") and
-				ServerScriptService["Panda ServerScriptService"]["SelectedPlayer"]:FindFirstChild("DONATION_EFFECTS[UPDATE]")
+			local donationScript = ServerScriptService:FindFirstChild("Systems") and 
+				ServerScriptService["Systems"]:FindFirstChild("SelectedPlayer") and
+				ServerScriptService["Systems"]["SelectedPlayer"]:FindFirstChild("DONATION_EFFECTS[UPDATE]")
 
 			-- Tabla de efectos disponibles
 			local DONATION_EFFECTS = {

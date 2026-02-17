@@ -4,7 +4,7 @@
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService")
+local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
 local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 

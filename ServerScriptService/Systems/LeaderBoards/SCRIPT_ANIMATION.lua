@@ -2,7 +2,7 @@
 -- SERVICES --
 
 local InsertService = game:GetService('InsertService')
-local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
+local Configuration = require(game.ServerScriptService.Systems.Configuration)
 
 -- VARIABLES --
 local DONATIONS_EMOTE = Configuration.DONATIONS_EMOTE

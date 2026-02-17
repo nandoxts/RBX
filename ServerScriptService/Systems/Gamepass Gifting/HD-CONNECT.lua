@@ -3,7 +3,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 local GiftedGamepassesData = DataStoreService:GetDataStore("Gifting.1")
 local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
-local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
+local Configuration = require(game.ServerScriptService.Systems.Configuration)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Inicializar queue con delay de 0.12s

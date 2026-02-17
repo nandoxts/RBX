@@ -3,7 +3,7 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService")
+local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
 
 -- Módulos
 local CentralPurchaseHandler = require(ServerScriptService["Gamepass Gifting"].GiftGamepass.ManagerProcess)

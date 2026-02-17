@@ -12,8 +12,8 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 local Workspace = game:GetService("Workspace")
 
-local Configuration = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Configuration)
-local ColorEffects = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Effects.ColorEffectsModule)
+local Configuration = require(game:GetService("ServerScriptService"):WaitForChild("Systems"):WaitForChild("Configuration"))
+local ColorEffects = require(game:GetService("ServerScriptService").Systems.Effects.ColorEffectsModule)
 
 --==================================================
 --                    CONSTANTES

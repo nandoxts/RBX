@@ -17,7 +17,7 @@ end
 
 local Ownership = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Ownership
 local Config = require(game.ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Modules.Config)
-local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
+local Configuration = require(game.ServerScriptService.Systems.Configuration)
 local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 
 local BADGES_Gift = Configuration.BADGES_Gift

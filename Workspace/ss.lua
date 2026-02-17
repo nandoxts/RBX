@@ -4,7 +4,7 @@ local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Systems")
 local PlayersService = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
-local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService")
+local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
 
 -- Módulos externos
 local Configuration = require(ServerScriptService.Configuration)

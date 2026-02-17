@@ -33,11 +33,11 @@ local function disconnectAllPlayerConnections(userId)
 end
 
 --// Módulos
-local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
-local Configuration = require(PandaSSS:WaitForChild("Configuration"))
-local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
-local Colors = require(PandaSSS.Effects.ColorEffectsModule)
-local ModulesFolder = PandaSSS:WaitForChild("Modules")
+local Systems = ServerScriptService:WaitForChild("Systems")
+local Configuration = require(Systems:WaitForChild("Configuration"))
+local GamepassManager = require(Systems:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+local Colors = require(Systems.Effects.ColorEffectsModule)
+local ModulesFolder = Systems:WaitForChild("Modules")
 local GroupRolesModule = require(ModulesFolder:WaitForChild("GroupRolesModule"))
 local DataStoreQueue = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 

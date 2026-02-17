@@ -19,7 +19,7 @@ local LikesEvents = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage")
 	and ReplicatedStorage["Panda ReplicatedStorage"]:FindFirstChild("LikesEvents")
 
 -- Importar GamePassManager para validar pases (comprados + regalados)
-local GamePassManager = require(game.ServerScriptService["Panda ServerScriptService"]["Gamepass Gifting"]["GamepassManager"])
+local GamePassManager = require(game.ServerScriptService.Systems["Gamepass Gifting"]["GamepassManager"])
 
 -- Importar Config con lista de gamepasses
 local ReplicatedStoragePanda = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage")

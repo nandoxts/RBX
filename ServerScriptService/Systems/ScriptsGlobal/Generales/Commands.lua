@@ -4,11 +4,11 @@ local Players = game:GetService("Players")
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Systems")
-local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService")
+local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
 local RunService = game:GetService("RunService")
 
 --> Modules
-local Configuration = require(ServerScriptService.Configuration)
+local Configuration = require(game:GetService("ServerScriptService"):WaitForChild("Systems"):WaitForChild("Configuration"))
 local GamepassManager = require(ServerScriptService["Gamepass Gifting"].GamepassManager)
 local ColorEffects = require(ServerScriptService.Effects.ColorEffectsModule)
 

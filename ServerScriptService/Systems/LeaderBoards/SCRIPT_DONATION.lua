@@ -4,8 +4,8 @@ local BadgeService = game:GetService("BadgeService")
 local Players = game:GetService('Players')
 
 -- Módulo central
-local CentralPurchaseHandler = require(game:GetService("ServerScriptService")["Panda ServerScriptService"]["Gamepass Gifting"]["GiftGamepass"].ManagerProcess)
-local Configuration = require(game.ServerScriptService["Panda ServerScriptService"].Configuration)
+local CentralPurchaseHandler = require(game:GetService("ServerScriptService").Systems["Gamepass Gifting"]["GiftGamepass"].ManagerProcess)
+local Configuration = require(game.ServerScriptService.Systems.Configuration)
 
 --local ID_BADGE = Configuration.BADGES_Bug
 

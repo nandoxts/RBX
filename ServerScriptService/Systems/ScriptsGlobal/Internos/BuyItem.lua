@@ -3,9 +3,9 @@ local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 -- Cargar configuración
-local PandaSSS = ServerScriptService:WaitForChild("Panda ServerScriptService")
-local Configuration = require(PandaSSS:WaitForChild("Configuration"))
-local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+local Systems = ServerScriptService:WaitForChild("Systems")
+local Configuration = require(Systems:WaitForChild("Configuration"))
+local GamepassManager = require(Systems:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
 
 local ITEM_CONFIG_ARMYBOOMS = {
 	gamepassId = Configuration.ARMYBOOMS
