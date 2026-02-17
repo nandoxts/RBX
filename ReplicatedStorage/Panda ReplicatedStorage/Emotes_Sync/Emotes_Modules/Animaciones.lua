@@ -187,7 +187,12 @@ Animaciones.Recomendado = {
 	{ID = 102779295838500, Nombre = 'Golpe III'},
 	{ID = 126780665379004, Nombre = 'Golpe IV'},
 	{ID = 139562990018724, Nombre = 'Golpe V'},
-
+	
+	{ID = 84625712269835, Nombre = 'DEMBOW I'},
+	{ID = 127381931754839, Nombre = 'DEMBOW II'},
+	{ID = 78486929565005, Nombre = 'DEMBOW III'},
+	{ID = 70369475554387, Nombre = 'DEMBOW IV'},
+	
 	{ID = 84112287597268, Nombre = 'Huaska I'},
 	{ID = 84623954062978, Nombre = 'Huaska II'},
 	{ID = 94847143626311, Nombre = 'Huaska III'},
@@ -247,6 +252,7 @@ Animaciones.Vip = {
 	{ID = 136073073685621, Nombre = 'Diva III'},
 	{ID = 111664314706389, Nombre = 'Diva V'},
 	{ID = 118896295981144, Nombre = 'Diva VI'},
+	{ID = 97239153753142, Nombre = 'Diva VII'},
 }
 
 return Animaciones

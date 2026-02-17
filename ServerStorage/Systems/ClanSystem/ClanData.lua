@@ -38,11 +38,11 @@ end
 local function getPlayerName(userId)
 	local player = Players:GetPlayerByUserId(userId)
 	if player then return player.Name end
-	
+
 	local success, name = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
 	end)
-	
+
 	return success and name or "User_" .. userId
 end
 
@@ -63,7 +63,7 @@ local function removeFromNameIndex(name)
 		warn("[ClanData] removeFromNameIndex: nombre inválido:", name)
 		return 
 	end
-	
+
 	local success, err = pcall(function()
 		local key = string.lower(name)
 		DS:UpdateAsync("index:names", function(current)
@@ -72,7 +72,7 @@ local function removeFromNameIndex(name)
 			return next(current) and current or nil
 		end)
 	end)
-	
+
 	if not success then
 		warn("[ClanData] Error removiendo nombre del índice:", name, err)
 	end
@@ -92,7 +92,7 @@ local function removeFromTagIndex(tag)
 		warn("[ClanData] removeFromTagIndex: tag inválido:", tag)
 		return 
 	end
-	
+
 	local success, err = pcall(function()
 		local key = string.upper(tag)
 		DS:UpdateAsync("index:tags", function(current)
@@ -101,7 +101,7 @@ local function removeFromTagIndex(tag)
 			return next(current) and current or nil
 		end)
 	end)
-	
+
 	if not success then
 		warn("[ClanData] Error removiendo tag del índice:", tag, err)
 	end
@@ -124,11 +124,11 @@ end
 -- OBTENER CLAN
 function ClanData:GetClan(clanId)
 	if not clanId then return nil end
-	
+
 	local success, data = pcall(function()
 		return DS:GetAsync("clan:" .. clanId)
 	end)
-	
+
 	return success and data or nil
 end
 
@@ -137,11 +137,11 @@ function ClanData:GetPlayerClan(userId)
 	local success, playerData = pcall(function()
 		return DS:GetAsync("player:" .. tostring(userId))
 	end)
-	
+
 	if not success or not playerData or not playerData.clanId then
 		return nil
 	end
-	
+
 	return self:GetClan(playerData.clanId)
 end
 
@@ -159,23 +159,23 @@ function ClanData:CreateClan(name, ownerId, tag, logo, desc, emoji, color)
 	-- Validar
 	local validName, errName = Config:ValidateClanName(name)
 	if not validName then return false, errName end
-	
+
 	local validTag, errTag = Config:ValidateTag(tag)
 	if not validTag then return false, errTag end
-	
+
 	if nameExists(name) then return false, "Nombre ya existe" end
 	if tagExists(tag) then return false, "TAG ya existe" end
-	
+
 	-- Verificar que el owner no tenga clan
 	local playerData = DS:GetAsync("player:" .. tostring(ownerId))
 	if playerData and playerData.clanId then
 		return false, "Ya tienes un clan"
 	end
-	
+
 	local clanId = genId()
 	local now = os.time()
 	local upperTag = string.upper(tag)
-	
+
 	local clan = {
 		clanId = clanId,
 		name = name,
@@ -185,10 +185,10 @@ function ClanData:CreateClan(name, ownerId, tag, logo, desc, emoji, color)
 		color = color or Config.DEFAULTS.Color,
 		description = desc or Config.DEFAULTS.Description,
 		createdAt = now,
-		
+
 		-- Owners array (soporta múltiples)
 		owners = {ownerId},
-		
+
 		-- Miembros flat (key = userId string)
 		members = {
 			[tostring(ownerId)] = {
@@ -198,20 +198,20 @@ function ClanData:CreateClan(name, ownerId, tag, logo, desc, emoji, color)
 			}
 		}
 	}
-	
+
 	-- Guardar clan
 	DS:SetAsync("clan:" .. clanId, clan)
-	
+
 	-- Guardar player mapping
 	DS:SetAsync("player:" .. tostring(ownerId), {
 		clanId = clanId,
 		role = Config.ROLE_NAMES.OWNER
 	})
-	
+
 	-- Actualizar índices
 	addToNameIndex(name, clanId)
 	addToTagIndex(upperTag, clanId)
-	
+
 	updateEvent:Fire(clanId)
 	return true, clanId, clan
 end
@@ -222,14 +222,14 @@ function ClanData:UpdateClan(clanId, updates)
 	if not clan then 
 		return false, "Clan no encontrado" 
 	end
-	
+
 	-- PASO 1: Validar cambios ANTES de updateAsync
 	if updates.name and updates.name ~= clan.name then
 		if nameExists(updates.name) then
 			return false, "Nombre ya existe"
 		end
 	end
-	
+
 	if updates.tag and updates.tag ~= clan.tag then
 		local upperTag = string.upper(updates.tag)
 		if tagExists(upperTag) then
@@ -237,36 +237,36 @@ function ClanData:UpdateClan(clanId, updates)
 		end
 		updates.tag = upperTag
 	end
-	
+
 	-- PASO 2: Actualizar clan en DataStore (ATÓMICO)
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			-- Aplicar cambios simples (sin llamar funciones de DataStore)
 			for k, v in pairs(updates) do
 				current[k] = v
 			end
-			
+
 			return current
 		end)
 	end)
-	
+
 	if not success then
 		return false, tostring(result)
 	end
-	
+
 	-- PASO 3: Actualizar índices SINCRÓNAMENTE (ANTES de disparar evento)
 	if updates.name and updates.name ~= clan.name then
 		removeFromNameIndex(clan.name)
 		addToNameIndex(updates.name, clanId)
 	end
-	
+
 	if updates.tag and updates.tag ~= clan.tag then
 		removeFromTagIndex(clan.tag)
 		addToTagIndex(updates.tag, clanId)
 	end
-	
+
 	updateEvent:Fire(clanId)
 	return true, result
 end
@@ -275,33 +275,33 @@ end
 function ClanData:AddMember(clanId, userId, role)
 	role = role or Config.DEFAULTS.MemberRole
 	local userIdStr = tostring(userId)
-	
+
 	-- Verificar que el usuario no tenga clan
 	local playerData = DS:GetAsync("player:" .. userIdStr)
 	if playerData and playerData.clanId then
 		return false, "Usuario ya tiene clan"
 	end
-	
+
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			-- Verificar si ya es miembro
 			if current.members[userIdStr] then
 				error("Ya es miembro")
 			end
-			
+
 			-- Agregar
 			current.members[userIdStr] = {
 				name = getPlayerName(userId),
 				role = role,
 				joinedAt = os.time()
 			}
-			
+
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- Actualizar player mapping
 		DS:SetAsync("player:" .. userIdStr, {
@@ -318,14 +318,14 @@ end
 -- REMOVER MIEMBRO
 function ClanData:RemoveMember(clanId, userId)
 	local userIdStr = tostring(userId)
-	
+
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			-- Remover
 			current.members[userIdStr] = nil
-			
+
 			-- Remover de owners si está
 			for i, ownerId in ipairs(current.owners) do
 				if ownerId == userId then
@@ -333,11 +333,11 @@ function ClanData:RemoveMember(clanId, userId)
 					break
 				end
 			end
-			
+
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- Limpiar player mapping
 		DS:RemoveAsync("player:" .. userIdStr)
@@ -351,19 +351,19 @@ end
 -- CAMBIAR ROL
 function ClanData:ChangeRole(clanId, userId, newRole)
 	local userIdStr = tostring(userId)
-	
+
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
 			if not current.members[userIdStr] then
 				error("No es miembro")
 			end
-			
+
 			current.members[userIdStr].role = newRole
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- Actualizar player mapping
 		DS:UpdateAsync("player:" .. userIdStr, function(current)
@@ -382,19 +382,19 @@ end
 -- AGREGAR OWNER
 function ClanData:AddOwner(clanId, userId)
 	local userIdStr = tostring(userId)
-	
+
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			-- Verificar que no sea ya owner
 			if table.find(current.owners, userId) then
 				error("Ya es owner")
 			end
-			
+
 			-- Agregar a owners
 			table.insert(current.owners, userId)
-			
+
 			-- Si no es miembro, agregarlo
 			if not current.members[userIdStr] then
 				current.members[userIdStr] = {
@@ -405,11 +405,11 @@ function ClanData:AddOwner(clanId, userId)
 			else
 				current.members[userIdStr].role = Config.ROLE_NAMES.OWNER
 			end
-			
+
 			return current
 		end)
 	end)
-	
+
 	if success then
 		DS:SetAsync("player:" .. userIdStr, {
 			clanId = clanId,
@@ -425,16 +425,16 @@ end
 -- REMOVER OWNER
 function ClanData:RemoveOwner(clanId, userId)
 	local userIdStr = tostring(userId)
-	
+
 	local success, result = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			-- No puede quedar sin owners
 			if #current.owners <= 1 then
 				error("No puede quedar sin owners")
 			end
-			
+
 			-- Remover de owners
 			for i, ownerId in ipairs(current.owners) do
 				if ownerId == userId then
@@ -442,16 +442,16 @@ function ClanData:RemoveOwner(clanId, userId)
 					break
 				end
 			end
-			
+
 			-- Cambiar rol a miembro
 			if current.members[userIdStr] then
 				current.members[userIdStr].role = Config.DEFAULTS.MemberRole
 			end
-			
+
 			return current
 		end)
 	end)
-	
+
 	if success then
 		DS:UpdateAsync("player:" .. userIdStr, function(current)
 			if current then
@@ -472,19 +472,19 @@ function ClanData:DissolveClan(clanId)
 		warn("[ClanData] DissolveClan: clanId es nil")
 		return false, "ID del clan inválido" 
 	end
-	
+
 	local clan = self:GetClan(clanId)
 	if not clan then 
 		warn("[ClanData] DissolveClan: Clan no encontrado para ID:", clanId)
 		return false, "Clan no encontrado" 
 	end
-	
+
 	-- Validar que members existe
 	if not clan.members then
 		warn("[ClanData] DissolveClan: clan.members es nil para clanId:", clanId)
 		clan.members = {} -- Asignar tabla vacía para evitar error
 	end
-	
+
 	-- Limpiar todos los miembros
 	for userIdStr in pairs(clan.members) do
 		local success, err = pcall(function()
@@ -494,7 +494,7 @@ function ClanData:DissolveClan(clanId)
 			warn("[ClanData] Error limpiando player:" .. tostring(userIdStr), err)
 		end
 	end
-	
+
 	-- Borrar clan
 	local success, err = pcall(function()
 		DS:RemoveAsync("clan:" .. clanId)
@@ -503,7 +503,7 @@ function ClanData:DissolveClan(clanId)
 		warn("[ClanData] Error borrando clan:", clanId, err)
 		return false, "Error al eliminar clan: " .. tostring(err)
 	end
-	
+
 	-- Limpiar índices (solo si existen y son válidos)
 	if clan.name and type(clan.name) == "string" and clan.name ~= "" then
 		removeFromNameIndex(clan.name)
@@ -511,7 +511,7 @@ function ClanData:DissolveClan(clanId)
 	if clan.tag and type(clan.tag) == "string" and clan.tag ~= "" then
 		removeFromTagIndex(clan.tag)
 	end
-	
+
 	updateEvent:Fire(clanId)
 	return true, "Clan disuelto"
 end
@@ -520,15 +520,15 @@ end
 function ClanData:GetAllClans()
 	local nameIndex = DS:GetAsync("index:names")
 	if not nameIndex then return {} end
-	
+
 	local clans = {}
 	local seenClanIds = {} -- Evitar duplicados
-	
+
 	for _, clanId in pairs(nameIndex) do
 		-- Deduplicar por clanId
 		if not seenClanIds[clanId] then
 			seenClanIds[clanId] = true
-			
+
 			local clan = self:GetClan(clanId)
 			if clan then
 				-- Contar miembros
@@ -543,7 +543,7 @@ function ClanData:GetAllClans()
 			-- Ignorar duplicado silenciosamente
 		end
 	end
-	
+
 	return clans
 end
 
@@ -557,7 +557,7 @@ local function getUserPendingRequests(userId)
 	local success, requests = pcall(function()
 		return DS:GetAsync("player:" .. userIdStr .. ":requests") or {}
 	end)
-	
+
 	if success then
 		return requests
 	else
@@ -571,19 +571,19 @@ function ClanData:RequestJoin(clanId, userId)
 	if not clan then 
 		return false, "Clan no encontrado" 
 	end
-	
+
 	local playerClan = self:GetPlayerClan(userId)
 	if playerClan then 
 		return false, "Ya tienes clan" 
 	end
 
 	local userIdStr = tostring(userId)
-	
+
 	-- ✅ VALIDACIÓN DIRECTA: Verificar si ya tiene solicitud en ESTE clan
 	if clan.requests and clan.requests[userIdStr] then
 		return false, "Ya has solicitado unirte a este clan"
 	end
-	
+
 	-- ✅ VALIDACIÓN: Verificar si tiene solicitudes en OTROS clanes
 	local nameIndex = DS:GetAsync("index:names")
 	if nameIndex then
@@ -596,31 +596,31 @@ function ClanData:RequestJoin(clanId, userId)
 			end
 		end
 	end
-	
+
 	-- Guardar solicitud en el clan
 	local success = pcall(function()
 		return DS:UpdateAsync("clan:" .. clanId, function(current)
 			if not current then return nil end
-			
+
 			if not current.requests then 
 				current.requests = {} 
 			end
-			
+
 			if current.requests[userIdStr] then
 				error("Ya existe solicitud para este usuario")
 			end
-			
+
 			current.requests[userIdStr] = {
 				userId = userId,
 				playerName = getPlayerName(userId),
 				time = os.time(),
 				status = "pending"
 			}
-			
+
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- 🔥 OPCIONAL: Registrar en índice (solo para GetUserRequests, no crítico)
 		pcall(function()
@@ -630,7 +630,7 @@ function ClanData:RequestJoin(clanId, userId)
 				return requests
 			end)
 		end)
-		
+
 		updateEvent:Fire(clanId)
 		return true, "Solicitud enviada"
 	else
@@ -644,27 +644,27 @@ function ClanData:ApproveRequest(clanId, approverId, targetUserId)
 	if not clan then 
 		return false, "Clan no encontrado" 
 	end
-	
+
 	-- Verificar permisos
 	local approverRole = clan.members[tostring(approverId)]
 	if not approverRole then 
 		return false, "No eres miembro" 
 	end
-	
+
 	local hasPermission = Config:HasPermission(approverRole.role, "invitar")
 	if not hasPermission then 
 		return false, "Sin permisos" 
 	end
-	
+
 	-- Verificar que existe la solicitud
 	local targetIdStr = tostring(targetUserId)
 	if not clan.requests or not clan.requests[targetIdStr] then
 		return false, "No hay solicitud pendiente"
 	end
-	
+
 	-- Agregar al clan
 	local success, err = self:AddMember(clanId, targetUserId, Config.DEFAULTS.MemberRole)
-	
+
 	if success then
 		-- Limpiar solicitud del clan
 		DS:UpdateAsync("clan:" .. clanId, function(current)
@@ -673,14 +673,14 @@ function ClanData:ApproveRequest(clanId, approverId, targetUserId)
 			end
 			return current
 		end)
-		
+
 		-- 🔥 Limpiar del índice de solicitudes del usuario
 		DS:UpdateAsync("player:" .. targetIdStr .. ":requests", function(current)
 			local requests = current or {}
 			requests[tostring(clanId)] = nil
 			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
 		end)
-		
+
 		updateEvent:Fire(clanId)
 		return true, "Solicitud aprobada"
 	else
@@ -694,20 +694,20 @@ function ClanData:RejectRequest(clanId, rejecterId, targetUserId)
 	if not clan then 
 		return false, "Clan no encontrado" 
 	end
-	
+
 	-- Verificar permisos
 	local rejecterRole = clan.members[tostring(rejecterId)]
 	if not rejecterRole then 
 		return false, "No eres miembro" 
 	end
-	
+
 	local hasPermission = Config:HasPermission(rejecterRole.role, "invitar")
 	if not hasPermission then 
 		return false, "Sin permisos" 
 	end
-	
+
 	local targetIdStr = tostring(targetUserId)
-	
+
 	-- Limpiar solicitud del clan
 	local success = pcall(function()
 		DS:UpdateAsync("clan:" .. clanId, function(current)
@@ -717,7 +717,7 @@ function ClanData:RejectRequest(clanId, rejecterId, targetUserId)
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- 🔥 Limpiar del índice de solicitudes del usuario
 		DS:UpdateAsync("player:" .. targetIdStr .. ":requests", function(current)
@@ -725,7 +725,7 @@ function ClanData:RejectRequest(clanId, rejecterId, targetUserId)
 			requests[tostring(clanId)] = nil
 			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
 		end)
-		
+
 		updateEvent:Fire(clanId)
 		return true, "Solicitud rechazada"
 	else
@@ -739,13 +739,13 @@ function ClanData:GetClanRequests(clanId, requesterId)
 	if not clan then 
 		return {} 
 	end
-	
+
 	-- Verificar permisos
 	local requesterRole = clan.members[tostring(requesterId)]
 	if not requesterRole or not Config:HasPermission(requesterRole.role, "invitar") then
 		return {}
 	end
-	
+
 	-- Convertir solicitudes a formato que espera el cliente
 	-- MembersList necesita: playerId, playerName, requestTime
 	local results = {}
@@ -762,7 +762,7 @@ function ClanData:GetClanRequests(clanId, requesterId)
 			end
 		end
 	end
-	
+
 	return results
 end
 
@@ -771,7 +771,7 @@ function ClanData:GetUserRequests(userId)
 	local userIdStr = tostring(userId)
 	local nameIndex = DS:GetAsync("index:names")
 	if not nameIndex then return {} end
-	
+
 	local result = {}
 	for _, clanId in pairs(nameIndex) do
 		local clan = self:GetClan(clanId)
@@ -784,14 +784,14 @@ function ClanData:GetUserRequests(userId)
 			})
 		end
 	end
-	
+
 	return result
 end
 
 -- CANCELAR SOLICITUD
 function ClanData:CancelRequest(clanId, userId)
 	local userIdStr = tostring(userId)
-	
+
 	local success = pcall(function()
 		DS:UpdateAsync("clan:" .. clanId, function(current)
 			if current and current.requests then
@@ -800,7 +800,7 @@ function ClanData:CancelRequest(clanId, userId)
 			return current
 		end)
 	end)
-	
+
 	if success then
 		-- 🔥 Limpiar del índice de solicitudes del usuario
 		DS:UpdateAsync("player:" .. userIdStr .. ":requests", function(current)
@@ -808,7 +808,7 @@ function ClanData:CancelRequest(clanId, userId)
 			requests[tostring(clanId)] = nil
 			return next(requests) and requests or nil  -- Borrar key si no quedan solicitudes
 		end)
-		
+
 		updateEvent:Fire(clanId)
 		return true, "Solicitud cancelada"
 	else
@@ -821,7 +821,7 @@ function ClanData:CancelAllRequests(userId)
 	-- Iterar todos los clanes y eliminar solicitudes del usuario
 	local nameIndex = DS:GetAsync("index:names")
 	if not nameIndex then return true, "Sin solicitudes" end
-	
+
 	local userIdStr = tostring(userId)
 	for _, clanId in pairs(nameIndex) do
 		pcall(function()
@@ -833,10 +833,10 @@ function ClanData:CancelAllRequests(userId)
 			end)
 		end)
 	end
-	
+
 	-- 🔥 Limpiar COMPLETAMENTE el índice de solicitudes del usuario
 	DS:RemoveAsync("player:" .. userIdStr .. ":requests")
-	
+
 	updateEvent:Fire(nil)
 	return true, "Solicitudes canceladas"
 end
@@ -846,7 +846,7 @@ end
 -- ============================================
 function ClanData:CreateDefaultClans()
 	if not Config.DEFAULT_CLANS then return 0 end
-	
+
 	local created = 0
 	for _, def in ipairs(Config.DEFAULT_CLANS) do
 		if not nameExists(def.clanName) and not tagExists(def.clanTag) then
