@@ -7,7 +7,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
 local Emotes_Sync = ReplicatedStorage:WaitForChild("Emotes_Sync")
-local Configuration = require(script.Parent.Parent.Configuration)
+local Configuration = require(script.Parent.Parent.Parent.Configuration)
 
 -- Configuración
 local FOLLOWER_DANCE_THRESHOLD = Configuration.FOLLOWER_DANCE or 2
