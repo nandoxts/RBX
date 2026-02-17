@@ -210,7 +210,7 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 	local success = pcall(function()
 		recipientName = game.Players:GetNameFromUserIdAsync(userId)
 	end)
-	
+
 	if not success or not recipientName then return end
 
 	Username = recipientName
@@ -220,7 +220,7 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 		if purchaseablegamepass[1] == gamepass[1] and purchaseablegamepass[2] == gamepass[2] then
 			if player.UserId ~= userId then
 				local isAdmin = AdminConfig:IsAdmin(player)
-				
+
 				if isAdmin then
 					giftGamepassFree(player, gamepass, userId, recipientName)
 				else
@@ -233,7 +233,7 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 						local success, Asset = pcall(function()
 							return MarketplaceService:GetProductInfo(gamepass[1], Enum.InfoType.GamePass)
 						end)
-						
+
 						if success and Asset then
 							pcall(function()
 								local recipName = game.Players:GetNameFromUserIdAsync(userId)
@@ -262,7 +262,7 @@ game.Players.PlayerAdded:Connect(function(player)
 	local function handleGamepasses()
 		for _, gamepass in ipairs(getAllPurchaseables()) do
 			local GamepassID = gamepass[1]
-			
+
 			if GamepassID and type(GamepassID) == "number" then
 				local ownsGamepass = checkUserGamepassOwnership(player.UserId, GamepassID)
 
@@ -448,7 +448,7 @@ local function DoesUserOwnGamePass(player, gamepassId)
 	if not gamepassId or type(gamepassId) ~= "number" then
 		return false
 	end
-	
+
 	local success, Info = pcall(function()
 		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)

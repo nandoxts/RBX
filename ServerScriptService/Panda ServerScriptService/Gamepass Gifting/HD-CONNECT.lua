@@ -272,12 +272,12 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 
 	-- ✅ Actualizar INMEDIATAMENTE la carpeta Gamepasses y el rango SIN esperar a UserOwnsGamePassAsync
 	local gamepassesFolder = EnsureGamepassesFolder(player)
-	
+
 	-- Obtener info del gamepass
 	local success, productInfo = pcall(function()
 		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)
-	
+
 	if success and productInfo then
 		-- Crear/actualizar BoolValue inmediatamente
 		local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)
@@ -289,7 +289,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamep
 		else
 			gamepassValue.Value = true
 		end
-		
+
 		-- Asignar rango inmediatamente
 		AssignAppropriateRank(player)
 		print(string.format("[HD-CONNECT] Rango actualizado inmediatamente para %s", player.Name))
@@ -344,19 +344,19 @@ end
 local function HandleGiftedGamepass(recipientUserId, gamepassId)
 	local recipientPlayer = Players:GetPlayerByUserId(recipientUserId)
 	if not recipientPlayer or not recipientPlayer.Parent then return end
-	
+
 	print(string.format("[HD-CONNECT] Gamepass regalado: %d a jugador %s", gamepassId, recipientPlayer.Name))
-	
+
 	-- Solo procesar si es un gamepass de nuestro sistema
 	if not GAMEPASS_RANKS[gamepassId] then return end
-	
+
 	local gamepassesFolder = EnsureGamepassesFolder(recipientPlayer)
-	
+
 	-- Obtener info del gamepass
 	local success, productInfo = pcall(function()
 		return MarketplaceService:GetProductInfo(gamepassId, Enum.InfoType.GamePass)
 	end)
-	
+
 	if success and productInfo then
 		-- Crear/actualizar BoolValue inmediatamente
 		local gamepassValue = gamepassesFolder:FindFirstChild(productInfo.Name)
@@ -368,7 +368,7 @@ local function HandleGiftedGamepass(recipientUserId, gamepassId)
 		else
 			gamepassValue.Value = true
 		end
-		
+
 		-- Asignar rango inmediatamente
 		AssignAppropriateRank(recipientPlayer)
 		print(string.format("[HD-CONNECT] Rango actualizado inmediatamente para %s (regalo)", recipientPlayer.Name))

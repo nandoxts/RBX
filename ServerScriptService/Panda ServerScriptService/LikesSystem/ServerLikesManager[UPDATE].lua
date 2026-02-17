@@ -519,5 +519,3 @@ end)
 pcall(function()
 	CentralPurchaseHandler.registerSuperLikeHandler(handleSuperLikePurchase)
 end)
-
---print("✅ Sistema de Likes iniciado - Protección DataStore activa")

@@ -148,7 +148,7 @@ local function OnCharacterAdded(player, character)
 	-- Validar que el jugador sigue siendo válido
 	if not player or player.Parent ~= Players then return end
 	if not character or character.Parent == nil then return end
-	
+
 	-- Esperar a que el character se cargue completamente
 	task.wait(0.5)
 
@@ -169,7 +169,7 @@ end
 local function OnPlayerAdded(player)
 	-- Validar que el jugador es válido
 	if not player or player.Parent ~= Players then return end
-	
+
 	-- Escuchar cambios en el atributo "followers" (que Sync.lua actualiza)
 	local attrConnection = player:GetAttributeChangedSignal("followers"):Connect(function()
 		CheckDanceLeaders()

@@ -1,4 +1,7 @@
-
+-- SERVICES --
+local DatastoreService = game:GetService('DataStoreService')
+local BadgeService = game:GetService("BadgeService")
+local Players = game:GetService('Players')
 
 -- Módulo central
 local CentralPurchaseHandler = require(game:GetService("ServerScriptService")["Panda ServerScriptService"]["Gamepass Gifting"]["GiftGamepass"].ManagerProcess)
@@ -55,7 +58,9 @@ local function AddItem(Rank, Data)
 			end
 		end
 
-		Info.Count.TextLabel.Text = string.format(' %s Donated', FormatNumber(Data.value))
+		--if Error then warn(Error) end
+
+		Info.Count.TextLabel.Text = string.format(' %s Donated', FormatNumber(Data.value))
 		NewTemplate.Rank.TextLabel.Text = string.format('#%d', Rank)
 		NewTemplate.Icon.Image = string.format('rbxthumb://type=AvatarHeadShot&id=%d&w=60&h=60', Data.key)
 
@@ -91,10 +96,12 @@ end
 CentralPurchaseHandler.registerDonationHandler(function(receiptInfo)
 	local productId = receiptInfo.ProductId
 
+	-- Evitar procesar el producto de Super Like
 	if productId == SUPER_LIKE_PRODUCT_ID then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
+	-- A partir de aquí se procesan SOLO productos de donación
 	local userId = receiptInfo.PlayerId
 	local price = 0
 
@@ -108,6 +115,7 @@ CentralPurchaseHandler.registerDonationHandler(function(receiptInfo)
 		price = info.PriceInRobux or 0
 	end
 
+	-- Guardar en DataStore
 	local tries = 0
 	while tries < 5 do
 		tries = tries + 1
@@ -119,6 +127,7 @@ CentralPurchaseHandler.registerDonationHandler(function(receiptInfo)
 		task.wait(0.2)
 	end
 
+	-- Badge de donador
 	local player = Players:GetPlayerByUserId(userId)
 	if player then
 		local ok, hasBadge = pcall(function()
@@ -135,11 +144,12 @@ CentralPurchaseHandler.registerDonationHandler(function(receiptInfo)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end)
 
+
 -- INICIALIZAR
 UpdateLeaderboard()
 
 task.spawn(function()
-	while task.wait(300) do
+	while task.wait(300) do -- 5 minutos
 		UpdateLeaderboard()
 	end
 end)

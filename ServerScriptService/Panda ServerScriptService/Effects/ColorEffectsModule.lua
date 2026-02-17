@@ -125,18 +125,6 @@ module.colors = {
 	blancofloral = Color3.new(1, 0.98, 0.98),
 	blanconieve = Color3.new(0.96, 0.98, 1),
 
-	-- Negros
-	negro = Color3.new(0, 0, 0),
-	negropuro = Color3.new(0, 0, 0),
-	negroazabache = Color3.new(0.04, 0.04, 0.04),
-	negrocarbon = Color3.new(0.11, 0.11, 0.11),
-	negroebano = Color3.new(0.08, 0.08, 0.08),
-	negroraiz = Color3.new(0.15, 0.13, 0.13),
-	negrojet = Color3.new(0.2, 0.2, 0.2),
-	negrolicorice = Color3.new(0.1, 0.07, 0.07),
-	negromarte = Color3.new(0.13, 0.13, 0.13),
-	negronoche = Color3.new(0.05, 0.05, 0.05),
-
 	-- Metálicos
 	dorado = Color3.new(1, 0.84, 0),
 	plata = Color3.new(0.75, 0.75, 0.75),

@@ -55,18 +55,18 @@ local m2CooldownNotif = messageFolder:WaitForChild("M2CooldownNotif")
 -- Validar permisos para ;m2 (Solo Influencer en adelante)
 local function canUseM2Command(player)
 	if not hd then return false end
-	
+
 	-- Obtener rango actual del usuario
 	local rankId = hd:GetRank(player)
-	
+
 	-- Obtener rankId de Influencer (es el rango mínimo para M2)
 	local influencerRankId = hd:GetRankId("Influencer")
-	
+
 	-- Comparar si es >= Influencer
 	if rankId and influencerRankId then
 		return rankId >= influencerRankId
 	end
-	
+
 	return false
 end
 
@@ -77,7 +77,7 @@ local M2_COOLDOWN_TIME = 7
 local function canUseM2Cooldown(player)
 	local now = tick()
 	local lastUse = m2Cooldown[player.UserId]
-	
+
 	if lastUse and (now - lastUse) < M2_COOLDOWN_TIME then
 		local remainingTime = math.ceil(M2_COOLDOWN_TIME - (now - lastUse))
 		pcall(function()
@@ -85,7 +85,7 @@ local function canUseM2Cooldown(player)
 		end)
 		return false
 	end
-	
+
 	m2Cooldown[player.UserId] = now
 	return true
 end
@@ -188,7 +188,7 @@ local function onChatted(player, message)
 			-- Desactivar ciclo de tiempo y forzar noche
 			_G.ClockEnabled = false
 			game:GetService("Lighting").ClockTime = 22
-			
+
 			-- Notificar a todos los jugadores
 			fireAllClients(nocheMessageEvent, CONFIG.messages.noche)
 		end
@@ -199,7 +199,7 @@ local function onChatted(player, message)
 		if AdminConfig:IsAdmin(player) then
 			-- Activar ciclo día/noche
 			_G.ClockEnabled = true
-			
+
 			-- Notificar a todos los jugadores
 			fireAllClients(nocheMessageEvent, CONFIG.messages.dia)
 		end
@@ -219,12 +219,12 @@ local function onChatted(player, message)
 		if eventModeActive then
 			return
 		end
-		
+
 		-- Validar cooldown
 		if not canUseM2Cooldown(player) then
 			return
 		end
-		
+
 		-- Validar permisos (Solo Influencer+)
 		if not canUseM2Command(player) then
 			return
@@ -236,7 +236,7 @@ local function onChatted(player, message)
 		if m2Message and m2Message ~= "" then
 			-- Obtener display name del jugador (player.DisplayName es la propiedad nativa)
 			local displayName = player.DisplayName or player.Name
-			
+
 			-- Disparar anuncio a todos los clientes con display name
 			pcall(function()
 				localAnnouncement:FireAllClients(displayName, player.Name, m2Message)

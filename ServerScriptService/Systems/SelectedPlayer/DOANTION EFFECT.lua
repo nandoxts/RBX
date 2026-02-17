@@ -7,12 +7,10 @@
 --==================================================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Panda ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage"):WaitForChild("SelectedPlayer")
 local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 
 local Configuration = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Configuration)
 local ColorEffects = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Effects.ColorEffectsModule)
@@ -43,7 +41,7 @@ local DonationMessage = userPanelFolder and userPanelFolder:FindFirstChild("Dona
 --==================================================
 --                ASSETS Y DATASTORES
 --==================================================
-local Assets = ServerStorage.Assets
+local Assets = game:GetService("ServerStorage"):WaitForChild("Systems"):WaitForChild("Assets")
 local Auras = Assets.Auras
 local RobuxHammerGiant = Assets:WaitForChild("RobuxHammerGiant")
 
@@ -65,7 +63,7 @@ local DONATION_EFFECTS = {
 	{MaxAmount = 100,   Attachment = "sayayin1",  Duration = 4,    SoundId = "rbxassetid://7727672197",       Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 200,   Attachment = "sayayin2",  Duration = 4.5,  SoundId = "rbxassetid://972919590",        Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 300,   Attachment = "sayayin3",  Duration = 4.5,  SoundId = "rbxassetid://2261507666",       Volume = 0.5, GiantEffect = false},
-	{MaxAmount = 500,   Attachment = "Explosion", Duration = 3.5,  SoundId = "rbxassetid://4612383790",       Volume = 0.6, GiantEffect = false},
+	{MaxAmount = 500,   Attachment = "bajo1",     Duration = 3,    SoundId = "rbxassetid://4612383790",       Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 600,   Attachment = "bajo2",     Duration = 3,    SoundId = "rbxassetid://84795270640054",   Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 700,   Attachment = "bajo3",     Duration = 3,    SoundId = "rbxassetid://119398240584172",  Volume = 0.5, GiantEffect = false},
 	{MaxAmount = 800,   Attachment = "bajo4",     Duration = 5,    SoundId = "rbxassetid://137651128719857",  Volume = 0.5, GiantEffect = false},
@@ -461,10 +459,10 @@ local function onPurchase(player, assetId, wasPurchased, isGamepass)
 	if donatedPlayer then
 		-- Obtener nombre de forma segura
 		local creatorName = donatedPlayer.Name
-		
+
 		-- Notificar sistema viejo
 		donation_message:FireAllClients(player.Name, price, creatorName)
-		
+
 		-- Notificar UserPanel nuevo (si existe)
 		if DonationNotify then
 			DonationNotify:FireClient(donatedPlayer, player.UserId, price, creatorId)
@@ -555,7 +553,7 @@ function handleCommand(player, message)
 		-- Simular donación
 		update_donation:Fire(player.UserId, amount, targetPlayer.UserId)
 		donation_message:FireAllClients(player.Name, amount, targetPlayer.Name)
-		
+
 		-- Notificar UserPanel (si existe)
 		if DonationNotify then
 			DonationNotify:FireClient(targetPlayer, player.UserId, amount, targetPlayer.UserId)

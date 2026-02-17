@@ -292,7 +292,7 @@ local function loadMetadataBatch(ids, callback)
 				results[id] = ok
 					and { name = name, artist = artist, loaded = true }
 					or  { name = "Audio " .. id, artist = "Unknown", loaded = true, error = true }
-				pending = pending - 1
+				pending -= 1
 				if pending == 0 and callback then callback(results) end
 			end)
 		end
@@ -377,7 +377,7 @@ local function validateQueueAdd(player, audioId)
 	local limit, role = getUserQueueLimit(player)
 	local userCount = 0
 	for _, song in ipairs(playQueue) do
-		if song.userId == player.UserId then userCount = userCount + 1 end
+		if song.userId == player.UserId then userCount += 1 end
 	end
 	if userCount >= limit then
 		return nil, response(RC.QUEUE_FULL, "Límite alcanzado (" .. userCount .. "/" .. limit .. " como " .. role .. ")")
@@ -597,7 +597,7 @@ local function removeFromQueue(index)
 			playSong(currentSongIndex)
 		end
 	elseif index < currentSongIndex then
-		currentSongIndex = currentSongIndex - 1
+		currentSongIndex -= 1
 		updateAllClients()
 	else
 		updateAllClients()
@@ -904,9 +904,9 @@ Players.PlayerRemoving:Connect(function(player)
 		local song = playQueue[i]
 		if song.userId == player.UserId and i ~= currentSongIndex then
 			table.remove(playQueue, i)
-			if i < currentSongIndex then currentSongIndex = currentSongIndex - 1 end
+			if i < currentSongIndex then currentSongIndex -= 1 end
 		else
-			i = i + 1
+			i += 1
 		end
 	end
 
