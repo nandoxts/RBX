@@ -7,12 +7,10 @@
 --==================================================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Panda ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage"):WaitForChild("SelectedPlayer")
 local MarketplaceService = game:GetService("MarketplaceService")
 local DataStoreService = game:GetService("DataStoreService")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 
 local Configuration = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Configuration)
 local ColorEffects = require(game:GetService("ServerScriptService")["Panda ServerScriptService"].Effects.ColorEffectsModule)
@@ -43,7 +41,7 @@ local DonationMessage = userPanelFolder and userPanelFolder:FindFirstChild("Dona
 --==================================================
 --                ASSETS Y DATASTORES
 --==================================================
-local Assets = ServerStorage.Assets
+local Assets = game:GetService("ServerStorage"):WaitForChild("Systems"):WaitForChild("Assets")
 local Auras = Assets.Auras
 local RobuxHammerGiant = Assets:WaitForChild("RobuxHammerGiant")
 

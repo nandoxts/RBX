@@ -59,9 +59,15 @@ end
 local function ensureInitialized()
 	if initialized then return true end
 
-	clanEvents = ReplicatedStorage:WaitForChild("ClanEvents", 10)  -- Aumentar timeout
+	local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal", 10)
+	if not remotesGlobal then
+		warn("[ClanClient] ERROR: RemotesGlobal no encontrado")
+		return false
+	end
+
+	clanEvents = remotesGlobal:WaitForChild("ClanEvents", 10)
 	if not clanEvents then
-		warn("[ClanClient] ERROR: ClanEvents no encontrado después de 10s")
+		warn("[ClanClient] ERROR: ClanEvents no encontrado en RemotesGlobal")
 		return false
 	end
 
@@ -172,41 +178,18 @@ end
 function ClanClient:GetClansList()
 	ensureInitialized()
 
-	-- Si NO estamos en un clan, SIEMPRE traer fresco (no cachear)
-	if not self.currentClanId then
-		local allowed = checkThrottle("GetClansList")
-		if not allowed then 
-			return clansListCache or {} 
-		end
-
-		local remote = getRemote("GetClansList")
-		if not remote then 
-			warn("[ClanClient] GetClansList: Remote no disponible")
-			return {} 
-		end
-
-		local success, clans = pcall(function()
-			return remote:InvokeServer()
-		end)
-
-		if success and clans and type(clans) == "table" then
-			return clans  -- No cachear si estamos sin clan
-		else
-			warn("[ClanClient] GetClansList: Error en InvokeServer:", clans)
-			return {}
-		end
-	end
-
-	-- Si ESTAMOS en un clan, usar caché de 5 segundos
-	if clansListCache and (tick() - clansListCacheTime) < 5 then
-		return clansListCache
-	end
-
+	-- Verificar throttling PRIMERO (igual para todos)
 	local allowed = checkThrottle("GetClansList")
 	if not allowed then 
 		return clansListCache or {} 
 	end
 
+	-- Si ya hay caché válida (máximo 5 segundos), usar
+	if clansListCache and (tick() - clansListCacheTime) < 5 then
+		return clansListCache
+	end
+
+	-- Si NO hay caché válida, traer fresco (sea o no miembro de clan)
 	local remote = getRemote("GetClansList")
 	if not remote then 
 		warn("[ClanClient] GetClansList: Remote no disponible")
@@ -600,10 +583,8 @@ end
 task.spawn(function()
 	if not ensureInitialized() then return end
 
-	local folder = ReplicatedStorage:WaitForChild("ClanEvents", 5)
-	if not folder then return end
-
-	local RequestJoinResult = folder:WaitForChild("RequestJoinResult", 5)
+	-- clanEvents ya fue resuelto por ensureInitialized (RemotesGlobal/ClanEvents)
+	local RequestJoinResult = clanEvents and clanEvents:WaitForChild("RequestJoinResult", 10)
 	if RequestJoinResult then
 		RequestJoinResult.OnClientEvent:Connect(function(success, clanId, msg)
 			-- Invalidar caché de solicitudes pendientes

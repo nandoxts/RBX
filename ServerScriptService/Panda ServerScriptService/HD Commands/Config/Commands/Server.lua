@@ -1172,8 +1172,8 @@ local module = {
 				return
 			end
 
-			local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Panda ServerStorage")
-			local Auras = ServerStorage.Assets.Auras
+			local ServerStorage = game:GetService("ServerStorage")
+			local Auras = ServerStorage:WaitForChild("Systems"):WaitForChild("Assets").Auras
 			local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
 
 			if not hrp then return end

@@ -69,61 +69,43 @@ local function updateAllMembers(clan)
 end
 
 -- ============================================
--- EVENTOS REMOTOS
+-- EVENTOS REMOTOS (pre-creados en RemotesGlobal/ClanEvents)
 -- ============================================
-local folder = ReplicatedStorage:FindFirstChild("ClanEvents")
-if folder then folder:Destroy() end
+local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local folder = remotesGlobal:WaitForChild("ClanEvents")
 
-folder = Instance.new("Folder")
-folder.Name = "ClanEvents"
-folder.Parent = ReplicatedStorage
+-- RemoteFunctions (síncronas, necesitan respuesta)
+local CreateClan = folder:WaitForChild("CreateClan")
+local GetClan = folder:WaitForChild("GetClan")
+local GetPlayerClan = folder:WaitForChild("GetPlayerClan")
+local GetClansList = folder:WaitForChild("GetClansList")
+local GetJoinRequests = folder:WaitForChild("GetJoinRequests")
+local GetUserPendingRequests = folder:WaitForChild("GetUserPendingRequests")
 
-local function RF(name)
-	local rf = Instance.new("RemoteFunction")
-	rf.Name = name
-	rf.Parent = folder
-	return rf
-end
-
-local function RE(name)
-	local re = Instance.new("RemoteEvent")
-	re.Name = name
-	re.Parent = folder
-	return re
-end
-
--- ✓ RemoteFunctions (síncronas, necesitan respuesta)
-local CreateClan = RF("CreateClan")
-local GetClan = RF("GetClan")
-local GetPlayerClan = RF("GetPlayerClan")
-local GetClansList = RF("GetClansList")
-local GetJoinRequests = RF("GetJoinRequests")
-local GetUserPendingRequests = RF("GetUserPendingRequests")
-
--- 🚀 RemoteEvents (asincrónicas, NO bloquean)
-local InvitePlayer = RE("InvitePlayer")
-local KickPlayer = RE("KickPlayer")
-local ChangeRole = RE("ChangeRole")
-local ChangeClanName = RE("ChangeClanName")
-local ChangeClanTag = RE("ChangeClanTag")
-local ChangeClanDescription = RE("ChangeClanDescription")
-local ChangeClanLogo = RE("ChangeClanLogo")
-local ChangeClanEmoji = RE("ChangeClanEmoji")
-local ChangeClanColor = RE("ChangeClanColor")
-local AddOwner = RE("AddOwner")
-local RemoveOwner = RE("RemoveOwner")
-local DissolveClan = RE("DissolveClan")
-local LeaveClan = RE("LeaveClan")
-local AdminDissolveClan = RE("AdminDissolveClan")
-local RequestJoinClan = RE("RequestJoinClan")
-local ApproveJoinRequest = RE("ApproveJoinRequest")
-local RejectJoinRequest = RE("RejectJoinRequest")
-local CancelJoinRequest = RE("CancelJoinRequest")
-local CancelAllJoinRequests = RE("CancelAllJoinRequests")
+-- RemoteEvents (asincrónicas, NO bloquean)
+local InvitePlayer = folder:WaitForChild("InvitePlayer")
+local KickPlayer = folder:WaitForChild("KickPlayer")
+local ChangeRole = folder:WaitForChild("ChangeRole")
+local ChangeClanName = folder:WaitForChild("ChangeClanName")
+local ChangeClanTag = folder:WaitForChild("ChangeClanTag")
+local ChangeClanDescription = folder:WaitForChild("ChangeClanDescription")
+local ChangeClanLogo = folder:WaitForChild("ChangeClanLogo")
+local ChangeClanEmoji = folder:WaitForChild("ChangeClanEmoji")
+local ChangeClanColor = folder:WaitForChild("ChangeClanColor")
+local AddOwner = folder:WaitForChild("AddOwner")
+local RemoveOwner = folder:WaitForChild("RemoveOwner")
+local DissolveClan = folder:WaitForChild("DissolveClan")
+local LeaveClan = folder:WaitForChild("LeaveClan")
+local AdminDissolveClan = folder:WaitForChild("AdminDissolveClan")
+local RequestJoinClan = folder:WaitForChild("RequestJoinClan")
+local ApproveJoinRequest = folder:WaitForChild("ApproveJoinRequest")
+local RejectJoinRequest = folder:WaitForChild("RejectJoinRequest")
+local CancelJoinRequest = folder:WaitForChild("CancelJoinRequest")
+local CancelAllJoinRequests = folder:WaitForChild("CancelAllJoinRequests")
 
 -- Eventos
-local ClansUpdated = RE("ClansUpdated")
-local RequestJoinResult = RE("RequestJoinResult") -- Notificación al jugador que solicitó
+local ClansUpdated = folder:WaitForChild("ClansUpdated")
+local RequestJoinResult = folder:WaitForChild("RequestJoinResult") -- Notificación al jugador que solicitó
 
 -- ============================================
 -- NOTIFICACIÓN OPTIMIZADA (solo miembros afectados + lista global)
