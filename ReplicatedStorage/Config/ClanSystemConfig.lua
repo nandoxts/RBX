@@ -304,6 +304,24 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanEmoji = "🤍⚡",
 		clanColor = {219, 39, 119}, -- Magenta/Rosa
 	},
+	{
+		clanName = "_LARUTA",
+		ownerId = 9754426687,
+		clanTag = "_LARUTA",
+		clanLogo = "rbxassetid://80953801283194",
+		descripcion = "Clan _LARUTA",
+		clanEmoji = "🏍️",
+		clanColor = {255, 0, 0}, -- Rojo
+	},
+	{
+		clanName = "TheKings",
+		ownerId = 8010671192,
+		clanTag = "TK",
+		clanLogo = "rbxassetid://125911601859473",
+		descripcion = "Clan TK",
+		clanEmoji = "👑",
+		clanColor = {255, 215, 0}, -- Dorado
+	},
 }
 
 -- ═══════════════════════════════════════════════════════════

@@ -83,6 +83,7 @@ local BATCH_SIZE = 15
 -- ════════════════════════════════════════════════════════════════
 local playQueue, currentSong = {}, nil
 local allDJs, selectedDJ = {}, nil
+local selectedDJInfo = nil  -- Objeto completo del DJ seleccionado (con cover)
 local currentPage = "Queue"
 local currentSoundObject = nil
 local progressConnection = nil
@@ -413,7 +414,7 @@ local volLabel = Instance.new("ImageButton")
 volLabel.Size = UDim2.new(0, 50, 0, CONTROLS_HEIGHT-2)
 volLabel.Position = UDim2.new(0, 95, 0, 0)
 volLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
-volLabel.Image = "rbxassetid://138398592512536"
+volLabel.Image = "rbxassetid://14861812886"
 volLabel.ImageTransparency = 1  -- Oculta por defecto
 volLabel.ScaleType = Enum.ScaleType.Fit
 volLabel.BorderSizePixel = 0
@@ -1360,10 +1361,22 @@ local function createSongCard()
 	padding.PaddingRight = UDim.new(0, 12)
 	padding.Parent = card
 
+	-- Imagen pequeña del DJ
+	local djCover = Instance.new("ImageLabel")
+	djCover.Name = "DJCover"
+	djCover.Size = UDim2.new(0, 38, 0, 38)
+	djCover.Position = UDim2.new(0, 0, 0, 8)
+	djCover.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+	djCover.BorderSizePixel = 0
+	djCover.ScaleType = Enum.ScaleType.Crop
+	djCover.Image = ""
+	djCover.Parent = card
+	UI.rounded(djCover, 6)
+
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "NameLabel"
-	nameLabel.Size = UDim2.new(1, -160, 0, 18)
-	nameLabel.Position = UDim2.new(0, 0, 0, 10)
+	nameLabel.Size = UDim2.new(1, -210, 0, 18)
+	nameLabel.Position = UDim2.new(0, 48, 0, 10)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.TextColor3 = THEME.text
 	nameLabel.Font = Enum.Font.GothamMedium
@@ -1374,8 +1387,8 @@ local function createSongCard()
 
 	local artistLabel = Instance.new("TextLabel")
 	artistLabel.Name = "ArtistLabel"
-	artistLabel.Size = UDim2.new(1, -160, 0, 14)
-	artistLabel.Position = UDim2.new(0, 0, 0, 28)
+	artistLabel.Size = UDim2.new(1, -210, 0, 14)
+	artistLabel.Position = UDim2.new(0, 48, 0, 28)
 	artistLabel.BackgroundTransparency = 1
 	artistLabel.TextColor3 = THEME.muted
 	artistLabel.Font = Enum.Font.Gotham
@@ -1447,9 +1460,15 @@ local function updateSongCard(card, songData, index, inQueue)
 	card:SetAttribute("SongIndex", index)
 	card:SetAttribute("SongID", songData.id)
 
+	local djCover = card:FindFirstChild("DJCover")
 	local nameLabel = card:FindFirstChild("NameLabel")
 	local artistLabel = card:FindFirstChild("ArtistLabel")
 	local addBtn = card:FindFirstChild("AddButton")
+
+	-- Actualizar imagen del DJ
+	if djCover and selectedDJInfo and selectedDJInfo.cover then
+		djCover.Image = selectedDJInfo.cover
+	end
 
 	if nameLabel then
 		nameLabel.Text = songData.name or "Cargando..."
@@ -1739,6 +1758,7 @@ local function drawDJs()
 
 		clickBtn.MouseButton1Click:Connect(function()
 			selectedDJ = dj.name
+			selectedDJInfo = dj  -- Guardar objeto completo con cover
 
 			virtualScrollState.totalSongs = dj.songCount
 			virtualScrollState.songData = {}
@@ -1787,6 +1807,7 @@ end
 
 backBtn.MouseButton1Click:Connect(function()
 	selectedDJ = nil
+	selectedDJInfo = nil  -- Limpiar info del DJ
 	virtualScrollState.songData = {}
 	virtualScrollState.searchResults = {}
 	virtualScrollState.isSearching = false
@@ -1810,6 +1831,7 @@ end)
 
 local function resetLibraryState()
 	selectedDJ = nil
+	selectedDJInfo = nil  -- Limpiar info del DJ
 	virtualScrollState.songData = {}
 	virtualScrollState.searchResults = {}
 	virtualScrollState.isSearching = false

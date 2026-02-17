@@ -62,7 +62,6 @@ end
 -- ════════════════════════════════════════════════════════════════
 _G.ShopIcon = Icon.new()
 	:setImage(9405933217)
-	:setImageScale(0.65)
 	:setName("Tienda")
 	:setCaption("Tienda")
 	:bindToggleKey(Enum.KeyCode.T)
@@ -81,7 +80,6 @@ end)
 -- ════════════════════════════════════════════════════════════════
 _G.SettingsIcon = Icon.new()
 	:setImage(9753762469)
-	:setImageScale(0.65)
 	:setName("Configuración")
 	:setCaption("Configuración")
 	:align("Right")
@@ -106,12 +104,10 @@ end)
 -- ICONO: CLANES
 -- ════════════════════════════════════════════════════════════════
 _G.ClanSystemIcon = Icon.new()
-	:setImage(108522831218138)
+	:setImage(15909461117)
 	:setImageRatio(1)
-	:setImageScale(0.65)
 	:setOrder(2)
 	:autoDeselect(false)
-	:disableOverlay(true)
 
 _G.ClanSystemIcon:bindEvent("selected", function(icon)
 	GlobalModalManager:openModal("Clan")
@@ -127,7 +123,6 @@ end)
 _G.EmotesIcon = Icon.new()
 	:setOrder(2)
 	:setImage("127784597936941")
-	:setImageScale(0.65)
 	:autoDeselect(false)
 
 _G.EmotesIcon:bindEvent("selected", function(icon)
@@ -143,7 +138,6 @@ end)
 -- ════════════════════════════════════════════════════════════════
 _G.MusicDashboardIcon = Icon.new()
 	:setImage("13780950231")
-	:setImageScale(0.65)
 	:setOrder(1)
 	:autoDeselect(false)
 
@@ -167,7 +161,6 @@ if musicSoundGroup then
 	-- Crear el icono de sonido
 	soundIcon = Icon.new()
 		:setImage(166377448)
-		:setImageScale(0.65)
 		:setName("SoundToggle")
 		:setCaption("Música")
 		:bindToggleKey(Enum.KeyCode.M)
