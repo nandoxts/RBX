@@ -617,15 +617,17 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 					end
 				elseif item.passId then
 					if viewType == "passes" then
-						if not Gifting or not State.target or not item.productId then
+						if not Gifting or not State.target or not State.target.UserId or not item.productId then
 							return
 						end
+						local targetUserId = State.target.UserId
+						if type(targetUserId) ~= "number" or targetUserId == 0 then return end
 						pcall(function()
 							Gifting:FireServer(
 								{item.passId, item.productId},
-								State.target.UserId,
-								player.Name,
-								player.UserId
+								targetUserId,        -- UserId del destinatario
+								State.target.Name,   -- Nombre del destinatario
+								player.UserId        -- UserId del donante
 							)
 						end)
 					else
@@ -772,18 +774,9 @@ local function createButtonsSection(panel, target, playerColor)
 		safeTween(donateBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
 
 		task.spawn(function()
-			local donations = {}
-			local remoteOk = Remotes.Remotes.GetUserDonations ~= nil
-
-			if remoteOk then
-				local ok, result = pcall(function()
-					return Remotes.Remotes.GetUserDonations:InvokeServer(State.userId)
-				end)
-				donations = (ok and result) or {}
-				if not ok then
-					warn("[UserPanel] GetUserDonations error:", result)
-				end
-			end
+			local ok, donations = pcall(function()
+				return Remotes.Remotes.GetUserDonations:InvokeServer(State.userId)
+			end)
 
 			if donateBtn and donateBtn.Parent then
 				donateBtn.Active = true
@@ -791,7 +784,14 @@ local function createButtonsSection(panel, target, playerColor)
 				safeTween(donateBtn, { BackgroundTransparency = 0.15 }, Config.ANIM_FAST)
 			end
 
-			showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
+			if ok and donations then
+				showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
+			else
+				State.isLoadingDynamic = false
+				if NotificationSystem then
+					NotificationSystem:Error("Error", "No se pudo cargar donaciones", 2)
+				end
+			end
 		end)
 	end))
 

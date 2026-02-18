@@ -194,8 +194,10 @@ local function giftGamepassFree(admin, gamepass, recipientUserId, recipientUsern
 	GamepassGifting:FireClient(admin, "Purchase")
 
 	-- Otorgar Badge al admin
-	if not BadgeService:UserHasBadgeAsync(admin.UserId, BADGES_Gift) then
-		BadgeService:AwardBadge(admin.UserId, BADGES_Gift)
+	if BADGES_Gift and BADGES_Gift ~= 0 then
+		if not BadgeService:UserHasBadgeAsync(admin.UserId, BADGES_Gift) then
+			BadgeService:AwardBadge(admin.UserId, BADGES_Gift)
+		end
 	end
 end
 
@@ -208,6 +210,9 @@ GamepassGifting.OnServerEvent:Connect(function(player, gamepass, userId, usernam
 
 	userId = tonumber(userId)
 	identifier = tonumber(identifier)
+
+	if not userId or userId == 0 then return end
+	if not identifier or identifier == 0 then identifier = userId end
 
 	local recipientName = nil
 	local success = pcall(function()
@@ -430,8 +435,10 @@ local function handleGiftPurchase(receiptInfo)
 				GamepassGifting:FireClient(donor, "Purchase")
 
 				-- Otorgar Badge al donante si aún no lo tiene
-				if not BadgeService:UserHasBadgeAsync(donor.UserId, BADGES_Gift) then
-					BadgeService:AwardBadge(donor.UserId, BADGES_Gift)
+				if BADGES_Gift and BADGES_Gift ~= 0 then
+					if not BadgeService:UserHasBadgeAsync(donor.UserId, BADGES_Gift) then
+						BadgeService:AwardBadge(donor.UserId, BADGES_Gift)
+					end
 				end
 			end
 
