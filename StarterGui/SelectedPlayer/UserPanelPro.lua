@@ -772,9 +772,18 @@ local function createButtonsSection(panel, target, playerColor)
 		safeTween(donateBtn, { BackgroundTransparency = 0.5 }, Config.ANIM_FAST)
 
 		task.spawn(function()
-			local ok, donations = pcall(function()
-				return Remotes.Remotes.GetUserDonations:InvokeServer(State.userId)
-			end)
+			local donations = {}
+			local remoteOk = Remotes.Remotes.GetUserDonations ~= nil
+
+			if remoteOk then
+				local ok, result = pcall(function()
+					return Remotes.Remotes.GetUserDonations:InvokeServer(State.userId)
+				end)
+				donations = (ok and result) or {}
+				if not ok then
+					warn("[UserPanel] GetUserDonations error:", result)
+				end
+			end
 
 			if donateBtn and donateBtn.Parent then
 				donateBtn.Active = true
@@ -782,14 +791,7 @@ local function createButtonsSection(panel, target, playerColor)
 				safeTween(donateBtn, { BackgroundTransparency = 0.15 }, Config.ANIM_FAST)
 			end
 
-			if ok and donations then
-				showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
-			else
-				State.isLoadingDynamic = false
-				if NotificationSystem then
-					NotificationSystem:Error("Error", "No se pudo cargar donaciones", 2)
-				end
-			end
+			showDynamicSection("donations", donations, target and target.DisplayName, playerColor)
 		end)
 	end))
 

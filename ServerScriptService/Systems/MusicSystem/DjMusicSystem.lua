@@ -10,9 +10,9 @@ local SoundService       = game:GetService("SoundService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local MusicConfig    = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("MusicSystemConfig"))
-local PandaSSS       = ServerScriptService:WaitForChild("Systems")
-local Configuration  = require(PandaSSS:WaitForChild("Configuration"))
-local GamepassManager = require(PandaSSS:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+local Systems        = ServerScriptService:WaitForChild("Systems")
+local Configuration  = require(Systems:WaitForChild("Configuration"))
+local GamepassManager = require(Systems:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
 
 -- ════════════════════════════════════════════════════════════════
 -- CONSTANTS

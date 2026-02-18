@@ -8,15 +8,18 @@ local DataStoreService = game:GetService("DataStoreService")
 local GiftedGamepassesData = DataStoreService:GetDataStore("Gifting.1")
 local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 
-local GamepassGifting = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Gifting
-local GiftBroadcastEvent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes:FindFirstChild("GiftBroadcastEvent") or Instance.new("RemoteEvent")
+local _RG = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local _GGRemotes = _RG:WaitForChild("Gamepass Gifting"):WaitForChild("Remotes")
+
+local GamepassGifting = _GGRemotes.Gifting
+local GiftBroadcastEvent = _GGRemotes:FindFirstChild("GiftBroadcastEvent") or Instance.new("RemoteEvent")
 if not GiftBroadcastEvent.Parent then
 	GiftBroadcastEvent.Name = "GiftBroadcastEvent"
-	GiftBroadcastEvent.Parent = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes
+	GiftBroadcastEvent.Parent = _GGRemotes
 end
 
-local Ownership = ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Remotes.Ownership
-local Config = require(game.ReplicatedStorage["Panda ReplicatedStorage"]["Gamepass Gifting"].Modules.Config)
+local Ownership = _GGRemotes.Ownership
+local Config = require(_RG:WaitForChild("Gamepass Gifting"):WaitForChild("Modules"):WaitForChild("Config"))
 local Configuration = require(game.ServerScriptService.Systems.Configuration)
 local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
 

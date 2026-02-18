@@ -38,7 +38,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- REFERENCIAS
 -- ════════════════════════════════════════════════════════════════════════════════
 
-local Replicado = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage")
+local Replicado = ReplicatedStorage:WaitForChild("RemotesGlobal")
 local Ownership = Replicado["Gamepass Gifting"].Remotes.Ownership
 local Remotos = Replicado:WaitForChild("Eventos_Emote")
 local RemotesSync = Replicado:WaitForChild("Emotes_Sync")

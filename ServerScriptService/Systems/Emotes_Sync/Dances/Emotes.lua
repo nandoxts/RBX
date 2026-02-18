@@ -1,5 +1,5 @@
 local Datastore = game:GetService("DataStoreService")
-local Replicated = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local Replicated = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
 local Players = game:GetService("Players")
 local DataStoreQueueManager = require(game.ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
 

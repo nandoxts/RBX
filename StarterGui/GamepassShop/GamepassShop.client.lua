@@ -21,8 +21,8 @@ local playerGui = player:WaitForChild("PlayerGui")
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local THEME = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
-local Configuration = require(ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Configuration"))
-local CheckGamepassOwnership = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage"):WaitForChild("Gamepass Gifting"):WaitForChild("Remotes"):WaitForChild("Ownership")
+local Configuration = require(ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("Configuration"))
+local CheckGamepassOwnership = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("Gamepass Gifting"):WaitForChild("Remotes"):WaitForChild("Ownership")
 
 -- ════════════════════════════════════════════════════════════════
 -- COLORES EXTENDIDOS
@@ -100,8 +100,8 @@ local PRODUCTS = {
 	{name = "POLICÍA",   price = 135, gamepassId = Configuration.TOMBO,     icon = "139661313218787", cmd = ";tombo"},
 	{name = "LADRÓN",    price = 135, gamepassId = Configuration.CHORO,     icon = "84699864716808",  cmd = ";choro"},
 	{name = "SEGURIDAD", price = 135, gamepassId = Configuration.SERE,      icon = "85734290151599",  cmd = ";sere"},
-	{name = "ARMY BOOMS",price = 100, gamepassId = Configuration.ARMYBOOMS, icon = "134501492548324", cmd = ""},
-	{name = "LIGHTSTICK",price = 200, gamepassId = Configuration.LIGHTSTICK, icon = "86122436659328", cmd = ";lightstick"},
+	{name = "ARMY BOOMS",price = 80, gamepassId = Configuration.ARMYBOOMS, icon = "134501492548324", cmd = ""},
+	{name = "LIGHTSTICK",price = 80, gamepassId = Configuration.LIGHTSTICK, icon = "86122436659328", cmd = ""},
 }
 
 -- ════════════════════════════════════════════════════════════════

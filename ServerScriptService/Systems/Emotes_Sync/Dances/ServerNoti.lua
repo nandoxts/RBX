@@ -2,7 +2,7 @@
 --   SISTEMA DE NOTIFICACIONES (SERVER)
 -- ============================================
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
 
 local Remotos = ReplicatedStorage:WaitForChild("Eventos_Emote")
 local RemoteNoti = Remotos:WaitForChild("RemoteNoti")

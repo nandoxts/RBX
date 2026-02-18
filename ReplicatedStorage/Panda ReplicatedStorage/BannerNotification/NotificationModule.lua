@@ -1,7 +1,7 @@
 local tweenService = game:GetService("TweenService")
 local runService = game:GetService("RunService")
 local players = game:GetService("Players")
-local replicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local replicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
 
 local info = TweenInfo.new(.5, Enum.EasingStyle.Exponential)
 

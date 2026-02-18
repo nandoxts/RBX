@@ -2,7 +2,7 @@
 -- 🚀 VERSIÓN ULTRA-OPTIMIZADA CON PROTECCIÓN DATASTORE
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
 local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
 
 -- Módulos

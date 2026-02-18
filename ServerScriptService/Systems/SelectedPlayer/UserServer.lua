@@ -14,29 +14,23 @@ local PLACE_ID = game.PlaceId
 -- Acceso directo al DataStore de likes
 local LikesDataStore = DataStoreService:GetDataStore("LikesData")
 
--- Sistema de Likes Events
-local LikesEvents = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage") 
-	and ReplicatedStorage["Panda ReplicatedStorage"]:FindFirstChild("LikesEvents")
-
 -- Importar GamePassManager para validar pases (comprados + regalados)
 local GamePassManager = require(game.ServerScriptService.Systems["Gamepass Gifting"]["GamepassManager"])
 
--- Importar Config con lista de gamepasses
-local ReplicatedStoragePanda = ReplicatedStorage:WaitForChild("Panda ReplicatedStorage")
-local Config = require(ReplicatedStoragePanda["Gamepass Gifting"].Modules.Config)
-local AdminConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("AdminConfig"))
-
--- ═══════════════════════════════════════════════════════════════
---  GAME PASSES MANUALES DE TU JUEGO
--- Agrega los IDs de tus game passes aquí:
--- ═══════════════════════════════════════════════════════════════
-
-local MANUAL_GAMEPASS_IDS = {
-	-- Ejemplo:
-	1534560518
-	-- 987654321,
+-- Config de gamepasses desde Systems/Configuration
+local SysConfig = require(game.ServerScriptService.Systems.Configuration)
+local Config = {
+	Gamepasses = {
+		{SysConfig.VIP,       SysConfig.DEV_VIP},
+		{SysConfig.COMMANDS,  SysConfig.DEV_COMMANDS},
+		{SysConfig.TOMBO,     SysConfig.DEV_TOMBO},
+		{SysConfig.CHORO,     SysConfig.DEV_CHORO},
+		{SysConfig.SERE,      SysConfig.DEV_SERE},
+		{SysConfig.COLORS,    SysConfig.DEV_COLORS},
+		{SysConfig.ARMYBOOMS, SysConfig.DEV_ARMYBOOMS},
+		{SysConfig.LIGHTSTICK, SysConfig.DEV_LIGHTSTICK}
+	}
 }
-
 -- ═══════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN
 -- ═══════════════════════════════════════════════════════════════
@@ -59,43 +53,20 @@ local CONFIG = {
 }
 
 -- ═══════════════════════════════════════════════════════════════
--- CREAR REMOTES
+-- OBTENER REMOTES (ya creados en Studio)
 -- ═══════════════════════════════════════════════════════════════
 
-local remotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local remotesGlobal   = ReplicatedStorage:WaitForChild("RemotesGlobal")
+local userPanelFolder = remotesGlobal:WaitForChild("UserPanel")
 
-local userPanelFolder = remotesGlobal:FindFirstChild("UserPanel")
-if not userPanelFolder then
-	userPanelFolder = Instance.new("Folder")
-	userPanelFolder.Name = "UserPanel"
-	userPanelFolder.Parent = remotesGlobal
-end
+local GetUserData      = userPanelFolder:WaitForChild("GetUserData")
+local RefreshUserData  = userPanelFolder:WaitForChild("RefreshUserData")
+local GetUserDonations = userPanelFolder:WaitForChild("GetUserDonations")
+local GetGamePasses    = userPanelFolder:WaitForChild("GetGamePasses")
+local CheckGamePass    = userPanelFolder:WaitForChild("CheckGamePass")
 
-local remoteNames = {"GetUserData", "RefreshUserData", "GetUserDonations", "GetGamePasses"}
-for _, name in ipairs(remoteNames) do
-	local existing = userPanelFolder:FindFirstChild(name)
-	if existing then existing:Destroy() end
-end
-
-local GetUserData = Instance.new("RemoteFunction")
-GetUserData.Name = "GetUserData"
-GetUserData.Parent = userPanelFolder
-
-local RefreshUserData = Instance.new("RemoteEvent")
-RefreshUserData.Name = "RefreshUserData"
-RefreshUserData.Parent = userPanelFolder
-
-local GetUserDonations = Instance.new("RemoteFunction")
-GetUserDonations.Name = "GetUserDonations"
-GetUserDonations.Parent = userPanelFolder
-
-local GetGamePasses = Instance.new("RemoteFunction")
-GetGamePasses.Name = "GetGamePasses"
-GetGamePasses.Parent = userPanelFolder
-
-local CheckGamePass = Instance.new("RemoteFunction")
-CheckGamePass.Name = "CheckGamePass"
-CheckGamePass.Parent = userPanelFolder
+-- LikesEvents está en RemotesGlobal directamente
+local LikesEvents = remotesGlobal:WaitForChild("LikesEvents")
 
 -- ═══════════════════════════════════════════════════════════════
 -- CACHÉ
@@ -377,7 +348,11 @@ end)
 
 GetUserDonations.OnServerInvoke = function(player, targetUserId)
 	if not targetUserId or not player then return {} end
-	local donations = getUserDonations(targetUserId)
+	local ok, donations = pcall(getUserDonations, targetUserId)
+	if not ok then
+		warn("[UserPanel] Error en getUserDonations:", donations)
+		return {}
+	end
 
 	-- Limitar cantidad de items (performance)
 	if #donations > CONFIG.MAX_ITEMS_TO_SHOW then

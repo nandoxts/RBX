@@ -5,7 +5,7 @@
 	Estado global compartido entre todos los módulos
 ]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
 local SelectedPlayer = ReplicatedStorage:WaitForChild("SelectedPlayer")
 
 -- Obtener el Highlight existente (no crear uno nuevo como el DISABLE)

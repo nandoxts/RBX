@@ -569,7 +569,7 @@ end)
 updateNameTagsVisibility()
 
 ------------------------------------------------------------------------------------------------------------------
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage"):WaitForChild("SettingsEvents")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal"):WaitForChild("SettingsEvents")
 local updateFlagVisibilityEvent = ReplicatedStorage:WaitForChild("UpdateFlagsVibility")
 
 -- Función para actualizar la visibilidad del Flag de un jugador para los demás

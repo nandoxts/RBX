@@ -1,4 +1,4 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage"):WaitForChild("SelectedPlayer")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal"):WaitForChild("SelectedPlayer")
 
 local Events = ReplicatedStorage.Events
 local update_status = Events.update_status
@@ -15,7 +15,7 @@ update_status.OnServerEvent:Connect(filterStatus)
 
 --[[ CON CENSURA 
 local TextService = game:GetService("TextService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("Panda ReplicatedStorage"):WaitForChild("SelectedPlayer")
+local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal"):WaitForChild("SelectedPlayer")
 
 local Events = ReplicatedStorage.Events
 local update_status = Events.update_status

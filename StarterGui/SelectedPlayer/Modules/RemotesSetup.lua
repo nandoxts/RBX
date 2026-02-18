@@ -24,20 +24,18 @@ return function()
 	local remoteGlobal = ReplicatedStorage:FindFirstChild("RemotesGlobal") or ReplicatedStorage:WaitForChild("RemotesGlobal", 2)
 	local remotesFolder = remoteGlobal:FindFirstChild("UserPanel") or remoteGlobal:WaitForChild("UserPanel", 2)
 	
-	-- Panda ReplicatedStorage
-	local PandaRS = ReplicatedStorage:FindFirstChild("Panda ReplicatedStorage") or ReplicatedStorage:WaitForChild("Panda ReplicatedStorage", 2)
-	
 	-- Sistema de sincronización
-	local RemotesSync = PandaRS and PandaRS:FindFirstChild("Emotes_Sync")
+	local RemotesSync = remoteGlobal:FindFirstChild("Emotes_Sync")
 	
 	-- Sistema de likes
-	local LikesEvents = PandaRS and (PandaRS:FindFirstChild("LikesEvents") or PandaRS:WaitForChild("LikesEvents", 2))
+	local LikesEvents = remoteGlobal:WaitForChild("LikesEvents")
 	
 	-- Sistema de regalos
-	local GiftingRemotes = PandaRS and PandaRS:FindFirstChild("Gamepass Gifting") and PandaRS:FindFirstChild("Gamepass Gifting"):FindFirstChild("Remotes")
+	local GiftingFolder = remoteGlobal:FindFirstChild("Gamepass Gifting")
+	local GiftingRemotes = GiftingFolder and GiftingFolder:FindFirstChild("Remotes")
 	
 	-- Sistema de SelectedPlayer
-	local SelectedPlayerModule = PandaRS and PandaRS:FindFirstChild("SelectedPlayer")
+	local SelectedPlayerModule = remoteGlobal:FindFirstChild("SelectedPlayer")
 	
 	-- GlobalModalManager
 	local GlobalModalManager = nil
@@ -60,9 +58,11 @@ return function()
 	local ColorEffects = Highlight and require(SelectedPlayerModule:FindFirstChild("COLORS")) or nil
 	
 	-- Configuration
-	local Configuration = pcall(function()
-		return require(PandaRS:FindFirstChild("Configuration") or PandaRS:WaitForChild("Configuration", 2))
-	end) and require(PandaRS:FindFirstChild("Configuration") or PandaRS:WaitForChild("Configuration", 2)) or {}
+	local Configuration = {}
+	pcall(function()
+		local configModule = remoteGlobal:FindFirstChild("Configuration") or remoteGlobal:WaitForChild("Configuration", 5)
+		if configModule then Configuration = require(configModule) end
+	end)
 	
 	return {
 		-- Servicios
@@ -83,12 +83,12 @@ return function()
 		
 		-- Remotes de UserPanel
 		Remotes = {
-			GetUserData = remotesFolder:FindFirstChild("GetUserData") or remotesFolder:WaitForChild("GetUserData", 2),
-			GetUserDonations = remotesFolder:FindFirstChild("GetUserDonations") or remotesFolder:WaitForChild("GetUserDonations", 2),
-			GetGamePasses = remotesFolder:FindFirstChild("GetGamePasses") or remotesFolder:WaitForChild("GetGamePasses", 2),
-			DonationNotify = remotesFolder:FindFirstChild("DonationNotify"),
-			DonationMessage = remotesFolder:FindFirstChild("DonationMessage"),
-			CheckGamePass = remotesFolder:FindFirstChild("CheckGamePass") or remotesFolder:WaitForChild("CheckGamePass", 2)
+			GetUserData      = remotesFolder:WaitForChild("GetUserData"),
+			GetUserDonations = remotesFolder:WaitForChild("GetUserDonations"),
+			GetGamePasses    = remotesFolder:WaitForChild("GetGamePasses"),
+			DonationNotify   = remotesFolder:FindFirstChild("DonationNotify"),
+			DonationMessage  = remotesFolder:FindFirstChild("DonationMessage"),
+			CheckGamePass    = remotesFolder:WaitForChild("CheckGamePass")
 		},
 		
 		-- Sistema de Sync

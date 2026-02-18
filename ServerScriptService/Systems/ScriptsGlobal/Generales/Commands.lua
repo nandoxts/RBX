@@ -857,7 +857,6 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Command handling
 	player.CharacterAdded:Connect(function(character)
-		local pandaUsed = false
 
 		player.Chatted:Connect(function(message)
 			-- Extraer comandos
@@ -866,7 +865,6 @@ Players.PlayerAdded:Connect(function(player)
 			local hatCommand = message:match(Configuration.CommandHat)
 			local particleCommand = message:match(Configuration.CommandParticle)
 			local sizeCommand = message:match(Configuration.CommandSize)
-			local pandaCommand = message:match(Configuration.CommandPanda)
 			local cloneCommand = message:match(Configuration.CommandClone)
 			local resetCommand = message:match(Configuration.CommandReset)
 			local resetv2Command = message:match(Configuration.CommandReset2)
@@ -972,18 +970,11 @@ Players.PlayerAdded:Connect(function(player)
 			elseif sere then
 				handleSpecialCommand(player, "SERE")
 
-				-- PANDA (requiere estar en el grupo)
-			elseif pandaCommand and player:IsInGroup(Configuration.GroupID) and not pandaUsed then
-				equipAccessory(character, Configuration.AssetFree)
-				equipGiftItems(player)
-				pandaUsed = true
-
 				-- RESET
 			elseif resetCommand or resetv2Command then
 				if Configuration.COMMANDS == nil or hasCommands then
 					resetCharacter(player)
 					clearPlayerEffect(player)
-					pandaUsed = false
 				end
 			end
 		end)
