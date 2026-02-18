@@ -46,6 +46,13 @@ local RC = {
 -- STATE
 -- ════════════════════════════════════════════════════════════════
 local musicDatabase   = {}
+local djOrder         = {
+	"Top Hits", "Reggaeton", "Mix Brazil", "Kpop Army",
+	"DJ Angelisai", "DJ AngeloGarcia", "Hora Loca", "Rock",
+	"Reparto", "Phonk", "Vallenatos", "Mix Argentina",
+	"Electronica", "Romanticas", "Mixes Djs", "Mix chile",
+	"DJ Alex", "DJ SPARTAN", "DJ POOLEX", "Cumbia", "Salsa",
+}
 local playQueue       = {}
 local currentSongIndex = 1
 local isPlaying       = false
@@ -140,15 +147,17 @@ end
 
 local function getAllDJs()
 	local list = {}
-	for name, data in pairs(musicDatabase) do
-		table.insert(list, {
-			name      = name,
-			cover     = data.cover or "",
-			userId    = data.userId,
-			songCount = #(data.songIds or {}),
-		})
+	for _, name in ipairs(djOrder) do
+		local data = musicDatabase[name]
+		if data then
+			table.insert(list, {
+				name      = name,
+				cover     = data.cover or "",
+				userId    = data.userId,
+				songCount = #(data.songIds or {}),
+			})
+		end
 	end
-	table.sort(list, function(a, b) return a.name < b.name end)
 	return list
 end
 
@@ -202,7 +211,8 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function loadDJs()
 	musicDatabase = {}
-	for name, data in pairs(MusicConfig:GetDJs()) do
+	local rawDJs = MusicConfig:GetDJs()
+	for name, data in pairs(rawDJs) do
 		local ids = {}
 		for _, id in ipairs(data.SongIds or {}) do
 			if type(id) == "number" then table.insert(ids, id) end
@@ -213,6 +223,10 @@ local function loadDJs()
 			songIds   = ids,
 			songCount = #ids,
 		}
+		-- Si no está en djOrder, añadirlo al final
+		local found = false
+		for _, n in ipairs(djOrder) do if n == name then found = true break end end
+		if not found then table.insert(djOrder, name) end
 	end
 end
 

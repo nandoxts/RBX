@@ -1138,68 +1138,112 @@ local module = {
 		RankLock = false;
 		Loopable = false;
 		Tags = {"effects"};
-		Description = "Aplica un efecto a un jugador (uso: ;aura2 @usuario explosion)";
+		Description = "Aplica un aura visual a un jugador (uso: ;aura2 @usuario nombreAura)";
 		Contributors = {"ignxts"};
 		Args = {"Player", "String"};
 		Function = function(speaker, args)
 			local targetPlayer = args[1]
-			local effectName = args[2] and args[2]:lower() or "bajo"
+			local effectName = args[2] and args[2]:lower() or ""
 
-			if not targetPlayer or not targetPlayer.Character then
-				return
-			end
+			if not targetPlayer or not targetPlayer.Character then return end
 
-			local ServerScriptService = game:GetService("ServerScriptService")
-			local donationScript = ServerScriptService:FindFirstChild("Systems") and 
-				ServerScriptService["Systems"]:FindFirstChild("SelectedPlayer") and
-				ServerScriptService["Systems"]["SelectedPlayer"]:FindFirstChild("DONATION_EFFECTS[UPDATE]")
+			local ServerStorage = game:GetService("ServerStorage")
+			local Auras = ServerStorage:WaitForChild("Systems"):WaitForChild("Assets"):WaitForChild("Auras")
+			local character = targetPlayer.Character
 
-			-- Tabla de efectos disponibles
-			local DONATION_EFFECTS = {
-				{MaxAmount = 500,   Attachment = "x1",  Duration = 20},
-				{MaxAmount = 500,   Attachment = "x2",  Duration = 20},
-			}
-
-			local selectedEffect = nil
-			for _, effect in ipairs(DONATION_EFFECTS) do
-				if effect.Attachment:lower() == effectName then
-					selectedEffect = effect
+			-- Buscar el aura por nombre exacto o parcial (case-insensitive)
+			local auraModel = nil
+			for _, child in ipairs(Auras:GetChildren()) do
+				if child.Name:lower() == effectName or child.Name:lower():find(effectName, 1, true) then
+					auraModel = child
 					break
 				end
 			end
 
-			if not selectedEffect then
-				return
+			if not auraModel then return end
+
+			-- Tipos de instancias que son SOLO efectos visuales (sin cuerpos/humanoids)
+			local VISUAL_TYPES = {
+				"ParticleEmitter", "Beam", "Trail",
+				"Fire", "Smoke", "Sparkles",
+				"PointLight", "SpotLight", "SurfaceLight",
+				"SelectionBox", "Highlight",
+			}
+
+			local function isVisualEffect(inst)
+				for _, t in ipairs(VISUAL_TYPES) do
+					if inst:IsA(t) then return true end
+				end
+				return false
 			end
 
-			local ServerStorage = game:GetService("ServerStorage")
-			local Auras = ServerStorage:WaitForChild("Systems"):WaitForChild("Assets").Auras
-			local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+			-- Limpiar aura anterior si existe
+			local existing = character:FindFirstChild("_AuraEffects")
+			if existing then existing:Destroy() end
 
-			if not hrp then return end
+			-- Contenedor para fácil limpieza
+			local container = Instance.new("Folder")
+			container.Name = "_AuraEffects"
+			container.Parent = character
 
-			-- Aplicar efecto visual sin desactivación
-			local aura = Auras:FindFirstChild(selectedEffect.Attachment)
-			if aura then
-				local clone = aura:Clone()
-				clone.Parent = hrp
+			-- Mapeo de partes del aura → partes del personaje
+			local PART_MAP = {
+				["Torso"] = "Torso",
+				["UpperTorso"] = "UpperTorso",
+				["LowerTorso"] = "LowerTorso",
+				["Head"] = "Head",
+				["Left Arm"] = "Left Arm",
+				["Right Arm"] = "Right Arm",
+				["Left Leg"] = "Left Leg",
+				["Right Leg"] = "Right Leg",
+				["LeftUpperArm"] = "LeftUpperArm",
+				["RightUpperArm"] = "RightUpperArm",
+				["LeftLowerArm"] = "LeftLowerArm",
+				["RightLowerArm"] = "RightLowerArm",
+				["LeftUpperLeg"] = "LeftUpperLeg",
+				["RightUpperLeg"] = "RightUpperLeg",
+				["LeftLowerLeg"] = "LeftLowerLeg",
+				["RightLowerLeg"] = "RightLowerLeg",
+				["HumanoidRootPart"] = "HumanoidRootPart",
+			}
 
-				-- Activar partículas
-				for _, particle in ipairs(clone:GetChildren()) do
-					if particle:IsA("ParticleEmitter") or particle:IsA("Beam") then
-						particle.Enabled = true
+			-- Copiar solo efectos visuales de cada parte a la parte equivalente del personaje
+			for _, auraPart in ipairs(auraModel:GetDescendants()) do
+				if isVisualEffect(auraPart) then
+					local parentName = auraPart.Parent and auraPart.Parent.Name or ""
+					local targetPartName = PART_MAP[parentName]
+					local targetPart = character:FindFirstChild(targetPartName or "")
+						or character:FindFirstChild("HumanoidRootPart")
+
+					if targetPart then
+						local cloned = auraPart:Clone()
+						-- Activar el efecto
+						if cloned:IsA("ParticleEmitter") or cloned:IsA("Beam") or cloned:IsA("Trail") then
+							cloned.Enabled = true
+						end
+						cloned.Parent = targetPart
+						-- Referencia en el container para limpieza
+						local ref = Instance.new("ObjectValue")
+						ref.Value = cloned
+						ref.Parent = container
 					end
 				end
-
-				-- Destruir después de la duración (sin desactivar las partículas)
-				task.delay(selectedEffect.Duration, function()
-					if clone and clone.Parent then
-						clone:Destroy()
-					end
-				end)
 			end
+		end;
 
-			-- Sin sonido
+		UnFunction = function(speaker, args)
+			local targetPlayer = args[1]
+			if not targetPlayer or not targetPlayer.Character then return end
+			local existing = targetPlayer.Character:FindFirstChild("_AuraEffects")
+			if existing then
+				-- Destruir los efectos referenciados
+				for _, ref in ipairs(existing:GetChildren()) do
+					if ref:IsA("ObjectValue") and ref.Value and ref.Value.Parent then
+						ref.Value:Destroy()
+					end
+				end
+				existing:Destroy()
+			end
 		end;
 	};
 

@@ -899,9 +899,20 @@ Players.PlayerAdded:Connect(function(player)
 				local color = resolveColor(colorToken)
 
 				if targetName then
-					local targetPlayer = Players:FindFirstChild(targetName)
-					if targetPlayer then
-						applyEffectToPlayer(targetPlayer, effectType, color, player)
+					local targetLower = string.lower(targetName)
+					if targetLower == "all" or targetLower == "todos" then
+						-- Verificar permiso una sola vez antes del loop
+						local isAdmin = ColorEffects.hasPermission(player, Configuration.GroupID, Configuration.ALLOWED_RANKS_OWS)
+						for _, targetPlayer in ipairs(Players:GetPlayers()) do
+							if targetPlayer == player or isAdmin then
+								applyEffectToPlayer(targetPlayer, effectType, color, player)
+							end
+						end
+					else
+						local targetPlayer = Players:FindFirstChild(targetName)
+						if targetPlayer then
+							applyEffectToPlayer(targetPlayer, effectType, color, player)
+						end
 					end
 				else
 					applyEffectToPlayer(player, effectType, color, player)
