@@ -96,7 +96,7 @@ function MusicSystemConfig:GetDJs()
 		["Top Hits"] = { -- Mix pop/hits en inglés (Danny Ocean, Ariana Grande, etc.)
 			ImageId = "rbxassetid://127392141037758",-- IMAGEN DJ (reemplaza con el ID de imagen que desees)
 			SongIds = { -- IDs separadas por id,id,id,id............
-				-- Agrega aquí los IDs de audio de Roblox de las canciones en inglés
+				112814033555377, 134274680440581, 109022337963156, 93977984649577, 138851258640604, 106960622152552,
 
 			},
 		},
