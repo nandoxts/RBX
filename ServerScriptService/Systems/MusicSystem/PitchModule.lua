@@ -2,7 +2,7 @@
 local PitchModule = {}
 
 PitchModule.ids = {	 
-
+	{id = "95871436904167", pitch = 0.37},
 	{id = "112814033555377", pitch = 0.37},
 	{id = "134274680440581", pitch = 0.37},
 	{id = "109022337963156", pitch = 0.37},

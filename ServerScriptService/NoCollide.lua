@@ -4,30 +4,31 @@ local Players = game:GetService("Players")
 
 local COLLISION_GROUP = "Players"
 
--- Registrar grupo (mejor si lo haces en Studio, pero así también funciona)
+-- Registrar grupo
 pcall(function() PhysicsService:RegisterCollisionGroup(COLLISION_GROUP) end)
 pcall(function() PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false) end)
+
+-- Aplicar nocollide a una parte
+local function SetupPart(part)
+    if part:IsA("BasePart") then
+        pcall(function() part.CollisionGroup = COLLISION_GROUP end)
+    end
+end
 
 -- Aplicar nocollide a todas las partes
 local function ApplyNoCollideToCharacter(char)
     for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CollisionGroup = COLLISION_GROUP
-        end
+        SetupPart(part)
     end
-    
-    -- Para accesorios/herramientas que se añadan después
-    char.DescendantAdded:Connect(function(part)
-        if part:IsA("BasePart") then
-            part.CollisionGroup = COLLISION_GROUP
-        end
-    end)
 end
 
 -- Cuando un jugador se une y crea un personaje
 local function OnCharacterAdded(char)
-    task.wait(0.1) -- Pequeño delay para que todo esté listo
+    task.wait(0.1)
     ApplyNoCollideToCharacter(char)
+    
+    -- Para accesorios/herramientas/ApplyDescription que se añadan después
+    char.DescendantAdded:Connect(SetupPart)
 end
 
 local function OnPlayerAdded(player)

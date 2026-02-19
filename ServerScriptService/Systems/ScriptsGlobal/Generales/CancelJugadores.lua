@@ -1,11 +1,10 @@
--- NoCollide.lua (Server) - colocar en ServerScriptService
--- Utilizando las nuevas APIs de Roblox para Collision Groups
+-- CancelJugadores.lua - VERSIÓN SIMPLE Y CONFIABLE
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 
 local COLLISION_GROUP = "Players"
 
--- Registrar el grupo usando la nueva API
+-- Registrar grupo
 pcall(function()
 	PhysicsService:RegisterCollisionGroup(COLLISION_GROUP)
 end)
@@ -15,64 +14,43 @@ pcall(function()
 	PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false)
 end)
 
--- Función mejorada para aplicar nocollide a una parte
+-- Aplicar nocollide a una parte
 local function SetupPart(part)
-	if part:IsA("BasePart") then
-		-- Usar la nueva propiedad CollisionGroup directamente
+	-- NO agregar accesorios al collision group (que mantengan su comportamiento normal)
+	if part:IsA("BasePart") and not part.Parent:IsA("Accessory") then
 		pcall(function()
 			part.CollisionGroup = COLLISION_GROUP
 		end)
 	end
 end
 
-local function HandleDescendantAdded(descendant)
-	-- Pequeño delay para asegurar que la parte esté completamente creada
-	task.wait(0.001)
-	SetupPart(descendant)
-end
-
+-- Aplicar nocollide a todas las partes
 local function ApplyNoCollideToCharacter(char)
-	-- Aplicar a todas las partes existentes (recursivo y seguro)
-	for _, v in ipairs(char:GetDescendants()) do
-		SetupPart(v)
-	end
-
-	-- Conectar para partes que se añadan después (accesorios, herramientas, etc)
-	-- Usar una sola conexión para evitar múltiples conexiones
-	if not char:GetAttribute("NoCollideSetup") then
-		char:SetAttribute("NoCollideSetup", true)
-		char.DescendantAdded:Connect(HandleDescendantAdded)
+	for _, part in ipairs(char:GetDescendants()) do
+		SetupPart(part)
 	end
 end
 
+-- Cuando un jugador se une y crea un personaje
 local function OnCharacterAdded(char)
-	-- Esperar HRP con timeout
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		hrp = char:WaitForChild("HumanoidRootPart", 5)
-	end
-
-	-- Pequeño delay para asegurar que todas las partes iniciales están listas
 	task.wait(0.1)
 	ApplyNoCollideToCharacter(char)
+	
+	-- Para accesorios/herramientas/ApplyDescription que se añadan después
+	char.DescendantAdded:Connect(SetupPart)
 end
 
 local function OnPlayerAdded(player)
-	-- Conectar para futuros personajes
 	player.CharacterAdded:Connect(OnCharacterAdded)
-
-	-- Si el personaje ya existe (jugadores reconectando al iniciar el script)
 	if player.Character then
-		task.spawn(function()
-			OnCharacterAdded(player.Character)
-		end)
+		task.spawn(function() OnCharacterAdded(player.Character) end)
 	end
 end
 
 -- Conectar nuevos jugadores
 Players.PlayerAdded:Connect(OnPlayerAdded)
 
--- Aplicar a los que ya están en el servidor
-for _, p in ipairs(Players:GetPlayers()) do
-	OnPlayerAdded(p)
+-- Aplicar a jugadores que ya están en el servidor
+for _, player in ipairs(Players:GetPlayers()) do
+	OnPlayerAdded(player)
 end

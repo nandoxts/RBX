@@ -3,32 +3,14 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Systems")
-local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Systems")
+local ServerStorage = game:GetService("ServerStorage"):WaitForChild("Panda ServerStorage")
+local ServerScriptService = game:GetService("ServerScriptService"):WaitForChild("Panda ServerScriptService")
 local RunService = game:GetService("RunService")
 
 --> Modules
-local Configuration = require(game:GetService("ServerScriptService"):WaitForChild("Systems"):WaitForChild("Configuration"))
+local Configuration = require(ServerScriptService.Configuration)
 local GamepassManager = require(ServerScriptService["Gamepass Gifting"].GamepassManager)
 local ColorEffects = require(ServerScriptService.Effects.ColorEffectsModule)
-
--- ClanData para obtener información del clan
-local ClanData = nil
-pcall(function()
-	local serverStorage = game:GetService("ServerStorage")
-	local systems = serverStorage:FindFirstChild("Systems")
-	if systems then
-		local clanSystem = systems:FindFirstChild("ClanSystem")
-		if clanSystem then
-			-- Buscar V2 primero, luego V1 como fallback
-			local clanDataModule = clanSystem:FindFirstChild("ClanDataV2") 
-				or clanSystem:FindFirstChild("ClanData")
-			if clanDataModule then
-				ClanData = require(clanDataModule)
-			end
-		end
-	end
-end)
 
 --> Constants
 local EFFECT_PARTS = {"Head", "LeftLowerArm", "RightLowerArm", "LeftLowerLeg", "RightLowerLeg"}
@@ -65,14 +47,6 @@ local SPECIAL_COMMANDS = {
 	CHORO = {
 		gamepassKey = Configuration.CHORO,
 		itemFolder = "CHORO"
-	},
-	ARMYBOOMS = {
-		gamepassKey = Configuration.ARMYBOOMS,
-		itemFolder = "ARMYBOOMS"
-	},
-	LIGHTSTICK = {
-		gamepassKey = Configuration.LIGHTSTICK,
-		itemFolder = "LIGHTSTICK"
 	}
 }
 
@@ -165,12 +139,8 @@ local PlayerEffects = {
 
 				local trail = Instance.new("Trail")
 				trail.Color = ColorSequence.new(color)
-				trail.LightEmission = 1
-				trail.Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0),
-					NumberSequenceKeypoint.new(0.6, 0.2),
-					NumberSequenceKeypoint.new(1, 0.9)
-				})
+				trail.LightEmission = 0.7
+				trail.Transparency = NumberSequence.new(0, 1)
 				trail.WidthScale = NumberSequence.new(0.2, 1)
 				trail.Lifetime = 0.6
 				trail.Attachment0 = att0
@@ -204,16 +174,7 @@ local PlayerEffects = {
 local function clearPlayerEffect(player)
 	if activeEffects[player] then
 		for _, inst in ipairs(activeEffects[player]) do
-			-- Manejar tanto instancias directas como tablas de instancias
-			if typeof(inst) == "table" then
-				-- Es una tabla (como trail con attachments)
-				for _, subInst in ipairs(inst) do
-					if typeof(subInst) == "Instance" and subInst.Parent then
-						pcall(function() subInst:Destroy() end)
-					end
-				end
-			elseif typeof(inst) == "Instance" and inst.Parent then
-				-- Es una instancia directa
+			if inst and typeof(inst) == "Instance" and inst.Parent then
 				pcall(function() inst:Destroy() end)
 			end
 		end
@@ -322,7 +283,6 @@ local function equipAccessory(character, accessoryId)
 		local accessory = asset:FindFirstChildOfClass("Accessory")
 		if accessory then
 			accessory.Parent = character
-			task.wait(0.05) -- Esperar a que se parente correctamente
 		end
 	end
 end
@@ -462,11 +422,9 @@ local function equipItems(player, itemType)
 end
 
 local function grantItemsBasedOnPasses(player)
-	-- Otorgar automáticamente al inicio
+	-- Solo otorgar VIP al inicio, los demás se entregan por comando
 	local gamepassesToCheck = {
 		{key = "VIP", folder = "VIP", id = Configuration.VIP},
-		{key = "ARMYBOOMS", folder = "ARMYBOOMS", id = Configuration.ARMYBOOMS},
-		{key = "LIGHTSTICK", folder = "LIGHTSTICK", id = Configuration.LIGHTSTICK},
 	}
 
 	for _, gamepass in ipairs(gamepassesToCheck) do
@@ -528,7 +486,7 @@ local function isVIPItem(item)
 	if not itemsFolder then return false end
 
 	local paidItemsFolders = {
-		"VIP", "TOMBO", "CHORO", "SERE", "ARMYBOOMS", "LIGHTSTICK"
+		"VIP", "TOMBO", "CHORO", "SERE"
 	}
 
 	for _, folderName in ipairs(paidItemsFolders) do
@@ -627,20 +585,7 @@ end
 
 local function handleParticleCommand(player, character, textureId)
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then 
-		return 
-	end
-
-	local isClan = string.lower(textureId) == "clan"
-	local textureIdToUse = textureId
-
-	-- Si es clan, obtener el logo del clan
-	if isClan and ClanData then
-		local playerClan = ClanData:GetPlayerClan(player.UserId)
-		if playerClan and playerClan.logo then
-			textureIdToUse = playerClan.logo:gsub("rbxassetid://", "")
-		end
-	end
+	if not humanoidRootPart then return end
 
 	local existingParticleEmitter = humanoidRootPart:FindFirstChild("CommandParticles")
 	local particleEmitter = existingParticleEmitter
@@ -649,33 +594,20 @@ local function handleParticleCommand(player, character, textureId)
 		local commandParticles = ServerStorage:FindFirstChild("Commands")
 		if commandParticles then
 			commandParticles = commandParticles:FindFirstChild("CommandParticles")
-			if commandParticles then
-				particleEmitter = commandParticles:Clone()
-				particleEmitter.Name = "CommandParticles"
-				particleEmitter.Parent = humanoidRootPart
-			else
-				return
-			end
-		else
-			return
 		end
+		if not commandParticles then return end
+
+		particleEmitter = commandParticles:Clone()
+		particleEmitter.Parent = humanoidRootPart
 	end
 
-	-- Configurar propiedades para que reboten alrededor del cuerpo
-	particleEmitter.Size = NumberSequence.new(0.25, 0.35)
-	particleEmitter.Lifetime = NumberRange.new(2, 3)
-	particleEmitter.Rate = 15
-	particleEmitter.Speed = NumberRange.new(2, 4)
-	particleEmitter.Drag = 1.5
-	particleEmitter.VelocityInheritance = 0.1
-	particleEmitter.Acceleration = Vector3.new(0, 0, 0)
-	particleEmitter.SpreadAngle = Vector2.new(180, 180)
-	particleEmitter.Transparency = NumberSequence.new(0.2, 0.5, 1)
-
-	pcall(function()
-		local fullTexture = "rbxassetid://" .. textureIdToUse
-		particleEmitter.Texture = fullTexture
+	local success = pcall(function()
+		particleEmitter.Texture = "rbxassetid://" .. textureId
 	end)
+
+	if not success then
+		particleEmitter.Texture = "http://www.roblox.com/asset/?id=73535722381719"
+	end
 
 	particleEmitter.Enabled = true
 end
@@ -844,6 +776,7 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Command handling
 	player.CharacterAdded:Connect(function(character)
+		local pandaUsed = false
 
 		player.Chatted:Connect(function(message)
 			-- Extraer comandos
@@ -852,6 +785,7 @@ Players.PlayerAdded:Connect(function(player)
 			local hatCommand = message:match(Configuration.CommandHat)
 			local particleCommand = message:match(Configuration.CommandParticle)
 			local sizeCommand = message:match(Configuration.CommandSize)
+			local pandaCommand = message:match(Configuration.CommandPanda)
 			local cloneCommand = message:match(Configuration.CommandClone)
 			local resetCommand = message:match(Configuration.CommandReset)
 			local resetv2Command = message:match(Configuration.CommandReset2)
@@ -867,7 +801,6 @@ Players.PlayerAdded:Connect(function(player)
 			local tombo = message:match(Configuration.CommandTOMBO)
 			local choro = message:match(Configuration.CommandCHORO)
 			local sere = message:match(Configuration.CommandSERE)
-			local armybooms = message:match(Configuration.CommandARMYBOOMS)
 
 			-- Verificar si tiene gamepass de comandos
 			local hasCommands = GamepassManager.HasGamepass(player, Configuration.COMMANDS)
@@ -886,20 +819,9 @@ Players.PlayerAdded:Connect(function(player)
 				local color = resolveColor(colorToken)
 
 				if targetName then
-					local targetLower = string.lower(targetName)
-					if targetLower == "all" or targetLower == "todos" then
-						-- Verificar permiso una sola vez antes del loop
-						local isAdmin = ColorEffects.hasPermission(player, Configuration.GroupID, Configuration.ALLOWED_RANKS_OWS)
-						for _, targetPlayer in ipairs(Players:GetPlayers()) do
-							if targetPlayer == player or isAdmin then
-								applyEffectToPlayer(targetPlayer, effectType, color, player)
-							end
-						end
-					else
-						local targetPlayer = Players:FindFirstChild(targetName)
-						if targetPlayer then
-							applyEffectToPlayer(targetPlayer, effectType, color, player)
-						end
+					local targetPlayer = Players:FindFirstChild(targetName)
+					if targetPlayer then
+						applyEffectToPlayer(targetPlayer, effectType, color, player)
 					end
 				else
 					applyEffectToPlayer(player, effectType, color, player)
@@ -968,11 +890,18 @@ Players.PlayerAdded:Connect(function(player)
 			elseif sere then
 				handleSpecialCommand(player, "SERE")
 
+				-- PANDA (requiere estar en el grupo)
+			elseif pandaCommand and player:IsInGroup(Configuration.GroupID) and not pandaUsed then
+				equipAccessory(character, Configuration.AssetFree)
+				equipGiftItems(player)
+				pandaUsed = true
+
 				-- RESET
 			elseif resetCommand or resetv2Command then
 				if Configuration.COMMANDS == nil or hasCommands then
 					resetCharacter(player)
 					clearPlayerEffect(player)
+					pandaUsed = false
 				end
 			end
 		end)
