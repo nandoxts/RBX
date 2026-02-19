@@ -13,7 +13,7 @@ function SyncSystem.init(remotes, state)
 	State = state
 	NotificationSystem = remotes.Systems.NotificationSystem
 	player = remotes.Services.Player
-	
+
 	-- Setup listeners
 	SyncSystem.setupListeners()
 end

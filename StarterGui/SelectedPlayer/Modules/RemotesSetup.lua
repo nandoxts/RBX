@@ -19,31 +19,31 @@ return function()
 	local playerGui = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 2)
 	local mouse = player:GetMouse()
 	local camera = workspace.CurrentCamera
-	
+
 	-- Remotes folder
 	local remoteGlobal = ReplicatedStorage:FindFirstChild("RemotesGlobal") or ReplicatedStorage:WaitForChild("RemotesGlobal", 2)
 	local remotesFolder = remoteGlobal:FindFirstChild("UserPanel") or remoteGlobal:WaitForChild("UserPanel", 2)
-	
+
 	-- Sistema de sincronización
 	local RemotesSync = remoteGlobal:FindFirstChild("Emotes_Sync")
-	
+
 	-- Sistema de likes
 	local LikesEvents = remoteGlobal:WaitForChild("LikesEvents")
-	
+
 	-- Sistema de regalos
 	local GiftingFolder = remoteGlobal:FindFirstChild("Gamepass Gifting")
 	local GiftingRemotes = GiftingFolder and GiftingFolder:FindFirstChild("Remotes")
-	
+
 	-- Sistema de SelectedPlayer
 	local SelectedPlayerModule = remoteGlobal:FindFirstChild("SelectedPlayer")
-	
+
 	-- GlobalModalManager
 	local GlobalModalManager = nil
 	pcall(function()
 		local Systems = ReplicatedStorage:FindFirstChild("Systems") or ReplicatedStorage:WaitForChild("Systems", 2)
 		GlobalModalManager = require(Systems:FindFirstChild("GlobalModalManager") or Systems:WaitForChild("GlobalModalManager", 2))
 	end)
-	
+
 	-- NotificationSystem
 	local NotificationSystem = nil
 	pcall(function()
@@ -52,18 +52,18 @@ return function()
 		local NotifModule = NotifSys:FindFirstChild("NotificationSystem") or NotifSys:WaitForChild("NotificationSystem", 2)
 		NotificationSystem = require(NotifModule)
 	end)
-	
+
 	-- ColorEffects
 	local Highlight = SelectedPlayerModule and SelectedPlayerModule:FindFirstChild("Highlight")
 	local ColorEffects = Highlight and require(SelectedPlayerModule:FindFirstChild("COLORS")) or nil
-	
+
 	-- Configuration
 	local Configuration = {}
 	pcall(function()
 		local configModule = remoteGlobal:FindFirstChild("Configuration") or remoteGlobal:WaitForChild("Configuration", 5)
 		if configModule then Configuration = require(configModule) end
 	end)
-	
+
 	return {
 		-- Servicios
 		Services = {
@@ -80,7 +80,7 @@ return function()
 			TextChatService = TextChatService,
 			Player = player
 		},
-		
+
 		-- Remotes de UserPanel
 		Remotes = {
 			GetUserData      = remotesFolder:WaitForChild("GetUserData"),
@@ -90,27 +90,27 @@ return function()
 			DonationMessage  = remotesFolder:FindFirstChild("DonationMessage"),
 			CheckGamePass    = remotesFolder:WaitForChild("CheckGamePass")
 		},
-		
+
 		-- Sistema de Sync
 		Sync = {
 			SyncRemote = RemotesSync and RemotesSync:FindFirstChild("Sync"),
 			GetSyncState = RemotesSync and RemotesSync:FindFirstChild("GetSyncState"),
 			SyncUpdate = RemotesSync and RemotesSync:FindFirstChild("SyncUpdate")
 		},
-		
+
 		-- Sistema de Likes
 		Likes = {
 			GiveLikeEvent = LikesEvents and (LikesEvents:FindFirstChild("GiveLikeEvent") or LikesEvents:WaitForChild("GiveLikeEvent", 2)),
 			GiveSuperLikeEvent = LikesEvents and (LikesEvents:FindFirstChild("GiveSuperLikeEvent") or LikesEvents:WaitForChild("GiveSuperLikeEvent", 2)),
 			BroadcastEvent = LikesEvents and (LikesEvents:FindFirstChild("BroadcastEvent") or LikesEvents:WaitForChild("BroadcastEvent", 2))
 		},
-		
+
 		-- Sistema de Regalos
 		Gifting = {
 			GiftingRemote = GiftingRemotes and GiftingRemotes:FindFirstChild("Gifting"),
 			GiftBroadcastEvent = GiftingRemotes and (GiftingRemotes:FindFirstChild("GiftBroadcastEvent") or GiftingRemotes:WaitForChild("GiftBroadcastEvent", 2))
 		},
-		
+
 		-- Sistemas
 		Systems = {
 			GlobalModalManager = GlobalModalManager,

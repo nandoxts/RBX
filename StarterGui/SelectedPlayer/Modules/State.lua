@@ -17,34 +17,34 @@ return {
 	container = nil,
 	panel = nil,
 	statsLabels = {},
-	
+
 	-- Target
 	userId = nil,
 	target = nil,
 	playerColor = nil,
-	
+
 	-- Flags
 	closing = false,
 	dragging = false,
 	isPanelOpening = false,
 	isLoadingDynamic = false,
-	
+
 	-- Vistas
 	currentView = "buttons",
 	buttonsFrame = nil,
 	dynamicSection = nil,
-	
+
 	-- Conexiones
 	connections = {},
 	refreshThread = nil,
-	
+
 	-- Cache
 	avatarCache = {},
 	userDataCache = {},
-	
+
 	-- Input
 	lastClickTime = 0,
-	
+
 	-- Highlight
 	highlight = highlight
 }

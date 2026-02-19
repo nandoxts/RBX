@@ -16,7 +16,7 @@ function LikesSystem.init(remotes, state, config)
 	NotificationSystem = remotes.Systems.NotificationSystem
 	player = remotes.Services.Player
 	SUPER_LIKE_PRODUCT_ID = remotes.Systems.Configuration.SUPER_LIKE
-	
+
 	-- Inicializar listeners automáticamente
 	LikesSystem.setupLikeListeners()
 end
@@ -27,20 +27,20 @@ end
 
 function LikesSystem.giveLike(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
-	
+
 	-- Enviar al servidor directamente - es el servidor quien verifica cooldown
 	Remotes.Likes.GiveLikeEvent:FireServer("GiveLike", targetPlayer.UserId)
 end
 
 function LikesSystem.giveSuperLike(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
-	
+
 	player:SetAttribute("SuperLikeTarget", targetPlayer.UserId)
-	
+
 	local success = pcall(function()
 		Remotes.Likes.GiveSuperLikeEvent:FireServer("SetSuperLikeTarget", targetPlayer.UserId)
 	end)
-	
+
 	if success then
 		pcall(function()
 			Remotes.Services.MarketplaceService:PromptProductPurchase(player, SUPER_LIKE_PRODUCT_ID)
@@ -54,16 +54,14 @@ end
 
 function LikesSystem.setupLikeListeners(soundsFolder)
 	if Remotes.Likes.GiveLikeEvent then
-		print("[LIKES] Listener conectado a GiveLikeEvent")
 		Remotes.Likes.GiveLikeEvent.OnClientEvent:Connect(function(action, data)
-			print("[LIKES] Recibido:", action, data)
 			if action == "LikeSuccess" then
 				-- Notificacion DESPUES de confirmacion del servidor
 				if NotificationSystem then
 					local targetName = State.target and State.target.DisplayName or "jugador"
 					NotificationSystem:Success("Like", "Like enviado a " .. targetName .. "!", 2)
 				end
-				
+
 				if soundsFolder and soundsFolder:FindFirstChild("Like") then
 					soundsFolder.Like:Play()
 				end
@@ -71,16 +69,14 @@ function LikesSystem.setupLikeListeners(soundsFolder)
 				if NotificationSystem then
 					NotificationSystem:Error("Like", data or "Error al dar like", 3)
 				end
-				
+
 				if soundsFolder and soundsFolder:FindFirstChild("Error") then
 					soundsFolder.Error:Play()
 				end
 			end
 		end)
-	else
-		print("[LIKES] ERROR: GiveLikeEvent no encontrado. Remotes.Likes:", Remotes.Likes)
 	end
-	
+
 	if Remotes.Likes.GiveSuperLikeEvent then
 		Remotes.Likes.GiveSuperLikeEvent.OnClientEvent:Connect(function(action, data)
 			if action == "SuperLikeSuccess" then

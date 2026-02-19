@@ -109,7 +109,7 @@ end
 
 function Utils.asyncLoadAvatar(userId, imageLabel)
 	if not userId or not imageLabel then return end
-	
+
 	task.spawn(function()
 		local okLarge, largeUrl = pcall(function()
 			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.AvatarThumbnail, Enum.ThumbnailSize.Size420x420)
@@ -130,10 +130,10 @@ end
 function Utils.createRipple(button, container, x, y)
 	if not button or not button.Parent or not container or not container.Parent then return end
 	if not x or not y then return end
-	
+
 	local pos = button.AbsolutePosition
 	if not pos then return end
-	
+
 	local ripple = Utils.createFrame({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0, x - pos.X, 0, y - pos.Y),
@@ -172,7 +172,7 @@ end
 
 function Utils.getPlayerFromPart(part)
 	if not part then return nil end
-	
+
 	local current = part
 	while current and current ~= workspace do
 		local found = Players:GetPlayerFromCharacter(current)
@@ -233,13 +233,13 @@ end
 
 function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	if not state.highlight or not targetPlayer or not targetPlayer.Character then return end
-	
+
 	-- Chequear si el highlight está habilitado en Settings
 	if _G.ShowSelectedHighlight == false then
 		state.highlight.Enabled = false
 		return
 	end
-	
+
 	-- Obtener color del atributo del jugador (como en OLD)
 	local color
 	if ColorEffects then
@@ -247,7 +247,7 @@ function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	else
 		color = Color3.fromRGB(255, 255, 255)
 	end
-	
+
 	-- Desacoplar y acoplar directamente (sin pausa innecesaria)
 	state.highlight.FillColor = color
 	state.highlight.OutlineColor = color
