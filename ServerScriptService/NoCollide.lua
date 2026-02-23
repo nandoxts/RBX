@@ -1,12 +1,8 @@
--- NoCollide.lua (Server) - VERSIÓN SIMPLE Y CONFIABLE
-local PhysicsService = game:GetService("PhysicsService")
-local Players = game:GetService("Players")
-
-local COLLISION_GROUP = "Players"
-
--- Registrar grupo
-pcall(function() PhysicsService:RegisterCollisionGroup(COLLISION_GROUP) end)
-pcall(function() PhysicsService:CollisionGroupSetCollidable(COLLISION_GROUP, COLLISION_GROUP, false) end)
+-- NoCollide.lua - DESACTIVADO
+-- Esta lógica está centralizada en:
+-- ServerScriptService/Systems/ScriptsGlobal/Generales/CancelJugadores.lua
+-- Tener ambos activos causaba condiciones de carrera con HD Admin (fly/noclip).
+return
 
 -- Aplicar nocollide a una parte
 local function SetupPart(part)

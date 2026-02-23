@@ -306,7 +306,7 @@ local function loadMetadataBatch(ids, callback)
 				results[id] = ok
 					and { name = name, artist = artist, loaded = true }
 					or  { name = "Audio " .. id, artist = "Unknown", loaded = true, error = true }
-				pending -= 1
+				pending = pending - 1
 				if pending == 0 and callback then callback(results) end
 			end)
 		end
@@ -391,7 +391,7 @@ local function validateQueueAdd(player, audioId)
 	local limit, role = getUserQueueLimit(player)
 	local userCount = 0
 	for _, song in ipairs(playQueue) do
-		if song.userId == player.UserId then userCount += 1 end
+		if song.userId == player.UserId then userCount = userCount + 1 end
 	end
 	if userCount >= limit then
 		return nil, response(RC.QUEUE_FULL, "Límite alcanzado (" .. userCount .. "/" .. limit .. " como " .. role .. ")")
@@ -611,7 +611,7 @@ local function removeFromQueue(index)
 			playSong(currentSongIndex)
 		end
 	elseif index < currentSongIndex then
-		currentSongIndex -= 1
+		currentSongIndex = currentSongIndex - 1
 		updateAllClients()
 	else
 		updateAllClients()
@@ -759,6 +759,7 @@ end)
 R.Next.OnServerEvent:Connect(function(player)
 	local deny = checkAccess(player, "NextSong")
 	if deny then return end
+	print("Skip normal", player.DisplayName .. "(@" .. player.Name .. ")")
 	nextSong()
 end)
 
@@ -775,8 +776,10 @@ end
 
 if R.PurchaseSkip then
 	R.PurchaseSkip.OnServerEvent:Connect(function(player)
-		local deny = checkAccess(player, "NextSong")
-		if deny then return end
+		-- PurchaseSkip: disponible para todos (la verificación de gamepass/pago se hace en el cliente)
+		-- Solo bloquear si hay modo evento activo
+		if isEventBlocked("NextSong", player) then return end
+		print("Skip pagado", player.DisplayName .. "(@" .. player.Name .. ")")
 		nextSong()
 	end)
 end
@@ -918,9 +921,9 @@ Players.PlayerRemoving:Connect(function(player)
 		local song = playQueue[i]
 		if song.userId == player.UserId and i ~= currentSongIndex then
 			table.remove(playQueue, i)
-			if i < currentSongIndex then currentSongIndex -= 1 end
+			if i < currentSongIndex then currentSongIndex = currentSongIndex - 1 end
 		else
-			i += 1
+			i = i + 1
 		end
 	end
 
