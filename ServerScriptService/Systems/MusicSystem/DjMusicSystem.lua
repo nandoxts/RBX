@@ -378,16 +378,12 @@ local function validateQueueAdd(player, audioId)
 	local valid, err = MusicConfig:ValidateAudioId(id)
 	if not valid then return nil, response(RC.BLACKLISTED, err) end
 
-	-- 4. Duplicates
-	local dup, existing = isInQueue(id)
-	if dup then return nil, response(RC.DUPLICATE, "Ya está en la cola", { songName = existing.name }) end
-
-	-- 5. Global queue cap
+	-- 4. Global queue cap
 	if #playQueue >= MusicConfig.LIMITS.MaxQueueSize then
 		return nil, response(RC.QUEUE_FULL, "Cola llena (" .. #playQueue .. "/" .. MusicConfig.LIMITS.MaxQueueSize .. ")")
 	end
 
-	-- 6. Per-user cap
+	-- 5. Per-user cap
 	local limit, role = getUserQueueLimit(player)
 	local userCount = 0
 	for _, song in ipairs(playQueue) do
@@ -397,11 +393,11 @@ local function validateQueueAdd(player, audioId)
 		return nil, response(RC.QUEUE_FULL, "Límite alcanzado (" .. userCount .. "/" .. limit .. " como " .. role .. ")")
 	end
 
-	-- 7. Metadata (single call)
+	-- 6. Metadata (single call)
 	local name, artist, metaOk = getOrLoadMetadata(id)
 	if not metaOk then return nil, response(RC.NOT_FOUND, "Audio no encontrado") end
 
-	-- 8. Audio permission (single call)
+	-- 7. Audio permission (single call)
 	if not validateAudioPermission(id) then
 		return nil, response(RC.NOT_AUTHORIZED, "Audio bloqueado o sin permisos")
 	end
@@ -790,6 +786,12 @@ R.AddToQueue.OnServerEvent:Connect(function(player, audioId)
 
 	local songData, err = validateQueueAdd(player, audioId)
 	if err then return fireClient(R.AddResponse, player, err) end
+
+	-- Double-check duplicates justo antes de insertar (prevenir race condition)
+	local dup, existing = isInQueue(songData.id)
+	if dup then 
+		return fireClient(R.AddResponse, player, response(RC.DUPLICATE, "Ya está en la cola", { songName = existing.name })) 
+	end
 
 	local djName, djCover = findDJForSong(songData.id)
 	local songInfo = {
