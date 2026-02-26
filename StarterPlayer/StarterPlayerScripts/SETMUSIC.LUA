@@ -1,5 +1,5 @@
+local RunService = game:GetService("RunService")
 local sound = game:GetService("Workspace"):FindFirstChild("QueueSound")
-local TweenService = game:GetService("TweenService")
 
 -- Parámetros ajustables
 local baseThreshold = 100
@@ -79,6 +79,19 @@ end
 -- ================================
 
 local function updateEffect()
+	-- obtener listas una vez, no en cada tick
+	local allParts = getAllNeonLightParts()
+	local pointLights = getPointLightParts()
+	local lastMaterial = nil
+
+	-- pre-cachear la referencia al light de cada SurfaceLight part
+	local lightCache = {}
+	for _, part in ipairs(allParts) do
+		if part.Name == "NeonLight-Sound-SurfaceLight" then
+			lightCache[part] = findLight(part)
+		end
+	end
+
 	while sound.IsPlaying do
 		local loudness = sound.PlaybackLoudness
 		local isPeak = loudness > peakThreshold
@@ -86,22 +99,24 @@ local function updateEffect()
 
 		local targetTransparency = isPeak and maxTransparency or (isBase and 0.5 or minTransparency)
 		local targetBrightness = isPeak and maxBrightness or (isBase and (maxBrightness + minBrightness)/2 or minBrightness)
-
-		local allParts = getAllNeonLightParts()
+		local targetMaterial = isPeak and Enum.Material.Neon or Enum.Material.SmoothPlastic
 
 		for _, part in ipairs(allParts) do
 			if part.Name == "NeonLight-Sound-SurfaceLight" then
-				local light = findLight(part)
+				local light = lightCache[part] -- cacheado, sin FindFirstChildWhichIsA
 				if light then
 					light.Brightness = targetBrightness
 				end
 			else
 				part.Transparency = targetTransparency
-				part.Material = isPeak and Enum.Material.Neon or Enum.Material.SmoothPlastic
+				-- solo cambiar Material si realmente cambió
+				if targetMaterial ~= lastMaterial then
+					part.Material = targetMaterial
+				end
 			end
 		end
+		lastMaterial = targetMaterial
 
-		local pointLights = getPointLightParts()
 		for _, pl in ipairs(pointLights) do
 			if loudness > 250 then
 				pl.Enabled = true
@@ -111,12 +126,13 @@ local function updateEffect()
 			end
 		end
 
-
-		task.wait(checkInterval)
+		RunService.Heartbeat:Wait()
 	end
 
-	local allParts = getAllNeonLightParts()
-	for _, part in ipairs(allParts) do
+	-- buscar todos los items frescos al resetear (por si hubo cambios dinámicos)
+	local resetParts = getAllNeonLightParts()
+	local resetLights = getPointLightParts()
+	for _, part in ipairs(resetParts) do
 		if part.Name == "NeonLight-Sound-SurfaceLight" then
 			local light = findLight(part)
 			if light then
@@ -126,9 +142,7 @@ local function updateEffect()
 			part.Transparency = minTransparency
 		end
 	end
-
-	local pointLights = getPointLightParts()
-	for _, pl in ipairs(pointLights) do
+	for _, pl in ipairs(resetLights) do
 		pl.Enabled = false
 	end
 end
