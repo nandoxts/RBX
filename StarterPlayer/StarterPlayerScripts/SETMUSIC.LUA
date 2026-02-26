@@ -1,7 +1,12 @@
--- SETMUSIC.LUA deprecated
--- La lógica de efecto reactivo al audio fue movida a ServerScriptService/RainbowSync.lua
--- Para evitar duplicados, este archivo se mantiene como stub.
-warn("SETMUSIC.LUA está deshabilitado: use RainbowSync para efectos de audio")
+local sound = game:GetService("Workspace"):FindFirstChild("QueueSound")
+local TweenService = game:GetService("TweenService")
+
+-- Parámetros ajustables
+local baseThreshold = 100
+local peakThreshold = 180
+local checkInterval = 0.01
+local minTransparency = 1
+local maxTransparency = 0
 local minBrightness = 10 
 local maxBrightness = 30 
 
@@ -89,7 +94,6 @@ local function updateEffect()
 				local light = findLight(part)
 				if light then
 					light.Brightness = targetBrightness
-					pcall(function() light.Color = currentRainbowColor end)
 				end
 			else
 				part.Transparency = targetTransparency
@@ -115,10 +119,9 @@ local function updateEffect()
 	for _, part in ipairs(allParts) do
 		if part.Name == "NeonLight-Sound-SurfaceLight" then
 			local light = findLight(part)
-				if light then
-					light.Brightness = minBrightness
-					pcall(function() light.Color = currentRainbowColor end)
-				end
+			if light then
+				light.Brightness = minBrightness
+			end
 		else
 			part.Transparency = minTransparency
 		end
