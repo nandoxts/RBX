@@ -686,6 +686,7 @@ end
 
 -- Monitorear cambios en el estado de mute del topbar
 local lastMuteState = isMusicMuted()
+local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup") or SoundService:WaitForChild("MusicSoundGroup", 10)
 task.spawn(function()
 	while true do
 		task.wait(0.1)
@@ -693,7 +694,6 @@ task.spawn(function()
 		if currentMuteState ~= lastMuteState then
 			-- El estado de mute cambió
 			lastMuteState = currentMuteState
-			local musicSoundGroup = SoundService:FindFirstChild("MusicSoundGroup")
 			if musicSoundGroup then
 				if currentMuteState then
 					-- Se activó el mute: guardar volumen actual y poner a 0
