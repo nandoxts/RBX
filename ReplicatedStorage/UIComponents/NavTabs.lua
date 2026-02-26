@@ -74,10 +74,12 @@ function NavTabs.new(config)
 	-- ══════════════════════════════════════════════
 	-- UNDERLINE INDICATOR (se posiciona absoluto)
 	-- ══════════════════════════════════════════════
+	local tabWidth = isMobile and 80 or 100
+
 	local indicator = Instance.new("Frame")
 	indicator.Name = "Indicator"
-	indicator.Size = UDim2.new(0, 40, 0, 2)
-	indicator.Position = UDim2.new(0, 0, 1, -2)
+	indicator.Size = UDim2.new(0, tabWidth, 0, 3)
+	indicator.Position = UDim2.new(0, 0, 1, -3)
 	indicator.BackgroundColor3 = categories[1].color
 	indicator.BackgroundTransparency = 0
 	indicator.BorderSizePixel = 0
@@ -85,7 +87,7 @@ function NavTabs.new(config)
 	indicator.Parent = parent
 
 	local indicatorCorner = Instance.new("UICorner")
-	indicatorCorner.CornerRadius = UDim.new(0, 1)
+	indicatorCorner.CornerRadius = UDim.new(0, 2)
 	indicatorCorner.Parent = indicator
 
 	self._indicator = indicator
@@ -93,7 +95,6 @@ function NavTabs.new(config)
 	-- ══════════════════════════════════════════════
 	-- CREAR TABS
 	-- ══════════════════════════════════════════════
-	local tabWidth = isMobile and 80 or 100
 
 	for i, category in ipairs(categories) do
 		local isActive = (i == 1)
@@ -136,9 +137,9 @@ function NavTabs.new(config)
 				local absPos = tab.AbsolutePosition
 				local absSize = tab.AbsoluteSize
 				local parentAbsPos = parent.AbsolutePosition
-				local centerX = (absPos.X - parentAbsPos.X) + (absSize.X / 2) - 20
-				indicator.Position = UDim2.new(0, centerX, 1, -2)
-				indicator.Size = UDim2.new(0, 40, 0, 2)
+				local posX = absPos.X - parentAbsPos.X
+				indicator.Position = UDim2.new(0, posX, 1, -3)
+				indicator.Size = UDim2.new(0, absSize.X, 0, 3)
 			end)
 		end
 
@@ -194,9 +195,10 @@ function NavTabs.new(config)
 			local absPos = activeRef.tab.AbsolutePosition
 			local absSize = activeRef.tab.AbsoluteSize
 			local parentAbsPos = parent.AbsolutePosition
-			local centerX = (absPos.X - parentAbsPos.X) + (absSize.X / 2) - 20
+			local posX = absPos.X - parentAbsPos.X
 			tween(indicator, TWEEN_SLIDE, {
-				Position = UDim2.new(0, centerX, 1, -2),
+				Position = UDim2.new(0, posX, 1, -3),
+				Size = UDim2.new(0, absSize.X, 0, 3),
 			})
 		end)
 	end

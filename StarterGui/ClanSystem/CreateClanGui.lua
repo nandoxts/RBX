@@ -18,6 +18,7 @@ local ClanClient = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChil
 local GlobalModalManager = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("GlobalModalManager"))
 local ModalManager = require(ReplicatedStorage:WaitForChild("Modal"):WaitForChild("ModalManager"))
 local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
+local NavTabs = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("NavTabs"))
 
 -- Módulos internos del sistema de clanes
 local ClanConstants = require(script.Parent.ClanConstants)
@@ -66,8 +67,8 @@ local modal = ModalManager.new({
 })
 
 local panel = modal:getPanel()
-local tabButtons = {}
 local tabPages = {}
+local switchTab  -- forward declaration (usada en onSelect de NavTabs)
 
 -- ════════════════════════════════════════════════════════════════
 -- HEADER
@@ -94,32 +95,32 @@ end))
 -- ════════════════════════════════════════════════════════════════
 -- TABS
 -- ════════════════════════════════════════════════════════════════
-local tabNav = UI.frame({size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bgT = 1, z = 101, parent = panel})
+local tabNav = UI.frame({name = "TabNav", size = UDim2.new(1, 0, 0, 36), pos = UDim2.new(0, 0, 0, 60), bgT = 1, z = 101, parent = panel})
 
-local navList = Instance.new("UIListLayout")
-navList.FillDirection = Enum.FillDirection.Horizontal
-navList.Padding = UDim.new(0, 12)
-navList.Parent = tabNav
-
-local navPadding = Instance.new("UIPadding")
-navPadding.PaddingLeft = UDim.new(0, 20)
-navPadding.PaddingTop = UDim.new(0, 6)
-navPadding.Parent = tabNav
-
-local function createTab(text)
-	local btn = UI.button({size = UDim2.new(0, 90, 0, 24), bg = THEME.panel, text = text, color = THEME.muted, textSize = 13, font = Enum.Font.GothamBold, z = 101, parent = tabNav, corner = 0})
-	btn.BackgroundTransparency = 1
-	btn.AutoButtonColor = false
-	return btn
-end
-
-tabButtons["TuClan"] = createTab("TU CLAN")
-tabButtons["Disponibles"] = createTab("DISPONIBLES")
+local CLAN_TABS = {
+	{id = "TuClan",      label = "Tu Clan",     color = THEME.accent},
+	{id = "Disponibles", label = "Disponibles", color = THEME.accent},
+}
 if isAdmin then
-	tabButtons["Admin"] = createTab("ADMIN")
+	table.insert(CLAN_TABS, {id = "Admin", label = "Admin", color = THEME.warn or THEME.accent})
 end
 
-local underline = UI.frame({size = UDim2.new(0, 90, 0, 3), pos = UDim2.new(0, 20, 0, 93), bg = THEME.accent, z = 102, parent = panel, corner = 2})
+local navColors = {
+	textMuted     = THEME.muted,
+	textSecondary = THEME.text,
+}
+
+local navTabsInstance = NavTabs.new({
+	parent       = tabNav,
+	categories   = CLAN_TABS,
+	colors       = navColors,
+	isMobile     = isMobileDevice,
+	UI           = UI,
+	TweenService = TweenService,
+	onSelect     = function(id)
+		switchTab(id)
+	end,
+})
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT AREA
@@ -190,9 +191,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- TAB SWITCHING
 -- ════════════════════════════════════════════════════════════════
-local tabPositions = isAdmin and { TuClan = 20, Disponibles = 122, Admin = 224 } or { TuClan = 20, Disponibles = 122 }
-
-local function switchTab(tabName, forceLoad)
+switchTab = function(tabName, forceLoad)
 	if State.currentPage == tabName and not forceLoad then return end
 
 	State.loadingId = State.loadingId + 1
@@ -201,11 +200,8 @@ local function switchTab(tabName, forceLoad)
 	State.currentPage = tabName
 	State.currentView = "main"
 
-	for name, btn in pairs(tabButtons) do
-		TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = (name == tabName) and THEME.accent or THEME.muted}):Play()
-	end
-
-	TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, tabPositions[tabName] or 20, 0, 93)}):Play()
+	-- NavTabs maneja la animación del underline
+	navTabsInstance:selectTab(tabName)
 
 	local pageFrame = contentArea:FindFirstChild(tabName)
 	if pageFrame then pageLayout:JumpTo(pageFrame) end
@@ -224,10 +220,6 @@ local function switchTab(tabName, forceLoad)
 			ClanNetworking.loadAdminClans(adminClansScroll, screenGui, State, CONFIG)
 		end
 	end)
-end
-
-for name, btn in pairs(tabButtons) do
-	btn.MouseButton1Click:Connect(function() switchTab(name) end)
 end
 
 -- ════════════════════════════════════════════════════════════════

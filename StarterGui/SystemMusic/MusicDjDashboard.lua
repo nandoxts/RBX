@@ -24,6 +24,7 @@ local GlobalModalManager = require(ReplicatedStorage:WaitForChild("Systems"):Wai
 local Notify = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("NotificationSystem"):WaitForChild("NotificationSystem"))
 local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local SearchModern = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SearchModern"))
+local NavTabs = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("NavTabs"))
 
 -- ════════════════════════════════════════════════════════════════
 -- RESPONSE CODES
@@ -878,6 +879,7 @@ end)
 local NAV_TOP = HEADER_HEIGHT
 
 local navBar = Instance.new("Frame")
+navBar.Name = "NavBar"
 navBar.Size = UDim2.new(1, 0, 0, 36)
 navBar.Position = UDim2.new(0, 0, 0, NAV_TOP)
 navBar.BackgroundTransparency = 1
@@ -885,41 +887,27 @@ navBar.BorderSizePixel = 0
 navBar.ZIndex = 101
 navBar.Parent = panel
 
-local navList = Instance.new("UIListLayout")
-navList.FillDirection = Enum.FillDirection.Horizontal
-navList.Padding = UDim.new(0, 12)
-navList.Parent = navBar
+local MUSIC_TABS = {
+	{id = "Queue",   label = "En Cola",    color = THEME.accent},
+	{id = "Library", label = "Biblioteca", color = THEME.accent},
+}
 
-local navPadding = Instance.new("UIPadding")
-navPadding.PaddingLeft = UDim.new(0, 20)
-navPadding.PaddingTop = UDim.new(0, 6)
-navPadding.Parent = navBar
+local navColors = {
+	textMuted     = THEME.muted,
+	textSecondary = THEME.text,
+}
 
-local function createTab(text)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 80, 0, 24)
-	btn.BackgroundTransparency = 1
-	btn.Text = text
-	btn.TextColor3 = THEME.muted
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 14
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Parent = navBar
-	return btn
-end
-
-local tQueue = createTab("EN COLA")
-local tLibrary = createTab("BIBLIOTECA")
-
-local underline = Instance.new("Frame")
-underline.Size = UDim2.new(0, 80, 0, 3)
-underline.Position = UDim2.new(0, 20, 0, NAV_TOP + 33)
-underline.BackgroundColor3 = THEME.accent
-underline.BorderSizePixel = 0
-underline.ZIndex = 102
-underline.Parent = panel
-UI.rounded(underline, 2)
+local navTabsInstance = NavTabs.new({
+	parent       = navBar,
+	categories   = MUSIC_TABS,
+	colors       = navColors,
+	isMobile     = isMobileDevice,
+	UI           = UI,
+	TweenService = TweenService,
+	onSelect     = function(id)
+		showPage(id)
+	end,
+})
 
 -- ════════════════════════════════════════════════════════════════
 -- CONTENT HOLDER
@@ -1886,19 +1874,6 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- NAVIGATION
 -- ════════════════════════════════════════════════════════════════
-local function moveUnderline(btn)
-	if not btn then return end
-	task.spawn(function()
-		task.wait(0.05)
-		local x = btn.AbsolutePosition.X - panel.AbsolutePosition.X
-		local w = btn.AbsoluteSize.X
-		TweenService:Create(underline, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
-			Size = UDim2.new(0, w, 0, 3),
-			Position = UDim2.new(0, x, 0, NAV_TOP + 33)
-		}):Play()
-	end)
-end
-
 function showPage(name)
 	-- Evitar re-render/animación si ya estamos en la misma página
 	if currentPage == name then return end
@@ -1924,19 +1899,8 @@ function showPage(name)
 	end
 end
 
-local function wireTab(btn, name)
-	btn.MouseButton1Click:Connect(function()
-		showPage(name)
-		moveUnderline(btn)
-	end)
-end
-
-wireTab(tQueue, "Queue")
-wireTab(tLibrary, "Library")
-
 task.defer(function()
 	task.wait(0.1)
-	moveUnderline(tQueue)
 	showPage("Queue")
 end)
 
@@ -1951,10 +1915,10 @@ function openUI(openToLibrary)
 
 	if openToLibrary then
 		showPage("Library")
-		moveUnderline(tLibrary)
+		navTabsInstance:selectTab("Library")
 	else
 		showPage("Queue")
-		moveUnderline(tQueue)
+		navTabsInstance:selectTab("Queue")
 	end
 
 	-- Abrir el modal
