@@ -105,6 +105,7 @@ local quickAddBtn, quickInput, qiStroke
 local isAddingToQueue = false
 local songsScroll, songsContainer, searchInput, loadingIndicator, songCountLabel
 local cardPool = {}
+local cardsIndex = {}  -- Mapeo rápido: [songIndex] = card
 local MAX_POOL_SIZE = 25
 
 -- Header elements para actualización dinámica
@@ -1427,13 +1428,20 @@ local function getCardFromPool()
 end
 
 local function releaseCard(card)
+	local songIndex = card:GetAttribute("SongIndex")
+	if songIndex then cardsIndex[songIndex] = nil end
 	card.Visible = false
 	card:SetAttribute("SongIndex", nil)
 	card:SetAttribute("SongID", nil)
 end
 
 local function releaseAllCards()
-	for _, card in ipairs(cardPool) do releaseCard(card) end
+	cardsIndex = {}
+	for _, card in ipairs(cardPool) do
+		card.Visible = false
+		card:SetAttribute("SongIndex", nil)
+		card:SetAttribute("SongID", nil)
+	end
 end
 
 -- ════════════════════════════════════════════════════════════════
@@ -1459,6 +1467,7 @@ local function updateSongCard(card, songData, index, inQueue)
 
 	card:SetAttribute("SongIndex", index)
 	card:SetAttribute("SongID", songData.id)
+	cardsIndex[index] = card  -- Registrar en índice para acceso O(1)
 
 	local djCover = card:FindFirstChild("DJCover")
 	local nameLabel = card:FindFirstChild("NameLabel")
@@ -1516,12 +1525,10 @@ local function updateVisibleCards()
 	songsContainer.Size = UDim2.new(1, 0, 0, totalHeight)
 	songsScroll.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 20)
 
-	for _, card in ipairs(cardPool) do
-		if card.Visible then
-			local cardIndex = card:GetAttribute("SongIndex")
-			if cardIndex and (cardIndex < firstVisible or cardIndex > lastVisible) then
-				releaseCard(card)
-			end
+	-- Liberar cards fuera de vista (usando índice - O(n) en lugar de O(n²))
+	for index, card in pairs(cardsIndex) do
+		if card and card.Visible and (index < firstVisible or index > lastVisible) then
+			releaseCard(card)
 		end
 	end
 
@@ -1531,13 +1538,7 @@ local function updateVisibleCards()
 	for i = firstVisible, lastVisible do
 		local songData = dataSource[i]
 
-		local existingCard = nil
-		for _, card in ipairs(cardPool) do
-			if card.Visible and card:GetAttribute("SongIndex") == i then
-				existingCard = card
-				break
-			end
-		end
+		local existingCard = cardsIndex[i]  -- Acceso O(1) en lugar de búsqueda lineal
 
 		if songData then
 			local card = existingCard or getCardFromPool()
