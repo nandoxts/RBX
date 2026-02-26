@@ -248,6 +248,7 @@ end
 
 local function closeUI()
 	State.isOpen = false
+	State.isUpdating = false
 	State.loadingId = State.loadingId + 1
 
 	Memory:cleanup()
@@ -257,6 +258,7 @@ local function closeUI()
 	if State.pendingList then State.pendingList:destroy() State.pendingList = nil end
 
 	State.views = {}
+	State.viewFactories = {}
 	State.currentView = "main"
 	State.currentPage = nil
 	State.clanData = nil

@@ -25,15 +25,19 @@ local ClanNetworking = {}
 -- Load player clan
 function ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadAndKeepView)
 	if not State.isOpen then return end
+	if State.isUpdating then return end
+	State.isUpdating = true
 
 	if State.membersList then State.membersList:destroy() State.membersList = nil end
 	if State.pendingList then State.pendingList:destroy() State.pendingList = nil end
 	State.views = {}
+	State.viewFactories = {}
 	State.currentView = "main"
 
 	ClanHelpers.safeLoading(tuClanContainer, function()
 		return ClanClient:GetPlayerClan()
 	end, function(clanData)
+		State.isUpdating = false
 		if not State.isOpen then return end
 
 		if clanData then
@@ -45,12 +49,15 @@ function ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reload
 			end
 			State.playerRole = playerRole
 
-			State.views.main = ClanViews.createMainView(tuClanContainer, clanData, playerRole, screenGui, function() ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadAndKeepView) end, State)
-			State.views.members = ClanViews.createMembersView(tuClanContainer, clanData, playerRole, screenGui, reloadAndKeepView, State)
+			local reloadFunc = reloadAndKeepView
+
+			-- Crear solo main, las demás se crean al navegar (lazy)
+			State.views.main = ClanViews.createMainView(tuClanContainer, clanData, playerRole, screenGui, function() ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadFunc) end, State)
+			State.viewFactories.members = function() return ClanViews.createMembersView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State) end
 
 			local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 			if canManageRequests then
-				State.views.pending = ClanViews.createPendingView(tuClanContainer, clanData, playerRole, screenGui, reloadAndKeepView, State)
+				State.viewFactories.pending = function() return ClanViews.createPendingView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State) end
 			end
 
 			State.views.main.Position = UDim2.new(0, 0, 0, 0)
@@ -67,6 +74,8 @@ end
 -- Reload and keep view
 function ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, targetView)
 	if not State.isOpen then return end
+	if State.isUpdating then return end
+	State.isUpdating = true
 
 	local viewToRestore = targetView or State.currentView
 
@@ -99,6 +108,7 @@ function ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, tar
 			UI.label({size = UDim2.new(1, 0, 0, 40), pos = UDim2.new(0, 0, 0, 30), text = "⚔️", textSize = 32, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
 			UI.label({size = UDim2.new(1, -20, 0, 20), pos = UDim2.new(0, 10, 0, 75), text = "No perteneces a ningún clan", textSize = 13, font = Enum.Font.GothamBold, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
 			UI.label({size = UDim2.new(1, -20, 0, 16), pos = UDim2.new(0, 10, 0, 100), text = "Explora clanes en 'Disponibles'", color = THEME.muted, textSize = 11, alignX = Enum.TextXAlignment.Center, z = 104, parent = noClanCard})
+			State.isUpdating = false
 			return
 		end
 
@@ -112,16 +122,23 @@ function ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, tar
 
 		local reloadFunc = function(v) ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, v) end
 
+		State.viewFactories = {}
 		State.views.main = ClanViews.createMainView(tuClanContainer, clanData, playerRole, screenGui, function() ClanNetworking.loadPlayerClan(tuClanContainer, screenGui, State, reloadFunc) end, State)
-		State.views.members = ClanViews.createMembersView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State)
+		State.viewFactories.members = function() return ClanViews.createMembersView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State) end
 
 		local canManageRequests = (playerRole == "owner" or playerRole == "colider" or playerRole == "lider")
 		if canManageRequests then
-			State.views.pending = ClanViews.createPendingView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State)
+			State.viewFactories.pending = function() return ClanViews.createPendingView(tuClanContainer, clanData, playerRole, screenGui, reloadFunc, State) end
 		end
 
-		for _, v in pairs(State.views) do 
-			if v then v.Visible = false end 
+		-- Si hay que restaurar una vista no-main, crearla ahora
+		if viewToRestore ~= "main" and State.viewFactories[viewToRestore] then
+			State.views[viewToRestore] = State.viewFactories[viewToRestore]()
+			State.viewFactories[viewToRestore] = nil
+		end
+
+		for _, v in pairs(State.views) do
+			if v then v.Visible = false end
 		end
 
 		if viewToRestore ~= "main" and State.views[viewToRestore] then
@@ -133,6 +150,7 @@ function ClanNetworking.reloadAndKeepView(tuClanContainer, screenGui, State, tar
 			State.views.main.Visible = true
 			State.currentView = "main"
 		end
+		State.isUpdating = false
 	end)
 end
 
@@ -182,8 +200,10 @@ function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, load
 	else
 		UI.hover(joinBtn, THEME.accent, UI.brighten(THEME.accent, 1.15))
 		Memory:track(joinBtn.MouseButton1Click:Connect(function()
-			-- Solo enviar solicitud, la notificación se muestra en el listener global
-			ClanClient:RequestJoinClan(clanData.clanId)
+			local success, msg = ClanClient:RequestJoinClan(clanData.clanId)
+			if not success and msg then
+				Notify:Warning("No disponible", msg, 4)
+			end
 		end))
 	end
 
@@ -203,7 +223,13 @@ function ClanNetworking.loadClansFromServer(clansScroll, State, CONFIG, filtro, 
 	local filtroLower = filtro:lower()
 
 	ClanHelpers.safeLoading(clansScroll, function()
-		return ClanClient:GetClansList(), ClanClient:GetUserPendingRequests()
+		-- Peticiones en paralelo para reducir tiempo de espera
+		local clans, pending
+		local done = 0
+		task.spawn(function() clans = ClanClient:GetClansList() done += 1 end)
+		task.spawn(function() pending = ClanClient:GetUserPendingRequests() done += 1 end)
+		while done < 2 do task.wait() end
+		return clans, pending
 	end, function(clans, pendingList)
 		-- ✅ Protección: Limpiar State.isUpdating SIEMPRE
 		pcall(function()

@@ -30,7 +30,16 @@ ClanViews.Navigation = {
 
 function ClanViews.Navigation:navigateTo(viewName, State)
 	if State.currentView == viewName then return end
-	if not State.views[viewName] then return end
+
+	-- Lazy: crear vista si aún no existe pero tiene factory
+	if not State.views[viewName] then
+		if State.viewFactories and State.viewFactories[viewName] then
+			State.views[viewName] = State.viewFactories[viewName]()
+			State.viewFactories[viewName] = nil
+		else
+			return
+		end
+	end
 
 	local fromView = State.views[State.currentView]
 	local toView = State.views[viewName]
