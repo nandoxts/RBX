@@ -110,18 +110,40 @@ function NavTabs.new(config)
 		tab.LayoutOrder = i
 		tab.Parent = tabContainer
 
+		local isDisabled = category.disabled == true
+
 		-- Label
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
-		label.Size = UDim2.new(1, 0, 1, 0)
+		label.Size = UDim2.new(1, 0, 1, -6)
 		label.BackgroundTransparency = 1
 		label.Text = string.upper(category.label)
-		label.TextColor3 = isActive and category.color or colors.textMuted
+		label.TextColor3 = isDisabled and Color3.fromRGB(55, 55, 75) or (isActive and category.color or colors.textMuted)
 		label.TextSize = 13
 		label.Font = isActive and Enum.Font.GothamBlack or Enum.Font.GothamBold
 		label.TextXAlignment = Enum.TextXAlignment.Center
 		label.ZIndex = parent.ZIndex + 3
 		label.Parent = tab
+
+		-- Badge "PRONTO" para tabs deshabilitados
+		if isDisabled then
+			local badge = Instance.new("TextLabel")
+			badge.Name = "DisabledBadge"
+			badge.Size = UDim2.new(0, 44, 0, 13)
+			badge.Position = UDim2.new(0.5, -22, 1, -13)
+			badge.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+			badge.BackgroundTransparency = 0
+			badge.BorderSizePixel = 0
+			badge.Text = "PRONTO"
+			badge.TextColor3 = Color3.fromRGB(100, 100, 130)
+			badge.TextSize = 8
+			badge.Font = Enum.Font.GothamBold
+			badge.ZIndex = parent.ZIndex + 4
+			badge.Parent = tab
+			local bc = Instance.new("UICorner")
+			bc.CornerRadius = UDim.new(0, 4)
+			bc.Parent = badge
+		end
 
 		-- Guardar refs
 		self._refs[category.id] = {
@@ -129,6 +151,7 @@ function NavTabs.new(config)
 			label = label,
 			category = category,
 			index = i,
+			disabled = isDisabled,
 		}
 
 		-- Posicionar indicador inicial
@@ -143,16 +166,17 @@ function NavTabs.new(config)
 			end)
 		end
 
-		-- Click
+		-- Click (bloqueado si disabled)
 		tab.MouseButton1Click:Connect(function()
+			if isDisabled then return end
 			self:selectTab(category.id)
 			if onSelect then
 				onSelect(category.id)
 			end
 		end)
 
-		-- Hover (desktop)
-		if not isMobile then
+		-- Hover (desktop, deshabilitado no hace nada)
+		if not isMobile and not isDisabled then
 			tab.MouseEnter:Connect(function()
 				if category.id ~= self._currentId then
 					tween(label, TWEEN_FADE, { TextColor3 = colors.textSecondary })
@@ -172,6 +196,8 @@ function NavTabs.new(config)
 
 	function self:selectTab(catId)
 		if catId == self._currentId then return end
+		local ref = self._refs[catId]
+		if ref and ref.disabled then return end
 		self._currentId = catId
 
 		local activeRef = self._refs[catId]

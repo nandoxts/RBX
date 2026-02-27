@@ -134,104 +134,106 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(who, passId, 
 end)
 
 -- ════════════════════════════════════════════════════════════════
--- PRODUCTOS
+-- CONFIGURACION DE CATEGORIAS (todo en un solo lugar)
 -- ════════════════════════════════════════════════════════════════
-local GAMEPASSES_FEATURED = {
-	name = "COMANDOS",
-	price = 1500,
-	gamepassId = Configuration.COMMANDS,
-	icon = "128637341143304",
-	tag = "MAS POPULAR",
-	fondo = "79346090571461",
-	description = "Acceso a todos los comandos premium del servidor",
-	commands = {
-		";fire [color]", ";hl [color]", ";trail [color]", ";smk [color]", ";rmv",
-		";particula [id]", ";size", ";prtcl [color]"
-	}
-}
-
-local GAMEPASSES = {
-	{name = "VIP",        price = 200,  gamepassId = Configuration.VIP,        icon = "76721656269888",  cmd = ""},
-	{name = "COLORES",    price = 50,   gamepassId = Configuration.COLORS,     icon = "91877799240345",  cmd = ";cl [color]"},
-	{name = "POLICIA",    price = 135,  gamepassId = Configuration.TOMBO,      icon = "139661313218787", cmd = ";tombo"},
-	{name = "LADRON",     price = 135,  gamepassId = Configuration.CHORO,      icon = "84699864716808",  cmd = ";choro"},
-	{name = "SEGURIDAD",  price = 135,  gamepassId = Configuration.SERE,       icon = "85734290151599",  cmd = ";sere"},
-	{name = "ARMY BOOMS", price = 80,   gamepassId = Configuration.ARMYBOOMS,  icon = "134501492548324", cmd = ""},
-	{name = "LIGHTSTICK", price = 80,   gamepassId = Configuration.LIGHTSTICK, icon = "86122436659328",  cmd = ""},
-}
-
-local AURAS_FEATURED = {
-	name = "AURA DEMONIO",
-	price = 1200,
-	gamepassId = 999999001,
-	icon = "128637341143304",
-	tag = "EPICA",
-	fondo = "79346090571461",
-	description = "Aura roja oscura con efectos demoniacos",
-	commands = {
-		"Efectos de fuego", "Trail rojo", "Particulas oscuras", "Sonidos especiales"
-	}
-}
-
-local AURAS = {
-	{name = "AURA FUEGO",     price = 600,  gamepassId = 999999002, icon = "128637341143304", cmd = ""},
-	{name = "AURA HIELO",     price = 600,  gamepassId = 999999003, icon = "128637341143304", cmd = ""},
-	{name = "AURA RAYO",      price = 600,  gamepassId = 999999004, icon = "128637341143304", cmd = ""},
-	{name = "AURA FANTASMA",  price = 800,  gamepassId = 999999005, icon = "128637341143304", cmd = ""},
-	{name = "AURA CELESTIAL", price = 1000, gamepassId = 999999006, icon = "128637341143304", cmd = ""},
-	{name = "AURA SOMBRA",    price = 700,  gamepassId = 999999007, icon = "128637341143304", cmd = ""},
-}
-
-local ITEMS_FEATURED = {
-	name = "CASCO LEGENDARIO",
-	price = 5000,
-	pointsId = "helmet_legendary",
-	icon = "128637341143304",
-	tag = "EXCLUSIVO",
-	fondo = "79346090571461",
-	description = "Casco de aspecto legendario con aura especial",
-	commands = {
-		"+500 HP", "Defensa mejorada", "Efecto visual epico", "Sonido especial"
-	}
-}
-
-local ITEMS = {
-	{name = "GAFAS DE SOL",     price = 2000, pointsId = "glasses_001",   icon = "128637341143304", cmd = ""},
-	{name = "BUFANDA PREMIUM",  price = 2500, pointsId = "scarf_001",     icon = "128637341143304", cmd = ""},
-	{name = "ABRIGO OSCURO",    price = 3500, pointsId = "coat_001",      icon = "128637341143304", cmd = ""},
-	{name = "BOTAS DE COMBATE", price = 2800, pointsId = "boots_001",     icon = "128637341143304", cmd = ""},
-	{name = "BRAZALETES ORO",   price = 3200, pointsId = "bracelets_001", icon = "128637341143304", cmd = ""},
-	{name = "CORONA REAL",      price = 4500, pointsId = "crown_001",     icon = "128637341143304", cmd = ""},
-}
-
 local SHOP_CATEGORIES = {
+	-- ─── PASES ───────────────────────────────────────────────────
 	{
-		id = "gamepasses",
-		label = "Pases",
-		color = C.accentPases,
+		id       = "gamepasses",
+		label    = "Pases",
+		color    = C.accentPases,
 		colorSoft = C.softPases,
-		featured = GAMEPASSES_FEATURED,
-		products = GAMEPASSES,
 		currency = "robux",
+		disabled = false,
+
+		featured = {
+			name        = "COMANDOS",
+			price       = 1500,
+			gamepassId  = Configuration.COMMANDS,
+			icon        = "128637341143304",
+			tag         = "MAS POPULAR",
+			fondo       = "122601403333222",
+			description = "Acceso a todos los comandos premium del servidor",
+			commands    = {
+				";fire [color]", ";hl [color]", ";trail [color]", ";smk [color]", ";rmv",
+				";particula [id]", ";size", ";prtcl [color]"
+			},
+		},
+
+		products = {
+			{name = "VIP",        price = 200,  gamepassId = Configuration.VIP,        icon = "76721656269888",  fondo = "76721656269888",  cmd = ""},
+			{name = "COLORES",    price = 50,   gamepassId = Configuration.COLORS,     icon = "91877799240345",  fondo = "91877799240345",  cmd = ";cl [color]"},
+			{name = "POLICIA",    price = 135,  gamepassId = Configuration.TOMBO,      icon = "139661313218787", fondo = "139661313218787", cmd = ";tombo"},
+			{name = "LADRON",     price = 135,  gamepassId = Configuration.CHORO,      icon = "84699864716808",  fondo = "84699864716808",  cmd = ";choro"},
+			{name = "SEGURIDAD",  price = 135,  gamepassId = Configuration.SERE,       icon = "85734290151599",  fondo = "85734290151599",  cmd = ";sere"},
+			{name = "ARMY BOOMS", price = 80,   gamepassId = Configuration.ARMYBOOMS,  icon = "134501492548324", fondo = "134501492548324", cmd = ""},
+			{name = "LIGHTSTICK", price = 80,   gamepassId = Configuration.LIGHTSTICK, icon = "86122436659328",  fondo = "86122436659328",  cmd = ""},
+		},
 	},
+
+	-- ─── AURAS ───────────────────────────────────────────────────
 	{
-		id = "auras",
-		label = "Auras",
-		color = C.accentAuras,
+		id       = "auras",
+		label    = "Auras",
+		color    = C.accentAuras,
 		colorSoft = C.softAuras,
-		featured = AURAS_FEATURED,
-		products = AURAS,
 		currency = "robux",
+		disabled = false,
+
+		featured = {
+			name        = "DRAGON",
+			price       = 1000,
+			gamepassId  = Configuration.AURA_DRAGON,
+			icon        = "129517460766852",
+			tag         = "EPICA",
+			fondo       = "79346090571461",
+			description = "El aura mas salvaje — rugido de la selva con efectos de dragon",
+			commands    = {
+				"Trail de jungla", "Particulas dragon", "Efecto rugido", "Aura de fuego verde"
+			},
+		},
+
+		products = {
+			{name = "ATOMIC",   price = 1000, gamepassId = Configuration.AURA_ATOMIC,   icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+			{name = "BLAZING",  price = 1000, gamepassId = Configuration.AURA_BLAZING,  icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+			{name = "NANO",     price = 1000, gamepassId = Configuration.AURA_NANO,     icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+			{name = "RED HEART",price = 1000, gamepassId = Configuration.AURA_REDHEART, icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+			{name = "SNOW",     price = 1000, gamepassId = Configuration.AURA_SNOW,     icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+			{name = "DRAGON",   price = 1000, gamepassId = Configuration.AURA_DRAGON,   icon = "129517460766852", fondo = "129517460766852", cmd = ""},
+		},
 	},
+
+	-- ─── ITEMS (comentado — no mostrar hasta implementar) ─────────
+	--[[
 	{
-		id = "items",
-		label = "Items",
-		color = C.accentItems,
+		id       = "items",
+		label    = "Items",
+		color    = C.accentItems,
 		colorSoft = C.softItems,
-		featured = ITEMS_FEATURED,
-		products = ITEMS,
 		currency = "points",
+		disabled = true,
+
+		featured = {
+			name        = "CASCO LEGENDARIO",
+			price       = 5000,
+			pointsId    = "helmet_legendary",
+			icon        = "128637341143304",
+			tag         = "EXCLUSIVO",
+			fondo       = "79346090571461",
+			description = "Casco de aspecto legendario con aura especial",
+			commands    = { "+500 HP", "Defensa mejorada", "Efecto visual epico", "Sonido especial" },
+		},
+
+		products = {
+			{name = "GAFAS DE SOL",     price = 2000, pointsId = "glasses_001",   icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+			{name = "BUFANDA PREMIUM",  price = 2500, pointsId = "scarf_001",     icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+			{name = "ABRIGO OSCURO",    price = 3500, pointsId = "coat_001",      icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+			{name = "BOTAS DE COMBATE", price = 2800, pointsId = "boots_001",     icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+			{name = "BRAZALETES ORO",   price = 3200, pointsId = "bracelets_001", icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+			{name = "CORONA REAL",      price = 4500, pointsId = "crown_001",     icon = "128637341143304", fondo = "128637341143304", cmd = ""},
+		},
 	},
+	]]
 }
 
 local currentCatId = "gamepasses"
@@ -404,11 +406,13 @@ NavTabs.new({
 })
 
 -- ════════════════════════════════════════════════════════════════
--- HELPERS: Currency formatter (sin emojis)
+-- HELPERS: Currency formatter
 -- ════════════════════════════════════════════════════════════════
+local ROBUX_ICON = utf8.char(0xE002)
+
 local function priceStr(amount, currency)
 	if currency == "robux" then
-		return "R$ " .. tostring(amount)
+		return ROBUX_ICON .. " " .. tostring(amount)
 	else
 		return tostring(amount) .. " PTS"
 	end
@@ -483,14 +487,26 @@ local function createPurchaseHandler(btnFrame, btnLabel, parentCard, product, cu
 		end)
 	end
 
-	-- Verificar si ya lo tiene
-	if currency == "robux" and ownsPass(product.gamepassId) then
-		markOwned()
-	end
-
-	-- Registrar callback de compra
+	-- Verificar ownership (con watcher por si el cache aun no llego)
 	if currency == "robux" and product.gamepassId then
-		onPurchase(product.gamepassId, markOwned)
+		local gid = product.gamepassId
+		if gpCache[gid] == true then
+			-- Ya estaba en cache: marcar de inmediato
+			markOwned()
+		elseif gpCache[gid] == nil then
+			-- Cache aun pendiente: esperar resultado y marcar cuando llegue
+			task.spawn(function()
+				local deadline = tick() + 12
+				while gpCache[gid] == nil and tick() < deadline do
+					task.wait(0.15)
+				end
+				if gpCache[gid] == true then
+					markOwned()
+				end
+			end)
+		end
+		-- Registrar callback para compras nuevas
+		onPurchase(gid, markOwned)
 	end
 
 	return function()
@@ -586,238 +602,245 @@ local function refreshContent(animate)
 	end
 	if not cat then cat = SHOP_CATEGORIES[1] end
 
+	-- Limpiar callbacks anteriores de esta categoria para evitar acumulacion
+	if cat and cat.products then
+		for _, p in ipairs(cat.products) do
+			if p.gamepassId then purchaseCbs[p.gamepassId] = nil end
+		end
+		if cat.featured and cat.featured.gamepassId then
+			purchaseCbs[cat.featured.gamepassId] = nil
+		end
+	end
+
 	local featured = cat.featured
 	local products = cat.products
 	local currency = cat.currency
 	local accent = cat.color
 	local accentSoft = cat.colorSoft
 
-
+	local heroH = 0  -- Por defecto sin hero card
 
 	-- ═══════════════════════════════
-	-- HERO CARD
+	-- HERO CARD (solo para Pases)
 	-- ═══════════════════════════════
-	local heroH = isMobile and 230 or 220
+	if targetCatId == "gamepasses" then
+		heroH = isMobile and 230 or 220
 
-	local hero = UI.frame({
-		name = "HeroCard",
-		size = UDim2.new(1, 0, 0, heroH),
-		bg = C.surface,
-		z = 102, parent = scroll, corner = 14,
-	})
+		local hero = UI.frame({
+			name = "HeroCard",
+			size = UDim2.new(1, 0, 0, heroH),
+			bg = C.surface,
+			z = 102, parent = scroll, corner = 14,
+		})
 
-	-- Stroke accent
-	local heroStroke = Instance.new("UIStroke")
-	heroStroke.Color = accent
-	heroStroke.Thickness = 1.5
-	heroStroke.Transparency = 0.4
-	heroStroke.Parent = hero
+		-- Stroke accent
+		local heroStroke = Instance.new("UIStroke")
+		heroStroke.Color = accent
+		heroStroke.Thickness = 1.5
+		heroStroke.Transparency = 0.4
+		heroStroke.Parent = hero
 
-	-- Fondo: imagen con overlay pesado
-	local heroBgImg = Instance.new("ImageLabel")
-	heroBgImg.Name = "BgImg"
-	heroBgImg.Size = UDim2.new(1, 0, 1, 0)
-	heroBgImg.BackgroundTransparency = 1
-	heroBgImg.Image = "rbxassetid://" .. featured.fondo
-	heroBgImg.ScaleType = Enum.ScaleType.Crop
-	heroBgImg.ImageTransparency = 0.1
-	heroBgImg.ZIndex = 102
-	heroBgImg.Active = false
-	heroBgImg.Parent = hero
-	Instance.new("UICorner", heroBgImg).CornerRadius = UDim.new(0, 14)
+		-- Fondo: imagen con overlay pesado
+		local heroBgImg = Instance.new("ImageLabel")
+		heroBgImg.Name = "BgImg"
+		heroBgImg.Size = UDim2.new(1, 0, 1, 0)
+		heroBgImg.BackgroundTransparency = 1
+		heroBgImg.Image = "rbxassetid://" .. featured.fondo
+		heroBgImg.ScaleType = Enum.ScaleType.Crop
+		heroBgImg.ImageTransparency = 0.1
+		heroBgImg.ZIndex = 102
+		heroBgImg.Active = false
+		heroBgImg.Parent = hero
+		Instance.new("UICorner", heroBgImg).CornerRadius = UDim.new(0, 14)
 
-	-- Overlay oscuro con gradiente vertical
-	local heroOverlay = UI.frame({
-		name = "Overlay",
-		size = UDim2.new(1, 0, 1, 0),
-		bg = C.bg, z = 103, parent = hero, corner = 14,
-	})
-	heroOverlay.BackgroundTransparency = 0.15
-	heroOverlay.Active = false
+		-- Overlay oscuro con gradiente vertical
+		local heroOverlay = UI.frame({
+			name = "Overlay",
+			size = UDim2.new(1, 0, 1, 0),
+			bg = C.bg, z = 103, parent = hero, corner = 14,
+		})
+		heroOverlay.BackgroundTransparency = 0.15
+		heroOverlay.Active = false
 
-	local oGrad = Instance.new("UIGradient")
-	oGrad.Transparency = NumberSequence.new{
-		NumberSequenceKeypoint.new(0, 0.6),
-		NumberSequenceKeypoint.new(0.4, 0.3),
-		NumberSequenceKeypoint.new(1, 0),
-	}
-	oGrad.Rotation = 90
-	oGrad.Parent = heroOverlay
+		local oGrad = Instance.new("UIGradient")
+		oGrad.Transparency = NumberSequence.new{
+			NumberSequenceKeypoint.new(0, 0.6),
+			NumberSequenceKeypoint.new(0.4, 0.3),
+			NumberSequenceKeypoint.new(1, 0),
+		}
+		oGrad.Rotation = 90
+		oGrad.Parent = heroOverlay
 
-	-- Tag (esquina superior derecha)
-	local tagW = #featured.tag * 7.5 + 24
-	local tag = UI.frame({
-		name = "Tag",
-		size = UDim2.new(0, tagW, 0, 22),
-		pos = UDim2.new(1, -tagW - 12, 0, 12),
-		bg = accent, z = 110,
-		parent = hero, corner = 4,
-	})
+		-- Tag (esquina superior derecha)
+		local tagW = #featured.tag * 7.5 + 24
+		local tag = UI.frame({
+			name = "Tag",
+			size = UDim2.new(0, tagW, 0, 22),
+			pos = UDim2.new(1, -tagW - 12, 0, 12),
+			bg = accent, z = 110,
+			parent = hero, corner = 4,
+		})
 
-	UI.label({
-		text = featured.tag,
-		size = UDim2.new(1, 0, 1, 0),
-		color = C.textDark,
-		font = Enum.Font.GothamBlack, textSize = 9,
-		alignX = Enum.TextXAlignment.Center,
-		z = 111, parent = tag,
-	})
+		UI.label({
+			text = featured.tag,
+			size = UDim2.new(1, 0, 1, 0),
+			color = C.textDark,
+			font = Enum.Font.GothamBlack, textSize = 9,
+			alignX = Enum.TextXAlignment.Center,
+			z = 111, parent = tag,
+		})
 
-	-- Icono (circular, grande)
-	local icoSize = isMobile and 64 or 72
-	local heroIco = UI.frame({
-		name = "Icon",
-		size = UDim2.new(0, icoSize, 0, icoSize),
-		pos = UDim2.new(0, 18, 0, 24),
-		bg = Color3.fromRGB(15, 15, 24),
-		z = 108, parent = hero, corner = icoSize / 2,
-	})
+		-- Icono (circular, grande)
+		local icoSize = isMobile and 64 or 72
+		local heroIco = UI.frame({
+			name = "Icon",
+			size = UDim2.new(0, icoSize, 0, icoSize),
+			pos = UDim2.new(0, 18, 0, 24),
+			bg = Color3.fromRGB(15, 15, 24),
+			z = 108, parent = hero, corner = icoSize / 2,
+		})
 
-	local icoStroke = Instance.new("UIStroke")
-	icoStroke.Color = accent
-	icoStroke.Thickness = 2
-	icoStroke.Transparency = 0.3
-	icoStroke.Parent = heroIco
+		local icoStroke = Instance.new("UIStroke")
+		icoStroke.Color = accent
+		icoStroke.Thickness = 2
+		icoStroke.Transparency = 0.3
+		icoStroke.Parent = heroIco
 
-	local heroIcoImg = Instance.new("ImageLabel")
-	heroIcoImg.Size = UDim2.new(1, 0, 1, 0)
-	heroIcoImg.BackgroundTransparency = 1
-	heroIcoImg.Image = "rbxassetid://" .. featured.icon
-	heroIcoImg.ScaleType = Enum.ScaleType.Crop
-	heroIcoImg.ZIndex = 109
-	heroIcoImg.Parent = heroIco
-	Instance.new("UICorner", heroIcoImg).CornerRadius = UDim.new(1, 0)
+		local heroIcoImg = Instance.new("ImageLabel")
+		heroIcoImg.Size = UDim2.new(1, 0, 1, 0)
+		heroIcoImg.BackgroundTransparency = 1
+		heroIcoImg.Image = "rbxassetid://" .. featured.icon
+		heroIcoImg.ScaleType = Enum.ScaleType.Crop
+		heroIcoImg.ZIndex = 109
+		heroIcoImg.Parent = heroIco
+		Instance.new("UICorner", heroIcoImg).CornerRadius = UDim.new(1, 0)
 
-	-- Textos (a la derecha del icono)
-	local infoX = icoSize + 32
+		-- Textos (a la derecha del icono)
+		local infoX = icoSize + 32
 
-	UI.label({
-		name = "Name",
-		text = featured.name,
-		size = UDim2.new(1, -infoX - 14, 0, 24),
-		pos = UDim2.new(0, infoX, 0, 28),
-		color = C.text,
-		font = Enum.Font.GothamBlack, textSize = 18,
-		alignX = Enum.TextXAlignment.Left,
-		z = 108, parent = hero,
-	})
+		UI.label({
+			name = "Name",
+			text = featured.name,
+			size = UDim2.new(1, -infoX - 14, 0, 24),
+			pos = UDim2.new(0, infoX, 0, 28),
+			color = C.text,
+			font = Enum.Font.GothamBlack, textSize = 18,
+			alignX = Enum.TextXAlignment.Left,
+			z = 108, parent = hero,
+		})
 
-	UI.label({
-		name = "Desc",
-		text = featured.description,
-		size = UDim2.new(1, -infoX - 14, 0, 32),
-		pos = UDim2.new(0, infoX, 0, 54),
-		color = C.textSub,
-		font = Enum.Font.GothamMedium, textSize = 11,
-		alignX = Enum.TextXAlignment.Left,
-		z = 108, parent = hero,
-		textWrap = true,
-	})
+		UI.label({
+			name = "Desc",
+			text = featured.description,
+			size = UDim2.new(1, -infoX - 14, 0, 32),
+			pos = UDim2.new(0, infoX, 0, 54),
+			color = C.textSub,
+			font = Enum.Font.GothamMedium, textSize = 11,
+			alignX = Enum.TextXAlignment.Left,
+			z = 108, parent = hero,
+			textWrap = true,
+		})
 
-	-- Precio grande
-	UI.label({
-		name = "Price",
-		text = priceStr(featured.price, currency),
-		size = UDim2.new(0, 120, 0, 20),
-		pos = UDim2.new(0, infoX, 0, 90),
-		color = accent,
-		font = Enum.Font.GothamBlack, textSize = 16,
-		alignX = Enum.TextXAlignment.Left,
-		z = 108, parent = hero,
-	})
+		-- Precio grande
+		UI.label({
+			name = "Price",
+			text = priceStr(featured.price, currency),
+			size = UDim2.new(0, 120, 0, 20),
+			pos = UDim2.new(0, infoX, 0, 90),
+			color = accent,
+			font = Enum.Font.GothamBlack, textSize = 16,
+			alignX = Enum.TextXAlignment.Left,
+			z = 108, parent = hero,
+		})
 
-	-- Chips de comandos (scroll horizontal)
-	if featured.commands and #featured.commands > 0 then
-		local chipScroll = Instance.new("ScrollingFrame")
-		chipScroll.Name = "ChipScroll"
-		chipScroll.Size = UDim2.new(1, -infoX - 10, 0, 28)
-		chipScroll.Position = UDim2.new(0, infoX, 0, 114)
-		chipScroll.BackgroundTransparency = 1
-		chipScroll.BorderSizePixel = 0
-		chipScroll.ScrollBarThickness = 0
-		chipScroll.ScrollingDirection = Enum.ScrollingDirection.X
-		chipScroll.ElasticBehavior = Enum.ElasticBehavior.Always
-		chipScroll.ZIndex = 112
-		chipScroll.Active = true
-		chipScroll.Parent = hero
+		-- Chips de comandos (scroll horizontal)
+		if featured.commands and #featured.commands > 0 then
+			local chipScroll = Instance.new("ScrollingFrame")
+			chipScroll.Name = "ChipScroll"
+			chipScroll.Size = UDim2.new(1, -infoX - 10, 0, 28)
+			chipScroll.Position = UDim2.new(0, infoX, 0, 114)
+			chipScroll.BackgroundTransparency = 1
+			chipScroll.BorderSizePixel = 0
+			chipScroll.ScrollBarThickness = 0
+			chipScroll.ScrollingDirection = Enum.ScrollingDirection.X
+			chipScroll.ElasticBehavior = Enum.ElasticBehavior.Always
+			chipScroll.ZIndex = 112
+			chipScroll.Active = true
+			chipScroll.Parent = hero
 
-		local chipLayout = Instance.new("UIListLayout")
-		chipLayout.FillDirection = Enum.FillDirection.Horizontal
-		chipLayout.Padding = UDim.new(0, 6)
-		chipLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		chipLayout.Parent = chipScroll
+			local chipLayout = Instance.new("UIListLayout")
+			chipLayout.FillDirection = Enum.FillDirection.Horizontal
+			chipLayout.Padding = UDim.new(0, 6)
+			chipLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			chipLayout.Parent = chipScroll
 
-		for ci, cmd in ipairs(featured.commands) do
-			local chip = UI.frame({
-				name = "Chip" .. ci,
-				size = UDim2.new(0, #cmd * 7 + 18, 0, 26),
-				bg = accentSoft, z = 113,
-				parent = chipScroll, corner = 6,
-			})
+			for ci, cmd in ipairs(featured.commands) do
+				local chip = UI.frame({
+					name = "Chip" .. ci,
+					size = UDim2.new(0, #cmd * 7 + 16, 0, 24),
+					bg = Color3.fromRGB(0, 0, 0), z = 113,
+					parent = chipScroll, corner = 5,
+				})
+				chip.BackgroundTransparency = 0.4
 
-			local chipStroke = Instance.new("UIStroke")
-			chipStroke.Color = accent
-			chipStroke.Thickness = 1
-			chipStroke.Transparency = 0.6
-			chipStroke.Parent = chip
+				UI.label({
+					text = cmd,
+					size = UDim2.new(1, 0, 1, 0),
+					color = Color3.fromRGB(255, 255, 255),
+					font = Enum.Font.GothamBold, textSize = 11,
+					alignX = Enum.TextXAlignment.Center,
+					z = 114, parent = chip,
+				})
+			end
 
-			UI.label({
-				text = cmd,
-				size = UDim2.new(1, 0, 1, 0),
-				color = accent,
-				font = Enum.Font.GothamBold, textSize = 11,
-				alignX = Enum.TextXAlignment.Center,
-				z = 114, parent = chip,
-			})
+			task.delay(0.1, function()
+				if chipScroll and chipScroll.Parent then
+					chipScroll.CanvasSize = UDim2.new(0, chipLayout.AbsoluteContentSize.X + 10, 0, 0)
+				end
+			end)
 		end
 
-		task.delay(0.1, function()
-			if chipScroll and chipScroll.Parent then
-				chipScroll.CanvasSize = UDim2.new(0, chipLayout.AbsoluteContentSize.X + 10, 0, 0)
-			end
-		end)
-	end
+		-- Boton comprar hero
+		local heroBtnW = UDim2.new(1, -infoX - 14, 0, 38)
+		local heroBtnPos = UDim2.new(0, infoX, 0, heroH - 54)
 
-	-- Boton comprar hero
-	local heroBtnW = UDim2.new(1, -infoX - 14, 0, 38)
-	local heroBtnPos = UDim2.new(0, infoX, 0, heroH - 54)
+		local heroBtn = UI.frame({
+			name = "BuyBtn",
+			size = heroBtnW,
+			pos = heroBtnPos,
+			bg = accent, z = 112,
+			parent = hero, corner = 8,
+		})
 
-	local heroBtn = UI.frame({
-		name = "BuyBtn",
-		size = heroBtnW,
-		pos = heroBtnPos,
-		bg = accent, z = 112,
-		parent = hero, corner = 8,
-	})
+		local heroBtnLabel = UI.label({
+			text = "COMPRAR",
+			size = UDim2.new(1, 0, 1, 0),
+			color = C.textDark,
+			font = Enum.Font.GothamBlack, textSize = 13,
+			alignX = Enum.TextXAlignment.Center,
+			z = 113, parent = heroBtn,
+		})
 
-	local heroBtnLabel = UI.label({
-		text = "COMPRAR",
-		size = UDim2.new(1, 0, 1, 0),
-		color = C.textDark,
-		font = Enum.Font.GothamBlack, textSize = 13,
-		alignX = Enum.TextXAlignment.Center,
-		z = 113, parent = heroBtn,
-	})
+		local heroBtnClick = Instance.new("TextButton")
+		heroBtnClick.Size = UDim2.new(1, 0, 1, 0)
+		heroBtnClick.BackgroundTransparency = 1
+		heroBtnClick.Text = ""
+		heroBtnClick.ZIndex = 114
+		heroBtnClick.Parent = heroBtn
 
-	local heroBtnClick = Instance.new("TextButton")
-	heroBtnClick.Size = UDim2.new(1, 0, 1, 0)
-	heroBtnClick.BackgroundTransparency = 1
-	heroBtnClick.Text = ""
-	heroBtnClick.ZIndex = 114
-	heroBtnClick.Parent = heroBtn
+		local handleHeroBuy = createPurchaseHandler(heroBtn, heroBtnLabel, hero, featured, currency, true)
+		heroBtnClick.MouseButton1Click:Connect(handleHeroBuy)
 
-	local handleHeroBuy = createPurchaseHandler(heroBtn, heroBtnLabel, hero, featured, currency, true)
-	heroBtnClick.MouseButton1Click:Connect(handleHeroBuy)
-
-	-- Hover hero btn
-	if not isMobile then
-		heroBtnClick.MouseEnter:Connect(function()
-			tw(heroBtn, TW_FAST, { BackgroundTransparency = 0.12 })
-		end)
-		heroBtnClick.MouseLeave:Connect(function()
-			tw(heroBtn, TW_FAST, { BackgroundTransparency = 0 })
-		end)
-	end
+		-- Hover hero btn
+		if not isMobile then
+			heroBtnClick.MouseEnter:Connect(function()
+				tw(heroBtn, TW_FAST, { BackgroundTransparency = 0.12 })
+			end)
+			heroBtnClick.MouseLeave:Connect(function()
+				tw(heroBtn, TW_FAST, { BackgroundTransparency = 0 })
+			end)
+		end
+	end  -- Cierre del if targetCatId == "gamepasses"
 
 	-- ═══════════════════════════════
 	-- SECCION TITULO
@@ -871,11 +894,12 @@ local function refreshContent(animate)
 		bgImg.Name = "BgImg"
 		bgImg.Size = UDim2.new(1, 0, 1, 0)
 		bgImg.BackgroundTransparency = 1
-		bgImg.Image = "rbxassetid://" .. product.icon
+		bgImg.Image = "rbxassetid://" .. (product.fondo or product.icon)
 		bgImg.ScaleType = Enum.ScaleType.Crop
 		bgImg.ImageTransparency = 0.2
 		bgImg.ZIndex = 103
 		bgImg.Parent = card
+		Instance.new("UICorner", bgImg).CornerRadius = UDim.new(0, 12)
 
 		-- Overlay gradiente sobre la imagen
 		local cardOverlay = UI.frame({
@@ -933,38 +957,33 @@ local function refreshContent(animate)
 		})
 		nameL.AnchorPoint = Vector2.new(0.5, 0)
 
-		-- Comando chip (styled, si existe)
+		-- Comando chip (estilo gamepassold)
 		if product.cmd and product.cmd ~= "" then
-			local cmdW = math.min(#product.cmd * 7 + 18, CARD_W - 20)
+			local cmdW = math.min(#product.cmd * 6 + 18, CARD_W - 14)
 			local cmdChip = UI.frame({
 				name = "CmdChip",
-				size = UDim2.new(0, cmdW, 0, 22),
-				pos = UDim2.new(0.5, 0, 0, 104),
-				bg = accentSoft, z = 109,
-				parent = card, corner = 5,
+				size = UDim2.new(0, cmdW, 0, 24),
+				pos = UDim2.new(0.5, 0, 0.5, 0),
+				bg = Color3.fromRGB(0, 0, 0),
+				z = 115, parent = card, corner = 4,
 			})
-			cmdChip.AnchorPoint = Vector2.new(0.5, 0)
-
-			local cmdStroke = Instance.new("UIStroke")
-			cmdStroke.Color = accent
-			cmdStroke.Thickness = 1
-			cmdStroke.Transparency = 0.6
-			cmdStroke.Parent = cmdChip
+			cmdChip.AnchorPoint = Vector2.new(0.5, 0.5)
+			cmdChip.BackgroundTransparency = 0.4
 
 			UI.label({
 				text = product.cmd,
 				size = UDim2.new(1, 0, 1, 0),
-				color = accent,
-				font = Enum.Font.Code, textSize = 10,
+				color = Color3.fromRGB(255, 255, 255),
+				font = Enum.Font.GothamBold, textSize = 12,
 				alignX = Enum.TextXAlignment.Center,
-				z = 110, parent = cmdChip,
+				z = 116, parent = cmdChip,
 			})
 		end
 
 		-- Price badge (esquina superior derecha)
 		local priceBadge = UI.frame({
 			name = "PriceBadge",
-			size = UDim2.new(0, 64, 0, 24),
+			size = UDim2.new(0, 80, 0, 30),
 			pos = UDim2.new(1, -8, 0, 8),
 			bg = Color3.fromRGB(0, 0, 0),
 			z = 115, parent = card, corner = 12,
@@ -976,23 +995,10 @@ local function refreshContent(animate)
 			text = priceStr(product.price, currency),
 			size = UDim2.new(1, 0, 1, 0),
 			color = accent,
-			font = Enum.Font.GothamBlack, textSize = 10,
+			font = Enum.Font.GothamBlack, textSize = 14,
 			alignX = Enum.TextXAlignment.Center,
 			z = 116, parent = priceBadge,
 		})
-
-		-- Precio (debajo del nombre/cmd)
-		local priceL = UI.label({
-			name = "Price",
-			text = priceStr(product.price, currency),
-			size = UDim2.new(1, -16, 0, 18),
-			pos = UDim2.new(0.5, 0, 0, 126),
-			color = accent,
-			font = Enum.Font.GothamBold, textSize = 14,
-			alignX = Enum.TextXAlignment.Center,
-			z = 108, parent = card,
-		})
-		priceL.AnchorPoint = Vector2.new(0.5, 0)
 
 		-- Boton comprar
 		local buyFrame = UI.frame({

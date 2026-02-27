@@ -69,9 +69,9 @@ ClanSystemConfig.RATE_LIMITS = {
 	InvitePlayer = 1,
 	KickPlayer = 2,
 	ChangeRole = 3,
-	ChangeName = 60,
-	ChangeTag = 300,
-	ChangeDescription = 30,
+	ChangeName = 3,
+	ChangeTag = 3,
+	ChangeDescription = 3,
 	ChangeLogo = 60,
 	ChangeEmoji = 10,
 	ChangeColor = 10,
@@ -204,7 +204,7 @@ ClanSystemConfig.ROLES = {
 ClanSystemConfig.DEFAULT_CLANS = {
 	{
 		clanName = "Shadow Garden",
-		ownerId = 8659516822, -- Asignar ownerId
+		ownerId = 758075372, -- Asignar ownerId
 		clanTag = "SG",
 		clanLogo = "rbxassetid://112234631634424",
 		descripcion = "Clan Shadow Garden",
@@ -213,14 +213,13 @@ ClanSystemConfig.DEFAULT_CLANS = {
 	},
 	{
 		clanName = "TH4",
-		ownerId = 3186256515, -- Asignar ownerId
+		ownerId = 7938677596, -- Asignar ownerId
 		clanTag = "TH4",
 		clanLogo = "rbxassetid://116232400811020",
 		descripcion = "Clan TH4",
 		clanEmoji = "🔥",
 		clanColor = {255, 69, 0}, -- Color sugerido (naranja)
 	},
-
 	{
 		clanName = "King of Darkness",
 		ownerId = 2813593883, -- Asignar ownerId
@@ -231,52 +230,24 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanColor = {138, 43, 226}, -- Morado/Púrpura (BlueViolet)
 	},
 	{
-
-		clanName = "DOLLYS",
-		ownerId = 437675178,
-		clanTag = "DLS",
-		clanLogo = "rbxassetid://98191040674306",
-		descripcion = "Clan DOLLYS",
-		clanEmoji = "😹",
-		clanColor = {34, 177, 76}, -- Verde elegante
-	},
-
-	{
-		clanName = "Supreme Legacy",
-		ownerId = 9764396115,
-		clanTag = "SL",
-		clanLogo = "rbxassetid://93259920027853",
-		descripcion = "Clan Supreme Legacy",
-		clanEmoji = "🔱",
-		clanColor = {255, 215, 0}, -- Dorado
+		clanName = "Demons",
+		ownerId = 3186256515,
+		clanTag = "DM",
+		clanLogo = "rbxassetid://89593175600646",
+		descripcion = "Clan DM",
+		clanEmoji = "😈",
+		clanColor = {148, 0, 211}, -- Morado
 	},
 	{
-		clanName = "AMERI",
-		ownerId = 4074563891,
-		clanTag = "SSJ",
-		clanLogo = "rbxassetid://72377979178497",
-		descripcion = "solo para sabios",
-		clanEmoji = "🔝",
-		clanColor = {151, 0, 0}, -- rojo
+		clanName = "LARUTA",
+		ownerId = 9754426687,
+		clanTag = "LR",
+		clanLogo = "rbxassetid://80953801283194",
+		descripcion = "Hola somos el clan “LA RUTA”  una familia que nos encanta ir a salones de bailes a pasarla bien, buscamos miembros con nuestra misma vibra🫶🏼",
+		clanEmoji = "🏍️",
+		clanColor = {255, 0, 0}, -- Rojo
 	},
-	{
-		clanName = "Kings De Zona",
-		ownerId = 8771639155,
-		clanTag = "KDZ",
-		clanLogo = "rbxassetid://87112894255587",
-		descripcion = "Unión, lealtad y amistad",
-		clanEmoji = "💎",
-		clanColor = {0, 206, 209}, -- Azul celeste
-	},
-	{
-		clanName = "VIP",
-		ownerId = 8387751399, -- Admin owner
-		clanTag = "VIP",
-		clanLogo = "rbxassetid://105232541431821",
-		descripcion = "Clan VIP",
-		clanEmoji = "👑",
-		clanColor = {255, 215, 0}, -- Dorado
-	},
+	
 	{
 		clanName = "ECLIPSE ROSA",
 		ownerId = 8659516822,
@@ -287,40 +258,13 @@ ClanSystemConfig.DEFAULT_CLANS = {
 		clanColor = {255, 192, 203}, -- Rosado
 	},
 	{
-		clanName = "DM Demons",
-		ownerId = 3186256515,
-		clanTag = "DM",
-		clanLogo = "rbxassetid://89593175600646",
-		descripcion = "Clan DM Demons",
-		clanEmoji = "😈",
-		clanColor = {148, 0, 211}, -- Morado
-	},
-	{
-		clanName = "Fallen Kin",
-		ownerId = 1585157576, -- Cambiar con el ownerId correcto
-		clanTag = "FLK",
-		clanLogo = "rbxassetid://106583675209015",
-		descripcion = "Fallen no representa derrota, sino decisión, Kin representa familia",
-		clanEmoji = "🤍⚡",
-		clanColor = {219, 39, 119}, -- Magenta/Rosa
-	},
-	{
-		clanName = "_LARUTA",
-		ownerId = 9754426687,
-		clanTag = "_LARUTA",
-		clanLogo = "rbxassetid://80953801283194",
-		descripcion = "Clan _LARUTA",
-		clanEmoji = "🏍️",
-		clanColor = {255, 0, 0}, -- Rojo
-	},
-	{
-		clanName = "TheKings",
-		ownerId = 8010671192,
-		clanTag = "TK",
-		clanLogo = "rbxassetid://125911601859473",
-		descripcion = "Clan TK",
-		clanEmoji = "👑",
-		clanColor = {255, 215, 0}, -- Dorado
+		clanName = "CHEROS",
+		ownerId = 5425316102,
+		clanTag = "CHR",
+		clanLogo = "rbxassetid://105573309779066",
+		descripcion = "CLAN CHEROS💥 REPRESENTACION DE LA FIDELIDAD",
+		clanEmoji = "💥",
+		clanColor = {0, 200, 80}, -- Verde
 	},
 }
 

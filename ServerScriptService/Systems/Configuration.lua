@@ -52,19 +52,15 @@ return {
 	ALLOWED_RANKS_OWS = {255,254},
 	ALLOWED_DJ_RANKS = {255,254},
 	ALLOWED_RANKS_EVENTS = {255,254,253,252,251},
-	-- BADGESID --
-	BADGES_TopLikes = 0,   -- << PON TU ID DE BADGE AQUI
-	BADGES_TopRacha = 0,   -- << PON TU ID DE BADGE AQUI
-	BADGES_Gift     = 0,   -- << PON TU ID DE BADGE AQUI (opcional)
 	-- ANIMATION LEADERBOARD
 	DONATIONS_EMOTE = 112420346955388,
 	DONATOR_EMOTE = 134559477567523,
 	RECEIVER_EMOTE = 75773776265985,
 	LIKES_EMOTE = 136648387080677,
 	Racha_EMOTE = 119963708755205,
-	USER01_EMOTE = 137080431878792,
+	USER01_EMOTE = 73236219340808,
 	USER02_EMOTE = 88693910954718,
-	USER03_EMOTE = 129598253972213,
+	USER03_EMOTE = 88693910954718,
 	USER04_EMOTE = 71302743123422,
 	USER05_EMOTE = 71302743123422,
 	USER06_EMOTE = 73236219340808,
@@ -74,7 +70,6 @@ return {
 	CommandSize = "[,.;]size (%d*%.?%d+)$", -- ^/size (%d%.?%d*)$
 	CommandHat = "[,.;]item (.+)$",  -- ^/hat (%d+)$
 	CommandParticle = "[,.;]particula (.+)$",
-	CommandPanda = "[,.;]panda$",
 	CommandReset = "[,.;]update",
 	CommandReset2 = "[,.;]re",
 	CommandClone = "[,.;]clone%s+(%S+)",
@@ -92,6 +87,14 @@ return {
 	CommandSERE = "[,.;]sere$",
 	CommandARMYBOOMS = "[,.;]armybooms$",
 	CommandLIGHTSTICK = "[,.;]lightstick$",
+	CommandAURA = "^[,.;]aura%s+(%S+)$",
+	-- AURAS --
+	AURA_ATOMIC   = 1727320956,
+	AURA_BLAZING  = 1730895067,
+	AURA_NANO     = 1727926807,
+	AURA_REDHEART = 1727908858,
+	AURA_SNOW     = 1729006443,
+	AURA_DRAGON   = 1728328748,
 	-- MUSIC ID BANNED --
 	MusicBanned = { 0, 0,},
 	-- MUSIC COOLDOWN --
