@@ -1,6 +1,5 @@
 -- GlobalCommandHandler.lua (Optimizado)
 local Players = game:GetService("Players")
-local TextService = game:GetService("TextService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -95,23 +94,6 @@ local eventModeActive = MusicConfig.EVENT_MODE.Enabled or false
 
 -- Exportar a _G para que otros scripts puedan acceder
 _G.EventModeActive = eventModeActive
-
--- ═══════════════════════════════════════════════════════════════════
--- FILTRADO DE MENSAJES (TextService)
--- ═══════════════════════════════════════════════════════════════════
--- Función simple para filtrar mensajes
-local function filterMessageAsync(message, player)
-	local ok, result = pcall(function()
-		return TextService:FilterStringAsync(message, player.UserId)
-	end)
-	
-	if ok then
-		local filtered = result:GetNonChatStringForBroadcastAsync()
-		return filtered
-	else
-		return message -- Si falla, devolver original
-	end
-end
 
 local function fireAllClients(remote, message)
 	if remote then
@@ -252,23 +234,12 @@ local function onChatted(player, message)
 		local m2Message = message:sub(#CONFIG.m2Prefix + 2)
 
 		if m2Message and m2Message ~= "" then
-			-- Filtrar mensaje usando TextService
-			local filteredMessage = filterMessageAsync(m2Message, player)
-
-			-- Si el mensaje fue censurado, no enviarlo
-			if filteredMessage ~= m2Message then
-				pcall(function()
-					m2CooldownNotif:FireClient(player, "Tu mensaje contiene contenido prohibido")
-				end)
-				return
-			end
-
 			-- Obtener display name del jugador (player.DisplayName es la propiedad nativa)
 			local displayName = player.DisplayName or player.Name
 
-			-- Disparar anuncio a todos los clientes con mensaje filtrado
+			-- Disparar anuncio a todos los clientes con display name
 			pcall(function()
-				localAnnouncement:FireAllClients(displayName, player.Name, filteredMessage)
+				localAnnouncement:FireAllClients(displayName, player.Name, m2Message)
 			end)
 		end
 	end
