@@ -228,38 +228,68 @@ function Utils.startAutoRefresh(state, remotes)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- HIGHLIGHT (ACTUALIZADO)
+-- HIGHLIGHT CON FADE OUT SUAVE
+-- ═══════════════════════════════════════════════════════════════
+
+local fadeOutTween = nil
+local fadeInTween = nil
+
+-- ═══════════════════════════════════════════════════════════════
+-- HIGHLIGHT (SUAVE CON BORDECITO)
+-- Reemplazar las funciones attachHighlight y detachHighlight en Utils.lua
 -- ═══════════════════════════════════════════════════════════════
 
 function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	if not state.highlight or not targetPlayer or not targetPlayer.Character then return end
 
-	-- Chequear si el highlight está habilitado en Settings
 	if _G.ShowSelectedHighlight == false then
 		state.highlight.Enabled = false
 		return
 	end
 
-	-- Obtener color del atributo del jugador (como en OLD)
 	local color
 	if ColorEffects then
-		color = ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"] or ColorEffects.defaultSelectedColor or Color3.fromRGB(0, 255, 0)
+		color = ColorEffects.colors[targetPlayer:GetAttribute("SelectedColor") or "default"]
+			or ColorEffects.defaultSelectedColor
+			or Color3.fromRGB(0, 255, 0)
 	else
 		color = Color3.fromRGB(255, 255, 255)
 	end
 
-	-- Desacoplar y acoplar directamente (sin pausa innecesaria)
+	-- Configurar colores y empezar invisible
 	state.highlight.FillColor = color
 	state.highlight.OutlineColor = color
+	state.highlight.FillTransparency = 1
+	state.highlight.OutlineTransparency = 1
 	state.highlight.Adornee = targetPlayer.Character
 	state.highlight.Enabled = true
+
+	-- Fade-in suave: SOLO borde, sin relleno
+	local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	fadeInTween = TweenService:Create(state.highlight, fadeInfo, {
+		FillTransparency = 1,         -- sin relleno (invisible)
+		OutlineTransparency = 0,      -- borde visible y limpio
+	})
+	fadeInTween:Play()
 end
 
 function Utils.detachHighlight(state)
-	if state and state.highlight then
-		state.highlight.Adornee = nil
-		state.highlight.Enabled = false
-	end
+	if not state or not state.highlight then return end
+	if not state.highlight.Enabled then return end
+
+	-- Fade-out suave antes de desactivar
+	local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+	local tween = TweenService:Create(state.highlight, fadeInfo, {
+		FillTransparency = 1,
+		OutlineTransparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Once(function()
+		if state.highlight then
+			state.highlight.Adornee = nil
+			state.highlight.Enabled = false
+		end
+	end)
 end
 
 return Utils
