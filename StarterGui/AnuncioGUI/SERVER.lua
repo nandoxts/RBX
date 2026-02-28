@@ -17,6 +17,7 @@ local RemotesGlobal = ReplicatedStorage:WaitForChild("RemotesGlobal")
 local messageFolder = RemotesGlobal:WaitForChild("Message")
 local localAnnouncement = messageFolder:WaitForChild("LocalAnnouncement")
 local m2CooldownNotif = messageFolder:WaitForChild("M2CooldownNotif")
+local m2FilterNotif = messageFolder:WaitForChild("M2FilterNotif")
 
 local THEME = require(ReplicatedStorage.Config.ThemeConfig)
 local AdminConfig = require(ReplicatedStorage.Config.AdminConfig)
@@ -398,3 +399,13 @@ m2CooldownNotif.OnClientEvent:Connect(function(remainingTime)
 		2
 	)
 end)
+
+if m2FilterNotif then
+	m2FilterNotif.OnClientEvent:Connect(function()
+		NotificationSystem:Warning(
+			"Mensaje bloqueado",
+			"Tu mensaje contiene lenguaje inapropiado.",
+			3
+		)
+	end)
+end

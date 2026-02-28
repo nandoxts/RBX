@@ -1,4 +1,4 @@
--- GlobalCommandHandler.lua (Optimizado)
+-- GlobalCommandHandler.lua (Optimizado + Filtro Roblox)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
@@ -13,6 +13,7 @@ local MusicConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChil
 local SetupHd = ReplicatedStorage:WaitForChild("HDAdminSetup", 10)
 local hdMain = SetupHd and require(SetupHd):GetMain()
 local hd = hdMain and hdMain:GetModule("API")
+
 
 local CONFIG = {
 	prefix = ";tono",
@@ -50,20 +51,33 @@ local messageFolder = remotesGlobal:WaitForChild("Message")
 local localAnnouncement = messageFolder:WaitForChild("LocalAnnouncement")
 local m2CooldownNotif = messageFolder:WaitForChild("M2CooldownNotif")
 
+local m2FilterNotif = messageFolder:WaitForChild("M2FilterNotif")
+
 -- ═══════════════════════════════════════════════════════════════════
 -- FUNCIONES AUXILIARES
 -- ═══════════════════════════════════════════════════════════════════
+
+-- Filtrar mensaje con TextService de Roblox
+local function filterMessage(text, userId)
+	local ok1, result = pcall(TextService.FilterStringAsync, TextService, text, userId, Enum.TextFilterContext.PublicChat)
+	if not ok1 or not result then return text end
+
+	local ok2, filtered = pcall(function() return result:GetNonChatStringForBroadcastAsync() end)
+	if not ok2 or filtered == nil then return text end
+
+	-- Solo bloquear si Roblox reemplazó contenido con #
+	if filtered:find("#") then return nil end
+
+	return filtered
+end
+
 -- Validar permisos para ;m2 (Solo Influencer en adelante)
 local function canUseM2Command(player)
 	if not hd then return false end
 
-	-- Obtener rango actual del usuario
 	local rankId = hd:GetRank(player)
-
-	-- Obtener rankId de Influencer (es el rango mínimo para M2)
 	local influencerRankId = hd:GetRankId("Influencer")
 
-	-- Comparar si es >= Influencer
 	if rankId and influencerRankId then
 		return rankId >= influencerRankId
 	end
@@ -182,7 +196,6 @@ local function onChatted(player, message)
 		end
 	end
 
-
 	-- Procesar comando ;noche (requiere admin)
 	if lower == CONFIG.nochePrefix then
 		if AdminConfig:IsAdmin(player) then
@@ -205,6 +218,7 @@ local function onChatted(player, message)
 			fireAllClients(nocheMessageEvent, CONFIG.messages.dia)
 		end
 	end
+
 	-- Procesar comando ;unevent (requiere admin)
 	if lower == CONFIG.uneventPrefix then
 		if AdminConfig:IsAdmin(player) then
@@ -235,46 +249,17 @@ local function onChatted(player, message)
 		local m2Message = message:sub(#CONFIG.m2Prefix + 2)
 
 		if m2Message and m2Message ~= "" then
-			-- Procesar en hilo separado porque FilterStringAsync es una función async (yield)
 			task.spawn(function()
-				local textToSend = m2Message
-				local blocked = false
+				local filteredText = filterMessage(m2Message, player.UserId)
 
-				-- Intentar filtrar con la API oficial de Roblox
-				local filterOk, filterResult = pcall(function()
-					return TextService:FilterStringAsync(m2Message, player.UserId, Enum.TextFilterContext.PublicChat)
-				end)
-
-				if filterOk and filterResult then
-					local filteredOk, filteredText = pcall(function()
-						return filterResult:GetNonChatStringForBroadcastAsync()
-					end)
-
-					if filteredOk and filteredText then
-						-- Roblox reemplaza contenido inapropiado con ###
-						if filteredText:match("#+") and #filteredText:gsub("[^#]", "") >= 3 then
-							blocked = true
-						else
-							textToSend = filteredText
-						end
-					end
-					-- Si GetNonChatStringForBroadcastAsync falla => mensaje pasa (fail-open)
-				end
-				-- Si FilterStringAsync falla (error de red) => mensaje pasa (fail-open)
-
-				if blocked then
-					pcall(function()
-						toneMessageEvent:FireClient(player, "Tu mensaje fue bloqueado por contener lenguaje inapropiado.")
-					end)
+				if not filteredText then
+					pcall(function() m2FilterNotif:FireClient(player) end)
 					return
 				end
 
-				-- Obtener display name del jugador
 				local displayName = player.DisplayName or player.Name
-
-				-- Disparar anuncio a todos los clientes
 				pcall(function()
-					localAnnouncement:FireAllClients(displayName, player.Name, textToSend)
+					localAnnouncement:FireAllClients(displayName, player.Name, filteredText)
 				end)
 			end)
 		end
@@ -284,6 +269,11 @@ end
 local function connectPlayer(player)
 	player.Chatted:Connect(function(msg) onChatted(player, msg) end)
 end
+
+-- Limpiar cooldown cuando el jugador se va
+Players.PlayerRemoving:Connect(function(player)
+	m2Cooldown[player.UserId] = nil
+end)
 
 -- ═══════════════════════════════════════════════════════════════════
 -- INICIALIZACIÓN

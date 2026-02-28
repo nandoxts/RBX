@@ -10,7 +10,7 @@ local commandsFolder = remotesGlobal:WaitForChild("Commands", 10)
 local MESSAGE_COLORS = {
 	tone = { hex = "#FFC800", rgb = Color3.fromRGB(255, 200, 0) },      -- Amarillo/Dorado
 	event = { hex = "#00D4FF", rgb = Color3.fromRGB(0, 212, 255) },      -- Azul/Cian
-	noche = { hex = "#9D4EDD", rgb = Color3.fromRGB(157, 78, 221) }      -- Morado/Púrpura
+	noche = { hex = "#9D4EDD", rgb = Color3.fromRGB(157, 78, 221) },     -- Morado/Púrpura
 }
 
 local function displayMessage(message, colorInfo)
@@ -64,3 +64,4 @@ if nocheMessageEvent then
 else
 	warn("[CLIENT] NocheMessage NO encontrado!")
 end
+
