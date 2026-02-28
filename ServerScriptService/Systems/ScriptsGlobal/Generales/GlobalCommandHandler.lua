@@ -1,6 +1,7 @@
 -- GlobalCommandHandler.lua (Optimizado)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 -- ═══════════════════════════════════════════════════════════════════
 -- CONFIGURACIÓN
@@ -234,12 +235,47 @@ local function onChatted(player, message)
 		local m2Message = message:sub(#CONFIG.m2Prefix + 2)
 
 		if m2Message and m2Message ~= "" then
-			-- Obtener display name del jugador (player.DisplayName es la propiedad nativa)
-			local displayName = player.DisplayName or player.Name
+			-- Procesar en hilo separado porque FilterStringAsync es una función async (yield)
+			task.spawn(function()
+				local textToSend = m2Message
+				local blocked = false
 
-			-- Disparar anuncio a todos los clientes con display name
-			pcall(function()
-				localAnnouncement:FireAllClients(displayName, player.Name, m2Message)
+				-- Intentar filtrar con la API oficial de Roblox
+				local filterOk, filterResult = pcall(function()
+					return TextService:FilterStringAsync(m2Message, player.UserId, Enum.TextFilterContext.PublicChat)
+				end)
+
+				if filterOk and filterResult then
+					local filteredOk, filteredText = pcall(function()
+						return filterResult:GetNonChatStringForBroadcastAsync()
+					end)
+
+					if filteredOk and filteredText then
+						-- Roblox reemplaza contenido inapropiado con ###
+						if filteredText:match("#+") and #filteredText:gsub("[^#]", "") >= 3 then
+							blocked = true
+						else
+							textToSend = filteredText
+						end
+					end
+					-- Si GetNonChatStringForBroadcastAsync falla => mensaje pasa (fail-open)
+				end
+				-- Si FilterStringAsync falla (error de red) => mensaje pasa (fail-open)
+
+				if blocked then
+					pcall(function()
+						toneMessageEvent:FireClient(player, "Tu mensaje fue bloqueado por contener lenguaje inapropiado.")
+					end)
+					return
+				end
+
+				-- Obtener display name del jugador
+				local displayName = player.DisplayName or player.Name
+
+				-- Disparar anuncio a todos los clientes
+				pcall(function()
+					localAnnouncement:FireAllClients(displayName, player.Name, textToSend)
+				end)
 			end)
 		end
 	end
