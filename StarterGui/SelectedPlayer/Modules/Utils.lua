@@ -242,6 +242,8 @@ local fadeInTween = nil
 function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	if not state.highlight or not targetPlayer or not targetPlayer.Character then return end
 
+	if fadeOutTween then pcall(function() fadeOutTween:Cancel() end) fadeOutTween = nil end
+
 	if _G.ShowSelectedHighlight == false then
 		state.highlight.Enabled = false
 		return
@@ -279,16 +281,17 @@ function Utils.detachHighlight(state)
 
 	-- Fade-out suave antes de desactivar
 	local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-	local tween = TweenService:Create(state.highlight, fadeInfo, {
+	fadeOutTween = TweenService:Create(state.highlight, fadeInfo, {
 		FillTransparency = 1,
 		OutlineTransparency = 1,
 	})
-	tween:Play()
-	tween.Completed:Once(function()
+	fadeOutTween:Play()
+	fadeOutTween.Completed:Once(function()
 		if state.highlight then
 			state.highlight.Adornee = nil
 			state.highlight.Enabled = false
 		end
+		fadeOutTween = nil
 	end)
 end
 
