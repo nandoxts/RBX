@@ -341,14 +341,14 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 		local img = Utils.create("ImageLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Image = item.icon or "", ScaleType = Enum.ScaleType.Crop, ZIndex = 1, Parent = circle })
 		Utils.addCorner(img, L.cardSize / 2)
 
-		-- Precio overlay
+		-- Precio overlay (centrado)
 		local priceOverlay = Utils.createFrame({
-			Size = UDim2.new(1, 0, 0.32, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1),
-			BackgroundColor3 = Color3.fromRGB(10, 10, 15), BackgroundTransparency = 0.25, ZIndex = 2, ClipsDescendants = true, Parent = circle
+			Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = Color3.fromRGB(10, 10, 15), BackgroundTransparency = 0.35, ZIndex = 2, ClipsDescendants = true, Parent = circle
 		})
-		Utils.addCorner(priceOverlay, 6)
+		Utils.addCorner(priceOverlay, 8)
 
-		local priceText = Utils.createLabel({ Size = UDim2.new(1, 0, 1, 0), Text = utf8.char(0xE002) .. tostring(item.price or 0), TextColor3 = THEME.accent, TextSize = 10, Font = Enum.Font.GothamBold, ZIndex = 3, Parent = priceOverlay })
+		local priceText = Utils.createLabel({ Size = UDim2.new(1, 0, 1, 0), Text = utf8.char(0xE002) .. tostring(item.price or 0), TextColor3 = THEME.accent, TextSize = 12, Font = Enum.Font.GothamBold, ZIndex = 3, Parent = priceOverlay })
 
 		-- Check pass (async)
 		if item.hasPass == true then
@@ -377,11 +377,9 @@ local function renderDynamicSection(viewType, items, targetName, playerColor)
 
 		Utils.addConnection(clickBtn.MouseEnter:Connect(function()
 			safeTween(circleStroke, { Color = strokeHover, Thickness = 2.5 }, Config.ANIM_FAST)
-			safeTween(circle, { Size = UDim2.new(0, L.cardSize + 4, 0, L.cardSize + 4) }, Config.ANIM_FAST)
 		end))
 		Utils.addConnection(clickBtn.MouseLeave:Connect(function()
 			safeTween(circleStroke, { Color = THEME.stroke, Thickness = 1.5 }, Config.ANIM_FAST)
-			safeTween(circle, { Size = UDim2.new(0, L.cardSize, 0, L.cardSize) }, Config.ANIM_FAST)
 		end))
 
 		Utils.addConnection(clickBtn.MouseButton1Click:Connect(function()
