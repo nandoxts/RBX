@@ -6203,12 +6203,16 @@ PitchModule.ids = {
 	{id = "82872030472458", pitch = 0.37},
 	{id = "111004983038949", pitch = 0.37},
 	{id = "117890767522720", pitch = 0.37},
+	{id = "129228319037128", pitch = 0.37},
+	{id = "99959005223193", pitch = 0.37},
+	{id = "138321894748700", pitch = 0.37},
 	{id = "127835125044169", pitch = 0.37},
 	{id = "126760506748810", pitch = 0.37},
 	{id = "140602564713331", pitch = 0.37},
 	{id = "78145819536904", pitch = 0.37},
 	{id = "137327835496715", pitch = 0.37},
-	{id = "97759650053727", pitch = 0.37}
+	{id = "97759650053727", pitch = 0.37},
+	{id = "98323432740085", pitch = 0.37},--DEMBOW#1
 	-- El pitch no maneja volumen, en algunos tuve que quitarlo (TEN CUIDADO POR QUE EN ALGUNOS SI JALA, SOLO QUE SUENA COMO ARDILLA POR QUE EL SERVER AÚN NO SE ACTUALIZA ;) )
 }
 

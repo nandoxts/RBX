@@ -857,6 +857,26 @@ local function handleAuraCommand(player, auraName)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
+	-- ✨ SONIDO DE INICIO (diferente por aura)
+	local auraSoundIds = {
+		atomic   = "rbxassetid://96776624852409",
+		blazing  = "rbxassetid://82388464656965",
+		nano     = "rbxassetid://139565608032266",
+		redheart = "rbxassetid://82388464656965",
+		snow     = "rbxassetid://9125402528",
+		dragon   = "rbxassetid://121322612850251",
+	}
+	local auraSound = Instance.new("Sound")
+	auraSound.SoundId = auraSoundIds[key] or "rbxassetid://9122258437"
+	auraSound.Volume = 1
+	auraSound.Parent = hrp
+	task.defer(function()
+		if hrp.Parent and auraSound.Parent then
+			auraSound:Play()
+			game:GetService("Debris"):AddItem(auraSound, 5)
+		end
+	end)
+
 	-- Mapa R6 → partes R15 equivalentes
 	local R6_TO_R15 = {
 		["Head"]             = {"Head"},
@@ -875,6 +895,9 @@ local function handleAuraCommand(player, auraName)
 		Description      = true,
 		Humanoid         = true,
 	}
+
+	-- TweenService para animaciones suaves
+	local TweenService = game:GetService("TweenService")
 
 	-- Clonar efectos de cada parte del maniquí al personaje
 	local appliedCount = 0
@@ -899,8 +922,33 @@ local function handleAuraCommand(player, auraName)
 					for _, descendant in ipairs(clonedEffect:GetDescendants()) do
 						descendant:SetAttribute("PlayerAura", true)
 					end
-					clonedEffect.Parent = targetPart
-					appliedCount += 1
+
+					-- 🎨 FADE IN SUAVE según tipo de efecto
+					if clonedEffect:IsA("ParticleEmitter") then
+						clonedEffect.Enabled = true
+						clonedEffect.Rate = 0  -- Empezar sin emitir
+						clonedEffect.Parent = targetPart
+						
+						-- Fade in en 0.5 segundos
+						local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+						local tween = TweenService:Create(clonedEffect, tweenInfo, {Rate = effect.Rate or 10})
+						tween:Play()
+
+					elseif clonedEffect:IsA("PointLight") then
+						clonedEffect.Brightness = 0  -- Empezar sin brillo
+						clonedEffect.Parent = targetPart
+						
+						-- Fade in en 0.6 segundos
+						local tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+						local tween = TweenService:Create(clonedEffect, tweenInfo, {Brightness = effect.Brightness or 5})
+						tween:Play()
+
+					else
+						-- Otros efectos (Decal, etc.) aparecen directamente
+						clonedEffect.Parent = targetPart
+					end
+
+					appliedCount = appliedCount + 1
 				end
 			end
 		end
