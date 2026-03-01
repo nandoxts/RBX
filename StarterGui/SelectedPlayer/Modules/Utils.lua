@@ -267,7 +267,7 @@ function Utils.attachHighlight(targetPlayer, state, ColorEffects)
 	state.highlight.Enabled = true
 
 	-- Fade-in suave: SOLO borde, sin relleno
-	local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	local fadeInfo = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 	fadeInTween = TweenService:Create(state.highlight, fadeInfo, {
 		FillTransparency = 1,         -- sin relleno (invisible)
 		OutlineTransparency = 0,      -- borde visible y limpio
@@ -280,7 +280,7 @@ function Utils.detachHighlight(state)
 	if not state.highlight.Enabled then return end
 
 	-- Fade-out suave antes de desactivar
-	local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+	local fadeInfo = TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
 	fadeOutTween = TweenService:Create(state.highlight, fadeInfo, {
 		FillTransparency = 1,
 		OutlineTransparency = 1,
