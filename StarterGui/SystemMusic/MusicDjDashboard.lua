@@ -815,7 +815,7 @@ end)
 -- ════════════════════════════════════════════════════════════════
 local skipProductId = 3468988018
 
--- Use el Remote `PurchaseSkip` en `RemotesGlobal/MusicQueue` (no usar Panda)
+-- Use el Remote `PurchaseSkip` en `RemotesGlobal/MusicQueue` 
 local skipRemote = ReplicatedStorage:WaitForChild("RemotesGlobal")
 	:WaitForChild("MusicQueue")
 	:WaitForChild("PurchaseSkip")
