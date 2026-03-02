@@ -126,7 +126,7 @@ local function makeScrollColumn(parent, offsetY, paddingOpts, theme)
 		Parent = parent,
 	})
 
-	local scrollbar = ModernScrollbar.setup(scroll, parent, theme, {color = theme.elevated, colorHover = theme.accent, transparency = 0, transparencyHover = 0})
+	local scrollbar = ModernScrollbar.setup(scroll, parent, theme, {color = theme.accent, colorHover = theme.accent, transparency = 0, transparencyHover = 0})
 
 	if paddingOpts.padding then
 		make("UIPadding", {
@@ -421,7 +421,7 @@ do
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ClipsDescendants = true, ZIndex = 101, Parent = djColumn,
 	})
-	ModernScrollbar.setup(djsScroll, djColumn, THEME, {color = THEME.elevated, colorHover = THEME.accent, transparency = 0, transparencyHover = 0})
+	ModernScrollbar.setup(djsScroll, djColumn, THEME, {color = THEME.accent, colorHover = THEME.accent, transparency = 0, transparencyHover = 0})
 
 	local layout = make("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = djsScroll})
 	make("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), PaddingTop = UDim.new(0, 2), Parent = djsScroll})
@@ -480,7 +480,7 @@ songsScroll = make("ScrollingFrame", {
 	CanvasSize = UDim2.new(0, 0, 0, 0),
 	ClipsDescendants = true, ZIndex = 101, Parent = songsColumn,
 })
-ModernScrollbar.setup(songsScroll, songsColumn, THEME, {color = THEME.elevated, colorHover = THEME.accent, transparency = 0, transparencyHover = 0})
+ModernScrollbar.setup(songsScroll, songsColumn, THEME, {color = THEME.accent, colorHover = THEME.accent, transparency = 0, transparencyHover = 0})
 
 songsContainer = makeFrame({name = "SongsContainer", dim = UDim2.new(1, 0, 0, 0), z = 101, parent = songsScroll})
 

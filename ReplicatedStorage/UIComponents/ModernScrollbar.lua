@@ -72,6 +72,9 @@ function ModernScrollbar.setup(scrollFrame, parentFrame, THEME, options)
 	track.BorderSizePixel = 0
 	track.ZIndex = zIndex
 	track.Parent = container
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UDim.new(0, 4)
+	trackCorner.Parent = track
 
 	-- ── Thumb ──────────────────────────────────────────────────────
 	local thumb = Instance.new("Frame")
@@ -83,6 +86,9 @@ function ModernScrollbar.setup(scrollFrame, parentFrame, THEME, options)
 	thumb.BorderSizePixel = 0
 	thumb.ZIndex = zIndex + 1
 	thumb.Parent = container
+	local thumbCorner = Instance.new("UICorner")
+	thumbCorner.CornerRadius = UDim.new(0, 4)
+	thumbCorner.Parent = thumb
 
 	-- ── Update logic ───────────────────────────────────────────────
 	local function update()
