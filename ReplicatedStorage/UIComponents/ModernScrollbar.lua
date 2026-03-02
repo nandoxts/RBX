@@ -1,129 +1,145 @@
 --[[
 	MODERN SCROLLBAR - Componente reutilizable de scrollbar personalizado
 	Autor: ignxts
-	
-	Uso:
-	local ModernScrollbar = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("ModernScrollbar"))
-	
-	Forma simple:
-	ModernScrollbar.setup(scrollFrame, parentFrame, THEME)
-	
+
+	Uso básico:
+		ModernScrollbar.setup(scrollFrame, parentFrame, THEME)
+
 	Con opciones:
-	ModernScrollbar.setup(scrollFrame, parentFrame, THEME, {
-		position = "right",
-		offset = -2,
-		width = 4,
-	})
+		ModernScrollbar.setup(scrollFrame, parentFrame, THEME, {
+			position    = "right" | "left",   -- lado donde aparece (default: "right")
+			offset      = 0,                  -- px de separación extra desde el borde (default: 0)
+			width       = 4,                  -- ancho base en px (default: 4)
+			widthHover  = 6,                  -- ancho al hacer hover (default: width + 2)
+			paddingV    = 12,                 -- padding vertical en px (default: 12)
+			color       = Color3,             -- color del thumb (default: THEME.accent)
+			colorHover  = Color3,             -- color del thumb en hover (default: THEME.accent)
+			transparency     = 0.3,           -- transparencia base del thumb
+			transparencyHover = 0,            -- transparencia en hover
+			zIndex      = 115,                -- ZIndex base (default: 115)
+		})
+
+	Retorna:
+		{ container, track, thumb, update }
 ]]
 
 local TweenService = game:GetService("TweenService")
 
 local ModernScrollbar = {}
 
-function ModernScrollbar.setup(scrollFrame, parentPage, THEME, options)
-	options = options or {}
-
-	local position = options.position or "right"
-	local offset = options.offset or -2
-	local width = options.width or 4
-
-	if not scrollFrame or not parentPage or not THEME then
-		warn("[ModernScrollbar] Error: scrollFrame, parentPage y THEME son requeridos")
+function ModernScrollbar.setup(scrollFrame, parentFrame, THEME, options)
+	if not scrollFrame or not parentFrame or not THEME then
+		warn("[ModernScrollbar] scrollFrame, parentFrame y THEME son requeridos")
 		return
 	end
 
-	-- Scrollbar container
-	local scrollbarContainer = Instance.new("Frame")
-	scrollbarContainer.Name = "ScrollbarContainer"
-	scrollbarContainer.Size = UDim2.new(0, width, 1, 0)
+	options = options or {}
+
+	local position          = options.position          or "right"
+	local offset            = options.offset            or 0
+	local width             = options.width             or 4
+	local widthHover        = options.widthHover        or (width + 2)
+	local paddingV          = options.paddingV          or 12
+	local color             = options.color             or THEME.accent
+	local colorHover        = options.colorHover        or THEME.accent
+	local transparency      = options.transparency      or 0.3
+	local transparencyHover = options.transparencyHover or 0
+	local zIndex            = options.zIndex            or 115
+
+	-- ── Container ─────────────────────────────────────────────────
+	local container = Instance.new("Frame")
+	container.Name = "ScrollbarContainer"
+	container.Size = UDim2.new(0, width, 1, -paddingV * 2)
+	container.AnchorPoint = Vector2.new(0, 0)
 
 	if position == "left" then
-		scrollbarContainer.Position = UDim2.new(0, offset, 0, 0)
+		container.Position = UDim2.new(0, -width - offset, 0, paddingV)
 	else
-		scrollbarContainer.Position = UDim2.new(1, offset, 0, 0)
+		container.Position = UDim2.new(1, offset, 0, paddingV)
 	end
 
-	scrollbarContainer.BackgroundTransparency = 1
-	scrollbarContainer.ZIndex = 105
-	scrollbarContainer.Visible = false
-	scrollbarContainer.Parent = parentPage
+	container.BackgroundTransparency = 1
+	container.ZIndex = zIndex
+	container.Visible = false
+	container.Parent = parentFrame
 
-	-- Track
-	local scrollbarTrack = Instance.new("Frame")
-	scrollbarTrack.Name = "Track"
-	scrollbarTrack.Size = UDim2.new(1, 0, 1, 0)
-	scrollbarTrack.BackgroundColor3 = THEME.stroke
-	scrollbarTrack.BackgroundTransparency = THEME.heavyAlpha
-	scrollbarTrack.BorderSizePixel = 0
-	scrollbarTrack.Parent = scrollbarContainer
+	-- ── Track ──────────────────────────────────────────────────────
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.Size = UDim2.new(1, 0, 1, 0)
+	track.BackgroundColor3 = THEME.stroke
+	track.BackgroundTransparency = 0.7
+	track.BorderSizePixel = 0
+	track.ZIndex = zIndex
+	track.Parent = container
 
-	local trackCorner = Instance.new("UICorner")
-	trackCorner.CornerRadius = UDim.new(0, 2)
-	trackCorner.Parent = scrollbarTrack
+	-- ── Thumb ──────────────────────────────────────────────────────
+	local thumb = Instance.new("Frame")
+	thumb.Name = "Thumb"
+	thumb.Size = UDim2.new(1, 0, 0.3, 0)
+	thumb.Position = UDim2.new(0, 0, 0, 0)
+	thumb.BackgroundColor3 = color
+	thumb.BackgroundTransparency = transparency
+	thumb.BorderSizePixel = 0
+	thumb.ZIndex = zIndex + 1
+	thumb.Parent = container
 
-	-- Thumb
-	local scrollbarThumb = Instance.new("Frame")
-	scrollbarThumb.Name = "Thumb"
-	scrollbarThumb.Size = UDim2.new(1, 0, 0.3, 0)
-	scrollbarThumb.Position = UDim2.new(0, 0, 0, 0)
-	scrollbarThumb.BackgroundColor3 = THEME.accent
-	scrollbarThumb.BackgroundTransparency = THEME.mediumAlpha
-	scrollbarThumb.BorderSizePixel = 0
-	scrollbarThumb.ZIndex = 106
-	scrollbarThumb.Parent = scrollbarContainer
+	-- ── Update logic ───────────────────────────────────────────────
+	local function update()
+		local canvasH = scrollFrame.AbsoluteCanvasSize.Y
+		local windowH = scrollFrame.AbsoluteWindowSize.Y
 
-	local thumbCorner = Instance.new("UICorner")
-	thumbCorner.CornerRadius = UDim.new(0, 2)
-	thumbCorner.Parent = scrollbarThumb
-
-	local function updateScrollbar()
-		local canvasSize = scrollFrame.AbsoluteCanvasSize.Y
-		local windowSize = scrollFrame.AbsoluteWindowSize.Y
-
-		-- Si el canvas es 0 o no hay overflow real, ocultar
-		if canvasSize <= 0 or canvasSize <= windowSize + 1 then
-			scrollbarContainer.Visible = false
+		if canvasH <= windowH + 1 then
+			container.Visible = false
 			return
 		end
+		container.Visible = true
 
-		scrollbarContainer.Visible = true
+		local thumbRatio = math.clamp(windowH / canvasH, 0.08, 1)
+		local maxScroll  = canvasH - windowH
+		local scrollPct  = maxScroll > 0 and math.clamp(scrollFrame.CanvasPosition.Y / maxScroll, 0, 1) or 0
 
-		-- Calcular thumb proporcional
-		local thumbHeight = math.clamp(windowSize / canvasSize, 0.1, 1)
-		local maxScroll = canvasSize - windowSize
-
-		local scrollPercent = 0
-		if maxScroll > 0 then
-			scrollPercent = math.clamp(scrollFrame.CanvasPosition.Y / maxScroll, 0, 1)
-		end
-
-		local thumbY = scrollPercent * (1 - thumbHeight)
-
-		scrollbarThumb.Size = UDim2.new(1, 0, thumbHeight, 0)
-		scrollbarThumb.Position = UDim2.new(0, 0, thumbY, 0)
+		thumb.Size     = UDim2.new(1, 0, thumbRatio, 0)
+		thumb.Position = UDim2.new(0, 0, scrollPct * (1 - thumbRatio), 0)
 	end
 
-	-- Señales
-	scrollFrame:GetPropertyChangedSignal("CanvasPosition"):Connect(updateScrollbar)
-	scrollFrame:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updateScrollbar)
-	scrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updateScrollbar)
+	scrollFrame:GetPropertyChangedSignal("CanvasPosition"):Connect(update)
+	scrollFrame:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(update)
+	scrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(update)
 
-	-- Hover effects
-	scrollbarThumb.MouseEnter:Connect(function()
-		TweenService:Create(scrollbarThumb, TweenInfo.new(0.15), {BackgroundTransparency = THEME.subtleAlpha}):Play()
-	end)
+	-- ── Hover ──────────────────────────────────────────────────────
+	local function onHoverEnter()
+		TweenService:Create(container, TweenInfo.new(0.15), {
+			Size = UDim2.new(0, widthHover, 1, -paddingV * 2)
+		}):Play()
+		TweenService:Create(thumb, TweenInfo.new(0.15), {
+			BackgroundColor3 = colorHover,
+			BackgroundTransparency = transparencyHover
+		}):Play()
+	end
 
-	scrollbarThumb.MouseLeave:Connect(function()
-		TweenService:Create(scrollbarThumb, TweenInfo.new(0.15), {BackgroundTransparency = THEME.mediumAlpha}):Play()
-	end)
+	local function onHoverLeave()
+		TweenService:Create(container, TweenInfo.new(0.2), {
+			Size = UDim2.new(0, width, 1, -paddingV * 2)
+		}):Play()
+		TweenService:Create(thumb, TweenInfo.new(0.2), {
+			BackgroundColor3 = color,
+			BackgroundTransparency = transparency
+		}):Play()
+	end
 
-	updateScrollbar()
+	track.MouseEnter:Connect(onHoverEnter)
+	thumb.MouseEnter:Connect(onHoverEnter)
+	track.MouseLeave:Connect(onHoverLeave)
+	thumb.MouseLeave:Connect(onHoverLeave)
+
+	update()
 
 	return {
-		container = scrollbarContainer,
-		track = scrollbarTrack,
-		thumb = scrollbarThumb,
-		update = updateScrollbar
+		container = container,
+		track     = track,
+		thumb     = thumb,
+		update    = update,
 	}
 end
 

@@ -23,9 +23,10 @@ local THEME = {
 	accentHover = Color3.fromRGB(186, 129, 255), -- Hover más claro
 
 	-- Buttons
-	warn       = Color3.fromRGB(255, 165, 80),   -- Orange
-	warnMuted  = Color3.fromRGB(80, 40, 20),     -- Orange muted
-	btnDanger  = Color3.fromRGB(222, 93, 119),   -- Soft red
+	warn       = Color3.fromRGB(251, 140, 0),    -- Orange suave
+	warnMuted  = Color3.fromRGB(88, 56, 20),     -- Orange muted más oscuro
+	btnDanger  = Color3.fromRGB(229, 57, 53),    -- Rojo profundo
+	success    = Color3.fromRGB(76, 175, 80),    -- Verde suave (Spotify-like)
 
 	-- UI elements
 	stroke = Color3.fromRGB(40, 44, 52),
