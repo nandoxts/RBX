@@ -25,8 +25,8 @@ local modal = ModalManager.new({
 	cornerRadius = 12,
 	enableBlur = true,
 	blurSize = 14,
-    panelBackgroundImage = "rbxassetid://79346090571461",
-    panelBackgroundTransparency = 0.85
+	panelBackgroundImage = "rbxassetid://79346090571461",
+	panelBackgroundTransparency = 0.85
 })
 
 -- Obtener panel de forma correcta
@@ -52,4 +52,3 @@ end
 _G.OpenSettingsUI = openUI
 _G.CloseSettingsUI = closeUI
 
--- Ejecutable como LocalScript: no se retorna valor. Expone funciones en _G.

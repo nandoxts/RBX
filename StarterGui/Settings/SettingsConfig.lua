@@ -151,7 +151,7 @@ SettingsConfig.SETTINGS = {
 									end
 								end
 							end
-							
+
 							-- Ocultar/mostrar overhead
 							local head = player.Character:FindFirstChild("Head")
 							if head then
@@ -165,7 +165,7 @@ SettingsConfig.SETTINGS = {
 				end)
 			end
 		},
-			
+
 		{
 			id = "viewSelected",
 			label = "Resaltar seleccionado",
@@ -259,7 +259,7 @@ SettingsConfig.SETTINGS = {
 					if not _G.OriginalMaterials then
 						_G.OriginalMaterials = {}
 					end
-					
+
 					for _, part in pairs(game.Workspace:GetDescendants()) do
 						if part:IsA("BasePart") then
 							if not value then -- Desactivar: cambiar a SmoothPlastic
