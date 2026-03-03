@@ -49,7 +49,7 @@ local C = {
 	danger       = Color3.fromRGB(200, 50, 50),
 
 	sidebarBg    = THEME.card,
-	
+
 	-- Transparencias sincronizadas
 	frameAlpha   = THEME.frameAlpha,
 	lightAlpha   = THEME.lightAlpha,
@@ -351,25 +351,25 @@ local decoIcon = UI.frame({
 	name = "DecoIcon",
 	size = UDim2.new(0, decoIconSize, 0, decoIconSize),
 	pos = UDim2.new(0.5, -decoIconSize / 2, 0, 96),
-		bg = THEME.card,
-		bgT = THEME.frameAlpha,
-		z = 203, parent = sidebar, corner = decoIconSize / 2,
-	})
+	bg = THEME.card,
+	bgT = THEME.frameAlpha,
+	z = 203, parent = sidebar, corner = decoIconSize / 2,
+})
 
-	local decoIconStroke = Instance.new("UIStroke")
-	decoIconStroke.Color = THEME.accent
-	decoIconStroke.Thickness = 1.5
-	decoIconStroke.Transparency = THEME.lightAlpha
-	decoIconStroke.Parent = decoIcon
+local decoIconStroke = Instance.new("UIStroke")
+decoIconStroke.Color = THEME.accent
+decoIconStroke.Thickness = 1.5
+decoIconStroke.Transparency = THEME.lightAlpha
+decoIconStroke.Parent = decoIcon
 
-	local decoIconImg = Instance.new("ImageLabel")
-	decoIconImg.Size = UDim2.new(0.65, 0, 0.65, 0)
-	decoIconImg.Position = UDim2.new(0.175, 0, 0.175, 0)
-	decoIconImg.BackgroundTransparency = 1
-	decoIconImg.Image = "rbxassetid://76721656269888"
-	decoIconImg.ScaleType = Enum.ScaleType.Fit
-	decoIconImg.ZIndex = 204
-	decoIconImg.Parent = decoIcon
+local decoIconImg = Instance.new("ImageLabel")
+decoIconImg.Size = UDim2.new(0.65, 0, 0.65, 0)
+decoIconImg.Position = UDim2.new(0.175, 0, 0.175, 0)
+decoIconImg.BackgroundTransparency = 1
+decoIconImg.Image = "rbxassetid://76721656269888"
+decoIconImg.ScaleType = Enum.ScaleType.Fit
+decoIconImg.ZIndex = 204
+decoIconImg.Parent = decoIcon
 
 UI.label({
 	name = "DecoText",
