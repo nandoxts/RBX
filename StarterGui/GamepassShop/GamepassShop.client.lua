@@ -21,22 +21,22 @@ local Configuration = require(ReplicatedStorage:WaitForChild("RemotesGlobal"):Wa
 local CheckGamepassOwnership = ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("Gamepass Gifting"):WaitForChild("Remotes"):WaitForChild("Ownership")
 
 -- ════════════════════════════════════════════════════════════════
--- PALETA v4
+-- PALETA SINCRONIZADA CON MUSIC DASHBOARD
 -- ════════════════════════════════════════════════════════════════
-local C = setmetatable({
-	bg          = Color3.fromRGB(10, 10, 16),
-	surface     = Color3.fromRGB(18, 18, 28),
-	surfaceHov  = Color3.fromRGB(26, 26, 38),
-	surfaceAlt  = Color3.fromRGB(14, 14, 22),
-	border      = Color3.fromRGB(40, 40, 56),
-	borderLight = Color3.fromRGB(55, 55, 72),
+local C = {
+	bg          = THEME.bg,
+	surface     = THEME.card,
+	surfaceHov  = THEME.elevated,
+	surfaceAlt  = THEME.card,
+	border      = THEME.stroke,
+	borderLight = THEME.stroke,
 
-	text        = Color3.fromRGB(240, 240, 245),
-	textSub     = Color3.fromRGB(130, 130, 155),
-	textMuted   = Color3.fromRGB(80, 80, 100),
-	textDark    = Color3.fromRGB(12, 12, 18),
+	text        = THEME.text,
+	textSub     = THEME.muted,
+	textMuted   = THEME.muted,
+	textDark    = THEME.bg,
 
-	accentPases  = Color3.fromRGB(255, 150, 50),
+	accentPases  = THEME.accent,
 	accentAuras  = Color3.fromRGB(140, 80, 255),
 	accentItems  = Color3.fromRGB(255, 195, 40),
 
@@ -48,8 +48,13 @@ local C = setmetatable({
 	ownedBg      = Color3.fromRGB(12, 35, 22),
 	danger       = Color3.fromRGB(200, 50, 50),
 
-	sidebarBg    = Color3.fromRGB(14, 14, 22),
-}, { __index = THEME })
+	sidebarBg    = THEME.card,
+	
+	-- Transparencias sincronizadas
+	frameAlpha   = THEME.frameAlpha,
+	lightAlpha   = THEME.lightAlpha,
+	strokeAlpha  = 0.5,
+}
 
 -- ════════════════════════════════════════════════════════════════
 -- TWEENS
@@ -188,7 +193,8 @@ local modal = ModalManager.new({
 })
 
 local panel = modal:getPanel()
-panel.BackgroundColor3 = C.bg
+panel.BackgroundColor3 = THEME.bg
+panel.BackgroundTransparency = THEME.mediumAlpha
 panel.ClipsDescendants = true
 
 -- ════════════════════════════════════════════════════════════════
@@ -290,26 +296,26 @@ local SIDEBAR_W = isMobile and 100 or 130
 local sidebar = UI.frame({
 	name = "Sidebar",
 	size = UDim2.new(0, SIDEBAR_W, 1, 0),
-	bg = C.sidebarBg,
-	z = 200, parent = panel, clips = true, corner = 14,
+	bg = THEME.bg,
+	bgT = THEME.lightAlpha,
+	z = 200, parent = panel, clips = true,
 })
 
--- Mascara derecha
-local sidebarMaskR = Instance.new("Frame")
-sidebarMaskR.Name = "MaskRight"
-sidebarMaskR.Size = UDim2.new(0, 14, 1, 0)
-sidebarMaskR.Position = UDim2.new(1, -14, 0, 0)
-sidebarMaskR.BackgroundColor3 = C.sidebarBg
-sidebarMaskR.BorderSizePixel = 0
-sidebarMaskR.ZIndex = 200
-sidebarMaskR.Parent = sidebar
+do
+	local sidebarStroke = Instance.new("UIStroke")
+	sidebarStroke.Color = THEME.stroke
+	sidebarStroke.Thickness = 1
+	sidebarStroke.Transparency = THEME.mediumAlpha
+	sidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	sidebarStroke.Parent = sidebar
+end
 
 -- Separador vertical
 local sidebarLine = Instance.new("Frame")
-sidebarLine.Size = UDim2.new(0, 1, 1, -24)
-sidebarLine.Position = UDim2.new(1, -1, 0, 12)
-sidebarLine.BackgroundColor3 = C.border
-sidebarLine.BackgroundTransparency = 0.5
+sidebarLine.Size = UDim2.new(0, 1, 1, -20)
+sidebarLine.Position = UDim2.new(1, 0, 0, 10)
+sidebarLine.BackgroundColor3 = THEME.stroke
+sidebarLine.BackgroundTransparency = THEME.mediumAlpha
 sidebarLine.BorderSizePixel = 0
 sidebarLine.ZIndex = 201
 sidebarLine.Parent = sidebar
@@ -320,7 +326,7 @@ UI.label({
 	size = UDim2.new(1, -16, 0, 36),
 	pos = UDim2.new(0, 8, 0, 20),
 	text = "SHOP",
-	color = C.text,
+	color = THEME.text,
 	font = Enum.Font.GothamBlack,
 	textSize = 22,
 	alignX = Enum.TextXAlignment.Center,
@@ -333,8 +339,8 @@ UI.label({
 local decoLine1 = Instance.new("Frame")
 decoLine1.Size = UDim2.new(0.6, 0, 0, 1)
 decoLine1.Position = UDim2.new(0.2, 0, 0, 80)
-decoLine1.BackgroundColor3 = C.accentPases
-decoLine1.BackgroundTransparency = 0.5
+decoLine1.BackgroundColor3 = THEME.accent
+decoLine1.BackgroundTransparency = THEME.mediumAlpha
 decoLine1.BorderSizePixel = 0
 decoLine1.ZIndex = 202
 decoLine1.Parent = sidebar
@@ -345,31 +351,32 @@ local decoIcon = UI.frame({
 	name = "DecoIcon",
 	size = UDim2.new(0, decoIconSize, 0, decoIconSize),
 	pos = UDim2.new(0.5, -decoIconSize / 2, 0, 96),
-	bg = C.surface,
-	z = 203, parent = sidebar, corner = decoIconSize / 2,
-})
+		bg = THEME.card,
+		bgT = THEME.frameAlpha,
+		z = 203, parent = sidebar, corner = decoIconSize / 2,
+	})
 
-local decoIconStroke = Instance.new("UIStroke")
-decoIconStroke.Color = C.accentPases
-decoIconStroke.Thickness = 1.5
-decoIconStroke.Transparency = 0.4
-decoIconStroke.Parent = decoIcon
+	local decoIconStroke = Instance.new("UIStroke")
+	decoIconStroke.Color = THEME.accent
+	decoIconStroke.Thickness = 1.5
+	decoIconStroke.Transparency = THEME.lightAlpha
+	decoIconStroke.Parent = decoIcon
 
-local decoIconImg = Instance.new("ImageLabel")
-decoIconImg.Size = UDim2.new(0.65, 0, 0.65, 0)
-decoIconImg.Position = UDim2.new(0.175, 0, 0.175, 0)
-decoIconImg.BackgroundTransparency = 1
-decoIconImg.Image = "rbxassetid://76721656269888"
-decoIconImg.ScaleType = Enum.ScaleType.Fit
-decoIconImg.ZIndex = 204
-decoIconImg.Parent = decoIcon
+	local decoIconImg = Instance.new("ImageLabel")
+	decoIconImg.Size = UDim2.new(0.65, 0, 0.65, 0)
+	decoIconImg.Position = UDim2.new(0.175, 0, 0.175, 0)
+	decoIconImg.BackgroundTransparency = 1
+	decoIconImg.Image = "rbxassetid://76721656269888"
+	decoIconImg.ScaleType = Enum.ScaleType.Fit
+	decoIconImg.ZIndex = 204
+	decoIconImg.Parent = decoIcon
 
 UI.label({
 	name = "DecoText",
 	size = UDim2.new(1, -8, 0, 36),
 	pos = UDim2.new(0, 4, 0, decoIconSize + 108),
 	text = "GAMEPASSES",
-	color = C.accentPases,
+	color = THEME.accent,
 	font = Enum.Font.GothamBlack,
 	textSize = 14,
 	alignX = Enum.TextXAlignment.Center,
@@ -380,8 +387,8 @@ UI.label({
 local decoLine2 = Instance.new("Frame")
 decoLine2.Size = UDim2.new(0.4, 0, 0, 1)
 decoLine2.Position = UDim2.new(0.3, 0, 0, decoIconSize + 150)
-decoLine2.BackgroundColor3 = C.border
-decoLine2.BackgroundTransparency = 0.4
+decoLine2.BackgroundColor3 = THEME.stroke
+decoLine2.BackgroundTransparency = THEME.lightAlpha
 decoLine2.BorderSizePixel = 0
 decoLine2.ZIndex = 202
 decoLine2.Parent = sidebar
@@ -392,7 +399,7 @@ UI.label({
 	size = UDim2.new(1, -12, 0, 30),
 	pos = UDim2.new(0, 6, 1, -46),
 	text = tostring(#ALL_PRODUCTS) .. " ITEMS",
-	color = C.textSub,
+	color = THEME.muted,
 	font = Enum.Font.GothamBold,
 	textSize = 12,
 	alignX = Enum.TextXAlignment.Center,
@@ -416,7 +423,7 @@ local contentArea = UI.frame({
 local contentHeader = UI.frame({
 	name = "ContentHeader",
 	size = UDim2.new(1, 0, 0, HEADER_H),
-	bg = C.bg, z = 150,
+	bg = THEME.bg, bgT = THEME.lightAlpha, z = 150,
 	parent = contentArea,
 })
 
@@ -425,7 +432,7 @@ UI.label({
 	size = UDim2.new(1, -60, 0, HEADER_H),
 	pos = UDim2.new(0, 18, 0, 0),
 	text = "GAMEPASSES",
-	color = C.text,
+	color = THEME.text,
 	font = Enum.Font.GothamBlack, textSize = 20,
 	alignX = Enum.TextXAlignment.Left,
 	z = 152, parent = contentHeader,
@@ -434,8 +441,8 @@ UI.label({
 local headerLine = Instance.new("Frame")
 headerLine.Size = UDim2.new(1, -20, 0, 1)
 headerLine.Position = UDim2.new(0, 10, 1, -1)
-headerLine.BackgroundColor3 = C.border
-headerLine.BackgroundTransparency = 0.5
+headerLine.BackgroundColor3 = THEME.stroke
+headerLine.BackgroundTransparency = THEME.mediumAlpha
 headerLine.BorderSizePixel = 0
 headerLine.ZIndex = 152
 headerLine.Parent = contentHeader
@@ -459,7 +466,7 @@ scroll.Size = UDim2.new(1, 0, 1, 0)
 scroll.BackgroundTransparency = 1
 scroll.BorderSizePixel = 0
 scroll.ScrollBarThickness = 2
-scroll.ScrollBarImageColor3 = C.border
+scroll.ScrollBarImageColor3 = THEME.stroke
 scroll.ScrollingDirection = Enum.ScrollingDirection.Y
 scroll.ZIndex = 100
 scroll.Parent = scrollContainer
@@ -501,15 +508,15 @@ for i, product in ipairs(ALL_PRODUCTS) do
 		name = product.name,
 		size = UDim2.new(0, CARD_W, 0, CARD_H),
 		pos = UDim2.new(0, posX, 0, posY),
-		bg = THEME.card, bgT = THEME.frameAlpha,
+		bg = THEME.card, bgT = 0,
 		z = 103, parent = scroll, corner = 12,
 	})
 	card.ClipsDescendants = true
 
 	local cStroke = Instance.new("UIStroke")
-	cStroke.Color = C.border
+	cStroke.Color = THEME.stroke
 	cStroke.Thickness = 1
-	cStroke.Transparency = 0.5
+	cStroke.Transparency = THEME.mediumAlpha
 	cStroke.Parent = card
 
 	-- Fondo imagen
@@ -519,27 +526,18 @@ for i, product in ipairs(ALL_PRODUCTS) do
 	bgImg.BackgroundTransparency = 1
 	bgImg.Image = "rbxassetid://" .. (product.fondo or product.icon)
 	bgImg.ScaleType = Enum.ScaleType.Crop
-	bgImg.ImageTransparency = 0.15
+	bgImg.ImageTransparency = THEME.lightAlpha
 	bgImg.ZIndex = 103
 	bgImg.Parent = card
 	Instance.new("UICorner", bgImg).CornerRadius = UDim.new(0, 12)
 
-	-- Overlay gradiente
+	-- Overlay
 	local cardOverlay = UI.frame({
 		name = "CardOverlay",
 		size = UDim2.new(1, 0, 1, 0),
-		bg = THEME.card, bgT = THEME.frameAlpha, z = 104,
+		bg = THEME.card, bgT = THEME.mediumAlpha, z = 104,
 		parent = card, corner = 12,
 	})
-
-	local cardGrad = Instance.new("UIGradient")
-	cardGrad.Transparency = NumberSequence.new{
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.35, 0.45),
-		NumberSequenceKeypoint.new(1, 0),
-	}
-	cardGrad.Rotation = 90
-	cardGrad.Parent = cardOverlay
 
 	-- Tag badge
 	if product.tag and product.tag ~= "" then
@@ -555,7 +553,7 @@ for i, product in ipairs(ALL_PRODUCTS) do
 		UI.label({
 			text = product.tag,
 			size = UDim2.new(1, 0, 1, 0),
-			color = C.textDark,
+			color = THEME.bg,
 			font = Enum.Font.GothamBlack, textSize = 8,
 			alignX = Enum.TextXAlignment.Center,
 			z = 116, parent = tagBadge,
@@ -570,14 +568,15 @@ for i, product in ipairs(ALL_PRODUCTS) do
 			name = "Icon",
 			size = UDim2.new(0, aIcoSize, 0, aIcoSize),
 			pos = UDim2.new(0.5, -aIcoSize / 2, 0, 12),
-			bg = Color3.fromRGB(14, 14, 22),
+			bg = THEME.bg,
+			bgT = 0,
 			z = 106, parent = card, corner = aIcoSize / 2,
 		})
 
 		local aIcoStroke = Instance.new("UIStroke")
 		aIcoStroke.Color = accent
 		aIcoStroke.Thickness = 1
-		aIcoStroke.Transparency = 0.5
+		aIcoStroke.Transparency = THEME.mediumAlpha
 		aIcoStroke.Parent = aIco
 
 		local aIcoImg = Instance.new("ImageLabel")
@@ -595,7 +594,7 @@ for i, product in ipairs(ALL_PRODUCTS) do
 			text = product.name,
 			size = UDim2.new(1, -10, 0, 18),
 			pos = UDim2.new(0.5, 0, 0, 60),
-			color = C.text,
+			color = THEME.text,
 			font = Enum.Font.GothamBlack, textSize = 15,
 			alignX = Enum.TextXAlignment.Center,
 			z = 108, parent = card,
@@ -608,7 +607,7 @@ for i, product in ipairs(ALL_PRODUCTS) do
 			text = "Incluye " .. tostring(#AURA_THUMBNAILS) .. " auras:",
 			size = UDim2.new(1, -8, 0, 12),
 			pos = UDim2.new(0, 4, 0, 78),
-			color = C.textSub,
+			color = THEME.muted,
 			font = Enum.Font.GothamMedium, textSize = 9,
 			alignX = Enum.TextXAlignment.Center,
 			z = 108, parent = card,
@@ -633,14 +632,15 @@ for i, product in ipairs(ALL_PRODUCTS) do
 				name = "Thumb_" .. aura.name,
 				size = UDim2.new(0, thumbSize, 0, thumbSize),
 				pos = UDim2.new(0, tx, 0, ty),
-				bg = Color3.fromRGB(10, 10, 18),
+				bg = THEME.bg,
+				bgT = 0,
 				z = 109, parent = card, corner = thumbSize / 2,
 			})
 
 			local thumbStroke = Instance.new("UIStroke")
 			thumbStroke.Color = C.accentAuras
 			thumbStroke.Thickness = 1.5
-			thumbStroke.Transparency = 0.4
+			thumbStroke.Transparency = THEME.lightAlpha
 			thumbStroke.Parent = thumbFrame
 
 			local thumbImg = Instance.new("ImageLabel")
@@ -660,14 +660,15 @@ for i, product in ipairs(ALL_PRODUCTS) do
 			name = "Icon",
 			size = UDim2.new(0, cIcoSize, 0, cIcoSize),
 			pos = UDim2.new(0.5, -cIcoSize / 2, 0, 14),
-			bg = Color3.fromRGB(14, 14, 22),
+			bg = THEME.bg,
+			bgT = 0,
 			z = 106, parent = card, corner = cIcoSize / 2,
 		})
 
 		local cIcoStroke = Instance.new("UIStroke")
 		cIcoStroke.Color = accent
 		cIcoStroke.Thickness = 1
-		cIcoStroke.Transparency = 0.5
+		cIcoStroke.Transparency = THEME.mediumAlpha
 		cIcoStroke.Parent = cIco
 
 		local cIcoImg = Instance.new("ImageLabel")
@@ -686,7 +687,7 @@ for i, product in ipairs(ALL_PRODUCTS) do
 			text = product.name,
 			size = UDim2.new(1, -10, 0, 20),
 			pos = UDim2.new(0.5, 0, 0, nameY),
-			color = C.text,
+			color = THEME.text,
 			font = Enum.Font.GothamBlack, textSize = 16,
 			alignX = Enum.TextXAlignment.Center,
 			z = 108, parent = card,
@@ -700,16 +701,16 @@ for i, product in ipairs(ALL_PRODUCTS) do
 				name = "CmdChip",
 				size = UDim2.new(0, cmdW, 0, 20),
 				pos = UDim2.new(0.5, 0, 0, nameY + 20),
-				bg = Color3.fromRGB(0, 0, 0),
+				bg = THEME.elevated,
 				z = 115, parent = card, corner = 4,
 			})
 			cmdChip.AnchorPoint = Vector2.new(0.5, 0)
-			cmdChip.BackgroundTransparency = 0.4
+			cmdChip.BackgroundTransparency = THEME.lightAlpha
 
 			UI.label({
 				text = product.cmd,
 				size = UDim2.new(1, 0, 1, 0),
-				color = Color3.fromRGB(255, 255, 255),
+				color = THEME.text,
 				font = Enum.Font.GothamBold, textSize = 11,
 				alignX = Enum.TextXAlignment.Center,
 				z = 116, parent = cmdChip,
@@ -722,16 +723,16 @@ for i, product in ipairs(ALL_PRODUCTS) do
 		name = "PriceBadge",
 		size = UDim2.new(0, 76, 0, 26),
 		pos = UDim2.new(1, -8, 0, 8),
-		bg = Color3.fromRGB(0, 0, 0),
+		bg = THEME.elevated,
 		z = 115, parent = card, corner = 10,
 	})
 	priceBadge.AnchorPoint = Vector2.new(1, 0)
-	priceBadge.BackgroundTransparency = 0.3
+	priceBadge.BackgroundTransparency = THEME.frameAlpha
 
 	UI.label({
 		text = priceStr(product.price),
 		size = UDim2.new(1, 0, 1, 0),
-		color = accent,
+		color = THEME.accent,
 		font = Enum.Font.GothamBlack, textSize = 15,
 		alignX = Enum.TextXAlignment.Center,
 		z = 116, parent = priceBadge,
@@ -747,18 +748,10 @@ for i, product in ipairs(ALL_PRODUCTS) do
 	})
 	buyFrame.AnchorPoint = Vector2.new(0.5, 0)
 
-	local buyGrad = Instance.new("UIGradient")
-	buyGrad.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(190, 190, 190)),
-	}
-	buyGrad.Rotation = 90
-	buyGrad.Parent = buyFrame
-
 	local buyLabel = UI.label({
 		text = "COMPRAR",
 		size = UDim2.new(1, 0, 1, 0),
-		color = C.textDark,
+		color = THEME.bg,
 		font = Enum.Font.GothamBlack, textSize = 14,
 		alignX = Enum.TextXAlignment.Center,
 		z = 111, parent = buyFrame,
@@ -778,21 +771,21 @@ for i, product in ipairs(ALL_PRODUCTS) do
 	if not isMobile then
 		card.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				tw(card, TW_FAST, { BackgroundTransparency = THEME.lightAlpha })
+				tw(card, TW_FAST, { BackgroundTransparency = THEME.subtleAlpha })
 				tw(cardOverlay, TW_FAST, { BackgroundTransparency = THEME.lightAlpha })
-				tw(cStroke, TW_FAST, { Color = accent, Transparency = 0.2 })
+				tw(cStroke, TW_FAST, { Color = THEME.accent, Transparency = THEME.lightAlpha })
 			end
 		end)
 		card.InputEnded:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				tw(card, TW_FAST, { BackgroundTransparency = THEME.frameAlpha })
+				tw(card, TW_FAST, { BackgroundTransparency = 0 })
 				tw(cardOverlay, TW_FAST, { BackgroundTransparency = THEME.frameAlpha })
-				tw(cStroke, TW_FAST, { Color = C.border, Transparency = 0.5 })
+				tw(cStroke, TW_FAST, { Color = THEME.stroke, Transparency = THEME.mediumAlpha })
 			end
 		end)
 
 		buyClick.MouseEnter:Connect(function()
-			tw(buyFrame, TW_FAST, { BackgroundTransparency = 0.12 })
+			tw(buyFrame, TW_FAST, { BackgroundTransparency = THEME.subtleAlpha })
 		end)
 		buyClick.MouseLeave:Connect(function()
 			tw(buyFrame, TW_FAST, { BackgroundTransparency = 0 })

@@ -35,10 +35,10 @@ local THEME = {
 	-- Transparencies (valores consolidados)
 	opaqueAlpha    = 0,     -- Elementos sólidos
 	subtleAlpha    = 0.1,   -- Muy poco transparente
-	lightAlpha     = 0.2,   -- Ligeramente transparente
-	frameAlpha     = 0.25,  -- Frames principales
-	mediumAlpha    = 0.5,   -- Medio transparente
-	heavyAlpha     = 0.75,  -- Muy transparente
+	lightAlpha     = 0.3,   -- Ligeramente transparente
+	frameAlpha     = 0.4,  -- Frames principales
+	mediumAlpha    = 0.6,   -- Medio transparente
+	heavyAlpha     = 0.8,  -- Muy transparente
 	invisibleAlpha = 1,     -- Elementos invisibles
 
 	-- Panel sizes
