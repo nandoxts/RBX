@@ -16,24 +16,29 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
--- Crear modal (mismo tamaño que Clan, mismos parámetros)
+-- Crear modal (igual que GamepassShop)
+local isMobile = game:GetService("UserInputService").TouchEnabled
+
 local modal = ModalManager.new({
 	screenGui = screenGui,
 	panelName = "SettingsPanel",
 	panelWidth = THEME.panelWidth,
 	panelHeight = THEME.panelHeight,
-	cornerRadius = 12,
+	cornerRadius = 14,
 	enableBlur = true,
-	blurSize = 14,
-	panelBackgroundImage = "rbxassetid://79346090571461",
-	panelBackgroundTransparency = 0.85
+	blurSize = 20,
+	isMobile = isMobile,
 })
 
--- Obtener panel de forma correcta
+-- Igual que GamepassShop: colorear panel + usar canvas
 local panel = modal:getPanel()
+panel.BackgroundColor3 = THEME.bg
+panel.BackgroundTransparency = THEME.mediumAlpha
 
--- Construir UI en el panel del modal
-SettingsCreator.CreateSettingsModal(panel, THEME)
+local CONTAINER = modal:getCanvas()  -- recorta hijos respetando UICorner
+
+-- Construir UI en el canvas (igual que GamepassShop usa CONTAINER)
+SettingsCreator.CreateSettingsModal(CONTAINER, THEME)
 
 -- ============================================
 -- OPEN/CLOSE FUNCTIONS

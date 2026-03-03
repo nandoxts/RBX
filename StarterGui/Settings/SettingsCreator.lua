@@ -1,13 +1,16 @@
 --[[
-	SETTINGS CREATOR - Constructor de UI puro (sin instancias)
-	v4 — Scroll dinámico responsive, compatible con ModalManager resize
+	SETTINGS CREATOR - v5
+	Rediseño completo: Sidebar vertical + estilo DJ Dashboard
+	ModernScrollbar en sidebar y contenido
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
-local UI = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
-local ThemeConfig = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+local UI             = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
+local ThemeConfig    = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
+local SidebarNav     = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SidebarNav"))
 local SettingsConfig = require(script.Parent:WaitForChild("SettingsConfig"))
 local ModernScrollbar = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("ModernScrollbar"))
 
@@ -15,187 +18,107 @@ local SettingsCreator = {}
 local settingsState = {}
 
 -- Constantes de layout
-local CARD_HEIGHT = 74
-local CARD_HEIGHT_CREDIT_SECTION = 60
-local CARD_GAP = 10
-local PADDING_Y = 20 -- top(10) + bottom(10)
+local CARD_GAP  = 8
 
--- ============================================
--- HELPER: Gradient sutil para cards
--- ============================================
-local function applyCardGradient(frame, THEME)
-	local grad = Instance.new("UIGradient")
-	grad.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-		ColorSequenceKeypoint.new(1, Color3.new(0.92, 0.92, 0.95))
-	}
-	grad.Transparency = NumberSequence.new{
-		NumberSequenceKeypoint.new(0, 0.97),
-		NumberSequenceKeypoint.new(1, 0.99)
-	}
-	grad.Rotation = 135
-	grad.Parent = frame
-end
-
--- ============================================
--- HELPER: Setup dinámico de scroll + scrollbar
--- ============================================
-local function setupDynamicScroll(scrollFrame, parentContainer, THEME)
-	local activeScrollbar = nil
-
-	local function evaluateScroll()
-		local windowH = scrollFrame.AbsoluteWindowSize.Y
-		local canvasH = scrollFrame.AbsoluteCanvasSize.Y
-
-		if canvasH > windowH + 2 then
-			if not activeScrollbar then
-				activeScrollbar = ModernScrollbar.setup(scrollFrame, parentContainer, THEME, {
-					position = "right",
-					offset = -8,
-					width = 6
-				})
-			end
-			if activeScrollbar and activeScrollbar.update then
-				activeScrollbar.update()
-			end
-		else
-			if activeScrollbar and activeScrollbar.hide then
-				activeScrollbar.hide()
-				activeScrollbar = nil
-			end
-		end
-	end
-
-	scrollFrame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
-		task.defer(evaluateScroll)
-	end)
-
-	scrollFrame:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(function()
-		task.defer(evaluateScroll)
-	end)
-
-	task.delay(0.3, evaluateScroll)
-end
-
--- ============================================
--- CREAR SETTING ITEM (Toggle/Info o crédito)
--- ============================================
+-- ════════════════════════════════════════════════════════════════
+-- CREAR SETTING ITEM (Toggle o Credit)
+-- ════════════════════════════════════════════════════════════════
 local function createSettingItem(parent, setting, THEME)
-	local itemHeight = setting.type == "credit" and CARD_HEIGHT_CREDIT_SECTION or CARD_HEIGHT
+	local itemHeight = setting.type == "credit" and 54 or 72
 
 	local container = UI.frame({
-		size = UDim2.new(1, 0, 0, itemHeight),
-		bg = THEME.surface,
-		z = 104,
-		parent = parent,
-		corner = 10,
-		stroke = true,
-		strokeA = 0.15
+		size    = UDim2.new(1, 0, 0, itemHeight),
+		bg      = THEME.card,
+		bgT     = 0,
+		z       = 104,
+		parent  = parent,
+		corner  = 10,
+		stroke  = true,
+		strokeA = 0.5,
+		strokeC = THEME.stroke,
 	})
 
-	-- Gradient sutil al card
-	applyCardGradient(container, THEME)
-
-	-- Texto container
 	local textContainer = UI.frame({
-		size = UDim2.new(1, -20, 1, 0),
-		pos = UDim2.new(0, 10, 0, 0),
-		bgT = 1,
-		z = 105,
-		parent = container
+		size   = UDim2.new(1, -20, 1, 0),
+		pos    = UDim2.new(0, 12, 0, 0),
+		bgT    = 1,
+		z      = 105,
+		parent = container,
 	})
 
-	-- ── Credit items ──
 	if setting.type == "credit" then
 		UI.label({
-			size = UDim2.new(1, 0, 0, 18),
-			pos = UDim2.new(0, 0, 0, 6),
-			text = setting.label,
-			color = THEME.accent,
+			size     = UDim2.new(1, 0, 0, 18),
+			pos      = UDim2.new(0, 0, 0, 6),
+			text     = setting.label,
+			color    = THEME.accent,
 			textSize = 13,
-			font = Enum.Font.GothamBold,
-			alignX = Enum.TextXAlignment.Center,
-			z = 106,
-			parent = textContainer
+			font     = Enum.Font.GothamBold,
+			alignX   = Enum.TextXAlignment.Center,
+			z        = 106,
+			parent   = textContainer,
 		})
-
 		UI.label({
-			size = UDim2.new(1, 0, 1, -26),
-			pos = UDim2.new(0, 0, 0, 26),
-			text = setting.desc or "",
-			color = THEME.muted,
+			size     = UDim2.new(1, 0, 1, -26),
+			pos      = UDim2.new(0, 0, 0, 26),
+			text     = setting.desc or "",
+			color    = THEME.muted,
 			textSize = 11,
-			alignX = Enum.TextXAlignment.Center,
-			alignY = Enum.TextYAlignment.Center,
-			z = 106,
-			parent = textContainer
+			alignX   = Enum.TextXAlignment.Center,
+			z        = 106,
+			parent   = textContainer,
 		})
-
-		-- ── Cards normales (toggle) ──
 	else
 		UI.label({
-			size = UDim2.new(1, -60, 0, 28),
-			pos = UDim2.new(0, 0, 0, 12),
-			text = setting.label,
-			color = THEME.text,
-			textSize = 15,
-			font = Enum.Font.GothamBold,
-			alignX = Enum.TextXAlignment.Left,
-			z = 106,
-			parent = textContainer
+			size     = UDim2.new(1, -60, 0, 26),
+			pos      = UDim2.new(0, 0, 0, 10),
+			text     = setting.label,
+			color    = THEME.text,
+			textSize = 14,
+			font     = Enum.Font.GothamBold,
+			alignX   = Enum.TextXAlignment.Left,
+			z        = 106,
+			parent   = textContainer,
 		})
-
 		UI.label({
-			size = UDim2.new(1, -60, 0, 22),
-			pos = UDim2.new(0, 0, 0, 40),
-			text = setting.desc or "",
-			color = THEME.muted,
-			textSize = 12,
-			font = Enum.Font.Gotham,
-			alignX = Enum.TextXAlignment.Left,
-			z = 106,
-			parent = textContainer
+			size     = UDim2.new(1, -60, 0, 20),
+			pos      = UDim2.new(0, 0, 0, 38),
+			text     = setting.desc or "",
+			color    = THEME.muted,
+			textSize = 11,
+			font     = Enum.Font.Gotham,
+			alignX   = Enum.TextXAlignment.Left,
+			z        = 106,
+			parent   = textContainer,
 		})
 	end
 
-	-- ── Toggle ──
 	if setting.type == "toggle" then
 		local toggleBtn = UI.frame({
-			size = UDim2.new(0, 46, 0, 26),
-			pos = UDim2.new(1, -56, 0.5, -13),
-			bg = THEME.card,
-			z = 105,
-			parent = container,
-			corner = 13,
-			stroke = true,
-			strokeA = 0.25
+			size    = UDim2.new(0, 44, 0, 24),
+			pos     = UDim2.new(1, -54, 0.5, -12),
+			bg      = THEME.card,
+			z       = 105,
+			parent  = container,
+			corner  = 12,
+			stroke  = true,
+			strokeA = 0.35,
+			strokeC = THEME.stroke,
 		})
 
-		local isActive = settingsState[setting.id] or setting.default or false
+		local isActive = settingsState[setting.id]
+		if isActive == nil then isActive = setting.default or false end
 
 		local circle = Instance.new("Frame")
 		circle.Name = "Circle"
-		circle.Size = UDim2.new(0, 22, 0, 22)
+		circle.Size = UDim2.new(0, 20, 0, 20)
 		circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		circle.BorderSizePixel = 0
 		circle.ZIndex = 106
 		circle.Parent = toggleBtn
-
-		local cornerCircle = Instance.new("UICorner")
-		cornerCircle.CornerRadius = UDim.new(0, 11)
-		cornerCircle.Parent = circle
-
-		-- Sombra sutil en el circle
-		local circleShadow = Instance.new("ImageLabel")
-		circleShadow.Name = "Shadow"
-		circleShadow.Size = UDim2.new(1, 6, 1, 6)
-		circleShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-		circleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-		circleShadow.BackgroundTransparency = 1
-		circleShadow.ImageColor3 = Color3.new(0, 0, 0)
-		circleShadow.ImageTransparency = 0.85
-		circleShadow.ZIndex = 105
-		circleShadow.Parent = circle
+		local cc = Instance.new("UICorner")
+		cc.CornerRadius = UDim.new(0, 10)
+		cc.Parent = circle
 
 		local clickDetector = Instance.new("TextButton")
 		clickDetector.Size = UDim2.fromScale(1, 1)
@@ -206,42 +129,23 @@ local function createSettingItem(parent, setting, THEME)
 
 		local function updateToggle(active)
 			settingsState[setting.id] = active
-
-			local bgColor = active and THEME.accent or THEME.card
 			TweenService:Create(toggleBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundColor3 = bgColor
+				BackgroundColor3 = active and THEME.accent or THEME.card,
 			}):Play()
-
-			local circlePos = active and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
+			local cPos = active and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
 			TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Position = circlePos
+				Position = cPos,
 			}):Play()
-
-			if setting.action then
-				setting.action(active)
-			end
+			if setting.action then setting.action(active) end
 		end
 
 		updateToggle(isActive)
-
 		clickDetector.MouseButton1Click:Connect(function()
-			local newState = not settingsState[setting.id]
-			updateToggle(newState)
+			updateToggle(not settingsState[setting.id])
 		end)
 	end
 
-	-- Hover effect en el container
-	container.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			TweenService:Create(container, TweenInfo.new(0.15), {BackgroundColor3 = THEME.elevated or THEME.surface}):Play()
-		end
-	end)
-	container.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			TweenService:Create(container, TweenInfo.new(0.2), {BackgroundColor3 = THEME.surface}):Play()
-		end
-	end)
-
+	UI.hover(container, THEME.card, THEME.elevated)
 	return container
 end
 
@@ -402,48 +306,47 @@ local function createCreditsPage(container, THEME)
 		gridLayout.Parent = devsGrid
 
 		for idx, dev in ipairs(devs) do
-			local DEV_CARD_HEIGHT = 68
-			local AVATAR_SIZE = 46
-
+			local AVATAR_SIZE = 44
 			local devCard = UI.frame({
-				size = UDim2.new(1, 0, 0, DEV_CARD_HEIGHT),
-				bg = THEME.surface,
-				z = 106,
-				parent = devsGrid,
-				corner = 12,
-				stroke = true,
-				strokeA = 0.12
+				size    = UDim2.new(1, 0, 0, 66),
+				bg      = THEME.card,
+				bgT     = 0,
+				z       = 106,
+				parent  = devsGrid,
+				corner  = 12,
+				stroke  = true,
+				strokeA = 0.5,
+				strokeC = THEME.stroke,
 			})
 			devCard.LayoutOrder = idx
-			applyCardGradient(devCard, THEME)
 
 			local accentBar = UI.frame({
-				size = UDim2.new(0, 3, 0.5, 0),
-				pos = UDim2.new(0, 0, 0.25, 0),
-				bg = THEME.accent,
-				z = 107,
+				size   = UDim2.new(0, 3, 0.5, 0),
+				pos    = UDim2.new(0, 0, 0.25, 0),
+				bg     = THEME.accent,
+				z      = 107,
 				parent = devCard,
-				corner = 2
+				corner = 2,
 			})
 
 			local avatarRing = UI.frame({
-				size = UDim2.new(0, AVATAR_SIZE + 4, 0, AVATAR_SIZE + 4),
-				pos = UDim2.new(0, 14, 0.5, 0),
-				bg = THEME.accent,
-				z = 107,
+				size   = UDim2.new(0, AVATAR_SIZE + 4, 0, AVATAR_SIZE + 4),
+				pos    = UDim2.new(0, 12, 0.5, 0),
+				bg     = THEME.accent,
+				z      = 107,
 				parent = devCard,
-				corner = (AVATAR_SIZE + 4) / 2
+				corner = (AVATAR_SIZE + 4) / 2,
 			})
 			avatarRing.AnchorPoint = Vector2.new(0, 0.5)
 			avatarRing.BackgroundTransparency = 0.6
 
 			local avatarWrapper = UI.frame({
-				size = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE),
-				pos = UDim2.new(0.5, 0, 0.5, 0),
-				bg = THEME.card,
-				z = 108,
+				size   = UDim2.new(0, AVATAR_SIZE, 0, AVATAR_SIZE),
+				pos    = UDim2.new(0.5, 0, 0.5, 0),
+				bg     = THEME.surface,
+				z      = 108,
 				parent = avatarRing,
-				corner = AVATAR_SIZE / 2
+				corner = AVATAR_SIZE / 2,
 			})
 			avatarWrapper.AnchorPoint = Vector2.new(0.5, 0.5)
 			avatarWrapper.ClipsDescendants = true
@@ -461,71 +364,37 @@ local function createCreditsPage(container, THEME)
 			avatarImg.ZIndex = 109
 			avatarImg.ScaleType = Enum.ScaleType.Crop
 			avatarImg.Parent = avatarWrapper
+			local ac = Instance.new("UICorner")
+			ac.CornerRadius = UDim.new(0, AVATAR_SIZE / 2)
+			ac.Parent = avatarImg
 
-			local avatarCorner = Instance.new("UICorner")
-			avatarCorner.CornerRadius = UDim.new(0, AVATAR_SIZE / 2)
-			avatarCorner.Parent = avatarImg
-
-			local TEXT_LEFT = 14 + (AVATAR_SIZE + 4) + 12
-
+			local TEXT_LEFT = 12 + (AVATAR_SIZE + 4) + 12
 			local nameLabel = UI.label({
-				size = UDim2.new(1, -(TEXT_LEFT + 30), 0, 22),
-				pos = UDim2.new(0, TEXT_LEFT, 0, 12),
-				text = dev.name,
-				color = THEME.text,
-				textSize = 15,
-				font = Enum.Font.GothamBold,
-				alignX = Enum.TextXAlignment.Left,
-				z = 108,
-				parent = devCard
+				size     = UDim2.new(1, -(TEXT_LEFT + 20), 0, 22),
+				pos      = UDim2.new(0, TEXT_LEFT, 0, 11),
+				text     = dev.name,
+				color    = THEME.text,
+				textSize = 14,
+				font     = Enum.Font.GothamBold,
+				alignX   = Enum.TextXAlignment.Left,
+				z        = 108,
+				parent   = devCard,
 			})
 			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
 			UI.label({
-				size = UDim2.new(1, -(TEXT_LEFT + 30), 0, 18),
-				pos = UDim2.new(0, TEXT_LEFT, 0, 36),
-				text = dev.role,
-				color = THEME.accent,
-				textSize = 12,
-				font = Enum.Font.GothamMedium,
-				alignX = Enum.TextXAlignment.Left,
-				z = 108,
-				parent = devCard
+				size     = UDim2.new(1, -(TEXT_LEFT + 20), 0, 16),
+				pos      = UDim2.new(0, TEXT_LEFT, 0, 35),
+				text     = dev.role,
+				color    = THEME.accent,
+				textSize = 11,
+				font     = Enum.Font.GothamMedium,
+				alignX   = Enum.TextXAlignment.Left,
+				z        = 108,
+				parent   = devCard,
 			})
 
-			local badge = UI.frame({
-				size = UDim2.new(0, 8, 0, 8),
-				pos = UDim2.new(1, -20, 0.5, 0),
-				bg = THEME.accent,
-				z = 108,
-				parent = devCard,
-				corner = 4
-			})
-			badge.AnchorPoint = Vector2.new(0, 0.5)
-			badge.BackgroundTransparency = 0.4
-
-			devCard.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseMovement then
-					TweenService:Create(devCard, TweenInfo.new(0.2), {
-						BackgroundColor3 = THEME.elevated or THEME.surface
-					}):Play()
-					TweenService:Create(accentBar, TweenInfo.new(0.2), {
-						Size = UDim2.new(0, 3, 0.7, 0),
-						Position = UDim2.new(0, 0, 0.15, 0)
-					}):Play()
-				end
-			end)
-			devCard.InputEnded:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseMovement then
-					TweenService:Create(devCard, TweenInfo.new(0.25), {
-						BackgroundColor3 = THEME.surface
-					}):Play()
-					TweenService:Create(accentBar, TweenInfo.new(0.25), {
-						Size = UDim2.new(0, 3, 0.5, 0),
-						Position = UDim2.new(0, 0, 0.25, 0)
-					}):Play()
-				end
-			end)
+			UI.hover(devCard, THEME.card, THEME.elevated)
 		end
 	end
 
@@ -539,14 +408,11 @@ local function createCreditsPage(container, THEME)
 	})
 	bottomLine.BackgroundTransparency = 0.7
 	bottomLine.LayoutOrder = 7
-
-	-- ── Scroll dinámico para créditos ──
-	setupDynamicScroll(creditsScroll, creditsCover, THEME)
 end
 
--- ============================================
+-- ════════════════════════════════════════════════════════════════
 -- CREAR MODAL PRINCIPAL
--- ============================================
+-- ════════════════════════════════════════════════════════════════
 function SettingsCreator.CreateSettingsModal(panel, THEME)
 	-- Reset state
 	settingsState = {}
@@ -555,235 +421,208 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 	end
 
 	-- Limpiar anteriores
-	local oldContent = panel:FindFirstChild("ContentArea")
-	if oldContent then oldContent:Destroy() end
-	local oldNav = panel:FindFirstChild("Header")
-	if oldNav then oldNav:Destroy() end
-	local oldTabs = panel:FindFirstChild("TabNav")
-	if oldTabs then oldTabs:Destroy() end
-	local oldUnderline = panel:FindFirstChild("Underline")
-	if oldUnderline then oldUnderline:Destroy() end
+	for _, child in ipairs(panel:GetChildren()) do
+		if not child:IsA("UICorner") and not child:IsA("UIStroke") and not child:IsA("UIGradient") then
+			if child.Name ~= "CloseBtn" then
+				child:Destroy()
+			end
+		end
+	end
 
 	-- ════════════════════════════════════════════════════════════════
-	-- HEADER
+	-- ÁREA PRINCIPAL (full size — igual que GamepassShop CONTAINER)
 	-- ════════════════════════════════════════════════════════════════
-	local header = UI.frame({
-		name = "Header",
-		size = UDim2.new(1, 0, 0, 60),
-		bg = THEME.head,
-		z = 101,
-		parent = panel,
-		corner = 12
+	local isMobile  = UserInputService.TouchEnabled
+	local SIDEBAR_W = isMobile and 100 or 130
+	local HEADER_H  = 52
+
+	local mainArea = UI.frame({
+		name   = "MainArea",
+		size   = UDim2.new(1, 0, 1, 0),
+		bgT    = 1,
+		z      = 101,
+		parent = panel,  -- panel aquí es CONTAINER (getCanvas)
+		clips  = true,
 	})
 
-	local headerGradient = Instance.new("UIGradient")
-	headerGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, THEME.panel),
-		ColorSequenceKeypoint.new(1, THEME.card)
+	-- ════════════════════════════════════════════════════════════════
+	-- SIDEBAR (SidebarNav component — igual que GamepassShop)
+	-- ════════════════════════════════════════════════════════════════
+	local TAB_IMAGES = {
+		gameplay = "76721656269888",
+		graphics = "91877799240345",
+		alerts   = "128637341143304",
+		credits  = "129517460766852",
 	}
-	headerGradient.Rotation = 90
-	headerGradient.Parent = header
+	local sidebarItems = {}
+	for _, tab in ipairs(SettingsConfig.TABS) do
+		table.insert(sidebarItems, {
+			id    = tab.id,
+			label = tab.title,
+			image = TAB_IMAGES[tab.id] or "79346090571461",
+		})
+	end
 
-	UI.label({
-		size = UDim2.new(1, -100, 0, 60),
-		pos = UDim2.new(0, 20, 0, 0),
-		text = "AJUSTES",
-		textSize = 20,
-		font = Enum.Font.GothamBold,
-		z = 102,
-		parent = header,
-		color = THEME.text
+	local switchTab  -- forward-declare (se asigna más abajo)
+
+	local nav = SidebarNav.new({
+		parent   = mainArea,
+		UI       = UI,
+		THEME    = THEME,
+		title    = "SETTINGS",
+		items    = sidebarItems,
+		width    = SIDEBAR_W,
+		isMobile = UserInputService.TouchEnabled,
+		onSelect = function(id) switchTab(id) end,
 	})
 
 	-- ════════════════════════════════════════════════════════════════
-	-- TAB NAVIGATION
-	-- ════════════════════════════════════════════════════════════════
-	local tabNav = UI.frame({
-		name = "TabNav",
-		size = UDim2.new(1, 0, 0, 36),
-		pos = UDim2.new(0, 0, 0, 60),
-		bgT = 1,
-		z = 101,
-		parent = panel
-	})
-
-	local navList = Instance.new("UIListLayout")
-	navList.FillDirection = Enum.FillDirection.Horizontal
-	navList.Padding = UDim.new(0, 8)
-	navList.Parent = tabNav
-
-	local navPadding = Instance.new("UIPadding")
-	navPadding.PaddingLeft = UDim.new(0, 12)
-	navPadding.PaddingTop = UDim.new(0, 6)
-	navPadding.Parent = tabNav
-
-	local tabButtons = {}
-	local State = { currentTab = "gameplay" }
-
-	-- ════════════════════════════════════════════════════════════════
-	-- CONTENT AREA
+	-- ÁREA DE CONTENIDO (igual que GamepassShop)
 	-- ════════════════════════════════════════════════════════════════
 	local contentArea = UI.frame({
-		name = "ContentArea",
-		size = UDim2.new(1, -20, 1, -115),
-		pos = UDim2.new(0, 10, 0, 90),
-		bgT = 1,
-		z = 101,
-		parent = panel,
-		corner = 10,
-		clips = true
+		name   = "ContentArea",
+		size   = UDim2.new(1, -SIDEBAR_W, 1, 0),
+		pos    = UDim2.new(0, SIDEBAR_W, 0, 0),
+		bgT    = 1,
+		z      = 100,
+		parent = mainArea,
+		clips  = true,
 	})
 
+	-- Header de contenido (igual que GamepassShop contentHeader)
+	local contentHeader = UI.frame({
+		name = "ContentHeader",
+		size = UDim2.new(1, 0, 0, HEADER_H),
+		bg   = THEME.deep, bgT = THEME.lightAlpha, z = 150,
+		parent = contentArea,
+	})
+
+	local contentTitle = UI.label({
+		name     = "Title",
+		size     = UDim2.new(1, -60, 0, HEADER_H),
+		pos      = UDim2.new(0, 18, 0, 0),
+		text     = "",
+		color    = THEME.text,
+		font     = Enum.Font.GothamBlack, textSize = 20,
+		alignX   = Enum.TextXAlignment.Left,
+		z        = 152, parent = contentHeader,
+	})
+
+	local headerLine = Instance.new("Frame")
+	headerLine.Size                   = UDim2.new(1, -20, 0, 1)
+	headerLine.Position               = UDim2.new(0, 10, 1, -1)
+	headerLine.BackgroundColor3       = THEME.stroke
+	headerLine.BackgroundTransparency = THEME.mediumAlpha
+	headerLine.BorderSizePixel        = 0
+	headerLine.ZIndex                 = 152
+	headerLine.Parent                 = contentHeader
+
+	-- Wrapper de páginas (debajo del header)
+	local pagesArea = UI.frame({
+		name   = "PagesArea",
+		size   = UDim2.new(1, 0, 1, -HEADER_H),
+		pos    = UDim2.new(0, 0, 0, HEADER_H),
+		bgT    = 1,
+		z      = 101,
+		parent = contentArea,
+		clips  = true,
+	})
+
+	-- UIPageLayout con animación igual que el clan
 	local pageLayout = Instance.new("UIPageLayout")
-	pageLayout.FillDirection = Enum.FillDirection.Horizontal
-	pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	pageLayout.EasingStyle = Enum.EasingStyle.Quad
-	pageLayout.EasingDirection = Enum.EasingDirection.Out
-	pageLayout.TweenTime = 0.25
+	pageLayout.FillDirection           = Enum.FillDirection.Vertical
+	pageLayout.SortOrder               = Enum.SortOrder.LayoutOrder
+	pageLayout.HorizontalAlignment     = Enum.HorizontalAlignment.Center
+	pageLayout.EasingStyle             = Enum.EasingStyle.Sine
+	pageLayout.EasingDirection         = Enum.EasingDirection.InOut
+	pageLayout.TweenTime               = 0.35
 	pageLayout.ScrollWheelInputEnabled = false
-	pageLayout.TouchInputEnabled = false
-	pageLayout.Parent = contentArea
+	pageLayout.TouchInputEnabled       = false
+	pageLayout.Parent                  = pagesArea
 
 	-- ════════════════════════════════════════════════════════════════
-	-- UNDERLINE
+	-- CREAR TABS
 	-- ════════════════════════════════════════════════════════════════
-	local underline = UI.frame({
-		name = "Underline",
-		size = UDim2.new(0, 90, 0, 3),
-		pos = UDim2.new(0, 12, 0, 93),
-		bg = THEME.accent,
-		z = 102,
-		parent = panel,
-		corner = 2
-	})
+	local tabPages = {}
+	local State    = { currentTab = "" }
 
-	-- ════════════════════════════════════════════════════════════════
-	-- CREAR TABS Y PÁGINAS
-	-- ════════════════════════════════════════════════════════════════
 	for tabIndex, tab in ipairs(SettingsConfig.TABS) do
-		local btn = UI.button({
-			size = UDim2.new(0, 90, 0, 24),
-			bg = THEME.panel,
-			text = tab.title,
-			color = THEME.muted,
-			textSize = 12,
-			font = Enum.Font.GothamBold,
-			z = 101,
-			parent = tabNav,
-			corner = 0
-		})
-		btn.BackgroundTransparency = 1
-		btn.AutoButtonColor = false
-		tabButtons[tab.id] = btn
-
+		-- Página de contenido
 		local page = UI.frame({
-			name = tab.id,
-			size = UDim2.fromScale(1, 1),
-			bgT = 1,
-			z = 102,
-			parent = contentArea
+			name   = tab.id,
+			size   = UDim2.fromScale(1, 1),
+			bgT    = 1,
+			z      = 103,
+			parent = pagesArea,
+			clips  = true,
 		})
 		page.LayoutOrder = tabIndex
+		tabPages[tab.id] = page
 
-		local pageContainer = UI.frame({
-			name = "Container",
-			size = UDim2.new(1, 0, 1, 0),
-			pos = UDim2.new(0, 0, 0, 0),
-			bgT = 1,
-			z = 102,
-			parent = page,
-			clips = true
-		})
-
-		-- ═══════════════════════════════════════════════════════════
-		-- CRÉDITOS — Portada moderna v3
-		-- ═══════════════════════════════════════════════════════════
 		if tab.id == "credits" then
-			createCreditsPage(pageContainer, THEME)
-
-			-- ═══════════════════════════════════════════════════════════
-			-- LAYOUT NORMAL PARA OTROS TABS
-			-- ═══════════════════════════════════════════════════════════
+			createCreditsPage(page, THEME)
 		else
 			local settingsList = SettingsConfig.SETTINGS[tab.id] or {}
 
 			local scrollFrame = Instance.new("ScrollingFrame")
 			scrollFrame.Name = "Scroll"
 			scrollFrame.Size = UDim2.new(1, 0, 1, 0)
-			scrollFrame.Position = UDim2.new(0, 0, 0, 0)
 			scrollFrame.BackgroundTransparency = 1
 			scrollFrame.BorderSizePixel = 0
 			scrollFrame.ScrollBarThickness = 0
 			scrollFrame.ScrollBarImageTransparency = 1
 			scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-			scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-			scrollFrame.ScrollingEnabled = true
-			scrollFrame.Parent = pageContainer
+			scrollFrame.ZIndex = 104
+			scrollFrame.Parent = page
+			ModernScrollbar.setup(scrollFrame, page, THEME, {transparency = 0})
 
 			local layout = Instance.new("UIListLayout")
 			layout.Padding = UDim.new(0, CARD_GAP)
 			layout.SortOrder = Enum.SortOrder.LayoutOrder
 			layout.Parent = scrollFrame
 
-			local layoutPadding = Instance.new("UIPadding")
-			layoutPadding.PaddingLeft = UDim.new(0, 10)
-			layoutPadding.PaddingRight = UDim.new(0, 16)
-			layoutPadding.PaddingTop = UDim.new(0, 10)
-			layoutPadding.PaddingBottom = UDim.new(0, 10)
-			layoutPadding.Parent = scrollFrame
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft   = UDim.new(0, 4)
+			pad.PaddingRight  = UDim.new(0, 10)
+			pad.PaddingTop    = UDim.new(0, 8)
+			pad.PaddingBottom = UDim.new(0, 8)
+			pad.Parent = scrollFrame
 
 			for _, setting in ipairs(settingsList) do
 				createSettingItem(scrollFrame, setting, THEME)
 			end
-
-			-- Scroll dinámico responsive
-			setupDynamicScroll(scrollFrame, pageContainer, THEME)
 		end
 	end
 
 	-- ════════════════════════════════════════════════════════════════
-	-- FUNCIÓN SWITCH TAB
+	-- SWITCH TAB
 	-- ════════════════════════════════════════════════════════════════
-	local tabPositions = {
-		gameplay = 12,
-		graphics = 110,
-		alerts = 208,
-		credits = 306,
-		comments = 404
-	}
-
-	local function switchTab(tabId)
+	switchTab = function(tabId)
 		if State.currentTab == tabId then return end
 		State.currentTab = tabId
-
-		for id, btn in pairs(tabButtons) do
-			TweenService:Create(btn, TweenInfo.new(0.2), {
-				TextColor3 = (id == tabId) and THEME.accent or THEME.muted
-			}):Play()
+		nav:selectItem(tabId)
+		-- Actualizar título del content header
+		for _, tab in ipairs(SettingsConfig.TABS) do
+			if tab.id == tabId then
+				contentTitle.Text = tab.title
+				break
+			end
 		end
-
-		if tabPositions[tabId] then
-			TweenService:Create(underline, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Position = UDim2.new(0, tabPositions[tabId], 0, 93)
-			}):Play()
-		end
-
-		local pageFrame = contentArea:FindFirstChild(tabId)
-		if pageFrame then
-			pageLayout:JumpTo(pageFrame)
-		end
+		-- Animación de deslizamiento igual que el clan
+		local page = tabPages[tabId]
+		if page then pageLayout:JumpTo(page) end
 	end
 
-	for tabId, btn in pairs(tabButtons) do
-		btn.MouseButton1Click:Connect(function()
-			switchTab(tabId)
-		end)
-		UI.hover(btn, THEME.panel, THEME.elevated)
+	-- Abrir primer tab (sin animación, salto directo)
+	if #SettingsConfig.TABS > 0 then
+		local firstId = SettingsConfig.TABS[1].id
+		State.currentTab = firstId
+		nav:selectItem(firstId)
+		contentTitle.Text = SettingsConfig.TABS[1].title
+		local firstPage = tabPages[firstId]
+		if firstPage then pageLayout:JumpTo(firstPage) end
 	end
-
-	switchTab("gameplay")
 end
 
 return SettingsCreator
