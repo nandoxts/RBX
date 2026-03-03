@@ -70,8 +70,8 @@ return {
 	CommandSize = "[,.;]size (%d*%.?%d+)$", -- ^/size (%d%.?%d*)$
 	CommandHat = "[,.;]item (.+)$",  -- ^/hat (%d+)$
 	CommandParticle = "[,.;]particula (.+)$",
-	CommandReset = "[,.;]update",
-	CommandReset2 = "[,.;]re",
+	CommandReset = "^[,.;]update$",
+	CommandReset2 = "^[,.;]re$",
 	CommandClone = "[,.;]clone%s+(%S+)",
 	CommandFIRE   = "^[,.;]fire%s*(.+)$",
 	CommandSMK    = "^[,.;]smk%s*(.+)$",
@@ -90,7 +90,7 @@ return {
 	CommandAURA = "^[,.;]aura%s+(%S+)$",
 	-- AURAS --
 	AURA_PACK  = 1728328748,
-	DEV_AURA_PACK = 3534625662,
+	DEV_AURA_PACK = 3548724904,
 	-- MUSIC ID BANNED --
 	MusicBanned = { 0, 0,},
 	-- MUSIC COOLDOWN --
