@@ -361,29 +361,12 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- METADATA LAYER
 -- ════════════════════════════════════════════════════════════════
-local metadataInFlight = {} -- [audioId] = true  → evita N llamadas duplicadas por el mismo ID
-
 local function getOrLoadMetadata(audioId)
 	local cached = metadataCache[audioId]
 	if cached and cached.loaded and not cached.error then
 		touchLRU(metadataCacheOrder, audioId)
 		return cached.name, cached.artist, true
 	end
-
-	-- Si otro coroutine ya está fetching este ID, esperar su resultado
-	if metadataInFlight[audioId] then
-		local deadline = tick() + 10
-		while metadataInFlight[audioId] and tick() < deadline do
-			task.wait(0.1)
-		end
-		local c = metadataCache[audioId]
-		if c and c.loaded and not c.error then
-			return c.name, c.artist, true
-		end
-		-- si expiró el deadline, continuar normalmente
-	end
-
-	metadataInFlight[audioId] = true
 
 	local djName = findDJForSong(audioId)
 	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, audioId, Enum.InfoType.Asset)
@@ -394,11 +377,8 @@ local function getOrLoadMetadata(audioId)
 		metadataCache[audioId] = { name = name, artist = artist, loaded = true }
 		table.insert(metadataCacheOrder, audioId)
 		evictLRU(metadataCache, metadataCacheOrder, MAX_METADATA_CACHE)
-		metadataInFlight[audioId] = nil
 		return name, artist, true
 	end
-
-	metadataInFlight[audioId] = nil
 
 	if djName then
 		return "Audio " .. audioId, djName, true
@@ -554,8 +534,6 @@ local playSong, nextSong, playRandomSong   -- forward declarations
 
 local function cleanupSound()
 	pcall(soundObject.Stop, soundObject)
-	soundObject:SetAttribute("SongName",   nil)
-	soundObject:SetAttribute("SongArtist", nil)
 	soundObject.SoundId      = ""
 	soundObject.TimePosition = 0
 	currentPlayingId = nil
@@ -600,8 +578,6 @@ playSong = function(index)
 	local song = playQueue[currentSongIndex]
 	currentPlayingId = song.id
 	soundObject.Volume  = DEFAULT_VOLUME
-	soundObject:SetAttribute("SongName",   song.name   or "")
-	soundObject:SetAttribute("SongArtist", song.artist or "")
 	soundObject.SoundId = ASSET_PREFIX .. song.id
 
 	local loaded      = false
