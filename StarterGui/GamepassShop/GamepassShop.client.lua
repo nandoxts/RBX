@@ -195,7 +195,24 @@ local modal = ModalManager.new({
 local panel = modal:getPanel()
 panel.BackgroundColor3 = THEME.bg
 panel.BackgroundTransparency = THEME.mediumAlpha
-panel.ClipsDescendants = true
+panel.ClipsDescendants = false
+
+-- CanvasGroup: recorta hijos respetando UICorner (a diferencia de ClipsDescendants)
+local canvasGroup = Instance.new("CanvasGroup")
+canvasGroup.Name = "Canvas"
+canvasGroup.Size = UDim2.new(1, 0, 1, 0)
+canvasGroup.BackgroundTransparency = 1
+canvasGroup.BorderSizePixel = 0
+canvasGroup.GroupTransparency = 0
+canvasGroup.ZIndex = panel.ZIndex
+canvasGroup.Parent = panel
+do
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, 14)
+	c.Parent = canvasGroup
+end
+
+local CONTAINER = canvasGroup  -- sidebar y contentArea van aqui
 
 -- ════════════════════════════════════════════════════════════════
 -- HELPERS
@@ -296,9 +313,8 @@ local SIDEBAR_W = isMobile and 100 or 130
 local sidebar = UI.frame({
 	name = "Sidebar",
 	size = UDim2.new(0, SIDEBAR_W, 1, 0),
-	bg = THEME.bg,
-	bgT = THEME.lightAlpha,
-	z = 200, parent = panel, clips = true,
+	bg = THEME.deep, bgT = THEME.lightAlpha,
+	z = 200, parent = CONTAINER, clips = true,
 })
 
 do
@@ -416,7 +432,7 @@ local contentArea = UI.frame({
 	size = UDim2.new(1, -SIDEBAR_W, 1, 0),
 	pos = UDim2.new(0, SIDEBAR_W, 0, 0),
 	bgT = 1, z = 100,
-	parent = panel, clips = true,
+	parent = CONTAINER, clips = true,
 })
 
 -- Header

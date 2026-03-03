@@ -413,7 +413,7 @@ UI.rounded(bbOverlay, R_PANEL)
 -- ════════════════════════════════════════════════════════════════
 local djColumn = makeFrame({
 	dim = UDim2.new(DJ_W, 0, 1, 0),
-	bg = Color3.fromRGB(16, 16, 20), bgT = 0.3,
+	bg = THEME.deep, bgT = THEME.lightAlpha,
 	z = 100, name = "DJColumn", parent = contentArea,
 })
 UI.rounded(djColumn, R_PANEL)
@@ -513,7 +513,7 @@ songsPlaceholder = makeLabel({
 -- ════════════════════════════════════════════════════════════════
 local queueColumn = makeFrame({
 	dim = UDim2.new(QUEUE_W, 0, 1, 0), pos = UDim2.new(DJ_W + SONGS_W, 0, 0, 0),
-	bg = Color3.fromRGB(16, 16, 20), bgT = 0.3,
+	bg = THEME.deep, bgT = THEME.lightAlpha,
 	z = 100, name = "QueueColumn", parent = contentArea,
 })
 UI.rounded(queueColumn, R_PANEL)

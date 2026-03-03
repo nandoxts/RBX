@@ -6,6 +6,7 @@
 
 local THEME = {
 	-- Modern dark background palette (Neutro oscuro, sin tinte morado)
+	deep     = Color3.fromRGB(16, 16, 20),      -- Fondo profundo (sidebar/columns)
 	bg       = Color3.fromRGB(20, 20, 22),      -- Fondo principal
 	panel    = Color3.fromRGB(24, 24, 27),      -- Paneles
 	head     = Color3.fromRGB(26, 26, 30),      -- Header
