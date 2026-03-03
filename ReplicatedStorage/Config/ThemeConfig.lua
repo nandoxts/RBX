@@ -43,7 +43,7 @@ local THEME = {
 	invisibleAlpha = 1,     -- Elementos invisibles
 
 	-- Panel sizes
-	panelWidth  = 650,
+	panelWidth  = 780,
 	panelHeight = 650,
 }
 

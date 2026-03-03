@@ -175,7 +175,7 @@ local isMobile = UserInputService.TouchEnabled
 -- ════════════════════════════════════════════════════════════════
 -- PANEL MAS ANCHO
 -- ════════════════════════════════════════════════════════════════
-local PANEL_W = isMobile and THEME.panelWidth or math.max(THEME.panelWidth, 780)
+local PANEL_W = THEME.panelWidth
 local PANEL_H = THEME.panelHeight
 
 -- ════════════════════════════════════════════════════════════════
