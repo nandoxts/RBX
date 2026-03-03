@@ -90,6 +90,7 @@ return {
 	CommandAURA = "^[,.;]aura%s+(%S+)$",
 	-- AURAS --
 	AURA_PACK  = 1728328748,
+	DEV_AURA_PACK = 3534625662,
 	-- MUSIC ID BANNED --
 	MusicBanned = { 0, 0,},
 	-- MUSIC COOLDOWN --

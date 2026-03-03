@@ -8,7 +8,8 @@ local gamepasses = {
 	{Configuration.SERE, Configuration.DEV_SERE},
 	{Configuration.COLORS, Configuration.DEV_COLORS},
 	{Configuration.ARMYBOOMS, Configuration.DEV_ARMYBOOMS},
-	{Configuration.LIGHTSTICK, Configuration.DEV_LIGHTSTICK}
+	{Configuration.LIGHTSTICK, Configuration.DEV_LIGHTSTICK},
+	{Configuration.AURA_PACK,  Configuration.DEV_AURA_PACK}
 }
 
 local tools = {

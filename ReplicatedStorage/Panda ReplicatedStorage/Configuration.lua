@@ -27,6 +27,7 @@ return {
 
 	-- AURAS --
 	AURA_PACK  = 1728328748,
+	DEV_AURA_PACK = 3534625662,
 
 	GroupID = 35712251,
 }

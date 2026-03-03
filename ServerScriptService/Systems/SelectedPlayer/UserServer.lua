@@ -28,7 +28,8 @@ local Config = {
 		{SysConfig.SERE,      SysConfig.DEV_SERE},
 		{SysConfig.COLORS,    SysConfig.DEV_COLORS},
 		{SysConfig.ARMYBOOMS, SysConfig.DEV_ARMYBOOMS},
-		{SysConfig.LIGHTSTICK, SysConfig.DEV_LIGHTSTICK}
+		{SysConfig.LIGHTSTICK, SysConfig.DEV_LIGHTSTICK},
+		{SysConfig.AURA_PACK,  SysConfig.DEV_AURA_PACK}
 	}
 }
 -- ═══════════════════════════════════════════════════════════════

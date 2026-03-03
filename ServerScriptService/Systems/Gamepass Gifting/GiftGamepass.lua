@@ -27,6 +27,7 @@ local BADGES_Gift = Configuration.BADGES_Gift
 
 -- Al inicio del script de regalos:
 local CentralPurchaseHandler = require(script.ManagerProcess)
+local GamepassManager = require(game.ServerScriptService.Systems["Gamepass Gifting"]["GamepassManager"])
 
 -- Inicializar queue para DataStore con delay de 0.15s
 local DataStoreQueue = DataStoreQueueManager.new(GiftedGamepassesData, "GiftedGamepasses", 0.15)
@@ -482,5 +483,5 @@ local function DoesUserOwnGamePass(player, gamepassId)
 end
 
 Ownership.OnServerInvoke = function(player, gamepassId)
-	return DoesUserOwnGamePass(player, gamepassId)
+	return GamepassManager.HasGamepass(player, gamepassId)
 end
