@@ -29,7 +29,7 @@ local function createSettingItem(parent, setting, THEME)
 	local container = UI.frame({
 		size    = UDim2.new(1, 0, 0, itemHeight),
 		bg      = THEME.card,
-		bgT     = 0,
+		bgT     = THEME.frameAlpha,
 		z       = 104,
 		parent  = parent,
 		corner  = 10,
@@ -180,6 +180,7 @@ local function createCreditsPage(container, THEME)
 	creditsScroll.ScrollingDirection = Enum.ScrollingDirection.Y
 	creditsScroll.ZIndex = 103
 	creditsScroll.Parent = creditsCover
+	ModernScrollbar.setup(creditsScroll, creditsCover, THEME, {transparency = 0})
 
 	-- Inner container dentro del scroll
 	local innerWrap = UI.frame({
@@ -310,7 +311,7 @@ local function createCreditsPage(container, THEME)
 			local devCard = UI.frame({
 				size    = UDim2.new(1, 0, 0, 66),
 				bg      = THEME.card,
-				bgT     = 0,
+				bgT     = THEME.frameAlpha,
 				z       = 106,
 				parent  = devsGrid,
 				corner  = 12,
