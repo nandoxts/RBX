@@ -552,6 +552,18 @@ function OverheadManager:setupRole(roleFrame, player)
 	if not roleText then return end
 
 	local function updateRoleDisplay()
+		-- 1. Título equipado (máxima prioridad)
+		local titleLabel = player:GetAttribute("EquippedTitleLabel") or ""
+		local titleColor = player:GetAttribute("EquippedTitleColor") or "#FFFFFF"
+
+		if titleLabel ~= "" then
+			roleText.RichText  = true
+			roleText.Text      = string.format("<font color='%s'><b>%s</b></font>", titleColor, titleLabel)
+			roleText.TextColor3 = Color3.fromRGB(255, 255, 255) -- RichText lo pinta
+			return
+		end
+
+		-- 2. Rango de grupo
 		local roleAssigned = false
 
 		if player:IsInGroup(GroupID) then
@@ -561,7 +573,8 @@ function OverheadManager:setupRole(roleFrame, player)
 
 			if success then
 				if GROUP_ROLES[rank] then
-					roleText.Text = GROUP_ROLES[rank].Name
+					roleText.RichText   = false
+					roleText.Text       = GROUP_ROLES[rank].Name
 					roleText.TextColor3 = GROUP_ROLES[rank].Color
 					roleAssigned = true
 				else
@@ -573,7 +586,8 @@ function OverheadManager:setupRole(roleFrame, player)
 					end
 
 					if highestRole then
-						roleText.Text = GROUP_ROLES[highestRole].Name
+						roleText.RichText   = false
+						roleText.Text       = GROUP_ROLES[highestRole].Name
 						roleText.TextColor3 = GROUP_ROLES[highestRole].Color
 						roleAssigned = true
 					end
@@ -581,14 +595,15 @@ function OverheadManager:setupRole(roleFrame, player)
 			end
 		end
 
+		-- 3. VIP / Latino
 		if not roleAssigned then
 			local hasVIP = player:GetAttribute("HasVIP") or false
-
+			roleText.RichText = false
 			if hasVIP then
-				roleText.Text = "[ VIP ]"
+				roleText.Text       = "[ VIP ]"
 				roleText.TextColor3 = Color3.fromRGB(217, 43, 13)
 			else
-				roleText.Text = "[ Latino ]"
+				roleText.Text       = "[ Latino ]"
 				roleText.TextColor3 = Color3.fromRGB(119, 0, 255)
 			end
 		end
@@ -597,10 +612,10 @@ function OverheadManager:setupRole(roleFrame, player)
 	-- Inicial
 	updateRoleDisplay()
 
-	-- Escuchar cambios en atributo HasVIP en tiempo real
-	trackConnection(player, player:GetAttributeChangedSignal("HasVIP"):Connect(function()
-		updateRoleDisplay()
-	end))
+	-- Escuchar cambios en tiempo real
+	trackConnection(player, player:GetAttributeChangedSignal("EquippedTitleLabel"):Connect(updateRoleDisplay))
+	trackConnection(player, player:GetAttributeChangedSignal("EquippedTitleColor"):Connect(updateRoleDisplay))
+	trackConnection(player, player:GetAttributeChangedSignal("HasVIP"):Connect(updateRoleDisplay))
 end
 
 function OverheadManager:setupBadges(otherFrame, player)

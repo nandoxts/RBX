@@ -29,6 +29,7 @@ local UI                    = require(ReplicatedStorage:WaitForChild("Core"):Wai
 local THEME                 = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local SidebarNav            = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SidebarNav"))
 local Configuration         = require(ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("Configuration"))
+local TitleConfig           = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("TitleConfig"))
 local CheckGamepassOwnership = ReplicatedStorage
 	:WaitForChild("RemotesGlobal")
 	:WaitForChild("Gamepass Gifting")
@@ -198,16 +199,25 @@ local ALL_PRODUCTS = {
 	},
 }
 
--- Items para la sección TITLES (misma estructura que ALL_PRODUCTS)
--- Cambia gamepassId, icon, fondo, price, cmd según necesites
-local TITLE_PRODUCTS = {
-	{ name = "NOVATO",    price = 50,   gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-	{ name = "VETERANO",  price = 100,  gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-	{ name = "LEYENDA",   price = 250,  gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-	{ name = "ELITE",     price = 500,  gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-	{ name = "DIAMANTE",  price = 750,  gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-	{ name = "SUPREMO",   price = 1000, gamepassId = nil, icon = "103185544418844", fondo = "103185544418844", cmd = "",  accent = C.accentTitles },
-}
+-- Items para la sección TITLES — construidos desde TitleConfig (fuente única)
+-- Solo edita ReplicatedStorage/Config/TitleConfig para cambiar títulos
+local TITLE_PRODUCTS = (function()
+	local items = {}
+	for _, t in ipairs(TitleConfig) do
+		table.insert(items, {
+			id         = t.id,
+			name       = t.name,
+			price      = t.price,
+			gamepassId = t.gamepassId,
+			icon       = t.icon,
+			fondo      = t.fondo,
+			cmd        = "",
+			accent     = C.accentTitles,
+			isTitle    = true,
+		})
+	end
+	return items
+end)()
 
 -- ════════════════════════════════════════════════════════════════
 --  SIDEBAR TABS
@@ -340,6 +350,68 @@ local function createPurchaseHandler(btnFrame, btnLabel, parentCard, product)
 end
 
 -- ════════════════════════════════════════════════════════════════
+--  EQUIP HANDLER (exclusivo para títulos)
+-- ════════════════════════════════════════════════════════════════
+local function createTitleEquipHandler(btnFrame, btnLabel, card, product)
+	local equipRemote = ReplicatedStorage
+		:WaitForChild("RemotesGlobal")
+		:WaitForChild("Title")
+		:WaitForChild("Titles")
+
+	local equipMode = false
+
+	local function refreshBtn()
+		local current = player:GetAttribute("EquippedTitle") or ""
+		if current == product.id then
+			btnLabel.Text             = "DESEQUIPAR"
+			btnFrame.BackgroundColor3 = C.danger
+		else
+			btnLabel.Text             = "EQUIPAR"
+			btnFrame.BackgroundColor3 = product.accent or C.accentTitles
+		end
+	end
+
+	local function activateEquipMode()
+		if equipMode then return end
+		equipMode = true
+		local priceBadge = card:FindFirstChild("PriceBadge")
+		if priceBadge then priceBadge.Visible = false end
+		refreshBtn()
+		player:GetAttributeChangedSignal("EquippedTitle"):Connect(refreshBtn)
+	end
+
+	if product.gamepassId and product.gamepassId ~= 0 then
+		local gid = product.gamepassId
+		if gpCache[gid] == true then
+			activateEquipMode()
+		elseif gpCache[gid] == nil then
+			task.spawn(function()
+				local deadline = tick() + 12
+				while gpCache[gid] == nil and tick() < deadline do task.wait(0.15) end
+				if gpCache[gid] == true then activateEquipMode() end
+			end)
+		end
+		onPurchase(gid, activateEquipMode)
+	else
+		-- gamepassId = 0: siempre accesible (dev/gratis)
+		activateEquipMode()
+	end
+
+	return function()
+		if equipMode then
+			equipRemote:FireServer(product.id)
+		else
+			local origSize = btnFrame.Size
+			tw(btnFrame, TW.press, { Size = origSize + UDim2.new(0, -4, 0, -2) })
+			task.delay(0.08, function() tw(btnFrame, TW.norm, { Size = origSize }) end)
+			pcall(function()
+				MarketplaceService:PromptGamePassPurchase(player, product.gamepassId)
+			end)
+		end
+	end
+end
+
+-- ════════════════════════════════════════════════════════════════
 --  HOVER BINDINGS (encapsulado)
 -- ════════════════════════════════════════════════════════════════
 local function bindCardHover(card, cardOverlay, cStroke, buyFrame, buyClick)
@@ -373,7 +445,7 @@ end
 -- ════════════════════════════════════════════════════════════════
 
 --- Crea los elementos base compartidos por toda card (fondo, overlay, stroke, precio, botón comprar)
-local function createCardBase(product, cardW, cardH, posX, posY, parentScroll)
+local function createCardBase(product, cardW, cardH, posX, posY, parentScroll, handlerFn)
 	local accent = product.accent or C.accentPases
 
 	local card = UI.frame({
@@ -478,7 +550,9 @@ local function createCardBase(product, cardW, cardH, posX, posY, parentScroll)
 	buyClick.Parent               = buyFrame
 
 	-- Conectar compra y hover
-	local handleBuy = createPurchaseHandler(buyFrame, buyLabel, card, product)
+	local handleBuy = handlerFn
+		and handlerFn(buyFrame, buyLabel, card, product)
+		or  createPurchaseHandler(buyFrame, buyLabel, card, product)
 	buyClick.MouseButton1Click:Connect(handleBuy)
 	bindCardHover(card, cardOverlay, cStroke, buyFrame, buyClick)
 
@@ -699,7 +773,10 @@ local function renderGamepassGrid(scroll, products)
 		local posX = col * (cardW + gap)
 		local posY = row * (CARD_H + gap)
 
-		local card, accent = createCardBase(product, cardW, CARD_H, posX, posY, scroll)
+		local card, accent = createCardBase(
+			product, cardW, CARD_H, posX, posY, scroll,
+			product.isTitle and createTitleEquipHandler or nil
+		)
 
 		if product.isAuraPack then
 			renderAuraPackContent(card, product, cardW, accent)

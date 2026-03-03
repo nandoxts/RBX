@@ -127,51 +127,63 @@ local function calculatePlayerTag(player)
 
 	local tagInfo = {}
 
-	-- 1. Verificar rank en grupo primero (máxima prioridad)
-	local playerRank = getPlayerGroupRank(player)
-	local roleData = groupRoles[playerRank]
+	-- 1. Título equipado (máxima prioridad)
+	local titleLabel = player:GetAttribute("EquippedTitleLabel") or ""
+	local titleColor = player:GetAttribute("EquippedTitleColor") or "#FFFFFF"
 
-	if roleData and playerRank >= 10 then -- Recruiter hacia arriba
-		local colorHex = color3ToHex(roleData.Color)
-		local icon = roleData.Icon
-
+	if titleLabel ~= "" then
 		tagInfo = {
-			Prefix = string.format("<font color='%s'>[%s]</font> <font color='%s'>%s</font> ", 
-				colorHex, icon, colorHex, roleData.Name),
-			--TextColor = colorHex,
-			Priority = playerRank,
+			Prefix = string.format("<font color='%s'><b>%s</b></font> ", titleColor, titleLabel),
+			Priority = 100,
 			HasSpecialTag = true,
-			Source = "GROUP_RANK",
+			Source = "TITLE",
 		}
 	else
-		-- 2. Si no tiene rank de grupo, verificar VIP GamePass (usando tu sistema)
-		local gamepassInfo = checkPlayerGamepasses(userId)
+		-- 2. Rango de grupo
+		local playerRank = getPlayerGroupRank(player)
+		local roleData = groupRoles[playerRank]
 
-		if gamepassInfo and gamepassInfo.status == "VIPPLUS" then
+		if roleData and playerRank >= 10 then -- Recruiter hacia arriba
+			local colorHex = color3ToHex(roleData.Color)
+			local icon = roleData.Icon
+
 			tagInfo = {
-				Prefix = "<font color='#FF330F'>[👑]</font> <font color='#FF330F'>[ VIP PLUS ]</font> ",
-				TextColor = "#FF330F",
-				Priority = 8,
+				Prefix = string.format("<font color='%s'>[%s]</font> <font color='%s'>%s</font> ",
+					colorHex, icon, colorHex, roleData.Name),
+				Priority = playerRank,
 				HasSpecialTag = true,
-				Source = "VIPPLUS_GAMEPASS"
-			}
-		elseif gamepassInfo and gamepassInfo.status == "VIP" then
-			tagInfo = {
-				Prefix = "<font color='#D92B0D'>[👑]</font> <font color='#D92B0D'>[ VIP ]</font> ",
-				TextColor = "#D92B0D",
-				Priority = 5,
-				HasSpecialTag = true,
-				Source = "VIP_GAMEPASS"
+				Source = "GROUP_RANK",
 			}
 		else
-			-- 3. Tag por defecto
-			tagInfo = {
-				Prefix = "<font color='#0099FF'>[👤]</font> <font color='#0099FF'>[ Tonero ]</font> ",
-				TextColor = "#FFFFFF",
-				Priority = 0,
-				HasSpecialTag = false,
-				Source = "DEFAULT"
-			}
+			-- 3. VIP GamePass
+			local gamepassInfo = checkPlayerGamepasses(userId)
+
+			if gamepassInfo and gamepassInfo.status == "VIPPLUS" then
+				tagInfo = {
+					Prefix = "<font color='#FF330F'>[👑]</font> <font color='#FF330F'>[ VIP PLUS ]</font> ",
+					TextColor = "#FF330F",
+					Priority = 8,
+					HasSpecialTag = true,
+					Source = "VIPPLUS_GAMEPASS"
+				}
+			elseif gamepassInfo and gamepassInfo.status == "VIP" then
+				tagInfo = {
+					Prefix = "<font color='#D92B0D'>[👑]</font> <font color='#D92B0D'>[ VIP ]</font> ",
+					TextColor = "#D92B0D",
+					Priority = 5,
+					HasSpecialTag = true,
+					Source = "VIP_GAMEPASS"
+				}
+			else
+				-- 4. Tag por defecto
+				tagInfo = {
+					Prefix = "<font color='#0099FF'>[👤]</font> <font color='#0099FF'>[ Tonero ]</font> ",
+					TextColor = "#FFFFFF",
+					Priority = 0,
+					HasSpecialTag = false,
+					Source = "DEFAULT"
+				}
+			end
 		end
 	end
 
@@ -218,6 +230,13 @@ local function setupPlayer(player)
 		tagDataEvent:FireAllClients(player.UserId, newTagInfo)
 
 		--print("Tag actualizado para", player.Name, "tras respawn:", newTagInfo.Source)
+	end)
+
+	-- Actualizar tag cuando equipa/desequipa un título
+	player:GetAttributeChangedSignal("EquippedTitleLabel"):Connect(function()
+		serverTagCache[player.UserId] = nil
+		local updatedTag = calculatePlayerTag(player)
+		tagDataEvent:FireAllClients(player.UserId, updatedTag)
 	end)
 end
 
