@@ -1,9 +1,5 @@
 --[[ Music Dashboard - Professional 
 	by ignxts- Nando
-	REDISEÑO: Layout 3 columnas (DJ List | Songs | Queue) + Barra inferior
-	Refactored: Helpers reutilizables
-	OPTIMIZED: Pool-based queue/DJ rendering, signal-based mute, debounced scroll,
-	           pending card set, active effects cleanup — ready for 200+ players
 ]]
 
 -- ════════════════════════════════════════════════════════════════
@@ -242,6 +238,7 @@ local allDJs, selectedDJ, selectedDJInfo = {}, nil, nil
 local currentSoundObject, progressConnection = nil, nil
 local isAddingToQueue = false
 local loadingDotsThread = nil
+local loadingTween = nil
 local cardPool, cardsIndex = {}, {}
 local selectedDJCard = nil
 local currentHeaderCover = ""
@@ -756,7 +753,12 @@ end
 -- ════════════════════════════════════════════════════════════════
 local function setAddButtonState(state, customMessage)
 	if not quickAddBtn or not quickInput or not qiStroke then return end
+	
+	-- Cancelar thread anterior
 	if loadingDotsThread then task.cancel(loadingDotsThread); loadingDotsThread = nil end
+	
+	-- Cancelar tween anterior (IMPORTANTE: esto evita que siga corriendo en background)
+	if loadingTween then loadingTween:Cancel(); loadingTween = nil end
 
 	local states = {
 		loading   = {adding = true,  bg = THEME.surface, stroke = THEME.accent, auto = false},
@@ -775,10 +777,9 @@ local function setAddButtonState(state, customMessage)
 	if state == "loading" then
 		quickAddBtnImg.Visible = false
 		quickAddBtnLoading.Visible = true
-		if loadingDotsThread then task.cancel(loadingDotsThread); loadingDotsThread = nil end
 		loadingDotsThread = task.spawn(function()
-			local tw = TweenService:Create(quickAddBtnLoading, TweenInfo.new(1.2, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360})
-			tw:Play()
+			loadingTween = TweenService:Create(quickAddBtnLoading, TweenInfo.new(1.2, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360})
+			loadingTween:Play()
 			while true do task.wait(0.1) end
 		end)
 	else

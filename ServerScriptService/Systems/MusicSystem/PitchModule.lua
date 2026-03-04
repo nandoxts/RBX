@@ -6214,6 +6214,13 @@ PitchModule.ids = {
 	{id = "137327835496715", pitch = 0.37},
 	{id = "97759650053727", pitch = 0.37},
 	{id = "98323432740085", pitch = 0.37},--DEMBOW#1
+	{id = "132925539733291", pitch = 0.37}, -- Gyal You A Party Animal
+	{id = "72406866872082", pitch = 0.37}, -- One Of the Girls
+	{id = "133801963582628", pitch = 0.37}, -- TOky
+	{id = "117842056144641", pitch = 0.37}, -- Daddy Yankee & Wisin y Yandel - Si Supieras
+	{id = "82107477883846", pitch = 0.37}, -- DEMBOWSS 1
+	{id = "89810670814532", pitch = 0.37}, -- DEMBOWSS 2
+	{id = "118376709882037", pitch = 0.37}, -- DEMBOWSS 3
 	-- El pitch no maneja volumen, en algunos tuve que quitarlo (TEN CUIDADO POR QUE EN ALGUNOS SI JALA, SOLO QUE SUENA COMO ARDILLA POR QUE EL SERVER AÚN NO SE ACTUALIZA ;) )
 }
 

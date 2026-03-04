@@ -259,9 +259,6 @@ local function createCreditsPage(container, THEME)
 		paragraphLabel.LayoutOrder = 4
 	end
 
-	-- ══════════════════════════════════════════════════════════
-	-- SECCIÓN CONTRIBUIDORES
-	-- ══════════════════════════════════════════════════════════
 	local devs = {}
 
 	if SettingsConfig.CONTRIBUTORS and type(SettingsConfig.CONTRIBUTORS) == "table" then
@@ -278,7 +275,7 @@ local function createCreditsPage(container, THEME)
 	if #devs > 0 then
 		local sectionLabel = UI.label({
 			size = UDim2.new(1, 0, 0, 20),
-			text = "CONTRIBUIDORES",
+			text = "DEVELOPERS",
 			color = THEME.accent,
 			textSize = 12,
 			font = Enum.Font.GothamBold,
@@ -321,14 +318,6 @@ local function createCreditsPage(container, THEME)
 			})
 			devCard.LayoutOrder = idx
 
-			local accentBar = UI.frame({
-				size   = UDim2.new(0, 3, 0.5, 0),
-				pos    = UDim2.new(0, 0, 0.25, 0),
-				bg     = THEME.accent,
-				z      = 107,
-				parent = devCard,
-				corner = 2,
-			})
 
 			local avatarRing = UI.frame({
 				size   = UDim2.new(0, AVATAR_SIZE + 4, 0, AVATAR_SIZE + 4),
@@ -384,12 +373,12 @@ local function createCreditsPage(container, THEME)
 			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
 			UI.label({
-				size     = UDim2.new(1, -(TEXT_LEFT + 20), 0, 16),
-				pos      = UDim2.new(0, TEXT_LEFT, 0, 35),
+				size     = UDim2.new(1, -(TEXT_LEFT + 20), 0, 18),
+				pos      = UDim2.new(0, TEXT_LEFT, 0, 34),
 				text     = dev.role,
 				color    = THEME.accent,
-				textSize = 11,
-				font     = Enum.Font.GothamMedium,
+				textSize = 13,
+				font     = Enum.Font.GothamBold,
 				alignX   = Enum.TextXAlignment.Left,
 				z        = 108,
 				parent   = devCard,
@@ -450,10 +439,10 @@ function SettingsCreator.CreateSettingsModal(panel, THEME)
 	-- SIDEBAR (SidebarNav component — igual que GamepassShop)
 	-- ════════════════════════════════════════════════════════════════
 	local TAB_IMAGES = {
-		gameplay = "76721656269888",
-		graphics = "91877799240345",
-		alerts   = "128637341143304",
-		credits  = "129517460766852",
+		gameplay = "93191385394703",
+		graphics = "119004032659140",
+		alerts   = "136541039188162",
+		credits  = "128453393220249",
 	}
 	local sidebarItems = {}
 	for _, tab in ipairs(SettingsConfig.TABS) do
