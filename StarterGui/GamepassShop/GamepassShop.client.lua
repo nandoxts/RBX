@@ -28,6 +28,7 @@ local ModalManager          = require(ReplicatedStorage:WaitForChild("Modal"):Wa
 local UI                    = require(ReplicatedStorage:WaitForChild("Core"):WaitForChild("UI"))
 local THEME                 = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("ThemeConfig"))
 local SidebarNav            = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("SidebarNav"))
+local ModernScrollbar       = require(ReplicatedStorage:WaitForChild("UIComponents"):WaitForChild("ModernScrollbar"))
 local Configuration         = require(ReplicatedStorage:WaitForChild("RemotesGlobal"):WaitForChild("Configuration"))
 local TitleConfig           = require(ReplicatedStorage:WaitForChild("Config"):WaitForChild("TitleConfig"))
 local CheckGamepassOwnership = ReplicatedStorage
@@ -738,19 +739,22 @@ local function createScrollFrame(parent)
 		name = "ScrollContainer",
 		size = UDim2.new(1, 0, 1, 0),
 		bgT  = 1, z = 100,
-		parent = parent, clips = true,
+		parent = parent, clips = false,
 	})
 
 	local scroll = Instance.new("ScrollingFrame")
-	scroll.Name                 = "Scroll"
-	scroll.Size                 = UDim2.new(1, 0, 1, 0)
+	scroll.Name                   = "Scroll"
+	scroll.Size                   = UDim2.new(1, 0, 1, 0)
 	scroll.BackgroundTransparency = 1
-	scroll.BorderSizePixel      = 0
-	scroll.ScrollBarThickness   = 2
-	scroll.ScrollBarImageColor3 = THEME.stroke
-	scroll.ScrollingDirection   = Enum.ScrollingDirection.Y
-	scroll.ZIndex               = 100
-	scroll.Parent               = scrollContainer
+	scroll.BorderSizePixel        = 0
+	scroll.ScrollBarThickness     = 0
+	scroll.ScrollBarImageTransparency = 1
+	scroll.ScrollingDirection     = Enum.ScrollingDirection.Y
+	scroll.ClipsDescendants       = true
+	scroll.ZIndex                 = 100
+	scroll.Parent                 = scrollContainer
+	-- parentFrame = scrollContainer (sin clips), offset negativo = scrollbar queda DENTRO de los bounds
+	ModernScrollbar.setup(scroll, scrollContainer, THEME, {transparency = 0, offset = -6})
 
 	local pad = Instance.new("UIPadding")
 	pad.PaddingLeft   = UDim.new(0, LY.scrollPadding.left)
