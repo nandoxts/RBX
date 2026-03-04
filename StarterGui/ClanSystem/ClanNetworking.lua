@@ -146,25 +146,38 @@ end
 
 -- Create clan entry
 function ClanNetworking.createClanEntry(clanData, pendingList, clansScroll, loadClansFromServerFn)
-	local entry = UI.frame({name = "ClanEntry_" .. (clanData.clanId or "unknown"), size = UDim2.new(1, 0, 0, 85), bg = THEME.card, bgT = THEME.frameAlpha, z = 104, parent = clansScroll, corner = 10, stroke = true, strokeA = 0.5, strokeC = THEME.stroke})
+	-- CanvasGroup como card: UICorner clipea todos los hijos (imagen full-height sin overflow)
+	local entry = Instance.new("CanvasGroup")
+	entry.Name = "ClanEntry_" .. (clanData.clanId or "unknown")
+	entry.Size = UDim2.new(1, 0, 0, 85)
+	entry.BackgroundColor3 = THEME.card
+	entry.BackgroundTransparency = THEME.frameAlpha
+	entry.GroupTransparency = 0
+	entry.BorderSizePixel = 0
+	entry.ZIndex = 104
+	entry.Parent = clansScroll
+	UI.rounded(entry, 10)
+	UI.stroked(entry, 0.5, THEME.stroke)
 
-	local logoContainer = UI.frame({size = UDim2.new(0, 60, 0, 60), pos = UDim2.new(0, 12, 0.5, -30), bgT = 1, z = 105, parent = entry, corner = 10})
+	-- Logo: franja izquierda full-height, imagen al 100% (la card clipea las esquinas)
+	local LOGO_W = 85
+	local logoContainer = UI.frame({size = UDim2.new(0, LOGO_W, 1, 0), bg = Color3.fromRGB(25, 25, 30), bgT = 0, z = 105, parent = entry})
 
 	if clanData.logo and clanData.logo ~= "" and clanData.logo ~= "rbxassetid://0" then
 		local logo = Instance.new("ImageLabel")
 		logo.Size, logo.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
-		logo.Image, logo.ScaleType, logo.ZIndex = clanData.logo, Enum.ScaleType.Fit, 106
+		logo.Image, logo.ScaleType, logo.ZIndex = clanData.logo, Enum.ScaleType.Crop, 106
 		logo.Parent = logoContainer
-		UI.rounded(logo, 8)
 	else
-		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.emoji or "⚔️", textSize = 30, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer})
+		UI.label({size = UDim2.new(1, 0, 1, 0), text = clanData.emoji or "⚔️", textSize = 32, alignX = Enum.TextXAlignment.Center, z = 106, parent = logoContainer})
 	end
 
 	local clanColor = clanData.color and Color3.fromRGB(clanData.color[1] or 255, clanData.color[2] or 255, clanData.color[3] or 255) or THEME.accent
+	local textX = LOGO_W + 12
 
-	UI.label({size = UDim2.new(1, -180, 0, 18), pos = UDim2.new(0, 85, 0, 12), text = (clanData.emoji or "") .. " " .. string.upper(clanData.name or "CLAN"), color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry})
-	UI.label({size = UDim2.new(1, -180, 0, 26), pos = UDim2.new(0, 85, 0, 32), text = clanData.description or "Sin descripción", color = THEME.subtle, textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry})
-	UI.label({size = UDim2.new(1, -180, 0, 28), pos = UDim2.new(0, 85, 0, 54), text = string.format("%d MIEMBROS [%s]", clanData.memberCount or 0, clanData.tag or "?"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left})
+	UI.label({size = UDim2.new(1, -(textX + 100), 0, 18), pos = UDim2.new(0, textX, 0, 10), text = (clanData.emoji or "") .. " " .. string.upper(clanData.name or "CLAN"), color = clanColor, textSize = 14, font = Enum.Font.GothamBold, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -(textX + 100), 0, 24), pos = UDim2.new(0, textX, 0, 30), text = clanData.description or "Sin descripción", color = THEME.subtle, textSize = 11, wrap = true, truncate = Enum.TextTruncate.AtEnd, z = 106, parent = entry})
+	UI.label({size = UDim2.new(1, -(textX + 100), 0, 18), pos = UDim2.new(0, textX, 0, 56), text = string.format("%d MIEMBROS [%s]", clanData.memberCount or 0, clanData.tag or "?"), color = THEME.accent, textSize = 13, font = Enum.Font.GothamBold, z = 106, parent = entry, alignX = Enum.TextXAlignment.Left})
 
 	local joinBtn = UI.button({size = UDim2.new(0, 75, 0, 30), pos = UDim2.new(1, -87, 0.5, -15), bg = THEME.accent, text = "UNIRSE", textSize = 11, z = 106, parent = entry, corner = 6})
 
