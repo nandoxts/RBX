@@ -37,7 +37,7 @@ end
 
 local function applyTitle(player, t)
 	player:SetAttribute("EquippedTitle",      t.id)
-	player:SetAttribute("EquippedTitleLabel", t.label)
+	player:SetAttribute("EquippedTitleLabel", "[" .. t.name .. "]")
 	player:SetAttribute("EquippedTitleColor", t.color)
 end
 

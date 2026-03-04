@@ -13,6 +13,7 @@ local MusicConfig    = require(ReplicatedStorage:WaitForChild("Config"):WaitForC
 local Systems        = ServerScriptService:WaitForChild("Systems")
 local Configuration  = require(Systems:WaitForChild("Configuration"))
 local GamepassManager = require(Systems:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
+local MarketplaceHelper = require(Systems:WaitForChild("Modules"):WaitForChild("MarketplaceHelper"))
 
 -- ════════════════════════════════════════════════════════════════
 -- CONSTANTS
@@ -269,9 +270,9 @@ local function getOrLoadMetadata(audioId)
 	end
 
 	local djName = findDJForSong(audioId)
-	local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, audioId, Enum.InfoType.Asset)
+	local info = MarketplaceHelper:GetAssetInfo(audioId)
 
-	if ok and info and info.AssetTypeId == 3 then
+	if info and info.AssetTypeId == 3 then
 		local name   = info.Name or ("Audio " .. audioId)
 		local artist = (info.Creator and info.Creator.Name) or "Unknown"
 		metadataCache[audioId] = { name = name, artist = artist, loaded = true }
