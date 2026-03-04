@@ -153,6 +153,22 @@ local function makeScrollColumn(parent, offsetY, paddingOpts, theme)
 	return scroll, layout, scrollbar
 end
 
+-- CanvasGroup helper — recorta hijos respetando UICorner (reutilizable en cualquier card)
+local function makeCanvas(parent, corner, z)
+	local canvas = Instance.new("CanvasGroup")
+	canvas.Name = "Canvas"
+	canvas.Size = UDim2.new(1, 0, 1, 0)
+	canvas.BackgroundTransparency = 1
+	canvas.BorderSizePixel = 0
+	canvas.GroupTransparency = 0
+	canvas.ZIndex = z or 103
+	canvas.Parent = parent
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, corner or 8)
+	c.Parent = canvas
+	return canvas
+end
+
 -- Tween helper
 local function tween(obj, duration, props)
 	TweenService:Create(obj, TweenInfo.new(duration), props):Play()
@@ -802,7 +818,7 @@ local function updatePendingCard(response, songId)
 
 		for _, card in ipairs(cardPool) do
 			if card.Visible and card:GetAttribute("SongID") == songId then
-				local addBtn = card:FindFirstChild("AddButton")
+				local addBtn = card:FindFirstChild("AddButton", true)
 				if not addBtn then break end
 
 				local loadingIcon = addBtn:FindFirstChild("LoadingIcon")
@@ -1267,16 +1283,26 @@ end
 -- SONG CARD POOL (virtualización)
 -- ════════════════════════════════════════════════════════════════
 local function createSongCard()
-	local card = makeFrame({dim = UDim2.new(1, -8, 0, CARD_HEIGHT), bg = THEME.card, bgT = THEME.frameAlpha, z = 102})
+	local card = makeCanvas(nil, 8, 102)
+	card.Name = "SongCard"
+	card.Size = UDim2.new(1, -8, 0, CARD_HEIGHT)
+	card.BackgroundColor3 = THEME.card
+	card.BackgroundTransparency = THEME.frameAlpha
 	card.Visible = false
-	UI.rounded(card, 8); UI.stroked(card, 0.3)
-	make("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), Parent = card})
+	UI.stroked(card, 0.3)
 
-	makeImage({dim = UDim2.new(0, 38, 0, 38), pos = UDim2.new(0, 0, 0, 8), bg = Color3.fromRGB(30, 30, 35), bgT = 0, z = 103, name = "DJCover", parent = card})
-	UI.rounded(card:FindFirstChild("DJCover"), 6)
+	-- Cover: full height a la izquierda, imagen al 100% sin padding
+	local coverBg = makeFrame({dim = UDim2.new(0, CARD_HEIGHT, 1, 0), bg = Color3.fromRGB(30, 30, 35), bgT = 0, z = 103, name = "CoverBg", parent = card})
+	make("ImageLabel", {
+		Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+		ScaleType = Enum.ScaleType.Crop, BorderSizePixel = 0,
+		ZIndex = 104, Name = "DJCover", Parent = coverBg,
+	})
 
-	makeLabel({dim = UDim2.new(1, -170, 0, 18), pos = UDim2.new(0, 48, 0, 10), font = Enum.Font.GothamBold, size = 14, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "NameLabel", parent = card})
-	makeLabel({dim = UDim2.new(1, -170, 0, 14), pos = UDim2.new(0, 48, 0, 28), color = THEME.muted, font = Enum.Font.GothamMedium, size = 12, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "ArtistLabel", parent = card})
+	-- Labels a la derecha de la imagen (CARD_HEIGHT + 8 de margen)
+	local textX = CARD_HEIGHT + 8
+	makeLabel({dim = UDim2.new(1, -(textX + 44), 0, 18), pos = UDim2.new(0, textX, 0, 10), font = Enum.Font.GothamBold, size = 14, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "NameLabel", parent = card})
+	makeLabel({dim = UDim2.new(1, -(textX + 44), 0, 14), pos = UDim2.new(0, textX, 0, 30), color = THEME.muted, font = Enum.Font.GothamMedium, size = 12, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "ArtistLabel", parent = card})
 
 	local addBtn = makeBtn({dim = UDim2.new(0, 32, 0, 32), pos = UDim2.new(1, -36, 0.5, -16), z = 103, round = 16, name = "AddButton", parent = card})
 	makeImage({dim = UDim2.new(0.75, 0, 0.75, 0), pos = UDim2.new(0.125, 0, 0.125, 0), image = ICONS.PLAY_ADD, imageColor = THEME.text, z = 104, name = "IconImage", parent = addBtn})
@@ -1347,16 +1373,16 @@ local function updateSongCard(card, data, index, inQueue)
 	card:SetAttribute("SongIndex", index); card:SetAttribute("SongID", data.id)
 	cardsIndex[index] = card
 
-	local djCover = card:FindFirstChild("DJCover")
+	local djCover = card:FindFirstChild("DJCover", true)
 	if djCover and selectedDJInfo and selectedDJInfo.cover then djCover.Image = selectedDJInfo.cover end
 
-	local nl = card:FindFirstChild("NameLabel")
+	local nl = card:FindFirstChild("NameLabel", true)
 	if nl then nl.Text = data.name or "Cargando..."; nl.TextColor3 = data.loaded and THEME.text or THEME.muted end
 
-	local al = card:FindFirstChild("ArtistLabel")
+	local al = card:FindFirstChild("ArtistLabel", true)
 	if al then al.Text = data.artist or ("ID: " .. data.id) end
 
-	local ab = card:FindFirstChild("AddButton")
+	local ab = card:FindFirstChild("AddButton", true)
 	if ab then
 		local icon = ab:FindFirstChild("IconImage")
 		local loadingIcon = ab:FindFirstChild("LoadingIcon")
@@ -1526,9 +1552,6 @@ local function selectDJ(djName, djData, card)
 	if selectedDJCard and selectedDJCard ~= card then
 		local ps = selectedDJCard:FindFirstChild("CardStroke")
 		if ps then tween(ps, 0.25, {Color = THEME.stroke, Thickness = 1, Transparency = 0.7}) end
-		tween(selectedDJCard, 0.25, {BackgroundTransparency = THEME.frameAlpha})
-		local pc = selectedDJCard:FindFirstChild("CoverImage")
-		if pc then local g = pc:FindFirstChild("CoverGlow"); if g then tween(g, 0.25, {Thickness = 0, Transparency = 1}) end end
 		local pn = selectedDJCard:FindFirstChild("DJNameLabel")
 		if pn then tween(pn, 0.25, {TextColor3 = Color3.fromRGB(200, 200, 210)}) end
 	end
@@ -1537,9 +1560,6 @@ local function selectDJ(djName, djData, card)
 	selectedDJ = djName; selectedDJInfo = djData; selectedDJCard = card
 	local s = card:FindFirstChild("CardStroke")
 	if s then tween(s, 0.25, {Color = THEME.accent, Thickness = 1.5, Transparency = 0.2}) end
-	tween(card, 0.25, {BackgroundTransparency = 0.08})
-	local ci = card:FindFirstChild("CoverImage")
-	if ci then local g = ci:FindFirstChild("CoverGlow"); if g then tween(g, 0.25, {Thickness = 2, Transparency = 0.3}) end end
 	local dn = card:FindFirstChild("DJNameLabel")
 	if dn then tween(dn, 0.25, {TextColor3 = Color3.new(1, 1, 1)}) end
 
@@ -1583,43 +1603,56 @@ local function drawDJs()
 	for _, dj in ipairs(allDJs) do
 		local isSel = selectedDJ == dj.name
 
-		local card = makeFrame({dim = UDim2.new(1, 0, 0, 68), bg = THEME.card, bgT = isSel and 0.08 or THEME.frameAlpha, z = 102, parent = djsScroll})
-		UI.rounded(card, 8)
-
+		-- Usa makeCanvas como base: CanvasGroup + UICorner ya incluidos
+		local card = makeCanvas(djsScroll, 8, 102)
+		card.Name = "DJCard"
+		card.Size = UDim2.new(1, 0, 0, 68)
+		card.BackgroundColor3 = THEME.card
+		card.BackgroundTransparency = THEME.frameAlpha
 		local stroke = make("UIStroke", {Color = isSel and THEME.accent or THEME.stroke, Thickness = isSel and 1.5 or 1, Transparency = isSel and 0.2 or 0.7, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Name = "CardStroke", Parent = card})
 
 		if isSel then selectedDJCard = card end
 
-		-- Music icon fallback
-		makeLabel({dim = UDim2.new(0, 48, 0, 48), pos = UDim2.new(0, 8, 0.5, -24), text = "♪", font = Enum.Font.GothamBold, size = 28, color = isSel and THEME.accent or THEME.muted, alignX = Enum.TextXAlignment.Center, z = 103, parent = card})
+		-- Imagen full height a la izquierda, sin padding ni radius propio (card clipea)
+		local coverBg = makeFrame({
+			dim = UDim2.new(0, 68, 1, 0),
+			bg = Color3.fromRGB(30, 30, 40), bgT = 0,
+			z = 103, name = "CoverBg", parent = card,
+		})
 
-		-- Cover
+		-- Music icon fallback
+		makeLabel({
+			dim = UDim2.new(1, 0, 1, 0),
+			text = "♪", font = Enum.Font.GothamBold, size = 28,
+			color = isSel and THEME.accent or THEME.muted,
+			alignX = Enum.TextXAlignment.Center, z = 104, parent = coverBg,
+		})
+
 		if dj.cover and dj.cover ~= "" then
-			local cover = makeImage({dim = UDim2.new(0, 48, 0, 48), pos = UDim2.new(0, 8, 0.5, -24), bg = Color3.fromRGB(30, 30, 40), bgT = 0, image = dj.cover, z = 104, name = "CoverImage", parent = card})
-			UI.rounded(cover, 6)
-			make("UIStroke", {Color = THEME.accent, Thickness = isSel and 2 or 0, Transparency = isSel and 0.3 or 1, Name = "CoverGlow", Parent = cover})
+			make("ImageLabel", {
+				Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+				Image = dj.cover, ScaleType = Enum.ScaleType.Crop,
+				BorderSizePixel = 0, ZIndex = 105, Name = "CoverImage", Parent = coverBg,
+			})
 		end
 
-		makeLabel({dim = UDim2.new(1, -80, 0, 22), pos = UDim2.new(0, 64, 0, 8), text = dj.name, color = isSel and Color3.new(1,1,1) or Color3.fromRGB(200, 200, 210), font = Enum.Font.GothamBold, size = 14, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "DJNameLabel", parent = card})
-		makeLabel({dim = UDim2.new(1, -80, 0, 18), pos = UDim2.new(0, 64, 0, 32), text = dj.songCount .. " songs", color = THEME.accent, font = Enum.Font.GothamBold, size = 13, z = 103, parent = card})
+		makeLabel({dim = UDim2.new(1, -80, 0, 22), pos = UDim2.new(0, 76, 0, 8), text = dj.name, color = isSel and Color3.new(1,1,1) or Color3.fromRGB(200, 200, 210), font = Enum.Font.GothamBold, size = 14, truncate = Enum.TextTruncate.AtEnd, z = 103, name = "DJNameLabel", parent = card})
+		makeLabel({dim = UDim2.new(1, -80, 0, 18), pos = UDim2.new(0, 76, 0, 32), text = dj.songCount .. " songs", color = THEME.accent, font = Enum.Font.GothamBold, size = 13, z = 103, parent = card})
 
-		-- Invisible click area
-		local clickBtn = makeBtn({dim = UDim2.new(1, 0, 1, 0), z = 105, parent = card})
+		-- Click invisible encima de todo
+		local clickBtn = makeBtn({dim = UDim2.new(1, 0, 1, 0), z = 110, parent = card})
 		clickBtn.BackgroundTransparency = 1
 
 		clickBtn.MouseEnter:Connect(function()
 			if selectedDJCard ~= card then
-				tween(card, 0.18, {BackgroundTransparency = 0.15})
-				tween(stroke, 0.18, {Color = THEME.accent, Transparency = 0.45, Thickness = 1.2})
+				tween(stroke, 0.18, {Color = THEME.accent, Transparency = 0.35, Thickness = 1.5})
 			end
 		end)
 		clickBtn.MouseLeave:Connect(function()
 			if selectedDJCard ~= card then
-				tween(card, 0.22, {BackgroundTransparency = THEME.frameAlpha})
 				tween(stroke, 0.22, {Color = THEME.stroke, Transparency = 0.7, Thickness = 1})
 			end
 		end)
-
 		clickBtn.MouseButton1Click:Connect(function()
 			selectDJ(dj.name, dj, card)
 		end)

@@ -5,7 +5,7 @@ local SPEED = 0.0009
 
 -- GLOBAL CONTROL: Por defecto ciclo día/noche HABILITADO
 _G.ClockEnabled = _G.ClockEnabled or true
-Lighting.ClockTime = 12
+Lighting.ClockTime = 20
 
 RunService.Heartbeat:Connect(function(dt)
 	-- Solo avanzar el tiempo si está habilitado

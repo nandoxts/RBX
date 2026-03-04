@@ -78,8 +78,8 @@ local function updateAtmosphere()
 		Lighting.ColorShift_Top = Color3.fromRGB(255,192,128)
 
 	elseif time > 17.75 or time < 6 then
-		tween(Atmosphere, {Color = Color3.fromRGB(64,64,64), Decay = Color3.fromRGB(0,0,0)}, 10)
-		tween(Clouds, {Color = Color3.fromRGB(64,64,64), Cover = 0.55}, 10)
+		tween(Atmosphere, {Color = Color3.fromRGB(30,30,45), Decay = Color3.fromRGB(0,0,0)}, 10)
+		tween(Clouds, {Color = Color3.fromRGB(30,30,40), Cover = 0.55}, 10)
 		Lighting.ColorShift_Top = Color3.fromRGB(255,255,255)
 
 	elseif time >= 6 and time <= 7.5 then
