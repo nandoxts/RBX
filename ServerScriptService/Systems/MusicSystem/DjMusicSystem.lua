@@ -885,11 +885,28 @@ if R.ChangeVolume then
 	end)
 end
 
+local skipCooldowns = {}
+local SKIP_COOLDOWN = MusicConfig.LIMITS.SkipCooldown or 30
+
 if R.PurchaseSkip then
 	R.PurchaseSkip.OnServerEvent:Connect(function(player)
-		if isEventBlocked("NextSong", player) then return end
-		print("Skip pagado", player.DisplayName .. "(@" .. player.Name .. ")")
+		if isEventBlocked("NextSong", player) then
+			pcall(R.PurchaseSkip.FireClient, R.PurchaseSkip, player, false, "Modo evento activo")
+			return
+		end
+
+		local now = os.clock()
+		local last = skipCooldowns[player.UserId]
+		if last and (now - last) < SKIP_COOLDOWN then
+			warn("[PurchaseSkip] Rate limit: " .. player.Name .. " (exploit detected)")
+			pcall(R.PurchaseSkip.FireClient, R.PurchaseSkip, player, false, "Cooldown activo")
+			return
+		end
+		skipCooldowns[player.UserId] = now
+
+		print("Skip pagado por " .. player.DisplayName .. " (@" .. player.Name .. ")")
 		nextSong()
+		pcall(R.PurchaseSkip.FireClient, R.PurchaseSkip, player, true, "Canción saltada")
 	end)
 end
 
@@ -1032,6 +1049,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	playerCooldowns[player.UserId] = nil
+	skipCooldowns[player.UserId] = nil
 
 	local i = 1
 	while i <= #playQueue do

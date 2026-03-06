@@ -235,7 +235,7 @@ local VISUALIZER = {
 	BAR_WIDTH = 8,
 	BAR_GAP = 2,
 	BAR_MIN_H = 2,
-	BAR_MAX_H = mob and 50 or 50,
+	BAR_MAX_H = 50,
 	COLOR_LOW = Color3.fromRGB(100, 80, 180),
 }
 
@@ -1044,7 +1044,10 @@ skipB.MouseButton1Click:Connect(function()
 	end
 	lastSkipTime = tick()
 	if isAdmin then
-		if R.Next then R.Next:FireServer() end
+		if R.Next then
+			R.Next:FireServer()
+			Notify:Success("Skip", "Canción saltada")
+		end
 	else
 		MarketplaceService:PromptProductPurchase(player, skipProductId)
 	end
@@ -1052,9 +1055,19 @@ end)
 
 if clearB then clearB.MouseButton1Click:Connect(function() if R.Clear then R.Clear:FireServer() end end) end
 
+-- Cuando Roblox confirma el pago, avisar al servidor
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, wasPurchased)
-	if userId == player.UserId and productId == skipProductId and wasPurchased and skipRemote then
-		pcall(function() skipRemote:FireServer(true) end)
+	if userId == player.UserId and productId == skipProductId and wasPurchased then
+		pcall(function() skipRemote:FireServer() end)
+	end
+end)
+
+-- Recibir confirmación del servidor y mostrar notificación
+skipRemote.OnClientEvent:Connect(function(ok, msg)
+	if ok then
+		Notify:Success("Skip", msg or "Canción saltada")
+	else
+		Notify:Error("Skip", msg or "No se pudo saltar")
 	end
 end)
 
@@ -1749,13 +1762,19 @@ end
 local function startVisualizer()
 	if visualizerConnection then visualizerConnection:Disconnect() end
 
+	local vizAccum = 0
 	visualizerConnection = RunService.Heartbeat:Connect(function(dt)
+		vizAccum = vizAccum + dt
+		if vizAccum < 0.033 then return end  -- ~30fps throttle
+		local elapsed = vizAccum
+		vizAccum = 0
+
 		local loudness = 0
 		local hasAudio = false
 
 		if currentSoundObject and currentSoundObject:IsA("Sound") and currentSoundObject.IsPlaying then
-			loudness = math.clamp(currentSoundObject.PlaybackLoudness / 200, 0, 1)
-			hasAudio = loudness > 0.005
+			loudness = math.clamp(currentSoundObject.PlaybackLoudness / 300, 0, 1)
+			hasAudio = loudness > 0.001
 		end
 
 		local time = tick()
@@ -1766,27 +1785,25 @@ local function startVisualizer()
 				local targetH
 				local maxH = VISUALIZER.BAR_MAX_H
 				if hasAudio then
-					-- Cada barra tiene su propio modificador de sensibilidad para que no vayan todas iguales
-					local freqMod = 0.3 + 0.7 * math.abs(math.sin(barData.phase + i * 0.4))
-					local beatSnap = math.clamp(loudness * 1.4 - 0.05, 0, 1)  -- exagera los picos
-					targetH = math.clamp(beatSnap * maxH * freqMod, 2, maxH)
+					local freqMod = 0.4 + 0.6 * (1 - barData.freqWeight)
+					local noiseMod = math.sin(time * 8 + barData.phase * 3) * 0.3 + 0.7
+					targetH = math.clamp(loudness * maxH * freqMod * noiseMod * (1 - barData.freqWeight * 0.5), 2, maxH)
 				else
 					local wave = math.sin(time * 1.8 + barData.phase) * 0.5 + 0.5
 					local wave2 = math.sin(time * 1.26 + barData.phase * 1.3) * 0.3 + 0.7
-					targetH = 2 + (math.floor(maxH * 0.30) - 2) * wave * wave2
+					targetH = 2 + (math.floor(maxH * 0.35) - 2) * wave * wave2
 				end
 
 				barData.targetH = targetH
-				-- Sube rápido (snap al beat), baja lento (sustain musical)
-				local speed = (targetH > barData.currentH) and 25 or 6
-				barData.currentH = barData.currentH + (targetH - barData.currentH) * speed * dt
+				local speed = (targetH > barData.currentH) and 12 or 8
+				barData.currentH = barData.currentH + (targetH - barData.currentH) * speed * elapsed
 				local h = math.floor(math.clamp(barData.currentH, 2, maxH))
 
 				bar.Size = UDim2.new(0, VISUALIZER.BAR_WIDTH, 0, h)
 				bar.Position = UDim2.new(bar.Position.X.Scale, bar.Position.X.Offset, 1, -h)
 
 				local t = math.clamp((h - 2) / (maxH - 2), 0, 1)
-				bar.BackgroundColor3 = Color3.fromRGB(100, 80, 180):Lerp(Color3.fromRGB(160, 120, 255), t)
+				bar.BackgroundColor3 = Color3.fromRGB(100, 80, 180):Lerp(Color3.fromRGB(130, 100, 220), t)
 				bar.BackgroundTransparency = hasAudio and (0.05 + (1 - t) * 0.15) or 0.35
 			end
 		end
