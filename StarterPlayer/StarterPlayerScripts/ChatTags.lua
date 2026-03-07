@@ -3,7 +3,7 @@
 -- ========================================
 local textChatService = game:GetService("TextChatService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage"):WaitForChild("RemotesGlobal")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = game.Players.LocalPlayer
 
@@ -11,14 +11,21 @@ local player = game.Players.LocalPlayer
 local clientTagCache = {}
 
 -- Eventos del servidor
-local tagDataEvent = ReplicatedStorage.Chat:WaitForChild("PlayerTagData")
+local tagDataEvent = ReplicatedStorage.RemotesGlobal.Chat:WaitForChild("PlayerTagData")
+
+-- Logger function
+local function logTagReceived(userId, source)
+	local targetPlayer = Players:GetPlayerByUserId(userId)
+	local displayName = targetPlayer and targetPlayer.DisplayName or "Desconocido"
+	local username = targetPlayer and targetPlayer.Name or "Unknown"
+
+	print(string.format("[TAGS] %s @%s | %s", displayName, username, source))
+end
 
 -- Recibir datos de tags del servidor
 tagDataEvent.OnClientEvent:Connect(function(userId, tagInfo)
 	clientTagCache[userId] = tagInfo
-	local targetPlayer = Players:GetPlayerByUserId(userId)
-	local playerName = targetPlayer and targetPlayer.Name or "Desconocido"
-	print("Tag recibido para", playerName, "(" .. userId .. "):", tagInfo.Source)
+	logTagReceived(userId, tagInfo.Source)
 end)
 
 -- Handler del chat (CERO consultas API)

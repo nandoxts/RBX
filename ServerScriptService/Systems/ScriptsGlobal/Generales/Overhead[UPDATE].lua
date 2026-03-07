@@ -36,7 +36,7 @@ end
 local Systems = ServerScriptService:WaitForChild("Systems")
 local Configuration = require(Systems:WaitForChild("Configuration"))
 local GamepassManager = require(Systems:WaitForChild("Gamepass Gifting"):WaitForChild("GamepassManager"))
-local Colors = require(Systems.Effects.ColorEffectsModule)
+local Colors = require(game.ReplicatedStorage.Config.ColorConfig)
 local ModulesFolder = Systems:WaitForChild("Modules")
 local GroupRolesModule = require(ModulesFolder:WaitForChild("GroupRolesModule"))
 local DataStoreQueue = require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("DataStore"):WaitForChild("DataStoreQueueManager"))
@@ -369,13 +369,13 @@ local function EsAdminGrupo(player)
 end
 
 --------------------------------------------------------------------------------------------------------
--- ✅ COMANDO :rc (arreglado)
+-- ✅ COMANDO ;rch (arreglado)
 Players.PlayerAdded:Connect(function(plr)
 	plr.Chatted:Connect(function(msg)
 		local original = msg
 		local lower = tostring(msg):lower()
 
-		if lower:sub(1,3) == ":rc" then
+		if lower:sub(1,4) == ";rch" then
 			if not EsAdminGrupo(plr) then return end
 
 			local args = original:split(" ")
@@ -383,7 +383,7 @@ Players.PlayerAdded:Connect(function(plr)
 			local amount = tonumber(args[3])
 
 			if not targetName or not amount then
-				warn("[RC] Uso: :rc <jugador> <cantidad>")
+				warn("[RCH] Uso: ;rch <jugador> <cantidad>")
 				return
 			end
 
@@ -391,7 +391,7 @@ Players.PlayerAdded:Connect(function(plr)
 			if target then
 				setStreakManual(target, amount)
 			else
-				warn("[RC] Jugador no encontrado:", targetName)
+				warn("[RCH] Jugador no encontrado:", targetName)
 			end
 		end
 	end)
@@ -557,9 +557,9 @@ function OverheadManager:setupRole(roleFrame, player)
 		local titleColor = player:GetAttribute("EquippedTitleColor") or "#FFFFFF"
 
 		if titleLabel ~= "" then
-			roleText.RichText  = true
-			roleText.Text      = string.format("<font color='%s'><b>%s</b></font>", titleColor, titleLabel)
-			roleText.TextColor3 = Color3.fromRGB(255, 255, 255) -- RichText lo pinta
+			roleText.RichText   = false
+			roleText.Text       = titleLabel
+			roleText.TextColor3 = Colors.fromHex(titleColor)
 			return
 		end
 
