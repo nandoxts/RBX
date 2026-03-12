@@ -208,8 +208,8 @@ PanelView.Dev = Dev
 -- GLASSMORPHISM
 -- ═══════════════════════════════════════════════════════════════
 local function applyGlass(container, playerColor, L, isDev)
-	local baseT = isDev and 0.65 or 0.35
-	local colorT = isDev and 0.95 or 0.88
+	local baseT = isDev and 0.55 or 0.18
+	local colorT = isDev and 0.98 or 0.96
 
 	local base = Utils.createFrame({ Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(12, 12, 18), BackgroundTransparency = baseT, ZIndex = 0, Parent = container })
 	Utils.addCorner(base, L.cornerRadius)
@@ -234,13 +234,13 @@ local function createButton(parent, text, layoutOrder, accentColor)
 	local L = getLayout()
 	local container = Utils.createFrame({ Size = UDim2.new(1, 0, 0, L.buttonHeight), LayoutOrder = layoutOrder, Parent = parent })
 
-	local btnColor = THEME.elevated:Lerp(accentColor or THEME.accent, 0.08)
+	local btnColor = THEME.elevated:Lerp(accentColor or THEME.accent, 0.02)
 	local btn = Utils.create("TextButton", {
-		Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = btnColor, BackgroundTransparency = 0.15,
+		Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = btnColor, BackgroundTransparency = 0.05,
 		BorderSizePixel = 0, AutoButtonColor = false, Text = "", Parent = container
 	})
 	Utils.addCorner(btn, 10)
-	Utils.addStroke(btn, accentColor or THEME.accent, 1, 0.75)
+	Utils.addStroke(btn, accentColor or THEME.accent, 0.7, 0.88)
 
 	local g = Instance.new("UIGradient")
 	g.Parent = btn; g.Rotation = 90
@@ -252,8 +252,8 @@ local function createButton(parent, text, layoutOrder, accentColor)
 	local label = Utils.createLabel({ Size = UDim2.new(1, 0, 1, 0), Text = text, TextSize = L.fontSize.button, Font = Enum.Font.GothamBold, TextColor3 = THEME.text, Parent = btn })
 
 	local hoverColor = Utils.darkenColor(accentColor or THEME.accent, 0.25)
-	Utils.addConnection(btn.MouseEnter:Connect(function() safeTween(btn, { BackgroundColor3 = hoverColor, BackgroundTransparency = 0.05 }, Config.ANIM_FAST) end))
-	Utils.addConnection(btn.MouseLeave:Connect(function() safeTween(btn, { BackgroundColor3 = btnColor, BackgroundTransparency = 0.15 }, Config.ANIM_FAST) end))
+	Utils.addConnection(btn.MouseEnter:Connect(function() safeTween(btn, { BackgroundColor3 = hoverColor, BackgroundTransparency = 0.0 }, Config.ANIM_FAST) end))
+	Utils.addConnection(btn.MouseLeave:Connect(function() safeTween(btn, { BackgroundColor3 = btnColor, BackgroundTransparency = 0.05 }, Config.ANIM_FAST) end))
 	Utils.addConnection(btn.MouseButton1Click:Connect(function(x, y) Utils.createRipple(btn, rippleCont, x, y) end))
 
 	return btn, label
@@ -663,13 +663,13 @@ function PanelView.createPanel(data)
 
 	-- Panel container
 	local pY = L.dragHandleH + 4
-	local pBgT = 0.25
+	local pBgT = 0.08
 	local panelContainer = Utils.createFrame({ Size = UDim2.new(1, 0, 0, L.panelHeight), Position = UDim2.new(0, 0, 0, pY), BackgroundColor3 = Color3.fromRGB(14, 14, 20), BackgroundTransparency = pBgT, ClipsDescendants = true, Parent = State.container })
 	Utils.addCorner(panelContainer, L.cornerRadius)
 
 	applyGlass(panelContainer, playerColor, L, false)
 
-	local panelStroke = Utils.addStroke(panelContainer, playerColor, 1.5, 0.3)
+	local panelStroke = Utils.addStroke(panelContainer, playerColor, 0.8, 0.55)
 	State.panelStroke = panelStroke
 
 	local panelImage = Utils.create("ImageLabel", { Size = UDim2.new(1, 0, 0, 210), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 1, Image = "", ImageTransparency = 0.6, ScaleType = Enum.ScaleType.Crop, ZIndex = 1, ClipsDescendants = true, Parent = panelContainer })

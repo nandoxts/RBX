@@ -665,13 +665,11 @@ progressFill = makeFrame({
 })
 UI.rounded(progressFill, 5)
 
--- Dot/knob en la posición actual
+-- Dot removido (solo barra)
 local progressDot = makeFrame({
-	dim = UDim2.new(0, mob and 12 or 16, 0, mob and 12 or 16),
-	pos = UDim2.new(0, -8, 0.5, mob and -6 or -8),
-	bg = Color3.new(1, 1, 1), bgT = 0, z = 115, name = "ProgressDot", parent = progressFill,
+	dim = UDim2.new(0, 0, 0, 0), bg = Color3.new(1,1,1), bgT = 1,
+	z = 115, name = "ProgressDot", parent = progressFill,
 })
-UI.rounded(progressDot, 8)
 
 totalTimeLabel = makeLabel({
 	dim = UDim2.new(0, 44, 1, 0), pos = UDim2.new(1, -44, 0, 0),
@@ -1732,27 +1730,49 @@ end
 -- ════════════════════════════════════════════════════════════════
 -- PROGRESS BAR UPDATE
 -- ════════════════════════════════════════════════════════════════
-local function updateProgressBar()
+-- Throttlear a 10Hz + TweenService: cero updates de Size por frame,
+-- animación perfectamente suave sin lag de layout.
+local progressTween = nil
+local progressAccum = 0
+local PROGRESS_RATE = 0.1  -- 10Hz, igual que TimePosition de Roblox
+
+local function updateProgressBar(dt)
 	if not currentSoundObject then currentSoundObject = workspace:FindFirstChild("QueueSound") end
 	if not currentSoundObject or not currentSoundObject:IsA("Sound") or not currentSoundObject.Parent then
+		if progressTween then progressTween:Cancel(); progressTween = nil end
 		progressFill.Size = UDim2.new(0, 0, 1, 0)
-		progressDot.Position = UDim2.new(1, -(mob and 6 or 8), 0.5, -(mob and 6 or 8))
 		currentTimeLabel.Text = "0:00"; totalTimeLabel.Text = "0:00"
+		progressAccum = 0
 		if not currentSong then songTitle.Text = "No song playing" end
 		return
 	end
-	local cur, total = currentSoundObject.TimePosition, currentSoundObject.TimeLength
-	if total > 0 then
-		local frac = math.clamp(cur / total, 0, 1)
-		progressFill.Size = UDim2.new(frac, 0, 1, 0)
-		-- Dot siempre pegado al borde derecho del fill
-		local dotSize = mob and 12 or 16
-		progressDot.Position = UDim2.new(1, -dotSize/2, 0.5, -dotSize/2)
-		currentTimeLabel.Text = formatTime(cur); totalTimeLabel.Text = formatTime(total)
-	else
+
+	local total = currentSoundObject.TimeLength
+	if total <= 0 then
 		progressFill.Size = UDim2.new(0, 0, 1, 0)
 		currentTimeLabel.Text = "0:00"; totalTimeLabel.Text = "0:00"
+		return
 	end
+
+	-- Solo procesar cada 0.1s (skips 90% de frames → sin recálculos de layout)
+	progressAccum = progressAccum + dt
+	if progressAccum < PROGRESS_RATE then return end
+	progressAccum = 0
+
+	local rawPos = currentSoundObject.TimePosition
+	local frac = math.clamp(rawPos / total, 0, 1)
+
+	-- TweenService anima la barra suavemente entre lecturas (sin saltos)
+	if progressTween then progressTween:Cancel() end
+	progressTween = TweenService:Create(
+		progressFill,
+		TweenInfo.new(PROGRESS_RATE + 0.02, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+		{Size = UDim2.new(frac, 0, 1, 0)}
+	)
+	progressTween:Play()
+
+	currentTimeLabel.Text = formatTime(rawPos)
+	totalTimeLabel.Text = formatTime(total)
 end
 
 -- ════════════════════════════════════════════════════════════════
